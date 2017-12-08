@@ -3,12 +3,16 @@
 extern crate threadpool;
 extern crate crossbeam;
 extern crate uuid;
+extern crate as_num;
+#[macro_use]
+extern crate component_definition_derive;
 
 pub use self::ports::*;
 pub use self::component::*;
 pub use self::utils::*;
 pub use self::runtime::*;
 pub use self::lifecycle::*;
+pub use component_definition_derive::*;
 
 mod ports;
 mod component;
@@ -32,6 +36,7 @@ mod tests {
         type Request = Arc<u64>;
     }
 
+    #[derive(ComponentDefinition)]
     struct TestComponent {
         test_port: ProvidedPort<TestPort, TestComponent>,
         counter: u64,
@@ -46,25 +51,13 @@ mod tests {
         }
     }
 
-    impl ComponentDefinition for TestComponent {
-        fn setup_ports(&mut self, self_component: Arc<Component<Self>>) -> () {
-            self.test_port.set_parent(self_component);
-        }
-
-        fn execute(&mut self, core: &ComponentCore) -> () {
-            let mut count: isize = 0;
-            while let Some(event) = self.test_port.dequeue() {
-                println!("Executing event: {:?}", event);
-                self.handle(event);
-                count += 1;
-            }
-            match core.decrement_work(count) {
-                SchedulingDecision::Schedule => {
-                    let system = core.system();
-                    let cc = core.component();
-                    system.schedule(cc);
+    impl Provide<ControlPort> for TestComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    println!("Starting TestComponent");
                 }
-                _ => (), // ignore
+                _ => (),// ignore
             }
         }
     }
@@ -76,6 +69,7 @@ mod tests {
         }
     }
 
+    #[derive(ComponentDefinition)]
     struct RecvComponent {
         test_port: RequiredPort<TestPort, RecvComponent>,
         last_string: String,
@@ -90,25 +84,13 @@ mod tests {
         }
     }
 
-    impl ComponentDefinition for RecvComponent {
-        fn setup_ports(&mut self, self_component: Arc<Component<Self>>) -> () {
-            self.test_port.set_parent(self_component);
-        }
-
-        fn execute(&mut self, core: &ComponentCore) -> () {
-            let mut count: isize = 0;
-            while let Some(event) = self.test_port.dequeue() {
-                println!("Executing event: {:?}", event);
-                self.handle(event);
-                count += 1;
-            }
-            match core.decrement_work(count) {
-                SchedulingDecision::Schedule => {
-                    let system = core.system();
-                    let cc = core.component();
-                    system.schedule(cc);
+    impl Provide<ControlPort> for RecvComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    println!("Starting RecvComponent");
                 }
-                _ => (), // ignore
+                _ => (),// ignore
             }
         }
     }

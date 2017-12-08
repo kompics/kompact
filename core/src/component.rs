@@ -1,9 +1,10 @@
 use std::sync::{Arc, Weak, Mutex};
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::ops::{Deref, DerefMut};
 use crossbeam::sync::MsQueue;
 use uuid::Uuid;
+use as_num::AsNum;
 
 use super::*;
 
@@ -77,7 +78,7 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
                     // only execute internal ports of no lifecycle events were pending
                     guard.execute(&self.core, max_events);
                 } else {
-                    match self.core.decrement_work(count as isize) { // TODO convert to checked cast
+                    match self.core.decrement_work(count) { // TODO convert to checked cast
                         SchedulingDecision::Schedule => {
                             let system = self.core.system();
                             let cc = self.core.component();
@@ -124,7 +125,7 @@ pub enum SchedulingDecision {
 pub struct ComponentCore {
     id: Uuid,
     system: KompicsSystem,
-    work_count: AtomicIsize,
+    work_count: AtomicUsize,
     component: RefCell<Option<Weak<CoreContainer>>>,
 }
 
@@ -133,7 +134,7 @@ impl ComponentCore {
         ComponentCore {
             id: Uuid::new_v4(),
             system,
-            work_count: AtomicIsize::new(0),
+            work_count: AtomicUsize::new(0),
             component: RefCell::default(),
         }
     }
@@ -165,7 +166,13 @@ impl ComponentCore {
             SchedulingDecision::AlreadyScheduled
         }
     }
-    pub fn decrement_work(&self, work_done: isize) -> SchedulingDecision {
+    pub fn decrement_work(&self, work_done: usize) -> SchedulingDecision {
+//        let oldv: isize = match work_done_u.checked_as_num() {
+//            Some(work_done) => self.work_count.fetch_sub(work_done, Ordering::SeqCst),
+//            None => {
+//                
+//            }
+//        }
         let oldv = self.work_count.fetch_sub(work_done, Ordering::SeqCst);
         let newv = oldv - work_done;
         if (newv > 0) {

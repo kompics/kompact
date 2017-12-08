@@ -24,6 +24,7 @@ impl Port for PingPongPort {
     type Request = Ping;
 }
 
+#[derive(ComponentDefinition)]
 struct Pinger {
     ppp: RequiredPort<PingPongPort, Pinger>,
     latch: Arc<CountdownEvent>,
@@ -40,32 +41,6 @@ impl Pinger {
             repeat,
             sent: 0,
             received: 0,
-        }
-    }
-}
-
-impl ComponentDefinition for Pinger {
-    fn setup_ports(&mut self, self_component: Arc<Component<Self>>) -> () {
-        self.ppp.set_parent(self_component);
-    }
-
-    fn execute(&mut self, core: &ComponentCore, max_events: usize) -> () {
-        let mut count: usize = 0;
-        while count < max_events {
-            if let Some(event) = self.ppp.dequeue() {
-                Require::handle(self, event);
-                count += 1;
-            } else {
-                break;
-            }
-        }
-        match core.decrement_work(count as isize) { // TODO checked casts!
-            SchedulingDecision::Schedule => {
-                let system = core.system();
-                let cc = core.component();
-                system.schedule(cc);
-            }
-            _ => (), // ignore
         }
     }
 }
@@ -101,6 +76,7 @@ impl Require<PingPongPort> for Pinger {
     }
 }
 
+#[derive(ComponentDefinition)]
 struct Ponger {
     ppp: ProvidedPort<PingPongPort, Ponger>,
     received: u64,
@@ -111,32 +87,6 @@ impl Ponger {
         Ponger {
             ppp: ProvidedPort::new(),
             received: 0,
-        }
-    }
-}
-
-impl ComponentDefinition for Ponger {
-    fn setup_ports(&mut self, self_component: Arc<Component<Self>>) -> () {
-        self.ppp.set_parent(self_component);
-    }
-
-    fn execute(&mut self, core: &ComponentCore, max_events: usize) -> () {
-        let mut count: usize = 0;
-        while count < max_events {
-            if let Some(event) = self.ppp.dequeue() {
-                Provide::<PingPongPort>::handle(self, event);
-                count += 1;
-            } else {
-                break;
-            }
-        }
-        match core.decrement_work(count as isize) { // TODO checked casts!
-            SchedulingDecision::Schedule => {
-                let system = core.system();
-                let cc = core.component();
-                system.schedule(cc);
-            }
-            _ => (), // ignore
         }
     }
 }

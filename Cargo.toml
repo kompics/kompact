@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "core",
+    "macros/component-definition-derive",
+    "macros/macro-test",
+]

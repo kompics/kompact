@@ -1,0 +1,8 @@
+[package]
+name = "macro-test"
+version = "0.1.0"
+authors = ["Lars Kroll <lkroll@kth.se>"]
+
+[dependencies]
+kompics = { path = "../../core/"}
+#component-definition-derive = { path = "../component-definition-derive/" }
