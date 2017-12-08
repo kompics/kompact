@@ -12,7 +12,6 @@ Cargo.lock
 # Eclipse
 .project
 .metadata
-bin/
 tmp/
 *.tmp
 *.bak
