@@ -1,0 +1,13 @@
+[package]
+name = "kompics"
+version = "0.1.0"
+authors = ["Lars Kroll <lkroll@kth.se>"]
+
+[dependencies]
+#futures = "0.1"
+#futures-cpupool = "0.1"
+threadpool = "1.7.1"
+crossbeam = "0.3.0"
+synchronoise = "0.3.0"
+uuid = { version = "0.4", features = ["serde", "v4"] }
+time = "0.1"
