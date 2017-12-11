@@ -17,7 +17,7 @@ use std::env;
 use threadpool_experiment::ThreadpoolExperiment;
 use crossbeam_experiment::CrossbeamExperiment;
 
-const EVENTS: u64 = 5000000;
+const EVENTS: u64 = 2;
 const NS_TO_S: f64 = 1.0 / (1000.0 * 1000.0 * 1000.0);
 
 fn main() {
@@ -33,15 +33,30 @@ fn main() {
         in_parallelism
     );
     let total_events = (EVENTS * (in_parallelism as u64)) as f64;
-    test(ThreadpoolExperiment::setup(EVENTS, in_parallelism, threads), total_events);
-    test(CrossbeamExperiment::setup(EVENTS, in_parallelism, threads), total_events);
+    test(
+        ThreadpoolExperiment::setup(EVENTS, in_parallelism, threads),
+        total_events,
+    );
+    test(
+        CrossbeamExperiment::setup(EVENTS, in_parallelism, threads),
+        total_events,
+    );
+    //    let mut total: f64 = 0.0;
+    //    let runs = 20;
+    //    for i in 0..runs {
+    //        println!("Run #{}", i);
+    //        let res = test(
+    //            CrossbeamExperiment::setup(EVENTS, in_parallelism, threads),
+    //            total_events,
+    //        );
+    //        total += res;
+    //    }
+    //    let avg = total / (runs as f64);
+    //    println!("Average {} run performance: {}schedulings/s", runs, avg);
 }
 
-fn test(mut exp: Box<ExperimentInstance>, total_events: f64) {
-    println!(
-        "Starting run for {} Experiment",
-        ThreadpoolExperiment::label()
-    );
+fn test(mut exp: Box<ExperimentInstance>, total_events: f64) -> f64 {
+    println!("Starting run for {} Experiment", exp.label());
     let startt = time::precise_time_ns();
     exp.run();
     let endt = time::precise_time_ns();
@@ -51,7 +66,8 @@ fn test(mut exp: Box<ExperimentInstance>, total_events: f64) {
     let events_per_second = total_events / diffts;
     println!(
         "Experiment {} ran {}schedulings/s",
-        ThreadpoolExperiment::label(),
+        exp.label(),
         events_per_second
     );
+    events_per_second
 }

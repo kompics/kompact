@@ -112,7 +112,8 @@ impl CrossbeamPoolHandle for CrossbeamPool {
     where
         F: FnOnce() + Send + 'static,
     {
-        if !self.shutdown.load(Ordering::SeqCst) {
+        // NOTE; This check costs about 150k schedulings/s in a 2 by 2 experiment over 20 runs.
+        if !self.shutdown.load(Ordering::SeqCst) { 
             self.sender.send(JobMsg::Job(Box::new(job))).expect(
                 "Couldn't schedule job in queue!",
             );
