@@ -1,9 +1,10 @@
 //extern crate futures;
 //extern crate futures_cpupool;
-extern crate threadpool;
 extern crate crossbeam;
 extern crate uuid;
 extern crate as_num;
+extern crate executors;
+extern crate num_cpus;
 #[macro_use]
 extern crate component_definition_derive;
 
@@ -131,5 +132,6 @@ mod tests {
         rc.on_definition(|c| {
             println!("Last string was {}", c.last_string);
         });
+        system.shutdown().expect("Kompics didn't shut down properly");
     }
 }

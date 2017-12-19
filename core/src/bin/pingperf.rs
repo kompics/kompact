@@ -113,11 +113,11 @@ impl Provide<PingPongPort> for Ponger {
 
 const NS_TO_S: f64 = 1.0 / (1000.0 * 1000.0 * 1000.0);
 const MSGS: u64 = 50000000;
-const PROC_PAIRS: isize = 2;
+const PROC_PAIRS: usize = 8;
 
 fn main() {
     println!("Starting system");
-    let sys = KompicsSystem::with_throughput_threads(50, 4);
+    let sys = KompicsSystem::default();
     let latch = Arc::new(CountdownEvent::new(PROC_PAIRS));
     let ref l2 = latch;
     let mut pingers = Vec::<Arc<Component<Pinger>>>::new();
@@ -146,4 +146,5 @@ fn main() {
     let total_msgs = (MSGS * (PROC_PAIRS as u64)) as f64;
     let msgs = total_msgs / diffts;
     println!("Ran {}msgs/s", msgs);
+    sys.shutdown().expect("Kompics didn't shut down properly");
 }

@@ -1,8 +1,9 @@
-use std::sync::Arc;
-use threadpool::ThreadPool;
-use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 
 use super::*;
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+use executors::*;
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 
@@ -14,47 +15,25 @@ fn default_runtime_label() -> String {
 #[derive(Clone)]
 pub struct KompicsSystem {
     inner: Arc<KompicsRuntime>,
-    scheduler: Scheduler,
+    scheduler: Box<Scheduler>,
+}
+
+impl Default for KompicsSystem {
+    fn default() -> Self {
+        KompicsSystem {
+            inner: Arc::new(KompicsRuntime::default()),
+            scheduler: ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(
+                num_cpus::get(),
+            )),
+        }
+    }
 }
 
 impl KompicsSystem {
-    pub fn new() -> KompicsSystem {
+    pub fn new() -> Self {
         KompicsSystem {
-            inner: Arc::new(KompicsRuntime::with(default_runtime_label())),
-            scheduler: Scheduler::new(),
-        }
-    }
-    pub fn with_name(label: String) -> KompicsSystem {
-        KompicsSystem {
-            inner: Arc::new(KompicsRuntime::with(label)),
-            scheduler: Scheduler::new(),
-        }
-    }
-
-    pub fn with_threads(threads: usize) -> KompicsSystem {
-        KompicsSystem {
-            inner: Arc::new(KompicsRuntime::with(default_runtime_label())),
-            scheduler: Scheduler::with(threads),
-        }
-    }
-
-    pub fn with_throughput(throughput: usize) -> KompicsSystem {
-        KompicsSystem {
-            inner: Arc::new(KompicsRuntime::with_throughput(
-                default_runtime_label(),
-                throughput,
-            )),
-            scheduler: Scheduler::new(),
-        }
-    }
-
-    pub fn with_throughput_threads(throughput: usize, threads: usize) -> KompicsSystem {
-        KompicsSystem {
-            inner: Arc::new(KompicsRuntime::with_throughput(
-                default_runtime_label(),
-                throughput,
-            )),
-            scheduler: Scheduler::with(threads),
+            inner: Arc::new(KompicsRuntime::new()),
+            scheduler: ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(1)),
         }
     }
 
@@ -92,9 +71,13 @@ impl KompicsSystem {
     pub fn trigger_r<P: Port + 'static>(&self, msg: P::Request, port: ProvidedRef<P>) {
         port.enqueue(msg);
     }
-    
+
     pub fn throughput(&self) -> usize {
         self.inner.throughput
+    }
+    
+    pub fn shutdown(self) -> Result<(), String> {
+        self.scheduler.shutdown()
     }
 }
 
@@ -105,44 +88,64 @@ struct KompicsRuntime {
 }
 
 impl KompicsRuntime {
-    fn with(label: String) -> KompicsRuntime {
+    fn new() -> Self {
         KompicsRuntime {
-            label,
+            label: default_runtime_label(),
             throughput: 1,
         }
     }
-
-    fn with_throughput(label: String, throughput: usize) -> KompicsRuntime {
-        KompicsRuntime { label, throughput }
-    }
-
-    //    fn schedule(&self, c: Arc<CoreContainer>) -> () {
-    //        //println!("Scheduling component {}", c.id());
-    //        self.scheduler.schedule(c);
-    //    }
 }
 
-//trait Scheduler {
-//    fn schedule<C: ComponentDefinition + 'static>(&self, c: Arc<Component<C>>) -> ();
-//}
+impl Default for KompicsRuntime {
+    fn default() -> Self {
+        KompicsRuntime {
+            label: default_runtime_label(),
+            throughput: 50,
+        }
+    }
+}
+
+trait Scheduler {
+    fn schedule(&self, c: Arc<CoreContainer>) -> ();
+    fn shutdown_async(&self) -> ();
+    fn shutdown(&self) -> Result<(), String>;
+    fn box_clone(&self) -> Box<Scheduler>;
+}
+
+impl Clone for Box<Scheduler> {
+    fn clone(&self) -> Self {
+        (*self).box_clone()
+    }
+}
 
 #[derive(Clone)]
-struct Scheduler {
-    pool: ThreadPool,
+struct ExecutorScheduler<E: Executor> {
+    exec: E,
 }
 
-impl Scheduler {
-    fn new() -> Scheduler {
-        Scheduler { pool: ThreadPool::default() }
+impl<E: Executor + 'static> ExecutorScheduler<E> {
+    fn with(exec: E) -> ExecutorScheduler<E> {
+        ExecutorScheduler { exec }
     }
-    fn with(threads: usize) -> Scheduler {
-        Scheduler { pool: ThreadPool::new(threads) }
+    fn from(exec: E) -> Box<Scheduler> {
+        Box::new(ExecutorScheduler { exec })
     }
+}
 
+impl<E: Executor + 'static> Scheduler for ExecutorScheduler<E> {
     fn schedule(&self, c: Arc<CoreContainer>) -> () {
-        self.pool.execute(move || {
+        self.exec.execute(move || {
             //println!("Executing component {}", c.id());
             c.execute();
         });
+    }
+    fn shutdown_async(&self) -> () {
+        self.exec.shutdown_async()
+    }
+    fn shutdown(&self) -> Result<(), String> {
+        self.exec.shutdown_borrowed()
+    }
+    fn box_clone(&self) -> Box<Scheduler> {
+        Box::new(self.clone())
     }
 }
