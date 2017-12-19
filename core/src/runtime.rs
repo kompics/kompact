@@ -3,6 +3,8 @@ use super::*;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+use std::rc::Rc;
+use std::fmt::{Debug, Formatter, Error};
 use executors::*;
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
@@ -10,6 +12,60 @@ static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 fn default_runtime_label() -> String {
     let runtime_count = GLOBAL_RUNTIME_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
     format!("kompics-runtime-{}", runtime_count)
+}
+
+type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
+
+impl Debug for SchedulerBuilder {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "<function>")
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct KompicsConfig {
+    label: String,
+    throughput: usize,
+    threads: usize,
+    scheduler_builder: Rc<SchedulerBuilder>,
+}
+
+impl KompicsConfig {
+    pub fn new() -> KompicsConfig {
+        KompicsConfig {
+            label: default_runtime_label(),
+            throughput: 1,
+            threads: 1,
+            scheduler_builder: Rc::new(|t| {
+                ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(t))
+            }),
+        }
+    }
+
+    pub fn label(&mut self, s: String) -> &mut Self {
+        self.label = s;
+        self
+    }
+
+    pub fn throughput(&mut self, n: usize) -> &mut Self {
+        self.throughput = n;
+        self
+    }
+
+    pub fn threads(&mut self, n: usize) -> &mut Self {
+        self.threads = n;
+        self
+    }
+
+    pub fn scheduler<E, F>(&mut self, f: F) -> &mut Self
+    where
+        E: Executor + 'static,
+        F: Fn(usize) -> E + 'static,
+    {
+        let sb = move |t: usize| ExecutorScheduler::from(f(t));
+        self.scheduler_builder = Rc::new(sb);
+        self
+    }
 }
 
 #[derive(Clone)]
@@ -30,10 +86,11 @@ impl Default for KompicsSystem {
 }
 
 impl KompicsSystem {
-    pub fn new() -> Self {
+    pub fn new(conf: KompicsConfig) -> Self {
+        let scheduler = (*conf.scheduler_builder)(conf.threads);
         KompicsSystem {
-            inner: Arc::new(KompicsRuntime::new()),
-            scheduler: ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(1)),
+            inner: Arc::new(KompicsRuntime::new(conf)),
+            scheduler,
         }
     }
 
@@ -75,7 +132,7 @@ impl KompicsSystem {
     pub fn throughput(&self) -> usize {
         self.inner.throughput
     }
-    
+
     pub fn shutdown(self) -> Result<(), String> {
         self.scheduler.shutdown()
     }
@@ -88,10 +145,10 @@ struct KompicsRuntime {
 }
 
 impl KompicsRuntime {
-    fn new() -> Self {
+    fn new(conf: KompicsConfig) -> Self {
         KompicsRuntime {
-            label: default_runtime_label(),
-            throughput: 1,
+            label: conf.label,
+            throughput: conf.throughput,
         }
     }
 }

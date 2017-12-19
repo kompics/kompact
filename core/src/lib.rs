@@ -104,9 +104,9 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
+    fn default_settings() {
         //let pool = ThreadPool::new(2);
-        let system = KompicsSystem::new();
+        let system = KompicsSystem::default();
 
         let tc = system.create(TestComponent::new);
         let rc = system.create(RecvComponent::new);
@@ -132,6 +132,46 @@ mod tests {
         rc.on_definition(|c| {
             println!("Last string was {}", c.last_string);
         });
-        system.shutdown().expect("Kompics didn't shut down properly");
+        system.shutdown().expect(
+            "Kompics didn't shut down properly",
+        );
+    }
+
+    #[test]
+    fn custom_settings() {
+        //let pool = ThreadPool::new(2);
+        let mut settings = KompicsConfig::new();
+        settings.threads(4).scheduler(|t| {
+            executors::threadpool_executor::ThreadPoolExecutor::new(t)
+        });
+        let system = KompicsSystem::new(settings);
+
+        let tc = system.create(TestComponent::new);
+        let rc = system.create(RecvComponent::new);
+        let rctp = rc.on_definition(|c| c.test_port.share());
+        let tctp = tc.on_definition(|c| {
+            c.test_port.connect(rctp);
+            c.test_port.share()
+        });
+        let msg = Arc::new(1000);
+        system.trigger_r(msg, tctp);
+
+        let ten_millis = time::Duration::from_millis(1000);
+
+        thread::sleep(ten_millis);
+
+        tc.on_definition(|c| {
+            println!("Counter is {}", c.counter);
+        });
+
+
+        thread::sleep(ten_millis);
+
+        rc.on_definition(|c| {
+            println!("Last string was {}", c.last_string);
+        });
+        system.shutdown().expect(
+            "Kompics didn't shut down properly",
+        );
     }
 }
