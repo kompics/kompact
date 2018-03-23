@@ -61,7 +61,11 @@ impl Provide<PingPongPort> for Pinger {
 fn main() {
     println!("Hello, world!");
     //let cd = SomeCD { test: 3 };
-    let system = KompicsSystem::with_throughput(5);
+    let mut conf = KompicsConfig::new();
+    {
+        conf.throughput(5);
+    }
+    let system = KompicsSystem::new(conf);
     let mut pingerc = system.create(move || Pinger::new());
     system.start(&pingerc);
     system.trigger_i(Pong, pingerc.on_definition(|cd| cd.ppp.share()));
