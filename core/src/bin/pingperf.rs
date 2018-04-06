@@ -24,8 +24,9 @@ impl Port for PingPongPort {
     type Request = Ping;
 }
 
-#[derive(ComponentDefinition)]
+#[derive(ComponentDefinition, Actor)]
 struct Pinger {
+    ctx: ComponentContext,
     ppp: RequiredPort<PingPongPort, Pinger>,
     latch: Arc<CountdownEvent>,
     repeat: u64,
@@ -36,6 +37,7 @@ struct Pinger {
 impl Pinger {
     fn with(repeat: u64, latch: Arc<CountdownEvent>) -> Pinger {
         Pinger {
+            ctx: ComponentContext::new(),
             ppp: RequiredPort::new(),
             latch,
             repeat,
@@ -76,8 +78,9 @@ impl Require<PingPongPort> for Pinger {
     }
 }
 
-#[derive(ComponentDefinition)]
+#[derive(ComponentDefinition, Actor)]
 struct Ponger {
+    ctx: ComponentContext,
     ppp: ProvidedPort<PingPongPort, Ponger>,
     received: u64,
 }
@@ -85,6 +88,7 @@ struct Ponger {
 impl Ponger {
     fn new() -> Ponger {
         Ponger {
+            ctx: ComponentContext::new(),
             ppp: ProvidedPort::new(),
             received: 0,
         }
@@ -112,7 +116,7 @@ impl Provide<PingPongPort> for Ponger {
 }
 
 const NS_TO_S: f64 = 1.0 / (1000.0 * 1000.0 * 1000.0);
-const MSGS: u64 = 50000000;
+const MSGS: u64 = 5000000;
 const PROC_PAIRS: usize = 8;
 
 fn main() {

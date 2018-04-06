@@ -1,10 +1,11 @@
 
 use super::*;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 use std::rc::Rc;
 use std::fmt::{Debug, Formatter, Error};
+use oncemutex::OnceMutex;
 use executors::*;
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
@@ -14,7 +15,7 @@ fn default_runtime_label() -> String {
     format!("kompics-runtime-{}", runtime_count)
 }
 
-type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
+pub type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
 
 impl Debug for SchedulerBuilder {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -22,12 +23,23 @@ impl Debug for SchedulerBuilder {
     }
 }
 
+pub type SCBuilder = Fn(&KompicsSystem) -> Box<SystemComponents>;
+
+impl Debug for SCBuilder {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "<function>")
+    }
+}
+
+
 #[derive(Clone, Debug)]
 pub struct KompicsConfig {
     label: String,
     throughput: usize,
+    msg_priority: f32,
     threads: usize,
     scheduler_builder: Rc<SchedulerBuilder>,
+    sc_builder: Rc<SCBuilder>,
 }
 
 impl KompicsConfig {
@@ -35,10 +47,12 @@ impl KompicsConfig {
         KompicsConfig {
             label: default_runtime_label(),
             throughput: 1,
+            msg_priority: 0.5,
             threads: 1,
             scheduler_builder: Rc::new(|t| {
                 ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(t))
             }),
+            sc_builder: Rc::new(|sys| Box::new(DefaultComponents::new(sys))),
         }
     }
 
@@ -49,6 +63,11 @@ impl KompicsConfig {
 
     pub fn throughput(&mut self, n: usize) -> &mut Self {
         self.throughput = n;
+        self
+    }
+
+    pub fn msg_priority(&mut self, r: f32) -> &mut Self {
+        self.msg_priority = r;
         self
     }
 
@@ -66,6 +85,14 @@ impl KompicsConfig {
         self.scheduler_builder = Rc::new(sb);
         self
     }
+
+    fn max_messages(&self) -> usize {
+        let tpf = self.throughput as f32;
+        let mmf = tpf * self.msg_priority;
+        assert!(mmf >= 0.0, "msg_priority can not be negative!");
+        let mm = mmf as usize;
+        mm
+    }
 }
 
 #[derive(Clone)]
@@ -76,22 +103,33 @@ pub struct KompicsSystem {
 
 impl Default for KompicsSystem {
     fn default() -> Self {
-        KompicsSystem {
-            inner: Arc::new(KompicsRuntime::default()),
-            scheduler: ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(
-                num_cpus::get(),
-            )),
-        }
+        let scheduler = ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(
+            num_cpus::get(),
+        ));
+        let runtime = Arc::new(KompicsRuntime::default());
+        let sys = KompicsSystem {
+            inner: runtime,
+            scheduler,
+        };
+        let sys_comps = DefaultComponents::new(&sys);
+        sys.inner.set_system_components(Box::new(sys_comps));
+        sys.inner.start_system_components(&sys);
+        sys
     }
 }
 
 impl KompicsSystem {
     pub fn new(conf: KompicsConfig) -> Self {
         let scheduler = (*conf.scheduler_builder)(conf.threads);
-        KompicsSystem {
-            inner: Arc::new(KompicsRuntime::new(conf)),
+        let runtime = Arc::new(KompicsRuntime::new(conf));
+        let sys = KompicsSystem {
+            inner: runtime,
             scheduler,
-        }
+        };
+        let sys_comps = DefaultComponents::new(&sys);
+        sys.inner.set_system_components(Box::new(sys_comps));
+        sys.inner.start_system_components(&sys);
+        sys
     }
 
     pub fn schedule(&self, c: Arc<CoreContainer>) -> () {
@@ -107,7 +145,7 @@ impl KompicsSystem {
         let c = Arc::new(Component::new(self.clone(), f()));
         {
             let mut cd = c.definition().lock().unwrap();
-            cd.setup_ports(c.clone());
+            cd.setup(c.clone());
             let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
             c.core().set_component(cc);
         }
@@ -133,22 +171,95 @@ impl KompicsSystem {
         self.inner.throughput
     }
 
+    //    pub fn msg_priority(&self) -> f32 {
+    //        self.inner.msg_priority
+    //    }
+
+    pub fn max_messages(&self) -> usize {
+        self.inner.max_messages
+    }
+
     pub fn shutdown(self) -> Result<(), String> {
         self.scheduler.shutdown()
     }
+
+    pub(crate) fn system_path(&self) -> SystemPath {
+        self.inner.system_path()
+    }
 }
 
-#[derive(Clone)]
+impl ActorRefFactory for KompicsSystem {
+    fn actor_ref(&self) -> ActorRef {
+        self.inner.deadletter_ref()
+    }
+    fn actor_path(&self) -> ActorPath {
+        self.inner.deadletter_ref().actor_path()
+    }
+}
+
+impl Dispatching for KompicsSystem {
+    fn dispatcher_ref(&self) -> ActorRef {
+        self.inner.dispatcher_ref()
+    }
+}
+
+pub trait SystemComponents: Send + Sync {
+    fn deadletter_ref(&self) -> ActorRef;
+    fn dispatcher_ref(&self) -> ActorRef;
+    fn system_path(&self) -> SystemPath;
+    fn start(&self, &KompicsSystem) -> ();
+}
+
+//#[derive(Clone)]
 struct KompicsRuntime {
     label: String,
     throughput: usize,
+    max_messages: usize,
+    system_components: OnceMutex<Option<Box<SystemComponents>>>,
 }
 
 impl KompicsRuntime {
     fn new(conf: KompicsConfig) -> Self {
+        let mm = conf.max_messages();
         KompicsRuntime {
             label: conf.label,
             throughput: conf.throughput,
+            max_messages: mm,
+            system_components: OnceMutex::new(None),
+        }
+    }
+
+    fn set_system_components(&self, system_components: Box<SystemComponents>) -> () {
+        if let Some(mut guard) = self.system_components.lock() {
+            *guard = Some(system_components);
+        } else {
+            panic!("KompicsRuntime was already initialised!");
+        }
+    }
+
+    fn start_system_components(&self, system: &KompicsSystem) -> () {
+        match *self.system_components {
+            Some(ref sc) => sc.start(system),
+            None => panic!("KompicsRuntime was not properly initialised!"),
+        }
+    }
+
+    fn deadletter_ref(&self) -> ActorRef {
+        match *self.system_components {
+            Some(ref sc) => sc.deadletter_ref(),
+            None => panic!("KompicsRuntime was not properly initialised!"),
+        }
+    }
+    fn dispatcher_ref(&self) -> ActorRef {
+        match *self.system_components {
+            Some(ref sc) => sc.dispatcher_ref(),
+            None => panic!("KompicsRuntime was not properly initialised!"),
+        }
+    }
+    fn system_path(&self) -> SystemPath {
+        match *self.system_components {
+            Some(ref sc) => sc.system_path(),
+            None => panic!("KompicsRuntime was not properly initialised!"),
         }
     }
 }
@@ -158,11 +269,13 @@ impl Default for KompicsRuntime {
         KompicsRuntime {
             label: default_runtime_label(),
             throughput: 50,
+            max_messages: 25,
+            system_components: OnceMutex::new(None),
         }
     }
 }
 
-trait Scheduler {
+pub trait Scheduler {
     fn schedule(&self, c: Arc<CoreContainer>) -> ();
     fn shutdown_async(&self) -> ();
     fn shutdown(&self) -> Result<(), String>;

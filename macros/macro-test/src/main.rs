@@ -18,8 +18,9 @@ impl Port for PingPongPort {
     type Request = Ping;
 }
 
-#[derive(ComponentDefinition)]
+#[derive(ComponentDefinition, Actor)]
 struct Pinger {
+    ctx: ComponentContext,
     ppp: RequiredPort<PingPongPort, Pinger>,
     pppp: ProvidedPort<PingPongPort, Pinger>,
     test: i32,
@@ -28,6 +29,7 @@ struct Pinger {
 impl Pinger {
     fn new() -> Pinger {
         Pinger {
+            ctx: ComponentContext::new(),
             ppp: RequiredPort::new(),
             pppp: ProvidedPort::new(),
             test: 0,

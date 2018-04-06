@@ -29,78 +29,92 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
     if let syn::Body::Struct(ref vdata) = ast.body {
         let fields = vdata.fields();
         let mut ports: Vec<(&syn::Field, PortField)> = Vec::new();
+        let mut ctx_field: Option<&syn::Field> = None;
         for field in fields {
-            let pf = identify_field(field);
-//            println!(
-//                "Field {:?} ({:?}) with type {:?}",
-//                field.ident,
-//                pf,
-//                field.ty
-//            );
-            match pf {
-                PortField::Provided(_) => ports.push((field, pf)),
-                PortField::Required(_) => ports.push((field, pf)),
-                PortField::None => (),
+            let cf = identify_field(field);
+            match cf {
+                ComponentField::Ctx => {
+                    ctx_field = Some(field);
+                }
+                ComponentField::Port(pf) => ports.push((field, pf)),
+                ComponentField::Other => (),
             }
         }
+        let (ctx_setup, ctx_access) = match ctx_field {
+            Some(f) => {
+                let ref id = f.ident;
+                let setup = quote! { self.#id.initialise(self_component.clone()); };
+                let access = quote! { &self.#id };
+                (setup, access)
+            }
+            None => panic!("No ComponentContext found for {:?}!", name),
+        };
         let port_setup = ports
             .iter()
             .map(|&(f, _)| {
-                //let (ref f, _) = t;
                 let ref id = f.ident;
                 quote! { self.#id.set_parent(self_component.clone()); }
             })
             .collect::<Vec<_>>();
-        let port_handles = ports
+        let port_handles_skip = ports
             .iter()
-            .map(|&(f, ref t)| {
+            .enumerate()
+            .map(|(i, &(f, ref t))| {
                 let ref id = f.ident;
                 //let ref ty = f.ty;
-                let handle = match t {
-                    &PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
-                    &PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
-                    &PortField::None => unreachable!(),
-                };
+                let handle = t.as_handle();
                 quote! {
-                if let Some(event) = self.#id.dequeue() {
-                    #handle
-                    count += 1;
-                    done_work = true;
+                    if (skip <= #i) {                    
+                        if count >= max_events {
+                            return ExecuteResult::new(count, #i);
+                        }
+                        if let Some(event) = self.#id.dequeue() {
+                            #handle
+                            count += 1;
+                            done_work = true;
+                        }
+                    }
                 }
-                if count >= max_events {
-                    break;
-                }
-            }
             })
             .collect::<Vec<_>>();
-        let num_ports = ports.len();
+        let port_handles = ports
+            .iter()
+            .enumerate()
+            .map(|(i, &(f, ref t))| {
+                let ref id = f.ident;
+                //let ref ty = f.ty;
+                let handle = t.as_handle();
+                quote! {                 
+                    if count >= max_events {
+                        return ExecuteResult::new(count, #i);
+                    }
+                    if let Some(event) = self.#id.dequeue() {
+                        #handle
+                        count += 1;
+                        done_work = true;
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
         quote! {
             impl ComponentDefinition for #name {
-                fn setup_ports(&mut self, self_component: Arc<Component<Self>>) -> () {
+                fn setup(&mut self, self_component: Arc<Component<Self>>) -> () {
+                    #ctx_setup
                     //println!("Setting up ports");
                     #(#port_setup)*
                 }
-                fn execute(&mut self, core: &ComponentCore, max_events: usize) -> () {
-                    //println!("Executing");
-                    if #num_ports > max_events {
-                        panic!("Throughput must be larger than the number of ports, to prevent starvation. ({} < {})", #num_ports, max_events);
-                    }
-                    let mut count:usize = 0;
-                    let mut done_work = true;
-                    while (count < max_events) && done_work {
+                fn execute(&mut self, max_events: usize, skip: usize) -> ExecuteResult {
+                    let mut count: usize = 0;
+                    let mut done_work = true; // might skip queues that have work
+                    #(#port_handles_skip)*
+                    while done_work {
                         done_work = false;
                         #(#port_handles)*
                     }
-                    //println!("Executed {}", count);
-                    match core.decrement_work(count) {
-                        SchedulingDecision::Schedule => {
-                            //println!("Rescheduling!");
-                            let system = core.system();
-                            let cc = core.component();
-                            system.schedule(cc);
-                        }
-                        _ => (), // ignore
-                    }
+                    ExecuteResult::new(count, 0)
+                }
+                fn ctx(&self) -> &ComponentContext {
+                    #ctx_access
                 }
             }
         }
@@ -111,17 +125,33 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
 }
 
 #[derive(Debug)]
+enum ComponentField {
+    Ctx,
+    Port(PortField),
+    Other,
+}
+
+#[derive(Debug)]
 enum PortField {
     Required(syn::Ty),
     Provided(syn::Ty),
-    None,
+}
+
+impl PortField {
+    fn as_handle(&self) -> quote::Tokens {
+        match self {
+            &PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
+            &PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
+        }
+    }
 }
 
 const REQP: &'static str = "RequiredPort";
 const PROVP: &'static str = "ProvidedPort";
+const CTX: &'static str = "ComponentContext";
 const KOMPICS: &'static str = "kompics";
 
-fn identify_field(f: &syn::Field) -> PortField {
+fn identify_field(f: &syn::Field) -> ComponentField {
     if let syn::Ty::Path(_, ref path) = f.ty {
         if !path.global {
             let port_seg_opt = if path.segments.len() == 1 {
@@ -139,21 +169,23 @@ fn identify_field(f: &syn::Field) -> PortField {
             };
             if let Some(seg) = port_seg_opt {
                 if seg.ident == REQP {
-                    PortField::Required(extract_port_type(seg))
+                    ComponentField::Port(PortField::Required(extract_port_type(seg)))
                 } else if seg.ident == PROVP {
-                    PortField::Provided(extract_port_type(seg))
+                    ComponentField::Port(PortField::Provided(extract_port_type(seg)))
+                } else if seg.ident == CTX {
+                    ComponentField::Ctx
                 } else {
-                    println!("Not a port: {:?}", path);
-                    PortField::None
+                    //println!("Not a port: {:?}", path);
+                    ComponentField::Other
                 }
             } else {
-                PortField::None
+                ComponentField::Other
             }
         } else {
-            PortField::None
+            ComponentField::Other
         }
     } else {
-        PortField::None
+        ComponentField::Other
     }
 }
 
