@@ -41,8 +41,8 @@ where
     B: ComponentDefinition + Sized + 'static,
     C: ComponentDefinition + Sized + 'static + Dispatcher,
 {
-    deadletter_box: Arc<Component<B>>,
-    dispatcher: Arc<Component<C>>,
+    pub(crate) deadletter_box: Arc<Component<B>>,
+    pub(crate) dispatcher: Arc<Component<C>>,
 }
 
 // Toooooooo complicated...just do it on demand

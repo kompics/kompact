@@ -15,7 +15,7 @@ fn default_runtime_label() -> String {
     format!("kompics-runtime-{}", runtime_count)
 }
 
-pub type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
+type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
 
 impl Debug for SchedulerBuilder {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -23,7 +23,7 @@ impl Debug for SchedulerBuilder {
     }
 }
 
-pub type SCBuilder = Fn(&KompicsSystem) -> Box<SystemComponents>;
+type SCBuilder = FnOnce(&KompicsSystem) -> Box<SystemComponents>;
 
 impl Debug for SCBuilder {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -83,6 +83,26 @@ impl KompicsConfig {
     {
         let sb = move |t: usize| ExecutorScheduler::from(f(t));
         self.scheduler_builder = Rc::new(sb);
+        self
+    }
+
+    pub fn system_components<B, C, FB, FC>(&mut self, fb: FB, fc: FC) -> &mut Self
+    where
+        B: ComponentDefinition + Sized + 'static,
+        C: ComponentDefinition + Sized + 'static + Dispatcher,
+        FB: Fn() -> B + 'static,
+        FC: Fn() -> C + 'static,
+    {
+        let sb = move |system: &KompicsSystem| {
+            let dbc = system.create(fb);
+            let ldc = system.create(fc);
+            let cc = CustomComponents {
+                deadletter_box: dbc,
+                dispatcher: ldc,
+            };
+            Box::new(cc) as Box<SystemComponents>
+        };
+        self.sc_builder = Rc::new(sb);
         self
     }
 
