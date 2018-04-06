@@ -5,4 +5,4 @@ Early development prototype of a component system like Kompics in the Rust langu
 
 # Version
 
-Requires Rust `>=1.22`.
+Requires Rust `nightly` right now until `try_from` and `specialization` features are stabilised.
