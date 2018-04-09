@@ -1,6 +1,7 @@
 #![allow(unused_parens)]
 #![feature(try_from)]
 #![feature(specialization)]
+#![feature(fn_traits)]
 //extern crate futures;
 //extern crate futures_cpupool;
 extern crate crossbeam;

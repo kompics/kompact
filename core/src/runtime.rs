@@ -23,7 +23,7 @@ impl Debug for SchedulerBuilder {
     }
 }
 
-type SCBuilder = FnOnce(&KompicsSystem) -> Box<SystemComponents>;
+type SCBuilder = Fn(&KompicsSystem) -> Box<SystemComponents>;
 
 impl Debug for SCBuilder {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -94,8 +94,8 @@ impl KompicsConfig {
         FC: Fn() -> C + 'static,
     {
         let sb = move |system: &KompicsSystem| {
-            let dbc = system.create(fb);
-            let ldc = system.create(fc);
+            let dbc = system.create_ref(&fb);
+            let ldc = system.create_ref(&fc);
             let cc = CustomComponents {
                 deadletter_box: dbc,
                 dispatcher: ldc,
@@ -141,13 +141,14 @@ impl Default for KompicsSystem {
 impl KompicsSystem {
     pub fn new(conf: KompicsConfig) -> Self {
         let scheduler = (*conf.scheduler_builder)(conf.threads);
+        let sc_builder = conf.sc_builder.clone();
         let runtime = Arc::new(KompicsRuntime::new(conf));
         let sys = KompicsSystem {
             inner: runtime,
             scheduler,
         };
-        let sys_comps = DefaultComponents::new(&sys);
-        sys.inner.set_system_components(Box::new(sys_comps));
+        let sys_comps = (*sc_builder)(&sys); //(*conf.sc_builder)(&sys);
+        sys.inner.set_system_components(sys_comps);
         sys.inner.start_system_components(&sys);
         sys
     }
@@ -157,6 +158,22 @@ impl KompicsSystem {
     }
 
     pub fn create<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: Fn() -> C,
+        C: ComponentDefinition + 'static,
+    {
+
+        let c = Arc::new(Component::new(self.clone(), f()));
+        {
+            let mut cd = c.definition().lock().unwrap();
+            cd.setup(c.clone());
+            let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
+            c.core().set_component(cc);
+        }
+        return c;
+    }
+
+    pub fn create_ref<C, F>(&self, f: &F) -> Arc<Component<C>>
     where
         F: Fn() -> C,
         C: ComponentDefinition + 'static,
