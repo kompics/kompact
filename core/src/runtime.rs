@@ -159,7 +159,7 @@ impl KompicsSystem {
 
     pub fn create<C, F>(&self, f: F) -> Arc<Component<C>>
     where
-        F: Fn() -> C,
+        F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
     {
 
