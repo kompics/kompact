@@ -94,8 +94,8 @@ impl KompicsConfig {
         FC: Fn() -> C + 'static,
     {
         let sb = move |system: &KompicsSystem| {
-            let dbc = system.create_ref(&fb);
-            let ldc = system.create_ref(&fc);
+            let dbc = system.create(&fb);
+            let ldc = system.create(&fc);
             let cc = CustomComponents {
                 deadletter_box: dbc,
                 dispatcher: ldc,
@@ -158,22 +158,6 @@ impl KompicsSystem {
     }
 
     pub fn create<C, F>(&self, f: F) -> Arc<Component<C>>
-    where
-        F: Fn() -> C,
-        C: ComponentDefinition + 'static,
-    {
-
-        let c = Arc::new(Component::new(self.clone(), f()));
-        {
-            let mut cd = c.definition().lock().unwrap();
-            cd.setup(c.clone());
-            let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
-            c.core().set_component(cc);
-        }
-        return c;
-    }
-
-    pub fn create_ref<C, F>(&self, f: &F) -> Arc<Component<C>>
     where
         F: Fn() -> C,
         C: ComponentDefinition + 'static,
