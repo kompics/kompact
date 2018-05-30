@@ -1,12 +1,11 @@
-
 use super::*;
 
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::rc::Rc;
-use std::fmt::{Debug, Formatter, Error};
-use oncemutex::OnceMutex;
 use executors::*;
+use oncemutex::OnceMutex;
+use std::fmt::{Debug, Error, Formatter};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+use std::sync::{Arc, Mutex};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 
@@ -30,7 +29,6 @@ impl Debug for SCBuilder {
         write!(f, "<function>")
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct KompicsConfig {
@@ -123,9 +121,8 @@ pub struct KompicsSystem {
 
 impl Default for KompicsSystem {
     fn default() -> Self {
-        let scheduler = ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(
-            num_cpus::get(),
-        ));
+        let scheduler =
+            ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(num_cpus::get()));
         let runtime = Arc::new(KompicsRuntime::default());
         let sys = KompicsSystem {
             inner: runtime,
@@ -162,7 +159,6 @@ impl KompicsSystem {
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
     {
-
         let c = Arc::new(Component::new(self.clone(), f()));
         {
             let mut cd = c.definition().lock().unwrap();

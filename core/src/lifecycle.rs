@@ -1,9 +1,10 @@
-
 use super::*;
 
 #[derive(Clone, Debug)]
 pub enum ControlEvent {
-    Start,Stop,Kill,
+    Start,
+    Stop,
+    Kill,
 }
 
 pub struct ControlPort;

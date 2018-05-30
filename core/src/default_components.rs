@@ -1,8 +1,8 @@
-use std::any::Any;
-use bytes::Buf;
-use std::sync::Arc;
-use std::rc::Rc;
 use super::*;
+use bytes::Buf;
+use std::any::Any;
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -72,10 +72,7 @@ where
 impl<B, C> SystemComponents for CustomComponents<B, C>
 where
     B: ComponentDefinition + Sized + 'static,
-    C: ComponentDefinition
-        + Sized
-        + 'static
-        + Dispatcher,
+    C: ComponentDefinition + Sized + 'static + Dispatcher,
 {
     fn deadletter_ref(&self) -> ActorRef {
         self.deadletter_box.actor_ref()
@@ -99,7 +96,9 @@ pub struct DeadletterBox {
 
 impl DeadletterBox {
     pub fn new() -> DeadletterBox {
-        DeadletterBox { ctx: ComponentContext::new() }
+        DeadletterBox {
+            ctx: ComponentContext::new(),
+        }
     }
 }
 
@@ -110,8 +109,7 @@ impl Actor for DeadletterBox {
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
         println!(
             "DeadletterBox received buffer with id {:?} from {}",
-            ser_id,
-            sender
+            ser_id, sender
         );
     }
 }
@@ -122,7 +120,7 @@ impl Provide<ControlPort> for DeadletterBox {
             ControlEvent::Start => {
                 println!("Starting DeadletterBox");
             }
-            _ => (),// ignore
+            _ => (), // ignore
         }
     }
 }
@@ -134,7 +132,9 @@ pub struct LocalDispatcher {
 
 impl LocalDispatcher {
     pub fn new() -> LocalDispatcher {
-        LocalDispatcher { ctx: ComponentContext::new() }
+        LocalDispatcher {
+            ctx: ComponentContext::new(),
+        }
     }
 }
 
@@ -145,8 +145,7 @@ impl Actor for LocalDispatcher {
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
         println!(
             "LocalDispatcher received buffer with id {:?} from {:?}",
-            ser_id,
-            sender
+            ser_id, sender
         );
     }
 }
@@ -169,7 +168,7 @@ impl Provide<ControlPort> for LocalDispatcher {
             ControlEvent::Start => {
                 println!("Starting LocalDispatcher");
             }
-            _ => (),// ignore
+            _ => (), // ignore
         }
     }
 }

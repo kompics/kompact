@@ -1,8 +1,8 @@
-use std::sync::{Arc, Weak, Mutex};
-use std::cell::RefCell;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::ops::{Deref, DerefMut};
 use crossbeam::sync::MsQueue;
+use std::cell::RefCell;
+use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, Weak};
 use uuid::Uuid;
 
 use super::*;
@@ -45,10 +45,9 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 let system = self.core.system();
                 system.schedule(self.core.component());
             }
-            _ => (),// nothing
+            _ => (), // nothing
         }
     }
-
 
     pub fn definition(&self) -> &Mutex<C> {
         &self.definition
@@ -220,7 +219,9 @@ pub struct ComponentContext {
 
 impl ComponentContext {
     pub fn new() -> ComponentContext {
-        ComponentContext { component: RefCell::default() }
+        ComponentContext {
+            component: RefCell::default(),
+        }
     }
 
     pub(crate) fn set_component(&self, c: Arc<CoreContainer>) -> () {
@@ -237,12 +238,10 @@ impl ComponentContext {
 
     pub fn component(&self) -> Arc<CoreContainer> {
         match *self.component.borrow() {
-            Some(ref c) => {
-                match c.upgrade() {
-                    Some(ac) => ac,
-                    None => panic!("Component already deallocated!"),
-                }
-            }
+            Some(ref c) => match c.upgrade() {
+                Some(ac) => ac,
+                None => panic!("Component already deallocated!"),
+            },
             None => panic!("Component improperly initialised!"),
         }
     }
@@ -314,12 +313,10 @@ impl ComponentCore {
 
     pub fn component(&self) -> Arc<CoreContainer> {
         match *self.component.borrow() {
-            Some(ref c) => {
-                match c.upgrade() {
-                    Some(ac) => ac,
-                    None => panic!("Component already deallocated!"),
-                }
-            }
+            Some(ref c) => match c.upgrade() {
+                Some(ac) => ac,
+                None => panic!("Component already deallocated!"),
+            },
             None => panic!("Component improperly initialised!"),
         }
     }

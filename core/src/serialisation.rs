@@ -1,6 +1,6 @@
-use bytes::{Bytes, BytesMut, Buf, BufMut, IntoBuf};
-use std::fmt::Debug;
+use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
 use std::fmt;
+use std::fmt::Debug;
 
 use super::*;
 
@@ -182,9 +182,9 @@ mod tests {
         //let mut mbuf = vec![];
         let t1c = t1.clone();
         mbuf.reserve(T1Ser.size_hint().unwrap());
-        T1Ser.serialise(&t1, &mut mbuf).expect(
-            "should have serialised!",
-        );
+        T1Ser
+            .serialise(&t1, &mut mbuf)
+            .expect("should have serialised!");
         //println!("Serialised bytes: {:?}", mbuf);
         let mut buf = mbuf.into_buf();
         let t1_res = T1Ser::deserialise(&mut buf);

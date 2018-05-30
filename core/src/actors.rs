@@ -1,15 +1,14 @@
-use uuid::Uuid;
-use std::net::{IpAddr, SocketAddr, AddrParseError};
+use bytes::{Buf, BufMut, Bytes, IntoBuf};
 use crossbeam::sync::MsQueue;
-use std::sync::{Weak, Arc, Mutex, PoisonError};
-use std::fmt::Debug;
-use std::fmt;
-use std::error::Error;
 use std::any::Any;
 use std::convert::TryFrom;
+use std::error::Error;
+use std::fmt;
+use std::fmt::Debug;
+use std::net::{AddrParseError, IpAddr, SocketAddr};
 use std::str::FromStr;
-use bytes::{Buf, BufMut, Bytes, IntoBuf};
-
+use std::sync::{Arc, Mutex, PoisonError, Weak};
+use uuid::Uuid;
 
 use super::*;
 
@@ -43,7 +42,6 @@ where
         }
     }
 }
-
 
 #[derive(Debug)]
 pub enum MsgEnvelope {
@@ -116,17 +114,15 @@ impl ActorRef {
                         let system = c.core().system();
                         system.schedule(c.clone());
                     }
-                    _ => (),// nothing
+                    _ => (), // nothing
                 }
             }
-            (q, c) => {
-                println!(
-                    "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                    q.is_some(),
-                    c.is_some(),
-                    env
-                )
-            }
+            (q, c) => println!(
+                "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                q.is_some(),
+                c.is_some(),
+                env
+            ),
         }
     }
 
@@ -250,8 +246,6 @@ impl From<AddrParseError> for PathParseError {
     }
 }
 
-
-
 #[derive(Clone, Debug)]
 pub struct SystemPath {
     protocol: Transport,
@@ -347,10 +341,10 @@ impl fmt::Display for ActorPath {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &ActorPath::Named(ref np) => {
-                let path = np.path.iter().fold(
-                    String::new(),
-                    |acc, arg| acc + PATH_SEP + arg,
-                );
+                let path = np
+                    .path
+                    .iter()
+                    .fold(String::new(), |acc, arg| acc + PATH_SEP + arg);
                 write!(fmt, "{}{}", np.system, path)
             }
             &ActorPath::Unique(ref up) => write!(fmt, "{}{}{}", up.system, PATH_SEP, up.id),
@@ -485,10 +479,10 @@ mod tests {
     use std::{thread, time};
     //use futures::{Future, future};
     //use futures_cpupool::CpuPool;
-    use std::sync::Arc;
-    use std::any::Any;
-    use bytes::Buf;
     use super::*;
+    use bytes::Buf;
+    use std::any::Any;
+    use std::sync::Arc;
 
     const PATH: &'static str = "local://127.0.0.1:0/test_actor";
 

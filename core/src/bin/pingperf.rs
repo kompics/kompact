@@ -11,7 +11,6 @@ pub fn ignore<V>(_: V) -> () {
     ()
 }
 
-
 #[derive(Clone, Debug)]
 struct Ping;
 #[derive(Clone, Debug)]
@@ -59,7 +58,7 @@ impl Provide<ControlPort> for Pinger {
                     //println!("Sent Ping #{}", self.sent);
                 }
             }
-            _ => (),// ignore
+            _ => (), // ignore
         }
     }
 }
@@ -101,7 +100,7 @@ impl Provide<ControlPort> for Ponger {
             ControlEvent::Start => {
                 println!("Ponger starting...");
             }
-            _ => (),// ignore
+            _ => (), // ignore
         }
     }
 }

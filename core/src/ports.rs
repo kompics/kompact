@@ -1,7 +1,7 @@
+use crossbeam::sync::MsQueue;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
-use std::sync::{Weak, Arc, Mutex, PoisonError};
-use crossbeam::sync::MsQueue;
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 
 use super::*;
 
@@ -141,11 +141,16 @@ impl<P: Port + 'static> ProvidedRef<P> {
                     SchedulingDecision::Schedule => {
                         let system = c.core().system();
                         system.schedule(c.clone());
-                    },
-                    _ => (),// nothing
+                    }
+                    _ => (), // nothing
                 }
             }
-            (q, c) => println!("Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}", q.is_some(), c.is_some(), event),
+            (q, c) => println!(
+                "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                q.is_some(),
+                c.is_some(),
+                event
+            ),
         }
     }
 }
@@ -165,11 +170,16 @@ impl<P: Port + 'static> RequiredRef<P> {
                     SchedulingDecision::Schedule => {
                         let system = c.core().system();
                         system.schedule(c.clone());
-                    },
-                    _ => (),// nothing
+                    }
+                    _ => (), // nothing
                 }
             }
-            (q, c) => println!("Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}", q.is_some(), c.is_some(), event),
+            (q, c) => println!(
+                "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                q.is_some(),
+                c.is_some(),
+                event
+            ),
         }
     }
 }

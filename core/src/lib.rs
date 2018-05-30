@@ -3,40 +3,40 @@
 #![feature(specialization)]
 //extern crate futures;
 //extern crate futures_cpupool;
-extern crate crossbeam;
-extern crate oncemutex;
-extern crate uuid;
 extern crate as_num;
+extern crate bytes;
+extern crate crossbeam;
 extern crate executors;
 extern crate num_cpus;
-extern crate bytes;
+extern crate oncemutex;
 extern crate serde;
+extern crate uuid;
 #[macro_use]
 extern crate component_definition_derive;
 #[macro_use]
 extern crate actor_derive;
 
-pub use self::ports::*;
-pub use self::component::*;
-pub use self::utils::*;
-pub use self::runtime::*;
-pub use self::lifecycle::*;
-pub use self::serialisation::*;
 pub use self::actors::*;
+pub use self::component::*;
 use self::default_components::*;
-pub use component_definition_derive::*;
+pub use self::lifecycle::*;
+pub use self::ports::*;
+pub use self::runtime::*;
+pub use self::serialisation::*;
+pub use self::utils::*;
 pub use actor_derive::*;
+pub use component_definition_derive::*;
 pub use std::convert::{From, Into};
 
-mod ports;
-mod component;
-mod utils;
-mod runtime;
-mod lifecycle;
-mod serialisation;
 mod actors;
+mod component;
 mod default_components;
 mod default_serialisers;
+mod lifecycle;
+mod ports;
+mod runtime;
+mod serialisation;
+mod utils;
 
 #[cfg(test)]
 mod tests {
@@ -44,11 +44,11 @@ mod tests {
     use std::{thread, time};
     //use futures::{Future, future};
     //use futures_cpupool::CpuPool;
-    use std::sync::Arc;
-    use std::any::Any;
-    use bytes::Buf;
     use super::*;
+    use bytes::Buf;
     use default_serialisers::*;
+    use std::any::Any;
+    use std::sync::Arc;
 
     struct TestPort;
 
@@ -80,7 +80,7 @@ mod tests {
                 ControlEvent::Start => {
                     println!("Starting TestComponent");
                 }
-                _ => (),// ignore
+                _ => (), // ignore
             }
         }
     }
@@ -129,7 +129,7 @@ mod tests {
                 ControlEvent::Start => {
                     println!("Starting RecvComponent");
                 }
-                _ => (),// ignore
+                _ => (), // ignore
             }
         }
     }
@@ -153,9 +153,9 @@ mod tests {
     fn custom_settings() {
         //let pool = ThreadPool::new(2);
         let mut settings = KompicsConfig::new();
-        settings.threads(4).scheduler(|t| {
-            executors::threadpool_executor::ThreadPoolExecutor::new(t)
-        });
+        settings
+            .threads(4)
+            .scheduler(|t| executors::threadpool_executor::ThreadPoolExecutor::new(t));
         let system = KompicsSystem::new(settings);
 
         test_with_system(system);
@@ -181,7 +181,6 @@ mod tests {
             assert_eq!(c.counter, 1234);
         });
 
-
         thread::sleep(ten_millis);
 
         rc.on_definition(|c| {
@@ -199,8 +198,8 @@ mod tests {
             assert_eq!(c.last_string, String::from("MsgTest"));
         });
 
-        system.shutdown().expect(
-            "Kompics didn't shut down properly",
-        );
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
     }
 }

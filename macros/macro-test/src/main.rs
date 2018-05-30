@@ -43,7 +43,7 @@ impl Provide<ControlPort> for Pinger {
             ControlEvent::Start => {
                 println!("Starting Pinger... {}", self.test);
             }
-            _ => (),// ignore
+            _ => (), // ignore
         }
     }
 }

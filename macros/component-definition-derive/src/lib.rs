@@ -1,4 +1,4 @@
-#![recursion_limit="128"]
+#![recursion_limit = "128"]
 extern crate proc_macro;
 extern crate syn;
 #[macro_use]
@@ -64,7 +64,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                 //let ref ty = f.ty;
                 let handle = t.as_handle();
                 quote! {
-                    if (skip <= #i) {                    
+                    if (skip <= #i) {
                         if count >= max_events {
                             return ExecuteResult::new(count, #i);
                         }
@@ -84,7 +84,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                 let ref id = f.ident;
                 //let ref ty = f.ty;
                 let handle = t.as_handle();
-                quote! {                 
+                quote! {
                     if count >= max_events {
                         return ExecuteResult::new(count, #i);
                     }

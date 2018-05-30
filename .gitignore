@@ -29,3 +29,7 @@ local.properties
 *.launch
 
 .DS_Store
+
+# Sublime Text Stuff
+*.sublime-project
+*.sublime-workspace
