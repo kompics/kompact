@@ -1,7 +1,6 @@
 use super::*;
 use bytes::Buf;
 use std::any::Any;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) struct DefaultComponents {
@@ -21,6 +20,9 @@ impl DefaultComponents {
 }
 
 impl SystemComponents for DefaultComponents {
+    // fn timer_ref(&self) -> timer::TimerRef {
+    //     self.timer.timer_ref()
+    // }
     fn deadletter_ref(&self) -> ActorRef {
         self.deadletter_box.actor_ref()
     }
@@ -33,6 +35,34 @@ impl SystemComponents for DefaultComponents {
     fn start(&self, system: &KompicsSystem) -> () {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
+    }
+}
+
+pub(crate) struct DefaultTimer {
+    inner: timer::TimerWithThread
+}
+
+impl DefaultTimer {
+    pub(crate) fn new() -> DefaultTimer {
+        DefaultTimer {
+            inner: timer::TimerWithThread::new().unwrap(),
+        }
+    }
+    pub(crate) fn new_timer_component() -> Box<TimerComponent> {
+        let t = DefaultTimer::new();
+        let bt = Box::new(t) as Box<TimerComponent>;
+        bt
+    }
+}
+
+impl TimerRefFactory for DefaultTimer {
+    fn timer_ref(&self) -> timer::TimerRef {
+        self.inner.timer_ref()
+    }
+}
+impl TimerComponent for DefaultTimer {
+    fn shutdown(&self) -> Result<(), String> {
+        self.inner.shutdown_async().map_err(|e| format!("Error during timer shutdown: {:?}", e))
     }
 }
 
@@ -91,7 +121,7 @@ where
 
 #[derive(ComponentDefinition)]
 pub struct DeadletterBox {
-    ctx: ComponentContext,
+    ctx: ComponentContext<DeadletterBox>,
 }
 
 impl DeadletterBox {
@@ -127,7 +157,7 @@ impl Provide<ControlPort> for DeadletterBox {
 
 #[derive(ComponentDefinition)]
 pub struct LocalDispatcher {
-    ctx: ComponentContext,
+    ctx: ComponentContext<LocalDispatcher>,
 }
 
 impl LocalDispatcher {

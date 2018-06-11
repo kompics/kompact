@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
+use std::time::Duration;
 use uuid::Uuid;
 
 use super::*;
@@ -18,6 +19,7 @@ pub trait CoreContainer: Send + Sync {
         self.core().system().clone()
     }
 }
+
 
 pub struct Component<C: ComponentDefinition + Sized + 'static> {
     core: ComponentCore,
@@ -67,7 +69,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 
 impl<CD> ActorRefFactory for CD
 where
-    CD: ComponentDefinition,
+    CD: ComponentDefinition + 'static,
 {
     fn actor_ref(&self) -> ActorRef {
         self.ctx().actor_ref()
@@ -79,10 +81,38 @@ where
 
 impl<CD> Dispatching for CD
 where
-    CD: ComponentDefinition,
+    CD: ComponentDefinition + 'static,
 {
     fn dispatcher_ref(&self) -> ActorRef {
         self.ctx().dispatcher_ref()
+    }
+}
+
+impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
+    fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
+    where
+        F: FnOnce(&mut CD, Uuid) + 'static {
+            let ctx = self.ctx_mut();
+            let component = ctx.component();
+            ctx.timer_manager_mut().schedule_once(Arc::downgrade(&component), timeout, action)
+        }
+
+    fn schedule_periodic<F>(
+        &mut self,
+        delay: Duration,
+        period: Duration,
+        action: F,
+    ) -> ScheduledTimer
+    where
+        F: Fn(&mut CD, Uuid) + 'static {
+            let mut ctx = self.ctx_mut();
+            let component = ctx.component();
+            ctx.timer_manager_mut().schedule_periodic(Arc::downgrade(&component), delay, period, action)
+        }
+
+    fn cancel_timer(&mut self, handle: ScheduledTimer) {
+        let ctx = self.ctx_mut();
+        ctx.timer_manager_mut().cancel_timer(handle);
     }
 }
 
@@ -124,11 +154,28 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
             Ok(mut guard) => {
                 let mut count: usize = 0;
                 while let Some(event) = self.ctrl_queue.try_pop() {
+                    // TODO implement lifecycle
                     // ignore max_events for lifecyle events
                     //println!("Executing event: {:?}", event);
                     guard.handle(event);
                     count += 1;
                 }
+                // timers have highest priority
+                while count < max_events {
+                    let c = guard.deref_mut();
+                    match c.ctx_mut().timer_manager_mut().try_action() {
+                        ExecuteAction::Once(id, action) => {
+                            action.call_box((c, id));
+                            count += 1;
+                        }
+                        ExecuteAction::Periodic(id, action) => {
+                            action(c, id);
+                            count += 1;
+                        }
+                        ExecuteAction::None => break,
+                    }
+                }
+                // then some messages
                 while count < max_messages {
                     if let Some(env) = self.msg_queue.try_pop() {
                         match env {
@@ -146,12 +193,14 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                         break;
                     }
                 }
+                // then events
                 let rem_events = max_events - count;
                 if (rem_events > 0) {
                     let res = guard.execute(rem_events, self.skip.load(Ordering::Relaxed));
                     self.skip.store(res.skip, Ordering::Relaxed);
                     count = count + res.count;
 
+                    // and maybe some more messages
                     while count < max_events {
                         if let Some(env) = self.msg_queue.try_pop() {
                             match env {
@@ -213,31 +262,37 @@ impl ExecuteResult {
     }
 }
 
-pub struct ComponentContext {
-    component: RefCell<Option<Weak<CoreContainer>>>,
+pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
+    timer_manager: Option<TimerManager<CD>>,
+    component: Option<Weak<Component<CD>>>,
 }
 
-impl ComponentContext {
-    pub fn new() -> ComponentContext {
+impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
+    pub fn new() -> ComponentContext<CD> {
         ComponentContext {
-            component: RefCell::default(),
+            timer_manager: None,
+            component: None,
         }
     }
 
-    pub(crate) fn set_component(&self, c: Arc<CoreContainer>) -> () {
-        *self.component.borrow_mut() = Some(Arc::downgrade(&c));
-    }
-
-    pub fn initialise<CD>(&self, c: Arc<Component<CD>>) -> ()
+    pub fn initialise(&mut self, c: Arc<Component<CD>>) -> ()
     where
         CD: ComponentDefinition + 'static,
     {
-        let cc = c as Arc<CoreContainer>;
-        self.set_component(cc);
+        let system = c.system();
+        self.component = Some(Arc::downgrade(&c));
+        self.timer_manager = Some(TimerManager::new(system.timer_ref()));
+    }
+
+    pub(crate) fn timer_manager_mut(&mut self) -> &mut TimerManager<CD> {
+        match self.timer_manager {
+            Some(ref mut tm) => tm,
+            None => panic!("Component improperly initialised!"),
+        }
     }
 
     pub fn component(&self) -> Arc<CoreContainer> {
-        match *self.component.borrow() {
+        match self.component {
             Some(ref c) => match c.upgrade() {
                 Some(ac) => ac,
                 None => panic!("Component already deallocated!"),
@@ -269,7 +324,8 @@ where
 {
     fn setup(&mut self, self_component: Arc<Component<Self>>) -> ();
     fn execute(&mut self, max_events: usize, skip: usize) -> ExecuteResult;
-    fn ctx(&self) -> &ComponentContext;
+    fn ctx(&self) -> &ComponentContext<Self>;
+    fn ctx_mut(&mut self) -> &mut ComponentContext<Self>;
 }
 
 pub trait Provide<P: Port + 'static> {

@@ -92,7 +92,7 @@ pub trait Deserialiser<T> {
 
 pub trait Deserialisable<T> {
     fn id(&self) -> u64;
-    fn get(self) -> Result<T, SerError>;
+    fn get_deserialised(self) -> Result<T, SerError>;
 }
 
 /// Trivial identity Deserialisable
@@ -100,7 +100,7 @@ impl<T> Deserialisable<T> for T {
     fn id(&self) -> u64 {
         unimplemented!();
     }
-    fn get(self) -> Result<T, SerError> {
+    fn get_deserialised(self) -> Result<T, SerError> {
         Ok(self)
     }
 }
@@ -110,7 +110,7 @@ impl<T> Deserialisable<T> for Box<T> {
     fn id(&self) -> u64 {
         unimplemented!();
     }
-    fn get(self) -> Result<T, SerError> {
+    fn get_deserialised(self) -> Result<T, SerError> {
         Ok(*self)
     }
 }
@@ -162,14 +162,14 @@ mod tests {
 
         //assert_eq!(1, Deserialisable::<Test1>::id(&t1));
 
-        match Deserialisable::<Test1>::get(t1) {
+        match Deserialisable::<Test1>::get_deserialised(t1) {
             Ok(t2) => assert_eq!(t1c, t2),
             Err(e) => panic!(e),
         }
 
         let t1b = Box::new(t1c.clone());
 
-        match Deserialisable::<Test1>::get(t1b) {
+        match Deserialisable::<Test1>::get_deserialised(t1b) {
             Ok(t2) => assert_eq!(t1c, t2),
             Err(e) => panic!(e),
         }

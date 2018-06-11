@@ -44,7 +44,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
             Some(f) => {
                 let ref id = f.ident;
                 let setup = quote! { self.#id.initialise(self_component.clone()); };
-                let access = quote! { &self.#id };
+                let access = quote! { self.#id };
                 (setup, access)
             }
             None => panic!("No ComponentContext found for {:?}!", name),
@@ -113,8 +113,11 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                     }
                     ExecuteResult::new(count, 0)
                 }
-                fn ctx(&self) -> &ComponentContext {
-                    #ctx_access
+                fn ctx_mut(&mut self) -> &mut ComponentContext<Self> {
+                    &mut #ctx_access
+                }
+                fn ctx(&self) -> &ComponentContext<Self> {
+                    &#ctx_access
                 }
             }
         }

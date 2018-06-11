@@ -1,6 +1,8 @@
 #![allow(unused_parens)]
 #![feature(try_from)]
 #![feature(specialization)]
+#![feature(fnbox)]
+#![feature(duration_as_u128)]
 //extern crate futures;
 //extern crate futures_cpupool;
 extern crate as_num;
@@ -24,6 +26,7 @@ pub use self::ports::*;
 pub use self::runtime::*;
 pub use self::serialisation::*;
 pub use self::utils::*;
+pub use self::timer_manager::*;
 pub use actor_derive::*;
 pub use component_definition_derive::*;
 pub use std::convert::{From, Into};
@@ -37,6 +40,8 @@ mod ports;
 mod runtime;
 mod serialisation;
 mod utils;
+mod timer_manager;
+pub mod timer;
 
 #[cfg(test)]
 mod tests {
@@ -49,6 +54,7 @@ mod tests {
     use default_serialisers::*;
     use std::any::Any;
     use std::sync::Arc;
+    use std::time::Duration;
 
     struct TestPort;
 
@@ -59,7 +65,7 @@ mod tests {
 
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
-        ctx: ComponentContext,
+        ctx: ComponentContext<TestComponent>,
         test_port: ProvidedPort<TestPort, TestComponent>,
         counter: u64,
     }
@@ -94,7 +100,7 @@ mod tests {
 
     #[derive(ComponentDefinition)]
     struct RecvComponent {
-        ctx: ComponentContext,
+        ctx: ComponentContext<RecvComponent>,
         test_port: RequiredPort<TestPort, RecvComponent>,
         last_string: String,
     }
@@ -196,6 +202,53 @@ mod tests {
         rc.on_definition(|c| {
             //println!("Last string was {}", c.last_string);
             assert_eq!(c.last_string, String::from("MsgTest"));
+        });
+
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    struct TimerRecvComponent {
+        ctx: ComponentContext<TimerRecvComponent>,
+        last_string: String,
+    }
+
+    impl TimerRecvComponent {
+        fn new() -> TimerRecvComponent {
+            TimerRecvComponent {
+                ctx: ComponentContext::new(),
+                last_string: String::from("none ;("),
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for TimerRecvComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    println!("Starting TimerRecvComponent");
+                    self.schedule_once(Duration::from_millis(100), |self_c, _| {
+                        self_c.last_string = String::from("TimerTest");
+                    });
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    #[test]
+    fn test_timer() -> () {
+        let system = KompicsSystem::default();
+        let trc = system.create(TimerRecvComponent::new);
+        system.start(&trc);
+
+        thread::sleep(Duration::from_millis(1000));
+
+        trc.on_definition(|c| {
+            //println!("Counter is {}", c.counter);
+            assert_eq!(c.last_string, "TimerTest");
         });
 
         system

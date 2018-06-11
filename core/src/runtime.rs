@@ -5,7 +5,7 @@ use oncemutex::OnceMutex;
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 
@@ -30,12 +30,21 @@ impl Debug for SCBuilder {
     }
 }
 
+type TimerBuilder = Fn() -> Box<TimerComponent>;
+
+impl Debug for TimerBuilder {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "<function>")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct KompicsConfig {
     label: String,
     throughput: usize,
     msg_priority: f32,
     threads: usize,
+    timer_builder: Rc<TimerBuilder>,
     scheduler_builder: Rc<SchedulerBuilder>,
     sc_builder: Rc<SCBuilder>,
 }
@@ -47,6 +56,7 @@ impl KompicsConfig {
             throughput: 1,
             msg_priority: 0.5,
             threads: 1,
+            timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
             scheduler_builder: Rc::new(|t| {
                 ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(t))
             }),
@@ -81,6 +91,15 @@ impl KompicsConfig {
     {
         let sb = move |t: usize| ExecutorScheduler::from(f(t));
         self.scheduler_builder = Rc::new(sb);
+        self
+    }
+
+    pub fn timer<T, F>(&mut self, f: F) -> &mut Self
+    where
+        T: TimerComponent + 'static,
+        F: Fn() -> Box<TimerComponent> + 'static,
+    {
+        self.timer_builder = Rc::new(f);
         self
     }
 
@@ -197,7 +216,9 @@ impl KompicsSystem {
     }
 
     pub fn shutdown(self) -> Result<(), String> {
-        self.scheduler.shutdown()
+        self.scheduler.shutdown()?;
+        self.inner.shutdown()?;
+        Ok(())
     }
 
     pub(crate) fn system_path(&self) -> SystemPath {
@@ -220,6 +241,12 @@ impl Dispatching for KompicsSystem {
     }
 }
 
+impl TimerRefFactory for KompicsSystem {
+    fn timer_ref(&self) -> timer::TimerRef {
+        self.inner.timer_ref()
+    }
+}
+
 pub trait SystemComponents: Send + Sync {
     fn deadletter_ref(&self) -> ActorRef;
     fn dispatcher_ref(&self) -> ActorRef;
@@ -227,11 +254,16 @@ pub trait SystemComponents: Send + Sync {
     fn start(&self, &KompicsSystem) -> ();
 }
 
+pub trait TimerComponent: TimerRefFactory {
+    fn shutdown(&self) -> Result<(), String>;
+}
+
 //#[derive(Clone)]
 struct KompicsRuntime {
     label: String,
     throughput: usize,
     max_messages: usize,
+    timer: Box<TimerComponent>,
     system_components: OnceMutex<Option<Box<SystemComponents>>>,
 }
 
@@ -242,6 +274,7 @@ impl KompicsRuntime {
             label: conf.label,
             throughput: conf.throughput,
             max_messages: mm,
+            timer: (conf.timer_builder)(),
             system_components: OnceMutex::new(None),
         }
     }
@@ -279,6 +312,13 @@ impl KompicsRuntime {
             None => panic!("KompicsRuntime was not properly initialised!"),
         }
     }
+    fn timer_ref(&self) -> timer::TimerRef {
+        self.timer.timer_ref()
+    }
+
+    pub fn shutdown(&self) -> Result<(), String> {
+        self.timer.shutdown()
+    }
 }
 
 impl Default for KompicsRuntime {
@@ -287,6 +327,7 @@ impl Default for KompicsRuntime {
             label: default_runtime_label(),
             throughput: 50,
             max_messages: 25,
+            timer: DefaultTimer::new_timer_component(),
             system_components: OnceMutex::new(None),
         }
     }
