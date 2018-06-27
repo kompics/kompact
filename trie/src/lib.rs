@@ -90,6 +90,30 @@ where
         }
         Some(cur)
     }
+
+    /// Retrieves a mutable reference to the value at the final key in `keys`, if it exists.
+    pub fn find_mut<IK>(&mut self, keys: IK) -> Option<&mut V>
+        where
+            IK: IntoIterator<Item = K>,
+    {
+        self.find_node_mut(keys).and_then(|node| node.value_mut())
+    }
+
+    /// Retrieves a mutable reference to the trie node at the final key in `keys`, if it exists.
+    pub fn find_node_mut<IK>(&mut self, keys: IK) -> Option<&mut Trie<K, V>>
+        where
+            IK: IntoIterator<Item = K>,
+    {
+        let mut cur = Some(self);
+        for key in keys {
+            match cur.and_then(|node| node.children.get_mut(&key)) {
+                None => return None,
+                Some(next) => cur = Some(next),
+            }
+        }
+        cur
+    }
+
 }
 
 #[cfg(test)]
@@ -120,5 +144,19 @@ mod tests {
         assert_eq!(t.contains_keys(vec!["a", "b"]), true);
         assert_eq!(t.contains_keys(vec!["a", "b", "c"]), true);
         assert_eq!(t.contains_keys(vec!["a", "b", "d"]), false);
+    }
+
+    #[test]
+    fn creation_and_insertion_mut() {
+        let mut t = Trie::new();
+
+        t.insert(vec!["a", "b", "c"], 10);
+
+        assert_eq!(t.find(vec!["a", "b", "c"]), Some(&10));
+
+        t.find_mut(vec!["a", "b", "c"]).map(|val| {
+            *val = 99;
+        });
+        assert_eq!(t.find(vec!["a", "b", "c"]), Some(&99));
     }
 }
