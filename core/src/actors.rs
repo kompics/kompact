@@ -11,10 +11,10 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 use uuid::Uuid;
 
 use super::*;
-use messaging::ReceiveEnvelope;
+use messaging::CastEnvelope;
 use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
-use messaging::CastEnvelope;
+use messaging::ReceiveEnvelope;
 
 pub trait ActorRaw: ExecuteSend {
     fn receive(&mut self, env: ReceiveEnvelope) -> ();

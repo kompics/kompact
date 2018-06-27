@@ -1,10 +1,10 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
 use actors::ActorPath;
-use serialisation::Serialisable;
 use actors::ActorRef;
-use std::any::Any;
 use bytes::Bytes;
+use serialisation::Serialisable;
+use std::any::Any;
 
 #[derive(Debug)]
 pub enum MsgEnvelope {

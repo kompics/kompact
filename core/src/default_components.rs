@@ -1,8 +1,8 @@
 use super::*;
 use bytes::Buf;
+use messaging::DispatchEnvelope;
 use std::any::Any;
 use std::sync::Arc;
-use messaging::DispatchEnvelope;
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -40,7 +40,7 @@ impl SystemComponents for DefaultComponents {
 }
 
 pub(crate) struct DefaultTimer {
-    inner: timer::TimerWithThread
+    inner: timer::TimerWithThread,
 }
 
 impl DefaultTimer {
@@ -63,7 +63,9 @@ impl TimerRefFactory for DefaultTimer {
 }
 impl TimerComponent for DefaultTimer {
     fn shutdown(&self) -> Result<(), String> {
-        self.inner.shutdown_async().map_err(|e| format!("Error during timer shutdown: {:?}", e))
+        self.inner
+            .shutdown_async()
+            .map_err(|e| format!("Error during timer shutdown: {:?}", e))
     }
 }
 

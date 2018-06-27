@@ -25,8 +25,8 @@ pub use self::lifecycle::*;
 pub use self::ports::*;
 pub use self::runtime::*;
 pub use self::serialisation::*;
-pub use self::utils::*;
 pub use self::timer_manager::*;
+pub use self::utils::*;
 pub use actor_derive::*;
 pub use component_definition_derive::*;
 pub use std::convert::{From, Into};
@@ -43,9 +43,9 @@ mod messaging;
 mod ports;
 mod runtime;
 mod serialisation;
-mod utils;
-mod timer_manager;
 pub mod timer;
+mod timer_manager;
+mod utils;
 
 #[cfg(test)]
 mod tests {

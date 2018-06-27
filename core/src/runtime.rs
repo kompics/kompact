@@ -1,14 +1,14 @@
 use super::*;
 
 use executors::*;
+use messaging::DispatchEnvelope;
+use messaging::MsgEnvelope;
+use messaging::RegistrationEnvelope;
 use oncemutex::OnceMutex;
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 use std::sync::Arc;
-use messaging::MsgEnvelope;
-use messaging::DispatchEnvelope;
-use messaging::RegistrationEnvelope;
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 

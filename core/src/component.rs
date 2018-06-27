@@ -7,8 +7,8 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::*;
-use messaging::MsgEnvelope;
 use messaging::DispatchEnvelope;
+use messaging::MsgEnvelope;
 use messaging::ReceiveEnvelope;
 
 pub trait CoreContainer: Send + Sync {
@@ -22,7 +22,6 @@ pub trait CoreContainer: Send + Sync {
         self.core().system().clone()
     }
 }
-
 
 pub struct Component<C: ComponentDefinition + Sized + 'static> {
     core: ComponentCore,
@@ -91,14 +90,19 @@ where
     }
 }
 
-impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
+impl<CD> Timer<CD> for CD
+where
+    CD: ComponentDefinition + 'static,
+{
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut CD, Uuid) + 'static {
-            let ctx = self.ctx_mut();
-            let component = ctx.component();
-            ctx.timer_manager_mut().schedule_once(Arc::downgrade(&component), timeout, action)
-        }
+        F: FnOnce(&mut CD, Uuid) + 'static,
+    {
+        let ctx = self.ctx_mut();
+        let component = ctx.component();
+        ctx.timer_manager_mut()
+            .schedule_once(Arc::downgrade(&component), timeout, action)
+    }
 
     fn schedule_periodic<F>(
         &mut self,
@@ -107,11 +111,13 @@ impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut CD, Uuid) + 'static {
-            let mut ctx = self.ctx_mut();
-            let component = ctx.component();
-            ctx.timer_manager_mut().schedule_periodic(Arc::downgrade(&component), delay, period, action)
-        }
+        F: Fn(&mut CD, Uuid) + 'static,
+    {
+        let mut ctx = self.ctx_mut();
+        let component = ctx.component();
+        ctx.timer_manager_mut()
+            .schedule_periodic(Arc::downgrade(&component), delay, period, action)
+    }
 
     fn cancel_timer(&mut self, handle: ScheduledTimer) {
         let ctx = self.ctx_mut();
