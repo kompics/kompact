@@ -1,0 +1,7 @@
+[package]
+name = "trie"
+description = "Simple trie implementation for storing values at locations in sequences"
+version = "0.1.0"
+authors = ["Johan Mickos <johan.mickos@gmail.com>"]
+
+[dependencies]
