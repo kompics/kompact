@@ -31,11 +31,15 @@ pub use actor_derive::*;
 pub use component_definition_derive::*;
 pub use std::convert::{From, Into};
 
+// TODO figure out how to automatically have this in scope when using #[derive(Actor)]
+pub use messaging::ReceiveEnvelope;
+
 mod actors;
 mod component;
 mod default_components;
 mod default_serialisers;
 mod lifecycle;
+mod messaging;
 mod ports;
 mod runtime;
 mod serialisation;

@@ -2,6 +2,7 @@ use super::*;
 use bytes::Buf;
 use std::any::Any;
 use std::sync::Arc;
+use messaging::DispatchEnvelope;
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -181,7 +182,7 @@ impl Actor for LocalDispatcher {
 }
 
 impl Dispatcher for LocalDispatcher {
-    fn receive(&mut self, env: SendEnvelope) -> () {
+    fn receive(&mut self, env: DispatchEnvelope) -> () {
         println!(
             "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
             env

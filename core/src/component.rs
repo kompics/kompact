@@ -7,6 +7,9 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::*;
+use messaging::MsgEnvelope;
+use messaging::DispatchEnvelope;
+use messaging::ReceiveEnvelope;
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;
@@ -117,7 +120,7 @@ impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
 }
 
 pub trait ExecuteSend {
-    fn execute_send(&mut self, env: SendEnvelope) -> () {
+    fn execute_send(&mut self, env: DispatchEnvelope) -> () {
         panic!("Sent messages should go to the dispatcher! {:?}", env);
     }
 }
@@ -125,7 +128,7 @@ pub trait ExecuteSend {
 impl<A: ActorRaw> ExecuteSend for A {}
 
 impl<D: Dispatcher + ActorRaw> ExecuteSend for D {
-    fn execute_send(&mut self, env: SendEnvelope) -> () {
+    fn execute_send(&mut self, env: DispatchEnvelope) -> () {
         Dispatcher::receive(self, env)
     }
 }
@@ -180,11 +183,11 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     if let Some(env) = self.msg_queue.try_pop() {
                         match env {
                             MsgEnvelope::Receive(renv) => guard.receive(renv),
-                            MsgEnvelope::Send(SendEnvelope::Cast(cenv)) => {
+                            MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
                                 let renv = ReceiveEnvelope::Cast(cenv);
                                 guard.receive(renv);
                             }
-                            MsgEnvelope::Send(senv @ SendEnvelope::Msg { .. }) => {
+                            MsgEnvelope::Dispatch(senv) => {
                                 guard.execute_send(senv);
                             }
                         }
@@ -205,11 +208,11 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                         if let Some(env) = self.msg_queue.try_pop() {
                             match env {
                                 MsgEnvelope::Receive(renv) => guard.receive(renv),
-                                MsgEnvelope::Send(SendEnvelope::Cast(cenv)) => {
+                                MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
                                     let renv = ReceiveEnvelope::Cast(cenv);
                                     guard.receive(renv);
                                 }
-                                MsgEnvelope::Send(senv @ SendEnvelope::Msg { .. }) => {
+                                MsgEnvelope::Dispatch(senv) => {
                                     guard.execute_send(senv);
                                 }
                             }

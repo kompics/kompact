@@ -11,13 +11,17 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 use uuid::Uuid;
 
 use super::*;
+use messaging::ReceiveEnvelope;
+use messaging::DispatchEnvelope;
+use messaging::MsgEnvelope;
+use messaging::CastEnvelope;
 
 pub trait ActorRaw: ExecuteSend {
     fn receive(&mut self, env: ReceiveEnvelope) -> ();
 }
 
 pub trait Dispatcher: ExecuteSend {
-    fn receive(&mut self, env: SendEnvelope) -> ();
+    fn receive(&mut self, env: DispatchEnvelope) -> ();
     fn system_path(&mut self) -> SystemPath;
 }
 
@@ -41,39 +45,6 @@ where
             } => self.receive_message(src, ser_id, &mut data.into_buf()),
         }
     }
-}
-
-#[derive(Debug)]
-pub enum MsgEnvelope {
-    Send(SendEnvelope),
-    Receive(ReceiveEnvelope),
-}
-
-#[derive(Debug)]
-pub struct CastEnvelope {
-    src: ActorRef,
-    v: Box<Any>,
-}
-
-#[derive(Debug)]
-pub enum SendEnvelope {
-    Cast(CastEnvelope),
-    Msg {
-        src: ActorPath,
-        dst: ActorPath,
-        msg: Box<Serialisable>,
-    },
-}
-
-#[derive(Debug)]
-pub enum ReceiveEnvelope {
-    Cast(CastEnvelope),
-    Msg {
-        src: ActorPath,
-        dst: ActorPath,
-        ser_id: u64,
-        data: Bytes,
-    },
 }
 
 pub trait ActorRefFactory {
@@ -132,11 +103,11 @@ impl ActorRef {
         S: ActorRefFactory,
     {
         let bany: Box<Any> = v as Box<Any>;
-        let env = SendEnvelope::Cast(CastEnvelope {
+        let env = DispatchEnvelope::Cast(CastEnvelope {
             src: from.actor_ref(),
             v: bany,
         });
-        self.enqueue(MsgEnvelope::Send(env))
+        self.enqueue(MsgEnvelope::Dispatch(env))
     }
 }
 
@@ -312,8 +283,8 @@ impl ActorPath {
         let msg: Box<Serialisable> = m.into();
         let src = from.actor_path();
         let dst = self.clone();
-        let env = SendEnvelope::Msg { src, dst, msg };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Send(env))
+        let env = DispatchEnvelope::Msg { src, dst, msg };
+        from.dispatcher_ref().enqueue(MsgEnvelope::Dispatch(env))
     }
 }
 
