@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::mem;
 
+//  TODOs:
+//  - implement removal
+
 pub struct Trie<K, V> {
     value: Option<V>,
     children: HashMap<K, Trie<K, V>>,
@@ -14,35 +17,35 @@ impl<K, V> Trie<K, V>
 where
     K: Hash + Eq,
 {
+    /// Creates a new trie with default capacity.
     pub fn new() -> Self {
         Trie {
             value: None,
             children: HashMap::new(),
         }
     }
-    pub fn with_capacity(capacity: usize) -> Self {
-        Trie {
-            value: None,
-            children: HashMap::with_capacity(capacity),
-        }
-    }
 
+    /// Returns a reference to this node's value.
     pub fn value(&self) -> Option<&V> {
         self.value.as_ref()
     }
 
+    /// Returns a mutable reference to this node's value.
     pub fn value_mut(&mut self) -> Option<&mut V> {
         self.value.as_mut()
     }
 
+    /// Returns true if this node has no children.
     pub fn is_leaf(&self) -> bool {
         self.children.is_empty()
     }
 
+    /// Returns true if this node is a leaf node and has no assigned value.
     pub fn is_empty(&self) -> bool {
         self.value.is_none() && self.is_leaf()
     }
 
+    /// Returns true if this trie contains all keys in `keys`.
     pub fn contains_keys<IK>(&self, keys: IK) -> bool
     where
         IK: IntoIterator<Item = K>,
@@ -50,6 +53,9 @@ where
         self.find_node(keys).is_some()
     }
 
+    /// Inserts `value` at the last element in `keys`. If a value existed previously, it is returned.
+    ///
+    /// If any of the elements in `keys` does not yet exist, a node will be created for it.
     pub fn insert<IK>(&mut self, keys: IK, value: V) -> Option<V>
     where
         IK: IntoIterator<Item = K>,
@@ -62,6 +68,7 @@ where
         mem::replace(&mut value_node.value, Some(value))
     }
 
+    /// Retrieves a reference to the value at the final key in `keys`, if it exists.
     pub fn find<IK>(&self, keys: IK) -> Option<&V>
     where
         IK: IntoIterator<Item = K>,
@@ -69,6 +76,7 @@ where
         self.find_node(keys).and_then(|node| node.value())
     }
 
+    /// Retrieves the trie node at the final key in `keys`, if it exists.
     pub fn find_node<IK>(&self, keys: IK) -> Option<&Trie<K, V>>
     where
         IK: IntoIterator<Item = K>,
