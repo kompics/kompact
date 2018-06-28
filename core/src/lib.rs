@@ -17,6 +17,7 @@ extern crate uuid;
 extern crate component_definition_derive;
 #[macro_use]
 extern crate actor_derive;
+extern crate sequence_trie as trie;
 
 pub use self::actors::*;
 pub use self::component::*;
