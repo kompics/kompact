@@ -148,6 +148,20 @@ pub enum Transport {
     UDP,
 }
 
+// impl Transport
+impl Transport {
+    pub fn is_local(&self) -> bool {
+        match *self {
+            Transport::LOCAL => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_remote(&self) -> bool {
+        !self.is_local()
+    }
+}
+
 impl fmt::Display for Transport {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -361,6 +375,14 @@ impl UniquePath {
             id,
         }
     }
+
+    pub fn uuid_ref(&self) ->  &Uuid {
+        &self.id
+    }
+
+    pub fn clone_id(&self) -> Uuid {
+        self.id.clone()
+    }
 }
 
 impl TryFrom<String> for UniquePath {
@@ -404,6 +426,12 @@ impl NamedPath {
             system: SystemPath::with_socket(protocol, socket),
             path,
         }
+    }
+
+    pub fn path_ref(&self) -> &Vec<String> { &self.path }
+
+    pub fn clone_path(&self) -> Vec<String> {
+        self.path.clone()
     }
 }
 
