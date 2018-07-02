@@ -228,6 +228,9 @@ mod dispatch_tests {
 
         reference.tell("Network me, dispatch!", &system);
 
+        // Sleep; allow the system to progress
+        thread::sleep_ms(1000);
+
         match system.shutdown() {
             Ok(_) => println!("Successful shutdown"),
             Err(_) => println!("Error shutting down system"),
