@@ -165,7 +165,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                 while let Some(event) = self.ctrl_queue.try_pop() {
                     // TODO implement lifecycle
                     // ignore max_events for lifecyle events
-                    //println!("Executing event: {:?}", event);
+                    // println!("Executing event: {:?}", event);
                     guard.handle(event);
                     count += 1;
                 }

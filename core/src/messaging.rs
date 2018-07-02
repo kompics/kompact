@@ -23,8 +23,8 @@ pub struct CastEnvelope {
 /// Used for registering and deregistering an [ActorPath](actors::ActorPath) with a name.
 #[derive(Debug)]
 pub enum RegistrationEnvelope {
-    Register(ActorPath),
-    Deregister(ActorPath),
+    Register(ActorRef),
+    Deregister(ActorRef),
 }
 
 #[derive(Debug)]

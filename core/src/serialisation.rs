@@ -21,7 +21,10 @@ pub trait Serialiser<T> {
 
 pub trait Serialisable: Debug {
     fn id(&self) -> u64;
+    /// Provides a suggested serialized size if possible, returning None otherwise.
     fn size_hint(&self) -> Option<usize>;
+
+    /// Serialises this object into `buf`, returning a `SerError` if unsuccessful.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError>;
 }
 

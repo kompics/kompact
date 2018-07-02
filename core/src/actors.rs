@@ -132,15 +132,6 @@ impl fmt::Display for ActorRef {
     }
 }
 
-//pub trait SendEnvelope: Debug {
-//
-//}
-
-//pub enum Envelope {
-//    SendEnvelope(),
-//    ReceiveEnvelope(),
-//}
-
 #[derive(Copy, Clone, Debug)]
 pub enum Transport {
     LOCAL,
@@ -376,7 +367,7 @@ impl UniquePath {
         }
     }
 
-    pub fn uuid_ref(&self) ->  &Uuid {
+    pub fn uuid_ref(&self) -> &Uuid {
         &self.id
     }
 
@@ -428,7 +419,9 @@ impl NamedPath {
         }
     }
 
-    pub fn path_ref(&self) -> &Vec<String> { &self.path }
+    pub fn path_ref(&self) -> &Vec<String> {
+        &self.path
+    }
 
     pub fn clone_path(&self) -> Vec<String> {
         self.path.clone()
@@ -476,8 +469,6 @@ impl FromStr for NamedPath {
 mod tests {
 
     use std::{thread, time};
-    //use futures::{Future, future};
-    //use futures_cpupool::CpuPool;
     use super::*;
     use bytes::Buf;
     use std::any::Any;

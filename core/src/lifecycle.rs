@@ -10,6 +10,6 @@ pub enum ControlEvent {
 pub struct ControlPort;
 
 impl Port for ControlPort {
-    type Request = ControlEvent;
     type Indication = ();
+    type Request = ControlEvent;
 }

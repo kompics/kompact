@@ -106,7 +106,11 @@ impl KompicsConfig {
         self
     }
 
-    pub fn system_components<B, C, FB, FC>(&mut self, fb: FB, fc: FC) -> &mut Self
+    pub fn system_components<B, C, FB, FC>(
+        &mut self,
+        deadletter_fn: FB,
+        dispatcher_fn: FC,
+    ) -> &mut Self
     where
         B: ComponentDefinition + Sized + 'static,
         C: ComponentDefinition + Sized + 'static + Dispatcher,
@@ -114,11 +118,12 @@ impl KompicsConfig {
         FC: Fn() -> C + 'static,
     {
         let sb = move |system: &KompicsSystem| {
-            let dbc = system.create(&fb);
-            let ldc = system.create(&fc);
+            let deadletter_box = system.create(&deadletter_fn);
+            let dispatcher = system.create(&dispatcher_fn);
+
             let cc = CustomComponents {
-                deadletter_box: dbc,
-                dispatcher: ldc,
+                deadletter_box,
+                dispatcher,
             };
             Box::new(cc) as Box<SystemComponents>
         };
