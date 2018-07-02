@@ -196,6 +196,17 @@ impl KompicsSystem {
         return c;
     }
 
+    pub fn create_and_register<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        let c = self.create(f);
+        let actor = c.actor_ref();
+        self.inner.register_actor_ref(actor);
+        c
+    }
+
     pub fn start<C>(&self, c: &Arc<Component<C>>) -> ()
     where
         C: ComponentDefinition + 'static,
@@ -223,6 +234,7 @@ impl KompicsSystem {
         self.inner.max_messages
     }
 
+    // TODO add shutdown_on_idle() to block the current thread until the system has nothing more to do
     pub fn shutdown(self) -> Result<(), String> {
         self.scheduler.shutdown()?;
         self.inner.shutdown()?;
@@ -300,6 +312,24 @@ impl KompicsRuntime {
             Some(ref sc) => sc.start(system),
             None => panic!("KompicsRuntime was not properly initialised!"),
         }
+    }
+
+    fn register_actor_ref(&self, actor_ref: ActorRef) -> () {
+        println!("[KompicsRuntime] Registering actor at {:?}", actor_ref);
+        let dispatcher = self.dispatcher_ref();
+        let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
+            RegistrationEnvelope::Register(actor_ref),
+        ));
+        dispatcher.enqueue(envelope);
+    }
+
+    fn deregister_actor(&self, actor_ref: ActorRef) -> () {
+        println!("[KompicsRuntime] Deregistering actor at {:?}", actor_ref);
+        let dispatcher = self.dispatcher_ref();
+        let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
+            RegistrationEnvelope::Deregister(actor_ref),
+        ));
+        dispatcher.enqueue(envelope);
     }
 
     fn deadletter_ref(&self) -> ActorRef {
