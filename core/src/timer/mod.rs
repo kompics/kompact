@@ -6,13 +6,13 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use uuid::Uuid;
 
-pub use self::wheels::*;
 pub use self::simulation::*;
 pub use self::thread_timer::*;
+pub use self::wheels::*;
 
-mod wheels;
 mod simulation;
 mod thread_timer;
+mod wheels;
 
 pub trait Timer {
     fn schedule_once<F>(&mut self, id: Uuid, timeout: Duration, action: F) -> ()
@@ -199,10 +199,10 @@ mod tests {
                 let elap = now.elapsed().as_nanos();
                 let target = timeout.as_nanos();
                 if (elap > target) {
-                    let diff = ((elap - target) as f64)/1000000.0;
+                    let diff = ((elap - target) as f64) / 1000000.0;
                     println!("Running action {} {}ms late", i, diff);
                 } else {
-                    let diff = ((target - elap) as f64)/1000000.0;
+                    let diff = ((target - elap) as f64) / 1000000.0;
                     println!("Running action {} {}ms early", i, diff);
                 }
                 let mut guard = barrier.lock().unwrap();
@@ -211,7 +211,9 @@ mod tests {
         }
         println!("Waiting timing run to finish {}ms", total_wait);
         thread::sleep(Duration::from_millis(total_wait));
-        timer_core.shutdown().expect("Timer didn't shutdown properly!");
+        timer_core
+            .shutdown()
+            .expect("Timer didn't shutdown properly!");
         println!("Timing run done!");
         for b in barriers {
             let guard = b.lock().unwrap();

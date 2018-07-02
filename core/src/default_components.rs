@@ -1,5 +1,6 @@
 use super::*;
 use bytes::Buf;
+use messaging::DispatchEnvelope;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -39,7 +40,7 @@ impl SystemComponents for DefaultComponents {
 }
 
 pub(crate) struct DefaultTimer {
-    inner: timer::TimerWithThread
+    inner: timer::TimerWithThread,
 }
 
 impl DefaultTimer {
@@ -62,7 +63,9 @@ impl TimerRefFactory for DefaultTimer {
 }
 impl TimerComponent for DefaultTimer {
     fn shutdown(&self) -> Result<(), String> {
-        self.inner.shutdown_async().map_err(|e| format!("Error during timer shutdown: {:?}", e))
+        self.inner
+            .shutdown_async()
+            .map_err(|e| format!("Error during timer shutdown: {:?}", e))
     }
 }
 
@@ -181,7 +184,7 @@ impl Actor for LocalDispatcher {
 }
 
 impl Dispatcher for LocalDispatcher {
-    fn receive(&mut self, env: SendEnvelope) -> () {
+    fn receive(&mut self, env: DispatchEnvelope) -> () {
         println!(
             "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
             env

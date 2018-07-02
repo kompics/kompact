@@ -21,7 +21,10 @@ pub trait Serialiser<T> {
 
 pub trait Serialisable: Debug {
     fn id(&self) -> u64;
+    /// Provides a suggested serialized size if possible, returning None otherwise.
     fn size_hint(&self) -> Option<usize>;
+
+    /// Serialises this object into `buf`, returning a `SerError` if unsuccessful.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError>;
 }
 
@@ -112,6 +115,41 @@ impl<T> Deserialisable<T> for Box<T> {
     }
     fn get_deserialised(self) -> Result<T, SerError> {
         Ok(*self)
+    }
+}
+
+pub mod helpers {
+    use actors::ActorPath;
+    use bytes::BytesMut;
+    use messaging::MsgEnvelope;
+    use serialisation::SerError;
+    use serialisation::Serialisable;
+    use ReceiveEnvelope;
+
+    /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
+    /// according to the message's size hint. The message's serialized data is stored in this buffer.
+    pub fn serialise_to_recv_envelope(
+        src: ActorPath,
+        dst: ActorPath,
+        msg: Box<Serialisable>,
+    ) -> Result<MsgEnvelope, SerError> {
+        if let Some(size) = msg.size_hint() {
+            let mut buf = BytesMut::with_capacity(size);
+            match msg.serialise(&mut buf) {
+                Ok(_) => {
+                    let envelope = MsgEnvelope::Receive(ReceiveEnvelope::Msg {
+                        src,
+                        dst,
+                        ser_id: msg.id(),
+                        data: buf.freeze(),
+                    });
+                    Ok(envelope)
+                }
+                Err(ser_err) => Err(ser_err),
+            }
+        } else {
+            Err(SerError::Unknown("Unknown serialisation size".into()))
+        }
     }
 }
 

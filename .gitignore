@@ -33,3 +33,10 @@ local.properties
 # Sublime Text Stuff
 *.sublime-project
 *.sublime-workspace
+
+### JetBrains-related ignores ###
+# Global JetBrains IDE ignore
+.idea/
+
+# File-based project format
+*.iws

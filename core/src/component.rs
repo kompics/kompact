@@ -7,6 +7,9 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::*;
+use messaging::DispatchEnvelope;
+use messaging::MsgEnvelope;
+use messaging::ReceiveEnvelope;
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;
@@ -19,7 +22,6 @@ pub trait CoreContainer: Send + Sync {
         self.core().system().clone()
     }
 }
-
 
 pub struct Component<C: ComponentDefinition + Sized + 'static> {
     core: ComponentCore,
@@ -88,14 +90,19 @@ where
     }
 }
 
-impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
+impl<CD> Timer<CD> for CD
+where
+    CD: ComponentDefinition + 'static,
+{
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut CD, Uuid) + 'static {
-            let ctx = self.ctx_mut();
-            let component = ctx.component();
-            ctx.timer_manager_mut().schedule_once(Arc::downgrade(&component), timeout, action)
-        }
+        F: FnOnce(&mut CD, Uuid) + 'static,
+    {
+        let ctx = self.ctx_mut();
+        let component = ctx.component();
+        ctx.timer_manager_mut()
+            .schedule_once(Arc::downgrade(&component), timeout, action)
+    }
 
     fn schedule_periodic<F>(
         &mut self,
@@ -104,11 +111,13 @@ impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut CD, Uuid) + 'static {
-            let mut ctx = self.ctx_mut();
-            let component = ctx.component();
-            ctx.timer_manager_mut().schedule_periodic(Arc::downgrade(&component), delay, period, action)
-        }
+        F: Fn(&mut CD, Uuid) + 'static,
+    {
+        let mut ctx = self.ctx_mut();
+        let component = ctx.component();
+        ctx.timer_manager_mut()
+            .schedule_periodic(Arc::downgrade(&component), delay, period, action)
+    }
 
     fn cancel_timer(&mut self, handle: ScheduledTimer) {
         let ctx = self.ctx_mut();
@@ -117,7 +126,7 @@ impl<CD> Timer<CD> for CD where CD: ComponentDefinition + 'static {
 }
 
 pub trait ExecuteSend {
-    fn execute_send(&mut self, env: SendEnvelope) -> () {
+    fn execute_send(&mut self, env: DispatchEnvelope) -> () {
         panic!("Sent messages should go to the dispatcher! {:?}", env);
     }
 }
@@ -125,7 +134,7 @@ pub trait ExecuteSend {
 impl<A: ActorRaw> ExecuteSend for A {}
 
 impl<D: Dispatcher + ActorRaw> ExecuteSend for D {
-    fn execute_send(&mut self, env: SendEnvelope) -> () {
+    fn execute_send(&mut self, env: DispatchEnvelope) -> () {
         Dispatcher::receive(self, env)
     }
 }
@@ -156,7 +165,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                 while let Some(event) = self.ctrl_queue.try_pop() {
                     // TODO implement lifecycle
                     // ignore max_events for lifecyle events
-                    //println!("Executing event: {:?}", event);
+                    // println!("Executing event: {:?}", event);
                     guard.handle(event);
                     count += 1;
                 }
@@ -180,11 +189,11 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     if let Some(env) = self.msg_queue.try_pop() {
                         match env {
                             MsgEnvelope::Receive(renv) => guard.receive(renv),
-                            MsgEnvelope::Send(SendEnvelope::Cast(cenv)) => {
+                            MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
                                 let renv = ReceiveEnvelope::Cast(cenv);
                                 guard.receive(renv);
                             }
-                            MsgEnvelope::Send(senv @ SendEnvelope::Msg { .. }) => {
+                            MsgEnvelope::Dispatch(senv) => {
                                 guard.execute_send(senv);
                             }
                         }
@@ -205,11 +214,11 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                         if let Some(env) = self.msg_queue.try_pop() {
                             match env {
                                 MsgEnvelope::Receive(renv) => guard.receive(renv),
-                                MsgEnvelope::Send(SendEnvelope::Cast(cenv)) => {
+                                MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
                                     let renv = ReceiveEnvelope::Cast(cenv);
                                     guard.receive(renv);
                                 }
-                                MsgEnvelope::Send(senv @ SendEnvelope::Msg { .. }) => {
+                                MsgEnvelope::Dispatch(senv) => {
                                     guard.execute_send(senv);
                                 }
                             }

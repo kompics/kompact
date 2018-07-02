@@ -83,7 +83,9 @@ impl TimerWithThread {
     }
 
     pub fn shutdown_async(&self) -> Result<(), ThreadTimerError> {
-        self.work_queue.send(TimerMsg::Stop).map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
+        self.work_queue
+            .send(TimerMsg::Stop)
+            .map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
     }
 }
 
@@ -133,7 +135,7 @@ impl TimerThread {
                         // nothing to tick and nothing in the queue
                         match self.timer.can_skip() {
                             Skip::None => {
-                            	thread::yield_now();
+                                thread::yield_now();
                                 // if last_check.elapsed().as_nanos() > 800000 {
                                 //     // if more than 8/10ms left
                                 //     thread::yield_now(); // just let someone else run until the next tick
@@ -145,9 +147,9 @@ impl TimerThread {
                                 // since all times in there are relative
                                 match self.work_queue.recv() {
                                     Ok(msg) => {
-                                    	self.reset(); // since we waited for an arbitrary time and taking a new timestamp incures no error
-                                    	self.handle_msg(msg)
-                                    },
+                                        self.reset(); // since we waited for an arbitrary time and taking a new timestamp incures no error
+                                        self.handle_msg(msg)
+                                    }
                                     Err(mpsc::RecvError) => {
                                         panic!("Timer work_queue unexpectedly shut down!")
                                     }
@@ -156,7 +158,7 @@ impl TimerThread {
                             Skip::Millis(ms) if ms > 5 => {
                                 let ms = ms - 5; // balance OS scheduler inaccuracy
                                 println!("Trying to wait {}ms for messages.", ms);
-                                                 // wait until something is scheduled but max skip
+                                // wait until something is scheduled but max skip
                                 let res = self
                                     .work_queue
                                     .recv_timeout(Duration::from_millis(ms as u64));
@@ -186,7 +188,7 @@ impl TimerThread {
                                 }
                             }
                             Skip::Millis(ms) => {
-                            	thread::yield_now();
+                                thread::yield_now();
                                 // if last_check.elapsed().as_nanos() > 800000 {
                                 //     // if more than 8/10ms left
                                 //     thread::yield_now(); // just let someone else run until the next tick
@@ -204,16 +206,16 @@ impl TimerThread {
 
     #[inline(always)]
     fn elapsed(&mut self) -> u128 {
-    	let elap = self.start.elapsed().as_millis();
-    	let rel_elap = elap - self.last_check;
-    	self.last_check = elap;
-    	rel_elap
+        let elap = self.start.elapsed().as_millis();
+        let rel_elap = elap - self.last_check;
+        self.last_check = elap;
+        rel_elap
     }
 
     #[inline(always)]
     fn reset(&mut self) {
-    	self.start = Instant::now();
-    	self.last_check = 0;
+        self.start = Instant::now();
+        self.last_check = 0;
     }
 
     #[inline(always)]

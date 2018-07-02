@@ -16,6 +16,7 @@ as_num = "0.2"
 num_cpus = "1.0"
 oncemutex = "0.1.1"
 serde = "1.0"
+sequence_trie = "0.3.5"
 
 [dependencies.bytes]
 git = "https://github.com/carllerche/bytes"
