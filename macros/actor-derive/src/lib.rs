@@ -5,7 +5,6 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use std::iter::Iterator;
 
 #[proc_macro_derive(Actor)]
 pub fn actor(input: TokenStream) -> TokenStream {
@@ -29,7 +28,7 @@ fn impl_actor(ast: &syn::DeriveInput) -> quote::Tokens {
     if let syn::Body::Struct(_) = ast.body {
         quote! {
             impl ActorRaw for #name {
-                fn receive(&mut self, env: ReceiveEnvelope) -> () {
+                fn receive(&mut self, env: messaging::ReceiveEnvelope) -> () {
                     println!("Got msg, but component isn't handling any: {:?}", env);
                 }
             }

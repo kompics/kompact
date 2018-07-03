@@ -183,7 +183,7 @@ mod tests {
     fn simple_thread_timing() {
         let num = 10usize;
         let mut barriers: Vec<Arc<Mutex<bool>>> = Vec::with_capacity(num);
-        let mut timer_core = TimerWithThread::new().expect("Timer thread didn't load properly!");
+        let timer_core = TimerWithThread::new().expect("Timer thread didn't load properly!");
         let mut timer = timer_core.timer_ref();
         let mut total_wait = 0u64;
         println!("Starting timing run.");

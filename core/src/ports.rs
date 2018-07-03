@@ -1,7 +1,6 @@
 use crossbeam::sync::MsQueue;
 use std::fmt::Debug;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Weak};
 
 use super::*;
 

@@ -5,7 +5,7 @@ use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
 use messaging::RegistrationEnvelope;
 use oncemutex::OnceMutex;
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Error, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 use std::sync::Arc;
@@ -28,7 +28,7 @@ impl Debug for SchedulerBuilder {
 type SCBuilder = Fn(&KompicsSystem) -> Box<SystemComponents>;
 
 impl Debug for SCBuilder {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "<function>")
     }
 }
@@ -36,7 +36,7 @@ impl Debug for SCBuilder {
 type TimerBuilder = Fn() -> Box<TimerComponent>;
 
 impl Debug for TimerBuilder {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "<function>")
     }
 }
@@ -207,11 +207,38 @@ impl KompicsSystem {
         c
     }
 
+    pub fn create_and_start<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        let c = self.create(f);
+        let actor = c.actor_ref();
+        self.inner.register_actor_ref(actor);
+        self.start(&c);
+        c
+    }
+
     pub fn start<C>(&self, c: &Arc<Component<C>>) -> ()
     where
         C: ComponentDefinition + 'static,
     {
         c.enqueue_control(ControlEvent::Start);
+    }
+
+    pub fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static,
+    {
+        c.enqueue_control(ControlEvent::Stop);
+    }
+
+    pub fn kill<C>(&self, c: Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static,
+    {
+        c.enqueue_control(ControlEvent::Kill);
+        self.inner.deregister_actor(c.actor_ref());
     }
 
     pub fn trigger_i<P: Port + 'static>(&self, msg: P::Indication, port: RequiredRef<P>) {
@@ -371,6 +398,12 @@ impl Default for KompicsRuntime {
     }
 }
 
+impl Debug for KompicsRuntime {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "KompicsRuntime({})", self.label)
+    }
+}
+
 pub trait Scheduler {
     fn schedule(&self, c: Arc<CoreContainer>) -> ();
     fn shutdown_async(&self) -> ();
@@ -390,9 +423,10 @@ struct ExecutorScheduler<E: Executor> {
 }
 
 impl<E: Executor + 'static> ExecutorScheduler<E> {
-    fn with(exec: E) -> ExecutorScheduler<E> {
-        ExecutorScheduler { exec }
-    }
+    // just to avoid warnings...uncomment if used
+    // fn with(exec: E) -> ExecutorScheduler<E> {
+    //     ExecutorScheduler { exec }
+    // }
     fn from(exec: E) -> Box<Scheduler> {
         Box::new(ExecutorScheduler { exec })
     }

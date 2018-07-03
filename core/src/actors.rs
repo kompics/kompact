@@ -1,4 +1,4 @@
-use bytes::{Buf, BufMut, Bytes, IntoBuf};
+use bytes::{Buf, IntoBuf};
 use crossbeam::sync::MsQueue;
 use std::any::Any;
 use std::convert::TryFrom;
@@ -7,7 +7,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::net::{AddrParseError, IpAddr, SocketAddr};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::Weak;
 use uuid::Uuid;
 
 use super::*;
@@ -446,7 +446,7 @@ impl TryFrom<String> for NamedPath {
 impl FromStr for NamedPath {
     type Err = PathParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut s1: Vec<&str> = s.split("://").collect();
+        let s1: Vec<&str> = s.split("://").collect();
         if s1.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
@@ -469,10 +469,6 @@ impl FromStr for NamedPath {
 mod tests {
 
     use super::*;
-    use bytes::Buf;
-    use std::any::Any;
-    use std::sync::Arc;
-    use std::{thread, time};
 
     const PATH: &'static str = "local://127.0.0.1:0/test_actor";
 
@@ -480,7 +476,7 @@ mod tests {
     fn actor_path_strings() {
         let mut settings = KompicsConfig::new();
         settings.label("my_system".to_string());
-        let system = KompicsSystem::new(settings);
+        //let system = KompicsSystem::new(settings);
         let ap = ActorPath::from_str(PATH);
         println!("Got ActorPath={}", ap.expect("a proper path"));
     }

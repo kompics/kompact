@@ -1,6 +1,6 @@
 use crossbeam::sync::MsQueue;
 use std::cell::RefCell;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
@@ -29,6 +29,7 @@ pub struct Component<C: ComponentDefinition + Sized + 'static> {
     ctrl_queue: Arc<MsQueue<<ControlPort as Port>::Request>>,
     msg_queue: Arc<MsQueue<MsgEnvelope>>,
     skip: AtomicUsize,
+    state: AtomicUsize,
 }
 
 impl<C: ComponentDefinition + Sized> Component<C> {
@@ -39,6 +40,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             ctrl_queue: Arc::new(MsQueue::new()),
             msg_queue: Arc::new(MsQueue::new()),
             skip: AtomicUsize::new(0),
+            state: lifecycle::initial_state(),
         }
     }
 
@@ -113,7 +115,7 @@ where
     where
         F: Fn(&mut CD, Uuid) + 'static,
     {
-        let mut ctx = self.ctx_mut();
+        let ctx = self.ctx_mut();
         let component = ctx.component();
         ctx.timer_manager_mut()
             .schedule_periodic(Arc::downgrade(&component), delay, period, action)
@@ -157,17 +159,45 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
         &self.core
     }
     fn execute(&self) -> () {
+        if (lifecycle::is_destroyed(&self.state)) {
+            return; // don't execute anything
+        }
         let max_events = self.core.system.throughput();
         let max_messages = self.core.system.max_messages();
         match self.definition().lock() {
             Ok(mut guard) => {
                 let mut count: usize = 0;
                 while let Some(event) = self.ctrl_queue.try_pop() {
-                    // TODO implement lifecycle
+                    match event {
+                        lifecycle::ControlEvent::Start => {
+                            lifecycle::set_active(&self.state);
+                            println!("Component({}) started.", self.core.id);
+                        }
+                        lifecycle::ControlEvent::Stop=> {
+                            lifecycle::set_passive(&self.state);
+                            println!("Component({}) stopped.", self.core.id);
+                        }
+                        lifecycle::ControlEvent::Kill=> {
+                            lifecycle::set_destroyed(&self.state);
+                            println!("Component({}) killed.", self.core.id);
+                        }
+                    }
                     // ignore max_events for lifecyle events
                     // println!("Executing event: {:?}", event);
                     guard.handle(event);
                     count += 1;
+                }
+                if (!lifecycle::is_active(&self.state)) {
+                    println!("Not running inactive scheduled Component({}).", self.core.id);                    
+                    match self.core.decrement_work(count) {
+                        SchedulingDecision::Schedule => {
+                            let system = self.core.system();
+                            let cc = self.core.component();
+                            system.schedule(cc);
+                        }
+                        _ => (), // ignore
+                    }       
+                    return;             
                 }
                 // timers have highest priority
                 while count < max_events {

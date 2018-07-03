@@ -1,3 +1,4 @@
+#![allow(unused_parens)]
 extern crate kompics;
 //#[macro_use]
 //extern crate component_definition_derive;
@@ -49,13 +50,13 @@ impl Provide<ControlPort> for Pinger {
 }
 
 impl Require<PingPongPort> for Pinger {
-    fn handle(&mut self, event: Pong) -> () {
+    fn handle(&mut self, _event: Pong) -> () {
         println!("Got a pong!");
     }
 }
 
 impl Provide<PingPongPort> for Pinger {
-    fn handle(&mut self, event: Ping) -> () {
+    fn handle(&mut self, _event: Ping) -> () {
         println!("Got a ping!");
     }
 }
@@ -68,7 +69,7 @@ fn main() {
         conf.throughput(5);
     }
     let system = KompicsSystem::new(conf);
-    let mut pingerc = system.create(move || Pinger::new());
+    let pingerc = system.create(move || Pinger::new());
     system.start(&pingerc);
     system.trigger_i(Pong, pingerc.on_definition(|cd| cd.ppp.share()));
     thread::sleep(time::Duration::from_millis(5000));

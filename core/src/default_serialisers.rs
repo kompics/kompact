@@ -1,6 +1,5 @@
 use super::*;
-use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
-use serde::{Serialize, Serializer};
+use bytes::{BufMut};
 
 mod serialisation_ids {
     pub const STR: u64 = 5;

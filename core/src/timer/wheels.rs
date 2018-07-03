@@ -1,5 +1,4 @@
 use super::*;
-use std::cmp;
 use std::collections::HashMap;
 use std::mem;
 use std::rc::{Rc, Weak};

@@ -64,7 +64,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                 //let ref ty = f.ty;
                 let handle = t.as_handle();
                 quote! {
-                    if (skip <= #i) {
+                    if skip <= #i {
                         if count >= max_events {
                             return ExecuteResult::new(count, #i);
                         }
@@ -96,13 +96,14 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                 }
             })
             .collect::<Vec<_>>();
-        quote! {
-            impl ComponentDefinition for #name {
-                fn setup(&mut self, self_component: Arc<Component<Self>>) -> () {
-                    #ctx_setup
-                    //println!("Setting up ports");
-                    #(#port_setup)*
+        let exec = if port_handles.is_empty() {
+            quote! {
+                fn execute(&mut self, _max_events: usize, _skip: usize) -> ExecuteResult {
+                    ExecuteResult::new(0, 0)
                 }
+            }
+        } else {
+            quote! {
                 fn execute(&mut self, max_events: usize, skip: usize) -> ExecuteResult {
                     let mut count: usize = 0;
                     let mut done_work = true; // might skip queues that have work
@@ -113,6 +114,16 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                     }
                     ExecuteResult::new(count, 0)
                 }
+            }
+        };
+        quote! {
+            impl ComponentDefinition for #name {
+                fn setup(&mut self, self_component: Arc<Component<Self>>) -> () {
+                    #ctx_setup
+                    //println!("Setting up ports");
+                    #(#port_setup)*
+                }
+                #exec
                 fn ctx_mut(&mut self) -> &mut ComponentContext<Self> {
                     &mut #ctx_access
                 }

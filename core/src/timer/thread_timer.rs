@@ -187,7 +187,7 @@ impl TimerThread {
                                     }
                                 }
                             }
-                            Skip::Millis(ms) => {
+                            Skip::Millis(_) => {
                                 thread::yield_now();
                                 // if last_check.elapsed().as_nanos() > 800000 {
                                 //     // if more than 8/10ms left

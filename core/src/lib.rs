@@ -32,16 +32,13 @@ pub use actor_derive::*;
 pub use component_definition_derive::*;
 pub use std::convert::{From, Into};
 
-// TODO figure out how to automatically have this in scope when using #[derive(Actor)]
-pub use messaging::*;
-
 mod actors;
 mod component;
-mod default_components;
+pub mod default_components;
 mod default_serialisers;
 mod dispatch;
 mod lifecycle;
-mod messaging;
+pub mod messaging;
 mod ports;
 mod runtime;
 mod serialisation;
@@ -57,7 +54,6 @@ mod tests {
     //use futures_cpupool::CpuPool;
     use super::*;
     use bytes::Buf;
-    use default_serialisers::*;
     use std::any::Any;
     use std::sync::Arc;
     use std::time::Duration;
@@ -130,8 +126,9 @@ mod tests {
             sender.tell(Box::new("Msg Received".to_string()), self);
             sender.actor_path().tell("Msg Received", self);
         }
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
-            // ignore
+        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+            eprintln!("Got unexpected message from {}", sender);
+            unimplemented!(); // shouldn't happen during the test
         }
     }
 
@@ -181,6 +178,8 @@ mod tests {
             c.test_port.connect(rctp);
             c.test_port.share()
         });
+        system.start(&tc);
+        system.start(&rc);
         let msg = Arc::new(1234);
         system.trigger_r(msg, tctp);
 
@@ -247,8 +246,7 @@ mod tests {
     #[test]
     fn test_timer() -> () {
         let system = KompicsSystem::default();
-        let trc = system.create(TimerRecvComponent::new);
-        system.start(&trc);
+        let trc = system.create_and_start(TimerRecvComponent::new);
 
         thread::sleep(Duration::from_millis(1000));
 
@@ -256,6 +254,96 @@ mod tests {
             //println!("Counter is {}", c.counter);
             assert_eq!(c.last_string, "TimerTest");
         });
+
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
+    }
+
+    #[derive(ComponentDefinition)]
+    struct CounterComponent {
+        ctx: ComponentContext<CounterComponent>,
+        msg_count: usize,
+    }
+
+    impl CounterComponent {
+        fn new() -> CounterComponent {
+            CounterComponent {
+                ctx: ComponentContext::new(),
+                msg_count: 0,
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for CounterComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    println!("Starting CounterComponent");
+                }
+                ControlEvent::Stop => {
+                    println!("Stopping CounterComponent");
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    impl Actor for CounterComponent {
+        fn receive_local(&mut self, _sender: ActorRef, _msg: Box<Any>) -> () {
+            println!("CounterComponent got a message!");
+            self.msg_count += 1;
+        }
+        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+            eprintln!("Got unexpected message from {}", sender);
+            unimplemented!(); // shouldn't happen during the test
+        }
+    }
+
+    #[test]
+    fn test_start_stop() -> () {
+        let system = KompicsSystem::default();
+        let cc = system.create_and_register(CounterComponent::new);
+        let ccref = cc.actor_ref();
+
+        ccref.tell(Box::new(String::from("MsgTest")), &system);
+
+        thread::sleep(Duration::from_millis(1000));
+
+        cc.on_definition(|c| {
+            println!("Counter is {}", c.msg_count);
+            assert_eq!(c.msg_count, 0); // not yet started
+        });
+
+        system.start(&cc);
+
+        thread::sleep(Duration::from_millis(1000));
+
+        cc.on_definition(|c| {
+            println!("Counter is {}", c.msg_count);
+            assert_eq!(c.msg_count, 1);
+        });
+
+        system.stop(&cc);
+        ccref.tell(Box::new(String::from("MsgTest")), &system);
+
+        thread::sleep(Duration::from_millis(1000));
+
+        cc.on_definition(|c| {
+            println!("Counter is {}", c.msg_count);
+            assert_eq!(c.msg_count, 1);
+        });
+
+        system.start(&cc);
+
+        thread::sleep(Duration::from_millis(1000));
+
+        cc.on_definition(|c| {
+            println!("Counter is {}", c.msg_count);
+            assert_eq!(c.msg_count, 2);
+        });
+
+        system.kill(cc);
 
         system
             .shutdown()

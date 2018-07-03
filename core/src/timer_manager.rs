@@ -77,7 +77,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
                     self.handles.insert(
                         timeout.0,
                         TimerHandle::Periodic {
-                            id: timeout.0,
+                            _id: timeout.0,
                             action,
                         },
                     );
@@ -101,7 +101,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::OneShot {
-            id,
+            _id: id,
             action: Box::new(action),
         };
         self.handles.insert(id, handle);
@@ -124,7 +124,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::Periodic {
-            id,
+            _id: id,
             action: Rc::new(action),
         };
         self.handles.insert(id, handle);
@@ -143,11 +143,11 @@ impl<C: ComponentDefinition> TimerManager<C> {
 
 pub(crate) enum TimerHandle<C: ComponentDefinition> {
     OneShot {
-        id: Uuid,
+        _id: Uuid, // not used atm
         action: Box<FnBox(&mut C, Uuid) + 'static>,
     },
     Periodic {
-        id: Uuid,
+        _id: Uuid, // not used atm
         action: Rc<Fn(&mut C, Uuid) + 'static>,
     },
 }

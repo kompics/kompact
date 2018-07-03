@@ -1,4 +1,4 @@
-use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
+use bytes::{Buf, BufMut};
 use std::fmt;
 use std::fmt::Debug;
 
@@ -124,7 +124,7 @@ pub mod helpers {
     use messaging::MsgEnvelope;
     use serialisation::SerError;
     use serialisation::Serialisable;
-    use ReceiveEnvelope;
+    use messaging::ReceiveEnvelope;
 
     /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
     /// according to the message's size hint. The message's serialized data is stored in this buffer.
@@ -162,6 +162,7 @@ pub mod helpers {
 mod tests {
 
     use super::*;
+    use bytes::{BytesMut, IntoBuf};
 
     #[derive(PartialEq, Debug, Clone)]
     struct Test1 {

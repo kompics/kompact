@@ -1,3 +1,4 @@
+#![allow(unused_parens)]
 extern crate kompics;
 extern crate synchronoise;
 extern crate time;
@@ -64,7 +65,7 @@ impl Provide<ControlPort> for Pinger {
 }
 
 impl Require<PingPongPort> for Pinger {
-    fn handle(&mut self, event: Pong) -> () {
+    fn handle(&mut self, _event: Pong) -> () {
         self.received += 1;
         //println!("Received Pong #{}", self.received);
         if (self.sent < self.repeat) {
@@ -106,8 +107,7 @@ impl Provide<ControlPort> for Ponger {
 }
 
 impl Provide<PingPongPort> for Ponger {
-    fn handle(&mut self, event: Ping) -> () {
-        ignore(event);
+    fn handle(&mut self, _event: Ping) -> () {
         self.received += 1;
         //println!("Got Ping #{}", self.received);
         self.ppp.trigger(Pong);

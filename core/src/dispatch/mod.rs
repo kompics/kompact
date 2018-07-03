@@ -1,40 +1,30 @@
 use super::ComponentDefinition;
-use super::Require;
+
 use actors::Actor;
 use actors::ActorPath;
 use actors::ActorRef;
 use actors::Dispatcher;
 use actors::SystemPath;
 use actors::Transport;
-use bytes::{Buf, BufMut};
+use bytes::{Buf};
 use component::Component;
 use component::ComponentContext;
 use component::ExecuteResult;
 use component::Provide;
 use lifecycle::ControlEvent;
 use lifecycle::ControlPort;
-use messaging::ReceiveEnvelope;
-use ports::Port;
-use ports::ProvidedPort;
-use ports::ProvidedRef;
-use ports::RequiredPort;
 use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 mod lookup;
 
-use bytes::BytesMut;
 use dispatch::lookup::ActorLookup;
-use messaging::CastEnvelope;
 use messaging::DispatchEnvelope;
-use messaging::MsgEnvelope;
 use messaging::RegistrationEnvelope;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use std::thread;
-use std::thread::Thread;
-
 /// Configuration for network dispatcher
 pub struct NetworkConfig {
     addr: SocketAddr,
