@@ -468,11 +468,11 @@ impl FromStr for NamedPath {
 #[cfg(test)]
 mod tests {
 
-    use std::{thread, time};
     use super::*;
     use bytes::Buf;
     use std::any::Any;
     use std::sync::Arc;
+    use std::{thread, time};
 
     const PATH: &'static str = "local://127.0.0.1:0/test_actor";
 
