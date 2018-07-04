@@ -1,5 +1,6 @@
 use crossbeam::sync::MsQueue;
 use std::cell::RefCell;
+use std::fmt;
 use std::ops::DerefMut;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
@@ -10,16 +11,24 @@ use super::*;
 use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
 use messaging::ReceiveEnvelope;
+use supervision::*;
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;
     fn core(&self) -> &ComponentCore;
     fn execute(&self) -> ();
 
+    fn control_port(&self) -> ProvidedRef<ControlPort>;
     fn actor_ref(&self) -> ActorRef;
     fn actor_path(&self) -> ActorPath;
     fn system(&self) -> KompicsSystem {
         self.core().system().clone()
+    }
+}
+
+impl fmt::Debug for CoreContainer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CoreContainer({})", self.id())
     }
 }
 
@@ -30,10 +39,15 @@ pub struct Component<C: ComponentDefinition + Sized + 'static> {
     msg_queue: Arc<MsQueue<MsgEnvelope>>,
     skip: AtomicUsize,
     state: AtomicUsize,
+    supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
 }
 
 impl<C: ComponentDefinition + Sized> Component<C> {
-    pub(crate) fn new(system: KompicsSystem, definition: C) -> Component<C> {
+    pub(crate) fn new(
+        system: KompicsSystem,
+        definition: C,
+        supervisor: ProvidedRef<SupervisionPort>,
+    ) -> Component<C> {
         Component {
             core: ComponentCore::with(system),
             definition: Mutex::new(definition),
@@ -41,6 +55,19 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             msg_queue: Arc::new(MsQueue::new()),
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
+            supervisor: Some(supervisor),
+        }
+    }
+
+    pub(crate) fn without_supervisor(system: KompicsSystem, definition: C) -> Component<C> {
+        Component {
+            core: ComponentCore::with(system),
+            definition: Mutex::new(definition),
+            ctrl_queue: Arc::new(MsQueue::new()),
+            msg_queue: Arc::new(MsQueue::new()),
+            skip: AtomicUsize::new(0),
+            state: lifecycle::initial_state(),
+            supervisor: None,
         }
     }
 
@@ -171,14 +198,23 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     match event {
                         lifecycle::ControlEvent::Start => {
                             lifecycle::set_active(&self.state);
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(SupervisorMsg::Started(self.core.component()));
+                            }
                             println!("Component({}) started.", self.core.id);
                         }
-                        lifecycle::ControlEvent::Stop=> {
+                        lifecycle::ControlEvent::Stop => {
                             lifecycle::set_passive(&self.state);
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(SupervisorMsg::Stopped(self.core.id));
+                            }
                             println!("Component({}) stopped.", self.core.id);
                         }
-                        lifecycle::ControlEvent::Kill=> {
+                        lifecycle::ControlEvent::Kill => {
                             lifecycle::set_destroyed(&self.state);
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(SupervisorMsg::Killed(self.core.id));
+                            }
                             println!("Component({}) killed.", self.core.id);
                         }
                     }
@@ -188,7 +224,10 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     count += 1;
                 }
                 if (!lifecycle::is_active(&self.state)) {
-                    println!("Not running inactive scheduled Component({}).", self.core.id);                    
+                    println!(
+                        "Not running inactive scheduled Component({}).",
+                        self.core.id
+                    );
                     match self.core.decrement_work(count) {
                         SchedulingDecision::Schedule => {
                             let system = self.core.system();
@@ -196,8 +235,8 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                             system.schedule(cc);
                         }
                         _ => (), // ignore
-                    }       
-                    return;             
+                    }
+                    return;
                 }
                 // timers have highest priority
                 while count < max_events {
@@ -271,6 +310,12 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                 panic!("System poisoned!"); //TODO better error handling
             }
         }
+    }
+
+    fn control_port(&self) -> ProvidedRef<ControlPort> {
+        let cq = Arc::downgrade(&self.ctrl_queue);
+        let cc = Arc::downgrade(&self.core.component());
+        ProvidedRef::new(cc, cq)
     }
 
     fn actor_ref(&self) -> ActorRef {

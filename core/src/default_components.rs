@@ -11,8 +11,8 @@ pub(crate) struct DefaultComponents {
 
 impl DefaultComponents {
     pub(crate) fn new(system: &KompicsSystem) -> DefaultComponents {
-        let dbc = system.create(DeadletterBox::new);
-        let ldc = system.create(LocalDispatcher::new);
+        let dbc = system.create_unsupervised(DeadletterBox::new);
+        let ldc = system.create_unsupervised(LocalDispatcher::new);
         DefaultComponents {
             deadletter_box: dbc,
             dispatcher: ldc,

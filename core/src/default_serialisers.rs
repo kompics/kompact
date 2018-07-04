@@ -1,12 +1,12 @@
 use super::*;
-use bytes::{BufMut};
+use bytes::BufMut;
 
 mod serialisation_ids {
     pub const STR: u64 = 5;
 }
 
 impl Serialisable for &'static str {
-    fn id(&self) -> u64 {
+    fn serid(&self) -> u64 {
         serialisation_ids::STR
     }
     fn size_hint(&self) -> Option<usize> {

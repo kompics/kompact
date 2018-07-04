@@ -6,7 +6,7 @@ use actors::ActorRef;
 use actors::Dispatcher;
 use actors::SystemPath;
 use actors::Transport;
-use bytes::{Buf};
+use bytes::Buf;
 use component::Component;
 use component::ComponentContext;
 use component::ExecuteResult;
@@ -205,7 +205,7 @@ mod dispatch_tests {
     #[test]
     fn registration() {
         let mut cfg = KompicsConfig::new();
-        cfg.system_components(DeadletterBox::new, || NetworkDispatcher::default());
+        cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
         let system = KompicsSystem::new(cfg);
 
         let component = system.create_and_register(TestComponent::new);

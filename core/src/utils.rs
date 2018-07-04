@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use super::*;
 
@@ -28,4 +30,40 @@ where
     let req_share = req.share();
     prov.connect(req_share);
     req.connect(prov_share);
+}
+
+pub fn promise<T: Send + Sized>() -> (Promise<T>, Future<T>) {
+    let (tx, rx) = mpsc::channel();
+    let f = Future { result_channel: rx };
+    let p = Promise { result_channel: tx };
+    (p, f)
+}
+
+/// Until the futures crate stabilises
+#[derive(Debug)]
+pub struct Future<T: Send + Sized> {
+    result_channel: mpsc::Receiver<T>,
+}
+
+impl<T: Send + Sized> Future<T> {
+    pub fn await(self) -> T {
+        self.result_channel.recv().unwrap()
+    }
+    pub fn await_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
+        self.result_channel.recv_timeout(timeout).map_err(|_| self)
+    }
+}
+
+/// Until the futures crate stabilises
+#[derive(Debug)]
+pub struct Promise<T: Send + Sized> {
+    result_channel: mpsc::Sender<T>,
+}
+
+impl<T: Send + Sized> Promise<T> {
+    pub fn fulfill(self, t: T) {
+        self.result_channel
+            .send(t)
+            .expect("An error occurred during promise fulfillment!");
+    }
 }

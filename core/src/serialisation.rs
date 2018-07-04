@@ -12,7 +12,7 @@ pub enum SerError {
 }
 
 pub trait Serialiser<T> {
-    fn id(&self) -> u64;
+    fn serid(&self) -> u64;
     fn size_hint(&self) -> Option<usize> {
         None
     }
@@ -20,7 +20,7 @@ pub trait Serialiser<T> {
 }
 
 pub trait Serialisable: Debug {
-    fn id(&self) -> u64;
+    fn serid(&self) -> u64;
     /// Provides a suggested serialized size if possible, returning None otherwise.
     fn size_hint(&self) -> Option<usize>;
 
@@ -62,8 +62,8 @@ where
     T: Debug,
     S: Serialiser<T>,
 {
-    fn id(&self) -> u64 {
-        self.ser.id()
+    fn serid(&self) -> u64 {
+        self.ser.serid()
     }
     fn size_hint(&self) -> Option<usize> {
         self.ser.size_hint()
@@ -82,7 +82,7 @@ where
         write!(
             f,
             "Serialisable(id={:?},size={:?}, value={:?})",
-            self.ser.id(),
+            self.ser.serid(),
             self.ser.size_hint(),
             self.v
         )
@@ -94,13 +94,13 @@ pub trait Deserialiser<T> {
 }
 
 pub trait Deserialisable<T> {
-    fn id(&self) -> u64;
+    fn serid(&self) -> u64;
     fn get_deserialised(self) -> Result<T, SerError>;
 }
 
 /// Trivial identity Deserialisable
 impl<T> Deserialisable<T> for T {
-    fn id(&self) -> u64 {
+    fn serid(&self) -> u64 {
         unimplemented!();
     }
     fn get_deserialised(self) -> Result<T, SerError> {
@@ -110,7 +110,7 @@ impl<T> Deserialisable<T> for T {
 
 /// Trivial heap to Stack Deserialisable
 impl<T> Deserialisable<T> for Box<T> {
-    fn id(&self) -> u64 {
+    fn serid(&self) -> u64 {
         unimplemented!();
     }
     fn get_deserialised(self) -> Result<T, SerError> {
@@ -122,9 +122,9 @@ pub mod helpers {
     use actors::ActorPath;
     use bytes::BytesMut;
     use messaging::MsgEnvelope;
+    use messaging::ReceiveEnvelope;
     use serialisation::SerError;
     use serialisation::Serialisable;
-    use messaging::ReceiveEnvelope;
 
     /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
     /// according to the message's size hint. The message's serialized data is stored in this buffer.
@@ -140,7 +140,7 @@ pub mod helpers {
                     let envelope = MsgEnvelope::Receive(ReceiveEnvelope::Msg {
                         src,
                         dst,
-                        ser_id: msg.id(),
+                        ser_id: msg.serid(),
                         data: buf.freeze(),
                     });
                     Ok(envelope)
@@ -171,7 +171,7 @@ mod tests {
 
     struct T1Ser;
     impl Serialiser<Test1> for T1Ser {
-        fn id(&self) -> u64 {
+        fn serid(&self) -> u64 {
             1
         }
         fn size_hint(&self) -> Option<usize> {

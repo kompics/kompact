@@ -4,11 +4,13 @@ use executors::*;
 use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
 use messaging::RegistrationEnvelope;
-use oncemutex::OnceMutex;
+use oncemutex::{OnceMutex, OnceMutexGuard};
+use std::clone::Clone;
 use std::fmt::{Debug, Error, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 
@@ -118,8 +120,8 @@ impl KompicsConfig {
         FC: Fn() -> C + 'static,
     {
         let sb = move |system: &KompicsSystem| {
-            let deadletter_box = system.create(&deadletter_fn);
-            let dispatcher = system.create(&dispatcher_fn);
+            let deadletter_box = system.create_unsupervised(&deadletter_fn);
+            let dispatcher = system.create_unsupervised(&dispatcher_fn);
 
             let cc = CustomComponents {
                 deadletter_box,
@@ -155,9 +157,11 @@ impl Default for KompicsSystem {
             inner: runtime,
             scheduler,
         };
-        let sys_comps = DefaultComponents::new(&sys);
-        sys.inner.set_system_components(Box::new(sys_comps));
-        sys.inner.start_system_components(&sys);
+        let system_components = Box::new(DefaultComponents::new(&sys));
+        let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
+        let ic = InternalComponents::new(supervisor, system_components);
+        sys.inner.set_internal_components(ic);
+        sys.inner.start_internal_components(&sys);
         sys
     }
 }
@@ -171,9 +175,11 @@ impl KompicsSystem {
             inner: runtime,
             scheduler,
         };
-        let sys_comps = (*sc_builder)(&sys); //(*conf.sc_builder)(&sys);
-        sys.inner.set_system_components(sys_comps);
-        sys.inner.start_system_components(&sys);
+        let system_components = (*sc_builder)(&sys); //(*conf.sc_builder)(&sys);
+        let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
+        let ic = InternalComponents::new(supervisor, system_components);
+        sys.inner.set_internal_components(ic);
+        sys.inner.start_internal_components(&sys);
         sys
     }
 
@@ -181,12 +187,34 @@ impl KompicsSystem {
         self.scheduler.schedule(c);
     }
 
+    /// Create a new component.
+    ///
+    /// New components are not started automatically.
     pub fn create<C, F>(&self, f: F) -> Arc<Component<C>>
     where
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
     {
-        let c = Arc::new(Component::new(self.clone(), f()));
+        let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
+        {
+            let mut cd = c.definition().lock().unwrap();
+            cd.setup(c.clone());
+            let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
+            c.core().set_component(cc);
+        }
+        return c;
+    }
+
+    /// Use this to create system components!
+    ///
+    /// During system initialisation the supervisor is not available, yet,
+    /// so normal create calls will panic!
+    pub fn create_unsupervised<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        let c = Arc::new(Component::without_supervisor(self.clone(), f()));
         {
             let mut cd = c.definition().lock().unwrap();
             cd.setup(c.clone());
@@ -226,11 +254,39 @@ impl KompicsSystem {
         c.enqueue_control(ControlEvent::Start);
     }
 
+    pub fn start_notify<C>(&self, c: &Arc<Component<C>>) -> Future<()>
+    where
+        C: ComponentDefinition + 'static,
+    {
+        let (p, f) = utils::promise();
+        let amp = Arc::new(Mutex::new(p));
+        self.supervision_port().enqueue(SupervisorMsg::Listen(
+            amp,
+            ListenEvent::Started(c.id().clone()),
+        ));
+        c.enqueue_control(ControlEvent::Start);
+        f
+    }
+
     pub fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
     where
         C: ComponentDefinition + 'static,
     {
         c.enqueue_control(ControlEvent::Stop);
+    }
+
+    pub fn stop_notify<C>(&self, c: &Arc<Component<C>>) -> Future<()>
+    where
+        C: ComponentDefinition + 'static,
+    {
+        let (p, f) = utils::promise();
+        let amp = Arc::new(Mutex::new(p));
+        self.supervision_port().enqueue(SupervisorMsg::Listen(
+            amp,
+            ListenEvent::Stopped(c.id().clone()),
+        ));
+        c.enqueue_control(ControlEvent::Stop);
+        f
     }
 
     pub fn kill<C>(&self, c: Arc<Component<C>>) -> ()
@@ -239,6 +295,21 @@ impl KompicsSystem {
     {
         c.enqueue_control(ControlEvent::Kill);
         self.inner.deregister_actor(c.actor_ref());
+    }
+
+    pub fn kill_notify<C>(&self, c: Arc<Component<C>>) -> Future<()>
+    where
+        C: ComponentDefinition + 'static,
+    {
+        let (p, f) = utils::promise();
+        let amp = Arc::new(Mutex::new(p));
+        self.supervision_port().enqueue(SupervisorMsg::Listen(
+            amp,
+            ListenEvent::Destroyed(c.id().clone()),
+        ));
+        c.enqueue_control(ControlEvent::Kill);
+        self.inner.deregister_actor(c.actor_ref());
+        f
     }
 
     pub fn trigger_i<P: Port + 'static>(&self, msg: P::Indication, port: RequiredRef<P>) {
@@ -270,6 +341,10 @@ impl KompicsSystem {
 
     pub(crate) fn system_path(&self) -> SystemPath {
         self.inner.system_path()
+    }
+
+    pub(crate) fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
+        self.inner.supervision_port()
     }
 }
 
@@ -305,13 +380,51 @@ pub trait TimerComponent: TimerRefFactory {
     fn shutdown(&self) -> Result<(), String>;
 }
 
+struct InternalComponents {
+    supervisor: Arc<Component<ComponentSupervisor>>,
+    supervision_port: ProvidedRef<SupervisionPort>,
+    system_components: Box<SystemComponents>,
+}
+
+impl InternalComponents {
+    fn new(
+        supervisor: Arc<Component<ComponentSupervisor>>,
+        system_components: Box<SystemComponents>,
+    ) -> InternalComponents {
+        let supervision_port = supervisor.on_definition(|s| s.supervision.share());
+        InternalComponents {
+            supervisor,
+            supervision_port,
+            system_components,
+        }
+    }
+
+    fn start(&self, system: &KompicsSystem) -> () {
+        self.system_components.start(system);
+        system.start(&self.supervisor);
+    }
+
+    fn deadletter_ref(&self) -> ActorRef {
+        self.system_components.deadletter_ref()
+    }
+    fn dispatcher_ref(&self) -> ActorRef {
+        self.system_components.dispatcher_ref()
+    }
+    fn system_path(&self) -> SystemPath {
+        self.system_components.system_path()
+    }
+    fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
+        self.supervision_port.clone()
+    }
+}
+
 //#[derive(Clone)]
 struct KompicsRuntime {
     label: String,
     throughput: usize,
     max_messages: usize,
     timer: Box<TimerComponent>,
-    system_components: OnceMutex<Option<Box<SystemComponents>>>,
+    internal_components: OnceMutex<Option<InternalComponents>>,
 }
 
 impl KompicsRuntime {
@@ -322,21 +435,24 @@ impl KompicsRuntime {
             throughput: conf.throughput,
             max_messages: mm,
             timer: (conf.timer_builder)(),
-            system_components: OnceMutex::new(None),
+            internal_components: OnceMutex::new(None),
         }
     }
 
-    fn set_system_components(&self, system_components: Box<SystemComponents>) -> () {
-        if let Some(mut guard) = self.system_components.lock() {
-            *guard = Some(system_components);
+    fn set_internal_components(&self, internal_components: InternalComponents) -> () {
+        let guard_opt: Option<OnceMutexGuard<Option<InternalComponents>>> =
+            self.internal_components.lock();
+        if let Some(mut guard) = guard_opt {
+            println!("Invoked once");
+            *guard = Some(internal_components);
         } else {
             panic!("KompicsRuntime was already initialised!");
         }
     }
 
-    fn start_system_components(&self, system: &KompicsSystem) -> () {
-        match *self.system_components {
-            Some(ref sc) => sc.start(system),
+    fn start_internal_components(&self, system: &KompicsSystem) -> () {
+        match *self.internal_components {
+            Some(ref ic) => ic.start(system),
             None => panic!("KompicsRuntime was not properly initialised!"),
         }
     }
@@ -360,23 +476,31 @@ impl KompicsRuntime {
     }
 
     fn deadletter_ref(&self) -> ActorRef {
-        match *self.system_components {
+        match *self.internal_components {
             Some(ref sc) => sc.deadletter_ref(),
             None => panic!("KompicsRuntime was not properly initialised!"),
         }
     }
     fn dispatcher_ref(&self) -> ActorRef {
-        match *self.system_components {
+        match *self.internal_components {
             Some(ref sc) => sc.dispatcher_ref(),
             None => panic!("KompicsRuntime was not properly initialised!"),
         }
     }
     fn system_path(&self) -> SystemPath {
-        match *self.system_components {
+        match *self.internal_components {
             Some(ref sc) => sc.system_path(),
             None => panic!("KompicsRuntime was not properly initialised!"),
         }
     }
+
+    fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
+        match *self.internal_components {
+            Some(ref ic) => ic.supervision_port(),
+            None => panic!("KompicsRuntime was not properly initialised!"),
+        }
+    }
+
     fn timer_ref(&self) -> timer::TimerRef {
         self.timer.timer_ref()
     }
@@ -393,7 +517,7 @@ impl Default for KompicsRuntime {
             throughput: 50,
             max_messages: 25,
             timer: DefaultTimer::new_timer_component(),
-            system_components: OnceMutex::new(None),
+            internal_components: OnceMutex::new(None),
         }
     }
 }

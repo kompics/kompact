@@ -3,6 +3,7 @@
 #![feature(specialization)]
 #![feature(fnbox)]
 #![feature(duration_as_u128)]
+#![feature(drain_filter)]
 //extern crate futures;
 //extern crate futures_cpupool;
 extern crate as_num;
@@ -42,6 +43,7 @@ pub mod messaging;
 mod ports;
 mod runtime;
 mod serialisation;
+mod supervision;
 pub mod timer;
 mod timer_manager;
 mod utils;
@@ -315,35 +317,41 @@ mod tests {
             assert_eq!(c.msg_count, 0); // not yet started
         });
 
-        system.start(&cc);
+        let f = system.start_notify(&cc);
 
-        thread::sleep(Duration::from_millis(1000));
+        f.await_timeout(Duration::from_millis(1000))
+            .expect("Component never started!");
 
         cc.on_definition(|c| {
             println!("Counter is {}", c.msg_count);
             assert_eq!(c.msg_count, 1);
         });
 
-        system.stop(&cc);
+        let f = system.stop_notify(&cc);
         ccref.tell(Box::new(String::from("MsgTest")), &system);
 
-        thread::sleep(Duration::from_millis(1000));
+        f.await_timeout(Duration::from_millis(1000))
+            .expect("Component never stopped!");
 
         cc.on_definition(|c| {
             println!("Counter is {}", c.msg_count);
             assert_eq!(c.msg_count, 1);
         });
 
-        system.start(&cc);
+        let f = system.start_notify(&cc);
 
-        thread::sleep(Duration::from_millis(1000));
+        f.await_timeout(Duration::from_millis(1000))
+            .expect("Component never started again!");
 
         cc.on_definition(|c| {
             println!("Counter is {}", c.msg_count);
             assert_eq!(c.msg_count, 2);
         });
 
-        system.kill(cc);
+        let f = system.kill_notify(cc);
+
+        f.await_timeout(Duration::from_millis(1000))
+            .expect("Component never died!");
 
         system
             .shutdown()

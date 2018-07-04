@@ -125,13 +125,31 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     //    }
 }
 
-#[derive(Clone)]
 pub struct ProvidedRef<P: Port + 'static> {
     component: Weak<CoreContainer>,
     msg_queue: Weak<MsQueue<P::Request>>,
 }
 
+impl<P: Port + 'static> Clone for ProvidedRef<P> {
+    fn clone(&self) -> ProvidedRef<P> {
+        ProvidedRef {
+            component: self.component.clone(),
+            msg_queue: self.msg_queue.clone(),
+        }
+    }
+}
+
 impl<P: Port + 'static> ProvidedRef<P> {
+    pub(crate) fn new(
+        component: Weak<CoreContainer>,
+        msg_queue: Weak<MsQueue<P::Request>>,
+    ) -> ProvidedRef<P> {
+        ProvidedRef {
+            component,
+            msg_queue,
+        }
+    }
+
     pub(crate) fn enqueue(&self, event: P::Request) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
@@ -154,10 +172,18 @@ impl<P: Port + 'static> ProvidedRef<P> {
     }
 }
 
-#[derive(Clone)]
 pub struct RequiredRef<P: Port + 'static> {
     component: Weak<CoreContainer>,
     msg_queue: Weak<MsQueue<P::Indication>>,
+}
+
+impl<P: Port + 'static> Clone for RequiredRef<P> {
+    fn clone(&self) -> RequiredRef<P> {
+        RequiredRef {
+            component: self.component.clone(),
+            msg_queue: self.msg_queue.clone(),
+        }
+    }
 }
 
 impl<P: Port + 'static> RequiredRef<P> {
