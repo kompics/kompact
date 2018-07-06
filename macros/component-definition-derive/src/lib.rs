@@ -26,6 +26,7 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
 
 fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
+    let name_str = format!("{}", name);
     if let syn::Body::Struct(ref vdata) = ast.body {
         let fields = vdata.fields();
         let mut ports: Vec<(&syn::Field, PortField)> = Vec::new();
@@ -129,6 +130,9 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                 }
                 fn ctx(&self) -> &ComponentContext<Self> {
                     &#ctx_access
+                }
+                fn type_name() -> &'static str {
+                    #name_str
                 }
             }
         }

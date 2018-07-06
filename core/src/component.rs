@@ -40,6 +40,7 @@ pub struct Component<C: ComponentDefinition + Sized + 'static> {
     skip: AtomicUsize,
     state: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
+    logger: KompicsLogger,
 }
 
 impl<C: ComponentDefinition + Sized> Component<C> {
@@ -48,26 +49,38 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         definition: C,
         supervisor: ProvidedRef<SupervisionPort>,
     ) -> Component<C> {
+        let core = ComponentCore::with(system);
+        let logger = core
+            .system
+            .logger()
+            .new(o!("cid" => format!("{}", core.id)));
         Component {
-            core: ComponentCore::with(system),
+            core,
             definition: Mutex::new(definition),
             ctrl_queue: Arc::new(MsQueue::new()),
             msg_queue: Arc::new(MsQueue::new()),
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
             supervisor: Some(supervisor),
+            logger,
         }
     }
 
     pub(crate) fn without_supervisor(system: KompicsSystem, definition: C) -> Component<C> {
+        let core = ComponentCore::with(system);
+        let logger = core
+            .system
+            .logger()
+            .new(o!("cid" => format!("{}", core.id)));
         Component {
-            core: ComponentCore::with(system),
+            core,
             definition: Mutex::new(definition),
             ctrl_queue: Arc::new(MsQueue::new()),
             msg_queue: Arc::new(MsQueue::new()),
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
             supervisor: None,
+            logger,
         }
     }
 
@@ -95,6 +108,10 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     {
         let mut cd = self.definition.lock().unwrap();
         f(cd.deref_mut())
+    }
+
+    pub fn logger(&self) -> &KompicsLogger {
+        &self.logger
     }
 }
 
@@ -201,21 +218,21 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                             if let Some(ref supervisor) = self.supervisor {
                                 supervisor.enqueue(SupervisorMsg::Started(self.core.component()));
                             }
-                            println!("Component({}) started.", self.core.id);
+                            debug!(self.logger, "Component started.");
                         }
                         lifecycle::ControlEvent::Stop => {
                             lifecycle::set_passive(&self.state);
                             if let Some(ref supervisor) = self.supervisor {
                                 supervisor.enqueue(SupervisorMsg::Stopped(self.core.id));
                             }
-                            println!("Component({}) stopped.", self.core.id);
+                            debug!(self.logger, "Component stopped.");
                         }
                         lifecycle::ControlEvent::Kill => {
                             lifecycle::set_destroyed(&self.state);
                             if let Some(ref supervisor) = self.supervisor {
                                 supervisor.enqueue(SupervisorMsg::Killed(self.core.id));
                             }
-                            println!("Component({}) killed.", self.core.id);
+                            debug!(self.logger, "Component killed.");
                         }
                     }
                     // ignore max_events for lifecyle events
@@ -224,10 +241,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     count += 1;
                 }
                 if (!lifecycle::is_active(&self.state)) {
-                    println!(
-                        "Not running inactive scheduled Component({}).",
-                        self.core.id
-                    );
+                    trace!(self.logger, "Not running inactive scheduled.");
                     match self.core.decrement_work(count) {
                         SchedulingDecision::Schedule => {
                             let system = self.core.system();
@@ -347,16 +361,18 @@ impl ExecuteResult {
 }
 
 pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
-    timer_manager: Option<TimerManager<CD>>,
-    component: Option<Weak<Component<CD>>>,
+    inner: Option<ComponentContextInner<CD>>,
+}
+
+struct ComponentContextInner<CD: ComponentDefinition + Sized + 'static> {
+    timer_manager: TimerManager<CD>,
+    component: Weak<Component<CD>>,
+    logger: KompicsLogger,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     pub fn new() -> ComponentContext<CD> {
-        ComponentContext {
-            timer_manager: None,
-            component: None,
-        }
+        ComponentContext { inner: None }
     }
 
     pub fn initialise(&mut self, c: Arc<Component<CD>>) -> ()
@@ -364,24 +380,41 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         CD: ComponentDefinition + 'static,
     {
         let system = c.system();
-        self.component = Some(Arc::downgrade(&c));
-        self.timer_manager = Some(TimerManager::new(system.timer_ref()));
+        let inner = ComponentContextInner {
+            timer_manager: TimerManager::new(system.timer_ref()),
+            component: Arc::downgrade(&c),
+            logger: c.logger().new(o!("ctype" => CD::type_name())),
+        };
+        self.inner = Some(inner);
+        trace!(self.log(), "Initialised.");
     }
 
-    pub(crate) fn timer_manager_mut(&mut self) -> &mut TimerManager<CD> {
-        match self.timer_manager {
-            Some(ref mut tm) => tm,
+    fn inner_ref(&self) -> &ComponentContextInner<CD> {
+        match self.inner {
+            Some(ref c) => c,
             None => panic!("Component improperly initialised!"),
         }
     }
 
-    pub fn component(&self) -> Arc<CoreContainer> {
-        match self.component {
-            Some(ref c) => match c.upgrade() {
-                Some(ac) => ac,
-                None => panic!("Component already deallocated!"),
-            },
+    fn inner_mut(&mut self) -> &mut ComponentContextInner<CD> {
+        match self.inner {
+            Some(ref mut c) => c,
             None => panic!("Component improperly initialised!"),
+        }
+    }
+
+    pub fn log(&self) -> &KompicsLogger {
+        &self.inner_ref().logger
+    }
+
+    pub(crate) fn timer_manager_mut(&mut self) -> &mut TimerManager<CD> {
+        &mut self.inner_mut().timer_manager
+    }
+
+    pub fn component(&self) -> Arc<CoreContainer> {
+        match self.inner_ref().component.upgrade() {
+            Some(ac) => ac,
+            None => panic!("Component already deallocated!"),
         }
     }
 
@@ -410,6 +443,7 @@ where
     fn execute(&mut self, max_events: usize, skip: usize) -> ExecuteResult;
     fn ctx(&self) -> &ComponentContext<Self>;
     fn ctx_mut(&mut self) -> &mut ComponentContext<Self>;
+    fn type_name() -> &'static str;
 }
 
 pub trait Provide<P: Port + 'static> {

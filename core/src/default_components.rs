@@ -137,12 +137,19 @@ impl DeadletterBox {
 
 impl Actor for DeadletterBox {
     fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
-        println!("DeadletterBox received {:?} from {}", msg, sender);
+        info!(
+            self.ctx.log(),
+            "DeadletterBox received {:?} from {}",
+            msg,
+            sender
+        );
     }
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) -> () {
-        println!(
+        info!(
+            self.ctx.log(),
             "DeadletterBox received buffer with id {:?} from {}",
-            ser_id, sender
+            ser_id,
+            sender
         );
     }
 }
@@ -151,7 +158,7 @@ impl Provide<ControlPort> for DeadletterBox {
     fn handle(&mut self, event: ControlEvent) -> () {
         match event {
             ControlEvent::Start => {
-                println!("Starting DeadletterBox");
+                debug!(self.ctx.log(), "Starting DeadletterBox");
             }
             _ => (), // ignore
         }
@@ -173,21 +180,29 @@ impl LocalDispatcher {
 
 impl Actor for LocalDispatcher {
     fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
-        println!("LocalDispatcher received {:?} from {:?}", msg, sender);
+        info!(
+            self.ctx.log(),
+            "LocalDispatcher received {:?} from {:?}",
+            msg,
+            sender
+        );
     }
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) -> () {
-        println!(
+        info!(
+            self.ctx.log(),
             "LocalDispatcher received buffer with id {:?} from {:?}",
-            ser_id, sender
+            ser_id,
+            sender
         );
     }
 }
 
 impl Dispatcher for LocalDispatcher {
     fn receive(&mut self, env: DispatchEnvelope) -> () {
-        println!(
+        warn!(
+            self.ctx.log(),
             "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
-            env
+            env,
         );
     }
     fn system_path(&mut self) -> SystemPath {
@@ -199,7 +214,7 @@ impl Provide<ControlPort> for LocalDispatcher {
     fn handle(&mut self, event: ControlEvent) -> () {
         match event {
             ControlEvent::Start => {
-                println!("Starting LocalDispatcher");
+                debug!(self.ctx.log(), "Starting LocalDispatcher");
             }
             _ => (), // ignore
         }

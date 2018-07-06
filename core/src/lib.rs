@@ -19,6 +19,10 @@ extern crate component_definition_derive;
 #[macro_use]
 extern crate actor_derive;
 extern crate sequence_trie as trie;
+#[macro_use]
+extern crate slog;
+extern crate slog_async;
+extern crate slog_term;
 
 pub use self::actors::*;
 pub use self::component::*;
@@ -31,6 +35,8 @@ pub use self::timer_manager::*;
 pub use self::utils::*;
 pub use actor_derive::*;
 pub use component_definition_derive::*;
+pub use slog::{Drain, Fuse, Logger};
+pub use slog_async::Async;
 pub use std::convert::{From, Into};
 
 mod actors;
@@ -47,6 +53,8 @@ mod supervision;
 pub mod timer;
 mod timer_manager;
 mod utils;
+
+pub type KompicsLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]
 mod tests {
@@ -88,7 +96,7 @@ mod tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    println!("Starting TestComponent");
+                    info!(self.ctx.log(), "Starting TestComponent");
                 }
                 _ => (), // ignore
             }
@@ -121,7 +129,7 @@ mod tests {
 
     impl Actor for RecvComponent {
         fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
-            println!("RecvComponent received {:?}", msg);
+            info!(self.ctx.log(), "RecvComponent received {:?}", msg);
             if let Ok(s) = msg.downcast::<String>() {
                 self.last_string = *s;
             }
@@ -129,7 +137,7 @@ mod tests {
             sender.actor_path().tell("Msg Received", self);
         }
         fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
-            eprintln!("Got unexpected message from {}", sender);
+            error!(self.ctx.log(), "Got unexpected message from {}", sender);
             unimplemented!(); // shouldn't happen during the test
         }
     }
@@ -138,7 +146,7 @@ mod tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    println!("Starting RecvComponent");
+                    info!(self.ctx.log(), "Starting RecvComponent");
                 }
                 _ => (), // ignore
             }
@@ -147,7 +155,7 @@ mod tests {
 
     impl Require<TestPort> for RecvComponent {
         fn handle(&mut self, event: Arc<String>) -> () {
-            println!("Got event {}", event.as_ref());
+            info!(self.ctx.log(), "Got event {}", event.as_ref());
             self.last_string = event.as_ref().clone();
         }
     }
@@ -235,7 +243,7 @@ mod tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    println!("Starting TimerRecvComponent");
+                    info!(self.ctx.log(), "Starting TimerRecvComponent");
                     self.schedule_once(Duration::from_millis(100), |self_c, _| {
                         self_c.last_string = String::from("TimerTest");
                     });
@@ -281,10 +289,10 @@ mod tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    println!("Starting CounterComponent");
+                    info!(self.ctx.log(), "Starting CounterComponent");
                 }
                 ControlEvent::Stop => {
-                    println!("Stopping CounterComponent");
+                    info!(self.ctx.log(), "Stopping CounterComponent");
                 }
                 _ => (), // ignore
             }
@@ -293,11 +301,11 @@ mod tests {
 
     impl Actor for CounterComponent {
         fn receive_local(&mut self, _sender: ActorRef, _msg: Box<Any>) -> () {
-            println!("CounterComponent got a message!");
+            info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
         }
         fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
-            eprintln!("Got unexpected message from {}", sender);
+            crit!(self.ctx.log(), "Got unexpected message from {}", sender);
             unimplemented!(); // shouldn't happen during the test
         }
     }

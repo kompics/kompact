@@ -57,9 +57,9 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig) -> Self {
         let builder = thread::Builder::new();
         let handle = builder.name("tokio-bridge".into()).spawn(|| {
-            println!("[TOKIO-THREAD] spawned");
-            // TODO cross the vast asynchronous barrier here :-\
-            // maybe using futures::mpsc is the best way here, by having a sender
+            println!("[TOKIO-THREAD] spawned"); // TODO get a logger here, maybe?
+                                                // TODO cross the vast asynchronous barrier here :-\
+                                                // maybe using futures::mpsc is the best way here, by having a sender
         });
 
         NetworkDispatcher {
@@ -87,13 +87,13 @@ impl NetworkDispatcher {
             actor.enqueue(envelope);
         } else {
             // TODO handle non-existent routes
-            println!("[NetworkDispatcher] ERR on local actor found at {:?}", dst);
+            error!(self.ctx.log(), "ERR on local actor found at {:?}", dst);
         }
     }
 
     /// Forwards `msg` to remote `dst` actor via the network layer.
     fn route_remote(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        println!("[NetworkDispatcher] routing remote message {:?}", msg);
+        trace!(self.ctx.log(), "Routing remote message {:?}", msg);
         // TODO seralize entire envelope into frame's payload, figure out deserialisation scheme as well
         // TODO ship over to network/tokio land
     }
@@ -127,15 +127,14 @@ impl Default for NetworkDispatcher {
 
 impl Actor for NetworkDispatcher {
     fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) {
-        println!(
-            "[NetworkDispatcher] received LOCAL {:?} from {:?}",
-            msg, sender
-        );
+        debug!(self.ctx.log(), "Received LOCAL {:?} from {:?}", msg, sender);
     }
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) {
-        println!(
-            "[NetworkDispatcher] received buffer with id {:?} from {:?}",
-            ser_id, sender
+    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) {
+        debug!(
+            self.ctx.log(),
+            "Received buffer with id {:?} from {:?}",
+            ser_id,
+            sender
         );
     }
 }
@@ -145,7 +144,7 @@ impl Dispatcher for NetworkDispatcher {
         match env {
             DispatchEnvelope::Cast(_) => {
                 // Should not be here!
-                println!("[NetworkDispatcher] err! received a cast envelope");
+                error!(self.ctx.log(), "Received a cast envelope");
             }
             DispatchEnvelope::Msg { src, dst, msg } => {
                 // Look up destination (local or remote), then route or err
@@ -157,10 +156,7 @@ impl Dispatcher for NetworkDispatcher {
                         self.lookup.insert(actor);
                     }
                     RegistrationEnvelope::Deregister(actor_path) => {
-                        println!(
-                            "[NetworkDispatcher] deregistering actor at {:?}",
-                            actor_path
-                        );
+                        debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
                         // TODO handle
                     }
                 }
@@ -176,9 +172,9 @@ impl Dispatcher for NetworkDispatcher {
 impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
-            ControlEvent::Start => println!("[NetworkDispatcher] starting"),
-            ControlEvent::Stop => println!("[NetworkDispatcher] stopping"),
-            ControlEvent::Kill => println!("[NetworkDispatcher] killed"),
+            ControlEvent::Start => debug!(self.ctx.log(), "Starting"),
+            ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
+            ControlEvent::Kill => info!(self.ctx.log(), "Killed"),
         }
     }
 }
@@ -223,7 +219,7 @@ mod dispatch_tests {
 
         match system.shutdown() {
             Ok(_) => println!("Successful shutdown"),
-            Err(_) => println!("Error shutting down system"),
+            Err(_) => eprintln!("Error shutting down system"),
         }
     }
 
@@ -258,7 +254,7 @@ mod dispatch_tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    println!("[TestComponent] starting");
+                    info!(self.ctx.log(), "Starting");
                 }
                 _ => (),
             }
@@ -267,7 +263,7 @@ mod dispatch_tests {
 
     impl Require<TestPort> for TestComponent {
         fn handle(&mut self, event: Arc<String>) -> () {
-            println!("[TestComponent] handling {:?}", event);
+            info!(self.ctx.log(), "Handling {:?}", event);
         }
     }
 }

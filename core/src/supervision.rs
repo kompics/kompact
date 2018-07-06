@@ -77,13 +77,13 @@ impl Provide<ControlPort> for ComponentSupervisor {
     fn handle(&mut self, event: ControlEvent) -> () {
         match event {
             ControlEvent::Start => {
-                println!("[Supervisor] Starting.");
+                debug!(self.ctx.log(), "Starting.");
             }
             ControlEvent::Stop => {
-                println!("[Supervisor] Stopping.");
+                debug!(self.ctx.log(), "Stopping.");
             }
             ControlEvent::Kill => {
-                println!("[Supervisor] Killed.");
+                debug!(self.ctx.log(), "Killed.");
             }
         }
     }
@@ -95,7 +95,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
             SupervisorMsg::Started(c) => {
                 let id = c.id().clone();
                 self.children.insert(id, c);
-                println!("[Supervisor] Component({}) was started.", id);
+                debug!(self.ctx.log(), "Component({}) was started.", id);
                 self.notify_listeners(&id, |l| {
                     if let ListenEvent::Started(_) = l {
                         true
@@ -105,7 +105,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 });
             }
             SupervisorMsg::Stopped(id) => {
-                println!("[Supervisor] Component({}) was stopped.", id);
+                debug!(self.ctx.log(), "Component({}) was stopped.", id);
                 self.notify_listeners(&id, |l| {
                     if let ListenEvent::Stopped(_) = l {
                         true
@@ -120,9 +120,13 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         let count = Arc::strong_count(&carc);
                         drop(carc);
                         if (count == 1) {
-                            println!("[Supervisor] Component({}) was killed and deallocated.", id); // probably^^
+                            debug!(
+                                self.ctx.log(),
+                                "Component({}) was killed and deallocated.",
+                                id
+                            ); // probably^^
                         } else {
-                            println!("[Supervisor] Component({}) was killed but there are still outstanding references preventing deallocation.", id);
+                            warn!(self.ctx.log(), "Component({}) was killed but there are still outstanding references preventing deallocation.", id);
                         }
                         self.notify_listeners(&id, |l| {
                             if let ListenEvent::Destroyed(_) = l {
@@ -137,11 +141,15 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         // 	Err(_) => println!("Component({}) was killed but there are still outstanding references preventing deallocation.", id),
                         // }
                     }
-                    None => println!("[Supervisor] An untracked Component({}) was killed.", id),
+                    None => warn!(self.ctx.log(), "An untracked Component({}) was killed.", id),
                 }
             }
             SupervisorMsg::Faulty(id) => {
-                println!("[Supervisor] Component({}) has been marked as faulty.", id);
+                warn!(
+                    self.ctx.log(),
+                    "Component({}) has been marked as faulty.",
+                    id
+                );
                 // TODO recovery
             }
             SupervisorMsg::Listen(amp, event) => match Arc::try_unwrap(amp) {
@@ -149,15 +157,16 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     let p = mp
                         .into_inner()
                         .expect("Someone broke the promise mutex -.-");
-                    println!("[Supervisor] Subscribing listener for {}.", event.id());
+                    trace!(self.ctx.log(), "Subscribing listener for {}.", event.id());
                     let l = self
                         .listeners
                         .entry(event.id().clone())
                         .or_insert(Vec::new());
                     l.push((event, p));
                 }
-                Err(_) => eprintln!(
-                    "[Supervisor] Can't unwrap listen event on {}. Dropping.",
+                Err(_) => error!(
+                    self.ctx.log(),
+                    "Can't unwrap listen event on {}. Dropping.",
                     event.id()
                 ),
             },

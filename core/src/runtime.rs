@@ -10,6 +10,7 @@ use std::fmt::{Debug, Error, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 use std::sync::{Arc, Mutex};
+use std::sync::{Once, ONCE_INIT};
 use supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
@@ -17,6 +18,24 @@ static GLOBAL_RUNTIME_COUNT: AtomicUsize = ATOMIC_USIZE_INIT;
 fn default_runtime_label() -> String {
     let runtime_count = GLOBAL_RUNTIME_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
     format!("kompics-runtime-{}", runtime_count)
+}
+
+static mut DEFAULT_ROOT_LOGGER: Option<KompicsLogger> = None;
+static DEFAULT_ROOT_LOGGER_INIT: Once = ONCE_INIT;
+
+fn default_logger() -> &'static KompicsLogger {
+    unsafe {
+        DEFAULT_ROOT_LOGGER_INIT.call_once(|| {
+            let decorator = slog_term::TermDecorator::new().build();
+            let drain = slog_term::FullFormat::new(decorator).build().fuse();
+            let drain = slog_async::Async::new(drain).build().fuse();
+            DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(Arc::new(drain), o!()));
+        });
+        match DEFAULT_ROOT_LOGGER {
+            Some(ref l) => l,
+            None => unreachable!(),
+        }
+    }
 }
 
 type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
@@ -52,6 +71,7 @@ pub struct KompicsConfig {
     timer_builder: Rc<TimerBuilder>,
     scheduler_builder: Rc<SchedulerBuilder>,
     sc_builder: Rc<SCBuilder>,
+    root_logger: Option<KompicsLogger>,
 }
 
 impl KompicsConfig {
@@ -66,6 +86,7 @@ impl KompicsConfig {
                 ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(t))
             }),
             sc_builder: Rc::new(|sys| Box::new(DefaultComponents::new(sys))),
+            root_logger: None,
         }
     }
 
@@ -133,6 +154,11 @@ impl KompicsConfig {
         self
     }
 
+    pub fn logger(&mut self, logger: KompicsLogger) -> &mut Self {
+        self.root_logger = Some(logger);
+        self
+    }
+
     fn max_messages(&self) -> usize {
         let tpf = self.throughput as f32;
         let mmf = tpf * self.msg_priority;
@@ -185,6 +211,10 @@ impl KompicsSystem {
 
     pub fn schedule(&self, c: Arc<CoreContainer>) -> () {
         self.scheduler.schedule(c);
+    }
+
+    pub fn logger(&self) -> &KompicsLogger {
+        &self.inner.logger
     }
 
     /// Create a new component.
@@ -425,17 +455,37 @@ struct KompicsRuntime {
     max_messages: usize,
     timer: Box<TimerComponent>,
     internal_components: OnceMutex<Option<InternalComponents>>,
+    logger: KompicsLogger,
+}
+
+impl Default for KompicsRuntime {
+    fn default() -> Self {
+        let label = default_runtime_label();
+        KompicsRuntime {
+            label: label.clone(),
+            throughput: 50,
+            max_messages: 25,
+            timer: DefaultTimer::new_timer_component(),
+            internal_components: OnceMutex::new(None),
+            logger: default_logger().new(o!("system" => label)),
+        }
+    }
 }
 
 impl KompicsRuntime {
     fn new(conf: KompicsConfig) -> Self {
         let mm = conf.max_messages();
+        let logger = match conf.root_logger {
+            Some(log) => log.new(o!("system" => conf.label.clone())),
+            None => default_logger().new(o!("system" => conf.label.clone())),
+        };
         KompicsRuntime {
             label: conf.label,
             throughput: conf.throughput,
             max_messages: mm,
             timer: (conf.timer_builder)(),
             internal_components: OnceMutex::new(None),
+            logger,
         }
     }
 
@@ -443,7 +493,6 @@ impl KompicsRuntime {
         let guard_opt: Option<OnceMutexGuard<Option<InternalComponents>>> =
             self.internal_components.lock();
         if let Some(mut guard) = guard_opt {
-            println!("Invoked once");
             *guard = Some(internal_components);
         } else {
             panic!("KompicsRuntime was already initialised!");
@@ -457,8 +506,12 @@ impl KompicsRuntime {
         }
     }
 
+    fn logger(&self) -> &KompicsLogger {
+        &self.logger
+    }
+
     fn register_actor_ref(&self, actor_ref: ActorRef) -> () {
-        println!("[KompicsRuntime] Registering actor at {:?}", actor_ref);
+        debug!(self.logger(), "Registering actor at {:?}", actor_ref);
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
             RegistrationEnvelope::Register(actor_ref),
@@ -467,7 +520,7 @@ impl KompicsRuntime {
     }
 
     fn deregister_actor(&self, actor_ref: ActorRef) -> () {
-        println!("[KompicsRuntime] Deregistering actor at {:?}", actor_ref);
+        debug!(self.logger(), "Deregistering actor at {:?}", actor_ref);
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
             RegistrationEnvelope::Deregister(actor_ref),
@@ -510,18 +563,6 @@ impl KompicsRuntime {
     }
 }
 
-impl Default for KompicsRuntime {
-    fn default() -> Self {
-        KompicsRuntime {
-            label: default_runtime_label(),
-            throughput: 50,
-            max_messages: 25,
-            timer: DefaultTimer::new_timer_component(),
-            internal_components: OnceMutex::new(None),
-        }
-    }
-}
-
 impl Debug for KompicsRuntime {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "KompicsRuntime({})", self.label)
@@ -559,7 +600,6 @@ impl<E: Executor + 'static> ExecutorScheduler<E> {
 impl<E: Executor + 'static> Scheduler for ExecutorScheduler<E> {
     fn schedule(&self, c: Arc<CoreContainer>) -> () {
         self.exec.execute(move || {
-            //println!("Executing component {}", c.id());
             c.execute();
         });
     }
