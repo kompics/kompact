@@ -1,6 +1,7 @@
 use bytes::{Buf, BufMut};
 use std::fmt;
 use std::fmt::Debug;
+use std::any::Any;
 
 use super::*;
 
@@ -26,6 +27,7 @@ pub trait Serialisable: Debug {
 
     /// Serialises this object into `buf`, returning a `SerError` if unsuccessful.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError>;
+    fn local(self: Box<Self>) -> Result<Box<Any>, Box<Serialisable>>;
 }
 
 impl<T, S> From<(T, S)> for Box<Serialisable>
@@ -48,7 +50,7 @@ where
     }
 }
 
-pub(crate) struct SerialisableValue<T, S>
+struct SerialisableValue<T, S>
 where
     T: Debug,
     S: Serialiser<T>,
@@ -59,7 +61,7 @@ where
 
 impl<T, S> Serialisable for SerialisableValue<T, S>
 where
-    T: Debug,
+    T: Debug+'static,
     S: Serialiser<T>,
 {
     fn serid(&self) -> u64 {
@@ -70,6 +72,10 @@ where
     }
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
         self.ser.serialise(&self.v, buf)
+    }
+    fn local(self: Box<Self>) -> Result<Box<Any>, Box<Serialisable>> {
+        let b: Box<Any> = Box::new(self.v);
+        Ok(b)
     }
 }
 

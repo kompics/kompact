@@ -1,5 +1,6 @@
 use super::*;
 use bytes::BufMut;
+use std::any::Any;
 
 mod serialisation_ids {
     pub const STR: u64 = 5;
@@ -15,6 +16,9 @@ impl Serialisable for &'static str {
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
         buf.put_slice(self.as_bytes());
         Ok(())
+    }
+    fn local(self: Box<Self>) -> Result<Box<Any>, Box<Serialisable>> {
+        Ok(self)
     }
 }
 

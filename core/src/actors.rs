@@ -109,6 +109,18 @@ impl ActorRef {
         });
         self.enqueue(MsgEnvelope::Dispatch(env))
     }
+
+    // TODO figure out a way to have one function match both cases -.-
+    pub fn tell_any<S>(&self, v: Box<Any>, from: &S) -> ()
+    where
+        S: ActorRefFactory,
+    {
+        let env = DispatchEnvelope::Cast(CastEnvelope {
+            src: from.actor_ref(),
+            v,
+        });
+        self.enqueue(MsgEnvelope::Dispatch(env))
+    }
 }
 
 impl ActorRefFactory for ActorRef {

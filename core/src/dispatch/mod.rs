@@ -82,9 +82,24 @@ impl NetworkDispatcher {
 
         if let Some(actor) = actor {
             //  TODO err handling
-            // TODO bypass s11n and bubble up statically
-            let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
-            actor.enqueue(envelope);
+            match msg.local() {
+                Ok(boxed_value) => {
+                    let src_actor_opt = match src {
+                        ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
+                        ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
+                    };
+                    if let Some(src_actor) = src_actor_opt {
+                        actor.tell_any(boxed_value, src_actor);
+                    } else {
+                        panic!("Non-local ActorPath ended up in local dispatcher!");
+                    }
+                }
+                Err(msg) => {
+                    // local not implemented
+                    let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
+                    actor.enqueue(envelope);
+                }
+            }
         } else {
             // TODO handle non-existent routes
             error!(self.ctx.log(), "ERR on local actor found at {:?}", dst);
@@ -184,6 +199,7 @@ mod dispatch_tests {
     use super::super::*;
     use super::*;
 
+    use bytes::{Buf, BufMut};
     use component::ComponentContext;
     use component::Provide;
     use component::Require;
@@ -196,7 +212,7 @@ mod dispatch_tests {
     use runtime::KompicsSystem;
     use std::sync::Arc;
     use std::thread;
-    use std::time;
+    use std::time::Duration;
 
     #[test]
     fn registration() {
@@ -215,12 +231,46 @@ mod dispatch_tests {
         reference.tell("Network me, dispatch!", &system);
 
         // Sleep; allow the system to progress
-        thread::sleep_ms(1000);
+        thread::sleep(Duration::from_millis(1000));
 
         match system.shutdown() {
             Ok(_) => println!("Successful shutdown"),
             Err(_) => eprintln!("Error shutting down system"),
         }
+    }
+
+    const PING_COUNT: u64 = 10;
+
+    #[test]
+    fn local_delivery() {
+        let mut cfg = KompicsConfig::new();
+        cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
+        let system = KompicsSystem::new(cfg);
+
+        let ponger = system.create_and_register(PongerAct::new);
+        let ponger_path = ponger.actor_path();
+        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
+
+        system.start(&ponger);
+        system.start(&pinger);
+
+        thread::sleep(Duration::from_millis(1000));
+
+        let pingf = system.stop_notify(&pinger);
+        let pongf = system.kill_notify(ponger);
+        pingf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger.on_definition(|c| {
+            assert_eq!(c.local_count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
     }
 
     // struct definitions
@@ -264,6 +314,221 @@ mod dispatch_tests {
     impl Require<TestPort> for TestComponent {
         fn handle(&mut self, event: Arc<String>) -> () {
             info!(self.ctx.log(), "Handling {:?}", event);
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct PingMsg {
+        i: u64,
+    }
+
+    #[derive(Debug, Clone)]
+    struct PongMsg {
+        i: u64,
+    }
+
+    struct PingPongSer;
+    const PING_PONG_SER: PingPongSer = PingPongSer {};
+    const PING_ID: i8 = 1;
+    const PONG_ID: i8 = 2;
+    impl Serialiser<PingMsg> for PingPongSer {
+        fn serid(&self) -> u64 {
+            42 // because why not^^
+        }
+        fn size_hint(&self) -> Option<usize> {
+            Some(9)
+        }
+        fn serialise(&self, v: &PingMsg, buf: &mut BufMut) -> Result<(), SerError> {
+            buf.put_i8(PING_ID);
+            buf.put_u64(v.i);
+            Result::Ok(())
+        }
+    }
+
+    impl Serialiser<PongMsg> for PingPongSer {
+        fn serid(&self) -> u64 {
+            42 // because why not^^
+        }
+        fn size_hint(&self) -> Option<usize> {
+            Some(9)
+        }
+        fn serialise(&self, v: &PongMsg, buf: &mut BufMut) -> Result<(), SerError> {
+            buf.put_i8(PONG_ID);
+            buf.put_u64(v.i);
+            Result::Ok(())
+        }
+    }
+    impl Deserialiser<PingMsg> for PingPongSer {
+        fn deserialise(buf: &mut Buf) -> Result<PingMsg, SerError> {
+            if buf.remaining() < 9 {
+                return Err(SerError::InvalidData(format!(
+                    "Serialised typed has 9bytes but only {}bytes remain in buffer.",
+                    buf.remaining()
+                )));
+            }
+            match buf.get_i8() {
+                PING_ID => {
+                    let i = buf.get_u64();
+                    Ok(PingMsg { i })
+                }
+                PONG_ID => Err(SerError::InvalidType(
+                    "Found PongMsg, but expected PingMsg.".into(),
+                )),
+                _ => Err(SerError::InvalidType(
+                    "Found unkown id, but expected PingMsg.".into(),
+                )),
+            }
+        }
+    }
+    impl Deserialiser<PongMsg> for PingPongSer {
+        fn deserialise(buf: &mut Buf) -> Result<PongMsg, SerError> {
+            if buf.remaining() < 9 {
+                return Err(SerError::InvalidData(format!(
+                    "Serialised typed has 9bytes but only {}bytes remain in buffer.",
+                    buf.remaining()
+                )));
+            }
+            match buf.get_i8() {
+                PONG_ID => {
+                    let i = buf.get_u64();
+                    Ok(PongMsg { i })
+                }
+                PING_ID => Err(SerError::InvalidType(
+                    "Found PingMsg, but expected PongMsg.".into(),
+                )),
+                _ => Err(SerError::InvalidType(
+                    "Found unkown id, but expected PongMsg.".into(),
+                )),
+            }
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct PingerAct {
+        ctx: ComponentContext<PingerAct>,
+        target: ActorPath,
+        local_count: u64,
+        msg_count: u64,
+    }
+
+    impl PingerAct {
+        fn new(target: ActorPath) -> PingerAct {
+            PingerAct {
+                ctx: ComponentContext::new(),
+                target,
+                local_count: 0,
+                msg_count: 0,
+            }
+        }
+
+        fn total_count(&self) -> u64 {
+            self.local_count + self.msg_count
+        }
+    }
+
+    impl Provide<ControlPort> for PingerAct {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    info!(self.ctx.log(), "Starting");
+                    self.target.tell((PingMsg { i: 0 }, PING_PONG_SER), self);
+                }
+                _ => (),
+            }
+        }
+    }
+
+    impl Actor for PingerAct {
+        fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
+            match msg.downcast_ref::<PongMsg>() {
+                Some(ref pong) => {
+                    info!(self.ctx.log(), "Got local Pong({})", pong.i);
+                    self.local_count += 1;
+                    if self.total_count() < PING_COUNT {
+                        self.target
+                            .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);
+                    }
+                }
+                None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
+            }
+        }
+        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
+            if ser_id == Serialiser::<PongMsg>::serid(&PING_PONG_SER) {
+                let r: Result<PongMsg, SerError> = PingPongSer::deserialise(buf);
+                match r {
+                    Ok(pong) => {
+                        info!(self.ctx.log(), "Got msg Pong({})", pong.i);
+                        self.msg_count += 1;
+                        if self.total_count() < PING_COUNT {
+                            self.target
+                                .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);
+                        }
+                    }
+                    Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
+                }
+            } else {
+                error!(
+                    self.ctx.log(),
+                    "Got message with unexpected serialiser {} from {}",
+                    ser_id,
+                    sender
+                );
+            }
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct PongerAct {
+        ctx: ComponentContext<PongerAct>,
+    }
+
+    impl PongerAct {
+        fn new() -> PongerAct {
+            PongerAct {
+                ctx: ComponentContext::new(),
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for PongerAct {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    info!(self.ctx.log(), "Starting");
+                }
+                _ => (),
+            }
+        }
+    }
+
+    impl Actor for PongerAct {
+        fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
+            match msg.downcast_ref::<PingMsg>() {
+                Some(ref ping) => {
+                    info!(self.ctx.log(), "Got local Ping({})", ping.i);
+                    sender.tell(Box::new(PongMsg { i: ping.i }), self);
+                }
+                None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
+            }
+        }
+        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
+            if ser_id == Serialiser::<PingMsg>::serid(&PING_PONG_SER) {
+                let r: Result<PingMsg, SerError> = PingPongSer::deserialise(buf);
+                match r {
+                    Ok(ping) => {
+                        info!(self.ctx.log(), "Got msg Ping({})", ping.i);
+                        sender.tell((PongMsg { i: ping.i }, PING_PONG_SER), self);
+                    }
+                    Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
+                }
+            } else {
+                error!(
+                    self.ctx.log(),
+                    "Got message with unexpected serialiser {} from {}",
+                    ser_id,
+                    sender
+                );
+            }
         }
     }
 }
