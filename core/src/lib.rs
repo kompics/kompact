@@ -24,8 +24,11 @@ extern crate actor_derive;
 extern crate sequence_trie as trie;
 #[macro_use]
 extern crate slog;
+extern crate futures;
 extern crate slog_async;
 extern crate slog_term;
+extern crate spaniel as spnl;
+extern crate tokio;
 
 pub use self::actors::*;
 pub use self::component::*;
@@ -49,6 +52,7 @@ mod default_serialisers;
 mod dispatch;
 mod lifecycle;
 pub mod messaging;
+mod net;
 mod ports;
 mod runtime;
 mod serialisation;
