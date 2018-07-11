@@ -5,6 +5,7 @@ use actors::ActorRef;
 use bytes::Bytes;
 use serialisation::Serialisable;
 use std::any::Any;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum MsgEnvelope {
@@ -31,7 +32,7 @@ pub enum RegistrationEnvelope {
 pub enum DispatchEnvelope {
     Cast(CastEnvelope),
     Msg {
-        src: ActorPath,
+        src: PathResolvable,
         dst: ActorPath,
         msg: Box<Serialisable>,
     },
@@ -47,4 +48,11 @@ pub enum ReceiveEnvelope {
         ser_id: u64,
         data: Bytes,
     },
+}
+
+#[derive(Debug)]
+pub enum PathResolvable {
+    Path(ActorPath),
+    ActorId(Uuid),
+    System,
 }

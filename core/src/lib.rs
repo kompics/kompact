@@ -134,7 +134,7 @@ mod tests {
                 self.last_string = *s;
             }
             sender.tell(Box::new("Msg Received".to_string()), self);
-            sender.actor_path().tell("Msg Received", self);
+            //sender.actor_path().tell("Msg Received", self);
         }
         fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
             error!(self.ctx.log(), "Got unexpected message from {}", sender);

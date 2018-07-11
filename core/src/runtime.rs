@@ -1,9 +1,7 @@
 use super::*;
 
 use executors::*;
-use messaging::DispatchEnvelope;
-use messaging::MsgEnvelope;
-use messaging::RegistrationEnvelope;
+use messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::clone::Clone;
 use std::fmt::{Debug, Error, Formatter, Result as FmtResult};
@@ -228,8 +226,8 @@ impl KompicsSystem {
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
         {
             let mut cd = c.definition().lock().unwrap();
-            cd.setup(c.clone());
             let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
+            cd.setup(c.clone());
             c.core().set_component(cc);
         }
         return c;
@@ -382,14 +380,17 @@ impl ActorRefFactory for KompicsSystem {
     fn actor_ref(&self) -> ActorRef {
         self.inner.deadletter_ref()
     }
-    fn actor_path(&self) -> ActorPath {
-        self.inner.deadletter_ref().actor_path()
-    }
 }
 
 impl Dispatching for KompicsSystem {
     fn dispatcher_ref(&self) -> ActorRef {
         self.inner.dispatcher_ref()
+    }
+}
+
+impl ActorSource for KompicsSystem {
+    fn path_resolvable(&self) -> PathResolvable {
+        PathResolvable::System
     }
 }
 

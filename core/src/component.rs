@@ -8,9 +8,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::*;
-use messaging::DispatchEnvelope;
-use messaging::MsgEnvelope;
-use messaging::ReceiveEnvelope;
+use messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope};
 use supervision::*;
 
 pub trait CoreContainer: Send + Sync {
@@ -19,8 +17,7 @@ pub trait CoreContainer: Send + Sync {
     fn execute(&self) -> ();
 
     fn control_port(&self) -> ProvidedRef<ControlPort>;
-    fn actor_ref(&self) -> ActorRef;
-    fn actor_path(&self) -> ActorPath;
+    //fn actor_ref(&self) -> ActorRef;
     fn system(&self) -> KompicsSystem {
         self.core().system().clone()
     }
@@ -54,11 +51,12 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
+        let msg_queue = Arc::new(MsQueue::new());
         Component {
             core,
             definition: Mutex::new(definition),
             ctrl_queue: Arc::new(MsQueue::new()),
-            msg_queue: Arc::new(MsQueue::new()),
+            msg_queue,
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
             supervisor: Some(supervisor),
@@ -83,6 +81,10 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             logger,
         }
     }
+
+    // pub(crate) fn msg_queue_wref(&self) -> Weak<MsQueue<MsgEnvelope>> {
+    //     Arc::downgrade(&self.msg_queue)
+    // }
 
     pub(crate) fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> () {
         self.ctrl_queue.push(event);
@@ -115,15 +117,23 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     }
 }
 
+impl<CD> ActorRefFactory for Arc<Component<CD>>
+where
+    CD: ComponentDefinition + 'static,
+{
+    fn actor_ref(&self) -> ActorRef {
+        let comp = Arc::downgrade(self);
+        let msgq = Arc::downgrade(&self.msg_queue);
+        ActorRef::new(comp, msgq)
+    }
+}
+
 impl<CD> ActorRefFactory for CD
 where
     CD: ComponentDefinition + 'static,
 {
     fn actor_ref(&self) -> ActorRef {
         self.ctx().actor_ref()
-    }
-    fn actor_path(&self) -> ActorPath {
-        self.ctx().actor_path()
     }
 }
 
@@ -133,6 +143,15 @@ where
 {
     fn dispatcher_ref(&self) -> ActorRef {
         self.ctx().dispatcher_ref()
+    }
+}
+
+impl<CD> ActorSource for CD
+where
+    CD: ComponentDefinition + 'static,
+{
+    fn path_resolvable(&self) -> PathResolvable {
+        PathResolvable::ActorId(self.ctx().id())
     }
 }
 
@@ -184,15 +203,6 @@ impl<D: Dispatcher + ActorRaw> ExecuteSend for D {
         Dispatcher::receive(self, env)
     }
 }
-
-//#[inline(always)]
-//fn to_receive(env: MsgEnvelope) -> ReceiveEnvelope {
-//    match env {
-//        MsgEnvelope::Receive(renv) => renv,
-//        MsgEnvelope::Send(SendEnvelope::Cast(cenv)) => ReceiveEnvelope::Cast(cenv),
-//        MsgEnvelope::Send(SendEnvelope::Msg { .. }) => {}
-//    }
-//}
 
 impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C> {
     fn id(&self) -> &Uuid {
@@ -332,16 +342,11 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
         ProvidedRef::new(cc, cq)
     }
 
-    fn actor_ref(&self) -> ActorRef {
-        let msgq = Arc::downgrade(&self.msg_queue);
-        let cc = Arc::downgrade(&self.core.component());
-        ActorRef::new(self.actor_path(), cc, msgq)
-    }
-
-    fn actor_path(&self) -> ActorPath {
-        let sysref = self.system().system_path();
-        ActorPath::from((sysref, CoreContainer::id(self).clone()))
-    }
+    // fn actor_ref(&self) -> ActorRef {
+    //     let msgq = Arc::downgrade(&self.msg_queue);
+    //     let cc = Arc::downgrade(&self.core.component());
+    //     ActorRef::new(cc, msgq)
+    // }
 }
 
 //
@@ -368,6 +373,7 @@ struct ComponentContextInner<CD: ComponentDefinition + Sized + 'static> {
     timer_manager: TimerManager<CD>,
     component: Weak<Component<CD>>,
     logger: KompicsLogger,
+    actor_ref: ActorRef,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
@@ -384,6 +390,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             timer_manager: TimerManager::new(system.timer_ref()),
             component: Arc::downgrade(&c),
             logger: c.logger().new(o!("ctype" => CD::type_name())),
+            actor_ref: c.actor_ref(),
         };
         self.inner = Some(inner);
         trace!(self.log(), "Initialised.");
@@ -418,20 +425,22 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
-    pub fn actor_ref(&self) -> ActorRef {
-        self.component().actor_ref()
-    }
-
-    pub fn actor_path(&self) -> ActorPath {
-        self.component().actor_ref().actor_path()
-    }
-
     pub fn system(&self) -> KompicsSystem {
         self.component().system()
     }
 
     pub fn dispatcher_ref(&self) -> ActorRef {
         self.system().dispatcher_ref()
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.component().id().clone()
+    }
+}
+
+impl<CD: ComponentDefinition + Sized + 'static> ActorRefFactory for ComponentContext<CD> {
+    fn actor_ref(&self) -> ActorRef {
+        self.inner_ref().actor_ref.clone()
     }
 }
 

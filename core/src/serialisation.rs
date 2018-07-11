@@ -1,7 +1,7 @@
 use bytes::{Buf, BufMut};
+use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
-use std::any::Any;
 
 use super::*;
 
@@ -61,7 +61,7 @@ where
 
 impl<T, S> Serialisable for SerialisableValue<T, S>
 where
-    T: Debug+'static,
+    T: Debug + 'static,
     S: Serialiser<T>,
 {
     fn serid(&self) -> u64 {

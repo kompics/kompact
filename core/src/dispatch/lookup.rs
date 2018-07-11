@@ -52,18 +52,19 @@ impl ActorLookup {
     /// Inserts or replaces the `path` in the lookup structure.
     /// If an entry already exists, it is removed and returned before being replaced.
     pub fn insert(&mut self, actor: ActorRef) -> Option<ActorRef> {
-        use actors::ActorRefFactory;
+        unimplemented!(); // FIXME @Johan update for new code
+                          // use actors::ActorRefFactory;
 
-        let path = actor.actor_path();
-        match path {
-            ActorPath::Unique(up) => {
-                let key = up.clone_id();
-                self.uuid_map.insert(key, actor)
-            }
-            ActorPath::Named(np) => {
-                let keys = np.path_ref();
-                self.name_map.insert(keys, actor)
-            }
-        }
+        // let path = actor.actor_path();
+        // match path {
+        //     ActorPath::Unique(up) => {
+        //         let key = up.clone_id();
+        //         self.uuid_map.insert(key, actor)
+        //     }
+        //     ActorPath::Named(np) => {
+        //         let keys = np.path_ref();
+        //         self.name_map.insert(keys, actor)
+        //     }
+        // }
     }
 }

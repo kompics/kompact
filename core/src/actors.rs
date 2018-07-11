@@ -14,6 +14,7 @@ use super::*;
 use messaging::CastEnvelope;
 use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
+use messaging::PathResolvable;
 use messaging::ReceiveEnvelope;
 
 pub trait ActorRaw: ExecuteSend {
@@ -49,7 +50,6 @@ where
 
 pub trait ActorRefFactory {
     fn actor_ref(&self) -> ActorRef;
-    fn actor_path(&self) -> ActorPath;
 }
 
 pub trait Dispatching {
@@ -58,19 +58,16 @@ pub trait Dispatching {
 
 #[derive(Clone)]
 pub struct ActorRef {
-    path: ActorPath,
     component: Weak<CoreContainer>,
     msg_queue: Weak<MsQueue<MsgEnvelope>>,
 }
 
 impl ActorRef {
     pub(crate) fn new(
-        path: ActorPath,
         component: Weak<CoreContainer>,
         msg_queue: Weak<MsQueue<MsgEnvelope>>,
     ) -> ActorRef {
         ActorRef {
-            path,
             component,
             msg_queue,
         }
@@ -127,20 +124,17 @@ impl ActorRefFactory for ActorRef {
     fn actor_ref(&self) -> ActorRef {
         self.clone()
     }
-    fn actor_path(&self) -> ActorPath {
-        self.path.clone()
-    }
 }
 
 impl Debug for ActorRef {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "<actor-ref:{:?}>", self.path)
+        write!(f, "<actor-ref>")
     }
 }
 
 impl fmt::Display for ActorRef {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "<actor-ref:{}>", self.path)
+        write!(fmt, "<actor-ref>")
     }
 }
 
@@ -285,6 +279,10 @@ impl SystemField for SystemPath {
     }
 }
 
+pub trait ActorSource: Dispatching {
+    fn path_resolvable(&self) -> PathResolvable;
+}
+
 #[derive(Clone, Debug)]
 pub enum ActorPath {
     Unique(UniquePath),
@@ -292,13 +290,13 @@ pub enum ActorPath {
 }
 
 impl ActorPath {
-    pub fn tell<D, B>(&self, m: B, from: &D) -> ()
+    pub fn tell<S, B>(&self, m: B, from: &S) -> ()
     where
-        D: Dispatching + ActorRefFactory,
+        S: ActorSource,
         B: Into<Box<Serialisable>>,
     {
         let msg: Box<Serialisable> = m.into();
-        let src = from.actor_path();
+        let src = from.path_resolvable();
         let dst = self.clone();
         let env = DispatchEnvelope::Msg { src, dst, msg };
         from.dispatcher_ref().enqueue(MsgEnvelope::Dispatch(env))
@@ -474,6 +472,23 @@ impl FromStr for NamedPath {
             Vec::default()
         };
         Ok(NamedPath::with_socket(proto, socket, path.clone()))
+    }
+}
+
+pub struct RegisteredPath {
+    path: ActorPath,
+    dispatcher: ActorRef,
+}
+
+impl Dispatching for RegisteredPath {
+    fn dispatcher_ref(&self) -> ActorRef {
+        self.dispatcher.clone()
+    }
+}
+
+impl ActorSource for RegisteredPath {
+    fn path_resolvable(&self) -> PathResolvable {
+        PathResolvable::Path(self.path.clone())
     }
 }
 
