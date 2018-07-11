@@ -8,8 +8,6 @@
 
 use actors::ActorPath;
 use actors::ActorRef;
-use actors::NamedPath;
-use actors::UniquePath;
 use std::collections::HashMap;
 use trie::SequenceTrie;
 use uuid::Uuid;
