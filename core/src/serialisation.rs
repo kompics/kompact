@@ -12,7 +12,7 @@ pub enum SerError {
     Unknown(String),
 }
 
-pub trait Serialiser<T> {
+pub trait Serialiser<T>: Send {
     fn serid(&self) -> u64;
     fn size_hint(&self) -> Option<usize> {
         None
@@ -20,19 +20,19 @@ pub trait Serialiser<T> {
     fn serialise(&self, v: &T, buf: &mut BufMut) -> Result<(), SerError>;
 }
 
-pub trait Serialisable: Debug {
+pub trait Serialisable: Send + Debug {
     fn serid(&self) -> u64;
     /// Provides a suggested serialized size if possible, returning None otherwise.
     fn size_hint(&self) -> Option<usize>;
 
     /// Serialises this object into `buf`, returning a `SerError` if unsuccessful.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError>;
-    fn local(self: Box<Self>) -> Result<Box<Any>, Box<Serialisable>>;
+    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>>;
 }
 
 impl<T, S> From<(T, S)> for Box<Serialisable>
 where
-    T: Debug + 'static,
+    T: Send + Debug + 'static,
     S: Serialiser<T> + 'static,
 {
     fn from(t: (T, S)) -> Self {
@@ -43,7 +43,7 @@ where
 
 impl<T> From<T> for Box<Serialisable>
 where
-    T: Debug + Serialisable + Sized + 'static,
+    T: Send + Debug + Serialisable + Sized + 'static,
 {
     fn from(t: T) -> Self {
         Box::new(t) as Box<Serialisable>
@@ -52,7 +52,7 @@ where
 
 struct SerialisableValue<T, S>
 where
-    T: Debug,
+    T: Send + Debug,
     S: Serialiser<T>,
 {
     v: T,
@@ -61,7 +61,7 @@ where
 
 impl<T, S> Serialisable for SerialisableValue<T, S>
 where
-    T: Debug + 'static,
+    T: Send + Debug + 'static,
     S: Serialiser<T>,
 {
     fn serid(&self) -> u64 {
@@ -73,15 +73,15 @@ where
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
         self.ser.serialise(&self.v, buf)
     }
-    fn local(self: Box<Self>) -> Result<Box<Any>, Box<Serialisable>> {
-        let b: Box<Any> = Box::new(self.v);
+    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+        let b: Box<Any + Send> = Box::new(self.v);
         Ok(b)
     }
 }
 
 impl<T, S> Debug for SerialisableValue<T, S>
 where
-    T: Debug,
+    T: Send + Debug,
     S: Serialiser<T>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -95,7 +95,7 @@ where
     }
 }
 
-pub trait Deserialiser<T> {
+pub trait Deserialiser<T>: Send {
     fn deserialise(buf: &mut Buf) -> Result<T, SerError>;
 }
 
@@ -115,7 +115,7 @@ impl<T> Deserialisable<T> for T {
 }
 
 /// Trivial heap to Stack Deserialisable
-impl<T> Deserialisable<T> for Box<T> {
+impl<T: Send> Deserialisable<T> for Box<T> {
     fn serid(&self) -> u64 {
         unimplemented!();
     }

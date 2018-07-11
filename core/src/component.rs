@@ -161,7 +161,7 @@ where
 {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut CD, Uuid) + 'static,
+        F: FnOnce(&mut CD, Uuid) + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -176,7 +176,7 @@ where
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut CD, Uuid) + 'static,
+        F: Fn(&mut CD, Uuid) + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -444,7 +444,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ActorRefFactory for ComponentCon
     }
 }
 
-pub trait ComponentDefinition: Provide<ControlPort> + ActorRaw
+pub trait ComponentDefinition: Provide<ControlPort> + ActorRaw + Send
 where
     Self: Sized,
 {
@@ -528,5 +528,9 @@ impl ComponentCore {
     }
 }
 
-unsafe impl<C: ComponentDefinition + Sized> Send for Component<C> {}
-unsafe impl<C: ComponentDefinition + Sized> Sync for Component<C> {}
+// The compiler gets stuck into recursive loop trying to figure this out itself
+//unsafe impl<C: ComponentDefinition + Sized> Send for Component<C> {}
+//unsafe impl<C: ComponentDefinition + Sized> Sync for Component<C> {}
+
+unsafe impl Send for ComponentCore {}
+unsafe impl Sync for ComponentCore {}

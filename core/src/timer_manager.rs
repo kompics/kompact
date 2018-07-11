@@ -25,7 +25,7 @@ impl ScheduledTimer {
 pub trait Timer<C: ComponentDefinition> {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, Uuid) + 'static;
+        F: FnOnce(&mut C, Uuid) + Send + 'static;
 
     fn schedule_periodic<F>(
         &mut self,
@@ -34,7 +34,7 @@ pub trait Timer<C: ComponentDefinition> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, Uuid) + 'static;
+        F: Fn(&mut C, Uuid) + Send + 'static;
 
     fn cancel_timer(&mut self, handle: ScheduledTimer);
 }
@@ -97,7 +97,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, Uuid) + 'static,
+        F: FnOnce(&mut C, Uuid) + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::OneShot {
@@ -120,7 +120,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, Uuid) + 'static,
+        F: Fn(&mut C, Uuid) + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::Periodic {
@@ -144,13 +144,15 @@ impl<C: ComponentDefinition> TimerManager<C> {
 pub(crate) enum TimerHandle<C: ComponentDefinition> {
     OneShot {
         _id: Uuid, // not used atm
-        action: Box<FnBox(&mut C, Uuid) + 'static>,
+        action: Box<FnBox(&mut C, Uuid) + Send + 'static>,
     },
     Periodic {
         _id: Uuid, // not used atm
-        action: Rc<Fn(&mut C, Uuid) + 'static>,
+        action: Rc<Fn(&mut C, Uuid) + Send + 'static>,
     },
 }
+
+unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} // this isn't technically true, but I know I'm never actually sending it
 
 #[derive(Clone)]
 struct TimerActorRef {

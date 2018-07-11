@@ -17,7 +17,7 @@ impl Serialisable for &'static str {
         buf.put_slice(self.as_bytes());
         Ok(())
     }
-    fn local(self: Box<Self>) -> Result<Box<Any>, Box<Serialisable>> {
+    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
         Ok(self)
     }
 }

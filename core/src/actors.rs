@@ -96,10 +96,10 @@ impl ActorRef {
 
     pub fn tell<T, S>(&self, v: Box<T>, from: &S) -> ()
     where
-        T: 'static,
+        T: Send + 'static,
         S: ActorRefFactory,
     {
-        let bany: Box<Any> = v as Box<Any>;
+        let bany: Box<Any + Send> = v as Box<Any + Send>;
         let env = DispatchEnvelope::Cast(CastEnvelope {
             src: from.actor_ref(),
             v: bany,
@@ -108,7 +108,7 @@ impl ActorRef {
     }
 
     // TODO figure out a way to have one function match both cases -.-
-    pub fn tell_any<S>(&self, v: Box<Any>, from: &S) -> ()
+    pub fn tell_any<S>(&self, v: Box<Any+Send>, from: &S) -> ()
     where
         S: ActorRefFactory,
     {

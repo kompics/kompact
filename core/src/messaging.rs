@@ -16,7 +16,7 @@ pub enum MsgEnvelope {
 #[derive(Debug)]
 pub struct CastEnvelope {
     pub(crate) src: ActorRef,
-    pub(crate) v: Box<Any>,
+    pub(crate) v: Box<Any + Send>,
 }
 
 /// Envelope representing an actor registration event.
