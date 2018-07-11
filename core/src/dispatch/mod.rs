@@ -17,14 +17,19 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-mod lookup;
-
 use dispatch::lookup::ActorLookup;
 use messaging::DispatchEnvelope;
 use messaging::RegistrationEnvelope;
+use net;
+use net::ConnectionState;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
-use std::thread;
+use spnl::frames::Frame;
+use std::collections::HashMap;
+use std::collections::VecDeque;
+
+mod lookup;
+
 /// Configuration for network dispatcher
 pub struct NetworkConfig {
     addr: SocketAddr,
@@ -34,9 +39,11 @@ pub struct NetworkConfig {
 #[derive(ComponentDefinition)]
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
+    connections: HashMap<SocketAddr, ConnectionState>,
     cfg: NetworkConfig,
     lookup: ActorLookup,
-    net_bridge: (),
+    net_bridge: Option<net::Bridge>, // Initialized at `ControlEvent::Start`
+    queue_manager: QueueManager,
 }
 
 // impl NetworkConfig
@@ -48,6 +55,32 @@ impl Default for NetworkConfig {
     }
 }
 
+/// Wrapper around a hashmap of frame queues.
+///
+/// Used when waiting for connections to establish and drained when possible.
+pub struct QueueManager {
+    inner: HashMap<SocketAddr, VecDeque<Frame>>,
+}
+
+impl QueueManager {
+    pub fn new() -> Self {
+        QueueManager {
+            inner: HashMap::new(),
+        }
+    }
+
+    /// Appends the given frame onto the SocketAddr's queue
+    pub fn enqueue_frame(&mut self, frame: Frame, dst: SocketAddr) {
+        let queue = self.inner.entry(dst).or_insert(VecDeque::new());
+        queue.push_back(frame);
+    }
+
+    /// Extracts the next queue-up frame for the SocketAddr, if one exists
+    pub fn dequeue_frame(&mut self, dst: &SocketAddr) -> Option<Frame> {
+        self.inner.get_mut(dst).and_then(|q| q.pop_back())
+    }
+}
+
 // impl NetworkDispatcher
 impl NetworkDispatcher {
     pub fn new() -> Self {
@@ -55,18 +88,13 @@ impl NetworkDispatcher {
     }
 
     pub fn with_config(cfg: NetworkConfig) -> Self {
-        let builder = thread::Builder::new();
-        let handle = builder.name("tokio-bridge".into()).spawn(|| {
-            println!("[TOKIO-THREAD] spawned"); // TODO get a logger here, maybe?
-                                                // TODO cross the vast asynchronous barrier here :-\
-                                                // maybe using futures::mpsc is the best way here, by having a sender
-        });
-
         NetworkDispatcher {
             ctx: ComponentContext::new(),
+            connections: HashMap::new(),
             cfg,
             lookup: ActorLookup::new(),
-            net_bridge: (),
+            net_bridge: None,
+            queue_manager: QueueManager::new(),
         }
     }
 
@@ -74,7 +102,7 @@ impl NetworkDispatcher {
     ///
     /// # Errors
     /// TODO handle unknown destination actor
-    fn route_local(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
         let actor = match dst {
             ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
             ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
@@ -102,27 +130,88 @@ impl NetworkDispatcher {
             }
         } else {
             // TODO handle non-existent routes
-            error!(self.ctx.log(), "ERR on local actor found at {:?}", dst);
+            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
         }
     }
 
-    /// Forwards `msg` to remote `dst` actor via the network layer.
-    fn route_remote(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        trace!(self.ctx.log(), "Routing remote message {:?}", msg);
-        // TODO seralize entire envelope into frame's payload, figure out deserialisation scheme as well
+    /// Routes the provided message to the destination, or queues the message until the connection
+    /// is available.
+    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+        use actors::SystemField;
+        use spnl::frames::*;
+
+        debug!(self.ctx.log(), "Routing remote message {:?}", msg);
+
+        // TODO serialize entire envelope into frame's payload, figure out deserialisation scheme as well
         // TODO ship over to network/tokio land
+
+        let frame = Frame::Data(Data::with_raw_payload(0.into(), 0, "TODObytes".as_bytes()));
+
+        let addr = SocketAddr::new(dst.address().clone(), dst.port());
+        let state: &mut ConnectionState =
+            self.connections.entry(addr).or_insert(ConnectionState::New);
+        let next: Option<ConnectionState> = match *state {
+            ConnectionState::New | ConnectionState::Closed => {
+                debug!(
+                    self.ctx.log(),
+                    "No connection found; establishing and queuing frame"
+                );
+                self.queue_manager.enqueue_frame(frame, addr);
+
+                if let Some(ref mut bridge) = self.net_bridge {
+                    debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
+                    bridge.connect(Transport::TCP, addr).unwrap();
+                    Some(ConnectionState::Initializing)
+                } else {
+                    error!(self.ctx.log(), "No network bridge found; dropping message");
+                    Some(ConnectionState::Closed)
+                }
+            }
+            ConnectionState::Connected(_, ref mut tx) => {
+                match tx.try_send(frame) {
+                    Ok(_) => None, // Successfully relayed frame into network bridge
+                    Err(e) => {
+                        if e.is_full() {
+                            debug!(
+                                self.ctx.log(),
+                                "Sender to connection is  full; buffering in Bridge"
+                            );
+                            let frame = e.into_inner();
+                            self.queue_manager.enqueue_frame(frame, addr);
+                            None
+                        } else if e.is_disconnected() {
+                            warn!(self.ctx.log(), "Frame receiver has been dropped; did the connection handler panic?");
+                            let frame = e.into_inner();
+                            self.queue_manager.enqueue_frame(frame, addr);
+                            Some(ConnectionState::Closed)
+                        } else {
+                            // Only two error types possible
+                            unreachable!();
+                        }
+                    }
+                }
+            }
+            ConnectionState::Initializing => {
+                debug!(self.ctx.log(), "Connection is initializing; queuing frame");
+                self.queue_manager.enqueue_frame(frame, addr);
+                None
+            }
+            _ => None,
+        };
+
+        if let Some(next) = next {
+            *state = next;
+        }
     }
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        use actors::{ActorRefFactory, SystemField};
-
+    fn route(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
         let proto = {
+            use actors::SystemField;
             let dst_sys = dst.system();
             SystemField::protocol(dst_sys)
         };
-
         match proto {
             Transport::LOCAL => {
                 self.route_local(src, dst, msg);
@@ -188,7 +277,22 @@ impl Dispatcher for NetworkDispatcher {
 impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
-            ControlEvent::Start => debug!(self.ctx.log(), "Starting"),
+            ControlEvent::Start => {
+                debug!(self.ctx.log(), "Starting self and network bridge");
+                let (mut bridge, events) = net::Bridge::new();
+                bridge.start(self.cfg.addr.clone());
+
+                if let Some(ref ex) = bridge.executor.as_ref() {
+                    use futures::Stream;
+                    ex.spawn(events.for_each(|ev| {
+                        println!("[BRIDGE] received netevent: {:?}", ev);
+                        // TODO connect to enqueuing on dispatcher
+                        Ok(())
+                    }));
+                }
+
+                self.net_bridge = Some(bridge);
+            }
             ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
             ControlEvent::Kill => info!(self.ctx.log(), "Killed"),
         }
@@ -203,12 +307,10 @@ mod dispatch_tests {
     use bytes::{Buf, BufMut};
     use component::ComponentContext;
     use component::Provide;
-    use component::Require;
     use default_components::DeadletterBox;
     use lifecycle::ControlEvent;
     use lifecycle::ControlPort;
     use ports::Port;
-    use ports::RequiredPort;
     use runtime::KompicsConfig;
     use runtime::KompicsSystem;
     use std::sync::Arc;
@@ -278,48 +380,21 @@ mod dispatch_tests {
         //     .expect("Kompics didn't shut down properly");
     }
 
-    // struct definitions
-    struct TestPort;
-
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
         ctx: ComponentContext<TestComponent>,
-        counter: u64,
-        rec_port: RequiredPort<TestPort, TestComponent>,
     }
 
-    // impl TestPort
-    impl Port for TestPort {
-        type Indication = Arc<String>;
-        type Request = Arc<u64>;
-    }
-
-    // impl TestComponent
     impl TestComponent {
         fn new() -> Self {
             TestComponent {
                 ctx: ComponentContext::new(),
-                counter: 0,
-                rec_port: RequiredPort::new(),
             }
         }
     }
 
     impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting");
-                }
-                _ => (),
-            }
-        }
-    }
-
-    impl Require<TestPort> for TestComponent {
-        fn handle(&mut self, event: Arc<String>) -> () {
-            info!(self.ctx.log(), "Handling {:?}", event);
-        }
+        fn handle(&mut self, _event: <ControlPort as Port>::Request) -> () {}
     }
 
     #[derive(Debug, Clone)]
