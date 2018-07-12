@@ -33,6 +33,8 @@ use serialisation::Serialisable;
 use spnl::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::sync::Mutex;
+use KompicsLogger;
 
 mod lookup;
 
@@ -48,8 +50,9 @@ pub struct NetworkDispatcher {
     connections: HashMap<SocketAddr, ConnectionState>,
     cfg: NetworkConfig,
     lookup: ActorLookup,
-    net_bridge: Option<net::Bridge>, // Initialized at `ControlEvent::Start`
-    queue_manager: QueueManager,
+    // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
+    net_bridge: Option<net::Bridge>,
+    queue_manager: Option<QueueManager>,
 }
 
 // impl NetworkConfig
@@ -65,24 +68,28 @@ impl Default for NetworkConfig {
 ///
 /// Used when waiting for connections to establish and drained when possible.
 pub struct QueueManager {
+    log: KompicsLogger,
     inner: HashMap<SocketAddr, VecDeque<Frame>>,
 }
 
 impl QueueManager {
-    pub fn new() -> Self {
+    pub fn new(log: KompicsLogger) -> Self {
         QueueManager {
+            log,
             inner: HashMap::new(),
         }
     }
 
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_frame(&mut self, frame: Frame, dst: SocketAddr) {
+        debug!(self.log, "Enqueuing frame");
         let queue = self.inner.entry(dst).or_insert(VecDeque::new());
         queue.push_back(frame);
     }
 
     /// Extracts the next queue-up frame for the SocketAddr, if one exists
     pub fn dequeue_frame(&mut self, dst: &SocketAddr) -> Option<Frame> {
+        debug!(self.log, "Dequeuing frame");
         self.inner.get_mut(dst).and_then(|q| q.pop_back())
     }
 }
@@ -100,8 +107,43 @@ impl NetworkDispatcher {
             cfg,
             lookup: ActorLookup::new(),
             net_bridge: None,
-            queue_manager: QueueManager::new(),
+            queue_manager: None,
         }
+    }
+
+    fn start(&mut self) {
+        debug!(self.ctx.log(), "Starting self and network bridge");
+        let dispatcher = {
+            use actors::ActorRefFactory;
+            self.actor_ref()
+        };
+
+        let bridge_logger = self.ctx().log().new(o!("owner" => "Bridge"));
+        let (mut bridge, events) = net::Bridge::new(bridge_logger);
+        bridge.set_dispatcher(dispatcher.clone());
+        bridge.start(self.cfg.addr.clone());
+
+        if let Some(ref ex) = bridge.executor.as_ref() {
+            use futures::{Future, Stream};
+            ex.spawn(
+                events
+                    .map(|ev| {
+                        MsgEnvelope::Dispatch(DispatchEnvelope::Event(
+                            EventEnvelope::Network(ev),
+                        ))
+                    })
+                    .forward(dispatcher)
+                    .then(|_| Ok(())),
+            );
+        } else {
+            error!(
+                self.ctx.log(),
+                "No executor found in network bridge; network events can not be handled"
+            );
+        }
+        let queue_manager = QueueManager::new(self.ctx().log().new(o!("owner" => "QueueManager")));
+        self.net_bridge = Some(bridge);
+        self.queue_manager = Some(queue_manager);
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
@@ -163,7 +205,7 @@ impl NetworkDispatcher {
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
                 );
-                self.queue_manager.enqueue_frame(frame, addr);
+                self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
@@ -184,12 +226,12 @@ impl NetworkDispatcher {
                                 "Sender to connection is  full; buffering in Bridge"
                             );
                             let frame = e.into_inner();
-                            self.queue_manager.enqueue_frame(frame, addr);
+                            self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
                             None
                         } else if e.is_disconnected() {
                             warn!(self.ctx.log(), "Frame receiver has been dropped; did the connection handler panic?");
                             let frame = e.into_inner();
-                            self.queue_manager.enqueue_frame(frame, addr);
+                            self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
                             Some(ConnectionState::Closed)
                         } else {
                             // Only two error types possible
@@ -200,7 +242,7 @@ impl NetworkDispatcher {
             }
             ConnectionState::Initializing => {
                 debug!(self.ctx.log(), "Connection is initializing; queuing frame");
-                self.queue_manager.enqueue_frame(frame, addr);
+                self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
                 None
             }
             _ => None,
@@ -291,35 +333,7 @@ impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Start => {
-                debug!(self.ctx.log(), "Starting self and network bridge");
-                let dispatcher = {
-                    use actors::ActorRefFactory;
-                    self.actor_ref()
-                };
-
-                let (mut bridge, events) = net::Bridge::new();
-                bridge.set_dispatcher(dispatcher.clone());
-                bridge.start(self.cfg.addr.clone());
-
-                if let Some(ref ex) = bridge.executor.as_ref() {
-                    use futures::{Future, Stream};
-                    ex.spawn(
-                        events
-                            .map(|ev| {
-                                MsgEnvelope::Dispatch(DispatchEnvelope::Event(
-                                    EventEnvelope::Network(ev),
-                                ))
-                            })
-                            .forward(dispatcher)
-                            .then(|_| Ok(())),
-                    );
-                } else {
-                    error!(
-                        self.ctx.log(),
-                        "No executor found in network bridge; network events can not be handled"
-                    );
-                }
-                self.net_bridge = Some(bridge);
+                self.start();
             }
             ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
             ControlEvent::Kill => info!(self.ctx.log(), "Killed"),

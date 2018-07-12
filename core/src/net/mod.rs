@@ -15,6 +15,7 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
+use KompicsLogger;
 
 /// Default buffer amount for MPSC channels
 pub const MPSC_BUF_SIZE: usize = 0;
@@ -61,6 +62,8 @@ pub struct Bridge {
     pub(crate) executor: Option<TaskExecutor>,
     /// Queue of network events emitted by the network layer
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
+    /// Core logger; shared with network thread
+    log: KompicsLogger,
     /// Thread blocking on the Tokio runtime
     net_thread: Option<JoinHandle<()>>,
     /// Reference back to the Kompics dispatcher
@@ -74,11 +77,12 @@ impl Bridge {
     /// # Returns
     /// A tuple consisting of the new Bridge object and the network event receiver.
     /// The receiver will allow responding to [NetworkEvent]s for external state management.
-    pub fn new() -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
+    pub fn new(log: KompicsLogger) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
         let bridge = Bridge {
             executor: None,
             events: sender,
+            log,
             net_thread: None,
             dispatcher: None,
         };
@@ -93,7 +97,8 @@ impl Bridge {
 
     /// Starts the Tokio runtime and binds a [TcpListener] to the provided `addr`
     pub fn start(&mut self, addr: SocketAddr) {
-        let (ex, th) = start_network_thread("tokio-runtime".into(), addr, self.events.clone());
+        let network_log = self.log.new(o!("thread" => "tokio-runtime"));
+        let (ex, th) = start_network_thread("tokio-runtime".into(), network_log, addr, self.events.clone());
         self.executor = Some(ex);
         self.net_thread = Some(th);
     }
@@ -114,6 +119,7 @@ impl Bridge {
                 println!("connecting to new remote TCP address");
                 if let Some(ref executor) = self.executor {
                     let events = self.events.clone();
+                    let log = self.log.clone();
                     let connect_fut = TcpStream::connect(&addr)
                         .map_err(|_err| {
                             println!("err connecting to remote!");
@@ -128,7 +134,7 @@ impl Bridge {
                             events.unbounded_send(NetworkEvent::Connection(
                                 ConnectionState::Connected(peer_addr, tx),
                             ));
-                            handle_tcp(tcp_stream, rx, events.clone())
+                            handle_tcp(tcp_stream, rx, events.clone(), log)
                         });
                     executor.spawn(connect_fut);
                     Ok(())
@@ -146,24 +152,28 @@ impl Bridge {
 /// Connection result and errors are propagated on the provided `events`.
 fn start_tcp_server(
     executor: TaskExecutor,
+    log: KompicsLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
 ) -> impl Future<Item = (), Error = ()> {
+
+    let err_log = log.clone();
     let server = TcpListener::bind(&addr).expect("could not bind to address");
     let err_events = events.clone();
     let server = server
         .incoming()
         .map_err(move |e| {
-            println!("err listening on TCP socket");
+            error!(err_log, "err listening on TCP socket");
             err_events.unbounded_send(NetworkEvent::Connection(ConnectionState::Error(e)));
         })
         .for_each(move |tcp_stream| {
-            println!("connected TCP client");
+            debug!(log, "connected TCP client at {:?}", tcp_stream);
+
             let peer_addr = tcp_stream
                 .peer_addr()
                 .expect("stream must have a peer address");
             let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
-            executor.spawn(handle_tcp(tcp_stream, rx, events.clone()));
+            executor.spawn(handle_tcp(tcp_stream, rx, events.clone(), log.clone()));
             events.unbounded_send(NetworkEvent::Connection(ConnectionState::Connected(
                 peer_addr, tx,
             )));
@@ -178,6 +188,7 @@ fn start_tcp_server(
 /// A tuple consisting of the runtime's executor and a handle to the network thread.
 fn start_network_thread(
     name: String,
+    log: KompicsLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
 ) -> (TaskExecutor, JoinHandle<()>) {
@@ -190,7 +201,7 @@ fn start_network_thread(
             let mut runtime = Runtime::new().expect("runtime creation in network main thread");
             let executor = runtime.executor();
 
-            runtime.spawn(start_tcp_server(executor.clone(), addr, events));
+            runtime.spawn(start_tcp_server(executor.clone(), log.clone(), addr, events));
 
             let _res = tx.send(executor);
             runtime.shutdown_on_idle().wait().unwrap();
@@ -208,6 +219,7 @@ fn handle_tcp(
     stream: TcpStream,
     rx: sync::mpsc::Receiver<Frame>,
     tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
+    log: KompicsLogger,
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
@@ -216,6 +228,7 @@ fn handle_tcp(
 
     frame_reader
         .map(move |frame: Frame| {
+            debug!(log, "Received frame: {:?}", frame);
             // Handle frame from protocol; yielding `Some(Frame)` if a response `Frame` should be sent
             match frame {
                 Frame::StreamRequest(_) => None,
