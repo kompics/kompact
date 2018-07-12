@@ -38,6 +38,7 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use KompicsLogger;
+use futures::sync;
 
 mod lookup;
 mod queue_manager;
@@ -118,6 +119,54 @@ impl NetworkDispatcher {
         self.queue_manager = Some(queue_manager);
     }
 
+    fn handle_event(&mut self, ev: EventEnvelope) {
+        match ev {
+            EventEnvelope::Network(ev) => match ev {
+                NetworkEvent::Connection(addr, conn_state) => {
+                    self.handle_conn_state(addr, conn_state)
+                }
+                NetworkEvent::Data(_) => {
+                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
+                    debug!(self.ctx().log(), "Received important data!");
+                }
+            },
+        }
+    }
+
+    fn handle_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
+        use self::ConnectionState::*;
+
+        match state {
+            Connected(ref mut frame_sender) => {
+                debug!(
+                    self.ctx().log(),
+                    "registering newly connected conn at {:?}",
+                    addr
+                );
+
+                if let Some(ref mut qm) = self.queue_manager {
+                    if !qm.has_frame(&addr) {
+                        // Drain as much as possible
+                        while let Some(frame) = qm.pop_frame(&addr) {
+                            if let Err(err) = frame_sender.try_send(frame) {
+                                qm.enqueue_frame(err.into_inner(), addr.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            Closed => {
+                warn!(self.ctx().log(), "connection closed for {:?}", addr);
+            }
+            Error(_) => {
+                error!(self.ctx().log(), "connection error for {:?}", addr);
+            }
+            ref _other => (), // Don't care
+        }
+        self.connections.insert(addr, state);
+    }
+
     /// Forwards `msg` up to a local `dst` actor, if it exists.
     ///
     /// # Errors
@@ -191,6 +240,8 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Connected(ref mut tx) => {
+                // TODO check if we need to drain anything before sending
+
                 match tx.try_send(frame) {
                     Ok(_) => None, // Successfully relayed frame into network bridge
                     Err(e) => {
@@ -297,10 +348,7 @@ impl Dispatcher for NetworkDispatcher {
                     }
                 }
             }
-            DispatchEnvelope::Event(ev) => {
-                // TODO
-                debug!(self.ctx.log(), "Received dispacher event {:?}", ev);
-            }
+            DispatchEnvelope::Event(ev) => self.handle_event(ev),
         }
     }
 
@@ -358,32 +406,39 @@ mod dispatch_tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+    use uuid::Uuid;
 
     #[test]
-    #[ignore]
     fn registration() {
         let mut cfg = KompicsConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
         let system = KompicsSystem::new(cfg);
 
         let component = system.create_and_register(TestComponent::new);
+
         // FIXME @Johan
         // let path = component.actor_path();
         // let port = component.on_definition(|this| this.rec_port.share());
 
         // system.trigger_i(Arc::new(String::from("local indication")), port);
 
-        // let reference = component.actor_path();
+        let reference = {
+            use std::str::FromStr;
+            ActorPath::from_str("tcp://127.0.0.1:8080/dst_actor")
+                .expect("hardcoded path should parse")
+        };
 
-        // reference.tell("Network me, dispatch!", &system);
+        reference.tell("Network me, dispatch!", &system);
+        thread::sleep(Duration::from_millis(10));
 
-        // // Sleep; allow the system to progress
-        // thread::sleep(Duration::from_millis(1000));
+        reference.tell("Network me, dispatch!", &system);
+        // Sleep; allow the system to progress
+        thread::sleep(Duration::from_secs(10));
 
-        // match system.shutdown() {
-        //     Ok(_) => println!("Successful shutdown"),
-        //     Err(_) => eprintln!("Error shutting down system"),
-        // }
+        match system.shutdown() {
+            Ok(_) => println!("Successful shutdown"),
+            Err(_) => eprintln!("Error shutting down system"),
+        }
     }
 
     const PING_COUNT: u64 = 10;

@@ -122,13 +122,11 @@ impl Bridge {
     pub fn connect(&mut self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkError> {
         match proto {
             Transport::TCP => {
-                println!("connecting to new remote TCP address");
                 if let Some(ref executor) = self.executor {
                     let events = self.events.clone();
                     let log = self.log.clone();
                     let connect_fut = TcpStream::connect(&addr)
                         .map_err(|_err| {
-                            println!("err connecting to remote!");
                             // TODO err
                             ()
                         })
