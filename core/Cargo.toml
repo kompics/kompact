@@ -7,8 +7,9 @@ authors = ["Lars Kroll <lkroll@kth.se>"]
 log = "0.3"
 component-definition-derive = { path = "../macros/component-definition-derive/" }
 actor-derive = { path = "../macros/actor-derive/" }
-executors = "0.3"
+executors = "0.4"
 crossbeam = "0.3"
+crossbeam-channel = "0.2"
 synchronoise = "0.4"
 uuid = { version = "0.4", features = ["serde", "v4"] }
 time = "0.1"

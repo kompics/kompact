@@ -534,3 +534,56 @@ impl ComponentCore {
 
 unsafe impl Send for ComponentCore {}
 unsafe impl Sync for ComponentCore {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(ComponentDefinition, Actor)]
+    struct TestComponent {
+        ctx: ComponentContext<TestComponent>
+    }
+
+    impl TestComponent {
+        fn new() -> TestComponent {
+            TestComponent {
+                ctx: ComponentContext::new(),
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for TestComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    info!(self.ctx.log(), "Starting TestComponent");
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    #[test]
+    fn component_core_send() -> () {
+        let system = KompicsSystem::default();
+        let cc = system.create(TestComponent::new);
+        let core = cc.core();
+        is_send(&core.id);
+        is_send(&core.system);
+        is_send(&core.work_count);
+        // component is clearly not Send, but that's ok
+        is_sync(&core.id);
+        is_sync(&core.system);
+        is_sync(&core.work_count);
+        // component is clearly not Sync, but that's ok
+    }
+
+    // Just a way to force the compiler to infer Send for T
+    fn is_send<T: Send>(_v: &T) -> () {
+        // ignore
+    }
+    // Just a way to force the compiler to infer Sync for T
+    fn is_sync<T: Sync>(_v: &T) -> () {
+        // ignore
+    }
+}

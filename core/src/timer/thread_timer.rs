@@ -1,5 +1,8 @@
 use super::*;
 
+use crossbeam_channel as channel;
+use std::sync::Arc;
+
 #[derive(Debug)]
 enum TimerMsg {
     Schedule(TimerEntry),
@@ -9,7 +12,7 @@ enum TimerMsg {
 
 #[derive(Clone)]
 pub struct TimerRef {
-    work_queue: mpsc::Sender<TimerMsg>,
+    work_queue: channel::Sender<TimerMsg>,
 }
 
 impl Timer for TimerRef {
@@ -22,7 +25,7 @@ impl Timer for TimerRef {
             timeout,
             action: Box::new(action),
         };
-        self.work_queue.send(TimerMsg::Schedule(e)).unwrap();
+        self.work_queue.send(TimerMsg::Schedule(e));
     }
 
     fn schedule_periodic<F>(&mut self, id: Uuid, delay: Duration, period: Duration, action: F) -> ()
@@ -35,30 +38,30 @@ impl Timer for TimerRef {
             period,
             action: Box::new(action),
         };
-        self.work_queue.send(TimerMsg::Schedule(e)).unwrap();
+        self.work_queue.send(TimerMsg::Schedule(e));
     }
     fn cancel(&mut self, id: Uuid) {
-        self.work_queue.send(TimerMsg::Cancel(id)).unwrap();
+        self.work_queue.send(TimerMsg::Cancel(id));
     }
 }
 
 pub struct TimerWithThread {
     timer_thread: thread::JoinHandle<()>,
-    work_queue: mpsc::Sender<TimerMsg>,
+    work_queue: channel::Sender<TimerMsg>,
 }
 
 impl TimerWithThread {
     pub fn new() -> io::Result<TimerWithThread> {
-        let (tx, rx) = mpsc::channel::<TimerMsg>();
+        let (s, r) = channel::unbounded();
         let handle = thread::Builder::new()
             .name("timer-thread".to_string())
             .spawn(move || {
-                let timer = TimerThread::new(rx);
+                let timer = TimerThread::new(r);
                 timer.run();
             })?;
         let twt = TimerWithThread {
             timer_thread: handle,
-            work_queue: tx,
+            work_queue: s,
         };
         Ok(twt)
     }
@@ -70,22 +73,20 @@ impl TimerWithThread {
     }
 
     pub fn shutdown(self) -> Result<(), ThreadTimerError> {
-        match self.work_queue.send(TimerMsg::Stop) {
-            Ok(_) => match self.timer_thread.join() {
+        self.work_queue.send(TimerMsg::Stop);
+         match self.timer_thread.join() {
                 Ok(_) => Ok(()),
                 Err(_) => {
                     eprintln!("Timer thread panicked!");
                     Err(ThreadTimerError::CouldNotJoinThread)
-                }
-            },
-            Err(mpsc::SendError(_)) => Err(ThreadTimerError::CouldNotSendStop(self)),
+                }       
         }
     }
 
     pub fn shutdown_async(&self) -> Result<(), ThreadTimerError> {
-        self.work_queue
-            .send(TimerMsg::Stop)
-            .map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
+        self.work_queue.send(TimerMsg::Stop);
+        Ok(())
+            //.map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
     }
 }
 
@@ -104,14 +105,14 @@ pub enum ThreadTimerError {
 
 pub struct TimerThread {
     timer: QuadWheelWithOverflow,
-    work_queue: mpsc::Receiver<TimerMsg>,
+    work_queue: channel::Receiver<TimerMsg>,
     running: bool,
     start: Instant,
     last_check: u128,
 }
 
 impl TimerThread {
-    fn new(work_queue: mpsc::Receiver<TimerMsg>) -> TimerThread {
+    fn new(work_queue: channel::Receiver<TimerMsg>) -> TimerThread {
         TimerThread {
             timer: QuadWheelWithOverflow::new(),
             work_queue,
@@ -130,8 +131,8 @@ impl TimerThread {
                 }
             } else {
                 match self.work_queue.try_recv() {
-                    Ok(msg) => self.handle_msg(msg),
-                    Err(mpsc::TryRecvError::Empty) => {
+                    Some(msg) => self.handle_msg(msg),
+                    None => {
                         // nothing to tick and nothing in the queue
                         match self.timer.can_skip() {
                             Skip::None => {
@@ -146,22 +147,24 @@ impl TimerThread {
                                 // don't even need to bother skipping time in the wheel,
                                 // since all times in there are relative
                                 match self.work_queue.recv() {
-                                    Ok(msg) => {
+                                    Some(msg) => {
                                         self.reset(); // since we waited for an arbitrary time and taking a new timestamp incures no error
                                         self.handle_msg(msg)
                                     }
-                                    Err(mpsc::RecvError) => {
+                                    None => {
                                         panic!("Timer work_queue unexpectedly shut down!")
                                     }
-                                }
+                                }                                
                             }
                             Skip::Millis(ms) if ms > 5 => {
                                 let ms = ms - 5; // balance OS scheduler inaccuracy
                                 println!("Trying to wait {}ms for messages.", ms);
                                 // wait until something is scheduled but max skip
-                                let res = self
-                                    .work_queue
-                                    .recv_timeout(Duration::from_millis(ms as u64));
+                                let timeout = Duration::from_millis(ms as u64);
+                                let res = select! {
+                                    recv(self.work_queue, msg) => msg,
+                                    recv(channel::after(timeout)) => None,
+                                };
                                 let elap = self.elapsed();
                                 println!("Actually waited {}ms", elap);
                                 let longms = ms as u128;
@@ -180,11 +183,8 @@ impl TimerThread {
                                     self.timer.skip(ms);
                                 }
                                 match res {
-                                    Ok(msg) => self.handle_msg(msg),
-                                    Err(mpsc::RecvTimeoutError::Timeout) => (), // restart loop
-                                    Err(mpsc::RecvTimeoutError::Disconnected) => {
-                                        panic!("Timer work_queue unexpectedly shut down!")
-                                    }
+                                    Some(msg) => self.handle_msg(msg),
+                                    None => (), // restart loop
                                 }
                             }
                             Skip::Millis(_) => {
@@ -195,9 +195,6 @@ impl TimerThread {
                                 // } // else hot wait to reduce inaccuracy
                             }
                         }
-                    }
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        panic!("Timer work_queue unexpectedly shut down!")
                     }
                 }
             }

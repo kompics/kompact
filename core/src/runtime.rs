@@ -7,7 +7,7 @@ use std::clone::Clone;
 use std::fmt::{Debug, Error, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::{Once, ONCE_INIT};
 use supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
 
@@ -110,7 +110,7 @@ impl KompicsConfig {
 
     pub fn scheduler<E, F>(&mut self, f: F) -> &mut Self
     where
-        E: Executor + 'static,
+        E: Executor + Sync + 'static,
         F: Fn(usize) -> E + 'static,
     {
         let sb = move |t: usize| ExecutorScheduler::from(f(t));
@@ -407,7 +407,7 @@ pub trait SystemComponents: Send + Sync {
     fn start(&self, &KompicsSystem) -> ();
 }
 
-pub trait TimerComponent: TimerRefFactory {
+pub trait TimerComponent: TimerRefFactory + Send + Sync {
     fn shutdown(&self) -> Result<(), String>;
 }
 
@@ -570,7 +570,7 @@ impl Debug for KompicsRuntime {
     }
 }
 
-pub trait Scheduler {
+pub trait Scheduler: Send + Sync {
     fn schedule(&self, c: Arc<CoreContainer>) -> ();
     fn shutdown_async(&self) -> ();
     fn shutdown(&self) -> Result<(), String>;
@@ -584,21 +584,20 @@ impl Clone for Box<Scheduler> {
 }
 
 #[derive(Clone)]
-struct ExecutorScheduler<E: Executor> {
+struct ExecutorScheduler<E> where E: Executor + Sync {
     exec: E,
 }
 
-impl<E: Executor + 'static> ExecutorScheduler<E> {
-    // just to avoid warnings...uncomment if used
-    // fn with(exec: E) -> ExecutorScheduler<E> {
-    //     ExecutorScheduler { exec }
-    // }
+impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
+    fn with(exec: E) -> ExecutorScheduler<E> {
+        ExecutorScheduler { exec }
+    }
     fn from(exec: E) -> Box<Scheduler> {
-        Box::new(ExecutorScheduler { exec })
+        Box::new(ExecutorScheduler::with(exec))
     }
 }
 
-impl<E: Executor + 'static> Scheduler for ExecutorScheduler<E> {
+impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     fn schedule(&self, c: Arc<CoreContainer>) -> () {
         self.exec.execute(move || {
             c.execute();

@@ -4,11 +4,14 @@
 #![feature(fnbox)]
 #![feature(duration_as_u128)]
 #![feature(drain_filter)]
+//#![feature(mpsc_select)]
 //extern crate futures;
 //extern crate futures_cpupool;
 extern crate as_num;
 extern crate bytes;
 extern crate crossbeam;
+#[macro_use]
+extern crate crossbeam_channel;
 extern crate executors;
 extern crate num_cpus;
 extern crate oncemutex;
@@ -174,9 +177,8 @@ mod tests {
         let mut settings = KompicsConfig::new();
         settings
             .threads(4)
-            .scheduler(|t| executors::threadpool_executor::ThreadPoolExecutor::new(t));
+            .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
         let system = KompicsSystem::new(settings);
-
         test_with_system(system);
     }
 
