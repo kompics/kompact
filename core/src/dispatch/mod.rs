@@ -19,6 +19,9 @@ use std::sync::Arc;
 
 use dispatch::lookup::ActorLookup;
 use messaging::DispatchEnvelope;
+use messaging::EventEnvelope;
+use messaging::MsgEnvelope;
+use messaging::PathResolvable;
 use messaging::RegistrationEnvelope;
 use net;
 use net::ConnectionState;
@@ -102,41 +105,42 @@ impl NetworkDispatcher {
     ///
     /// # Errors
     /// TODO handle unknown destination actor
-    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        let actor = match dst {
-            ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
-            ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
-        };
-
-        if let Some(actor) = actor {
-            //  TODO err handling
-            match msg.local() {
-                Ok(boxed_value) => {
-                    let src_actor_opt = match src {
-                        ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
-                        ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
-                    };
-                    if let Some(src_actor) = src_actor_opt {
-                        actor.tell_any(boxed_value, src_actor);
-                    } else {
-                        panic!("Non-local ActorPath ended up in local dispatcher!");
-                    }
-                }
-                Err(msg) => {
-                    // local not implemented
-                    let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
-                    actor.enqueue(envelope);
-                }
-            }
-        } else {
-            // TODO handle non-existent routes
-            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
-        }
+    /// FIXME this fn
+    fn route_local(&mut self, src: PathResolvable, dst: ActorPath, msg: Box<Serialisable>) {
+        //        let actor = match dst {
+        //            ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
+        //            ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
+        //        };
+        //
+        //        if let Some(actor) = actor {
+        //            //  TODO err handling
+        //            match msg.local() {
+        //                Ok(boxed_value) => {
+        //                    let src_actor_opt = match src {
+        //                        ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
+        //                        ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
+        //                    };
+        //                    if let Some(src_actor) = src_actor_opt {
+        //                        actor.tell_any(boxed_value, src_actor);
+        //                    } else {
+        //                        panic!("Non-local ActorPath ended up in local dispatcher!");
+        //                    }
+        //                }
+        //                Err(msg) => {
+        //                    // local not implemented
+        //                    let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
+        //                    actor.enqueue(envelope);
+        //                }
+        //            }
+        //        } else {
+        //            // TODO handle non-existent routes
+        //            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
+        //        }
     }
 
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
-    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route_remote(&mut self, src: PathResolvable, dst: ActorPath, msg: Box<Serialisable>) {
         use actors::SystemField;
         use spnl::frames::*;
 
@@ -206,7 +210,7 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route(&mut self, src: PathResolvable, dst: ActorPath, msg: Box<Serialisable>) {
         let proto = {
             use actors::SystemField;
             let dst_sys = dst.system();
@@ -216,8 +220,11 @@ impl NetworkDispatcher {
             Transport::LOCAL => {
                 self.route_local(src, dst, msg);
             }
-            Transport::TCP | Transport::UDP => {
+            Transport::TCP => {
                 self.route_remote(src, dst, msg);
+            }
+            Transport::UDP => {
+                error!(self.ctx.log(), "UDP routing not supported yet");
             }
         }
     }
@@ -252,19 +259,22 @@ impl Dispatcher for NetworkDispatcher {
             }
             DispatchEnvelope::Msg { src, dst, msg } => {
                 // Look up destination (local or remote), then route or err
-                //self.route(src, dst, msg);
-                // FIXME @Johan
+                self.route(src, dst, msg);
             }
             DispatchEnvelope::Registration(reg) => {
                 match reg {
-                    RegistrationEnvelope::Register(actor) => {
-                        self.lookup.insert(actor);
+                    RegistrationEnvelope::Register(actor, path) => {
+                        self.lookup.insert(actor, path);
                     }
                     RegistrationEnvelope::Deregister(actor_path) => {
                         debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
                         // TODO handle
                     }
                 }
+            }
+            DispatchEnvelope::Event(ev) => {
+                // TODO
+                debug!(self.ctx.log(), "Received dispacher event {:?}", ev);
             }
         }
     }

@@ -8,6 +8,7 @@
 
 use actors::ActorPath;
 use actors::ActorRef;
+use messaging::PathResolvable;
 use std::collections::HashMap;
 use trie::SequenceTrie;
 use uuid::Uuid;
@@ -49,20 +50,22 @@ impl ActorLookup {
 
     /// Inserts or replaces the `path` in the lookup structure.
     /// If an entry already exists, it is removed and returned before being replaced.
-    pub fn insert(&mut self, actor: ActorRef) -> Option<ActorRef> {
-        unimplemented!(); // FIXME @Johan update for new code
-                          // use actors::ActorRefFactory;
-
-        // let path = actor.actor_path();
-        // match path {
-        //     ActorPath::Unique(up) => {
-        //         let key = up.clone_id();
-        //         self.uuid_map.insert(key, actor)
-        //     }
-        //     ActorPath::Named(np) => {
-        //         let keys = np.path_ref();
-        //         self.name_map.insert(keys, actor)
-        //     }
-        // }
+    pub fn insert(&mut self, actor: ActorRef, path: PathResolvable) -> Option<ActorRef> {
+        match path {
+            PathResolvable::Path(actor_path) => match actor_path {
+                ActorPath::Unique(up) => {
+                    let key = up.clone_id();
+                    self.uuid_map.insert(key, actor)
+                }
+                ActorPath::Named(np) => {
+                    let keys = np.path_ref();
+                    self.name_map.insert(keys, actor)
+                }
+            },
+            PathResolvable::ActorId(uuid) => self.uuid_map.insert(uuid, actor),
+            PathResolvable::System => {
+                panic!("System paths should not be registered");
+            }
+        }
     }
 }

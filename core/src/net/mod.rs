@@ -1,3 +1,4 @@
+use actors::ActorRef;
 use actors::Transport;
 use futures;
 use futures::sync;
@@ -27,7 +28,7 @@ pub enum ConnectionState {
     Error(std::io::Error),
 }
 
-mod events {
+pub mod events {
     use std;
 
     use super::ConnectionState;
