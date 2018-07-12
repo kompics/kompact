@@ -18,6 +18,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use dispatch::lookup::ActorLookup;
+use futures::Async;
+use futures::AsyncSink;
+use futures::{self, Poll, StartSend};
 use messaging::DispatchEnvelope;
 use messaging::EventEnvelope;
 use messaging::MsgEnvelope;
@@ -289,23 +292,57 @@ impl Provide<ControlPort> for NetworkDispatcher {
         match event {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting self and network bridge");
+                let dispatcher = {
+                    use actors::ActorRefFactory;
+                    self.actor_ref()
+                };
+
                 let (mut bridge, events) = net::Bridge::new();
+                bridge.set_dispatcher(dispatcher.clone());
                 bridge.start(self.cfg.addr.clone());
 
                 if let Some(ref ex) = bridge.executor.as_ref() {
-                    use futures::Stream;
-                    ex.spawn(events.for_each(|ev| {
-                        println!("[BRIDGE] received netevent: {:?}", ev);
-                        // TODO connect to enqueuing on dispatcher
-                        Ok(())
-                    }));
+                    use futures::{Future, Stream};
+                    ex.spawn(
+                        events
+                            .map(|ev| {
+                                MsgEnvelope::Dispatch(DispatchEnvelope::Event(
+                                    EventEnvelope::Network(ev),
+                                ))
+                            })
+                            .forward(dispatcher)
+                            .then(|_| Ok(())),
+                    );
+                } else {
+                    error!(
+                        self.ctx.log(),
+                        "No executor found in network bridge; network events can not be handled"
+                    );
                 }
-
                 self.net_bridge = Some(bridge);
             }
             ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
             ControlEvent::Kill => info!(self.ctx.log(), "Killed"),
         }
+    }
+}
+
+/// Helper for forwarding [MsgEnvelope]s to actor references
+impl futures::Sink for ActorRef {
+    type SinkItem = MsgEnvelope;
+    type SinkError = ();
+
+    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+        ActorRef::enqueue(self, item);
+        Ok(AsyncSink::Ready)
+    }
+
+    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(Async::Ready(()))
+    }
+
+    fn close(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(Async::Ready(()))
     }
 }
 

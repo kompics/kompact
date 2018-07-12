@@ -4,9 +4,6 @@
 #![feature(fnbox)]
 #![feature(duration_as_u128)]
 #![feature(drain_filter)]
-//#![feature(mpsc_select)]
-//extern crate futures;
-//extern crate futures_cpupool;
 extern crate as_num;
 extern crate bytes;
 extern crate crossbeam;

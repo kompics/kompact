@@ -63,6 +63,8 @@ pub struct Bridge {
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     /// Thread blocking on the Tokio runtime
     net_thread: Option<JoinHandle<()>>,
+    /// Reference back to the Kompics dispatcher
+    dispatcher: Option<ActorRef>,
 }
 
 // impl bridge
@@ -78,9 +80,15 @@ impl Bridge {
             executor: None,
             events: sender,
             net_thread: None,
+            dispatcher: None,
         };
 
         (bridge, receiver)
+    }
+
+    /// Sets the dispatcher reference, returning the previously stored one
+    pub fn set_dispatcher(&mut self, dispatcher: ActorRef) -> Option<ActorRef> {
+        std::mem::replace(&mut self.dispatcher, Some(dispatcher))
     }
 
     /// Starts the Tokio runtime and binds a [TcpListener] to the provided `addr`
