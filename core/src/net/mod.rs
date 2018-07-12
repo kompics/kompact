@@ -24,7 +24,7 @@ pub const MPSC_BUF_SIZE: usize = 0;
 pub enum ConnectionState {
     New,
     Initializing,
-    Connected(SocketAddr, sync::mpsc::Sender<Frame>),
+    Connected(sync::mpsc::Sender<Frame>),
     Closed,
     Error(std::io::Error),
 }
@@ -34,11 +34,12 @@ pub mod events {
 
     use super::ConnectionState;
     use spnl::frames::Frame;
+    use std::net::SocketAddr;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkEvent {
-        Connection(ConnectionState),
+        Connection(SocketAddr, ConnectionState),
         Data(Frame),
     }
 
@@ -98,7 +99,12 @@ impl Bridge {
     /// Starts the Tokio runtime and binds a [TcpListener] to the provided `addr`
     pub fn start(&mut self, addr: SocketAddr) {
         let network_log = self.log.new(o!("thread" => "tokio-runtime"));
-        let (ex, th) = start_network_thread("tokio-runtime".into(), network_log, addr, self.events.clone());
+        let (ex, th) = start_network_thread(
+            "tokio-runtime".into(),
+            network_log,
+            addr,
+            self.events.clone(),
+        );
         self.executor = Some(ex);
         self.net_thread = Some(th);
     }
@@ -132,7 +138,8 @@ impl Bridge {
                                 .expect("stream must have a peer address");
                             let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
                             events.unbounded_send(NetworkEvent::Connection(
-                                ConnectionState::Connected(peer_addr, tx),
+                                peer_addr,
+                                ConnectionState::Connected(tx),
                             ));
                             handle_tcp(tcp_stream, rx, events.clone(), log)
                         });
@@ -156,7 +163,6 @@ fn start_tcp_server(
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
 ) -> impl Future<Item = (), Error = ()> {
-
     let err_log = log.clone();
     let server = TcpListener::bind(&addr).expect("could not bind to address");
     let err_events = events.clone();
@@ -164,7 +170,7 @@ fn start_tcp_server(
         .incoming()
         .map_err(move |e| {
             error!(err_log, "err listening on TCP socket");
-            err_events.unbounded_send(NetworkEvent::Connection(ConnectionState::Error(e)));
+            err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(e)));
         })
         .for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
@@ -174,9 +180,10 @@ fn start_tcp_server(
                 .expect("stream must have a peer address");
             let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
             executor.spawn(handle_tcp(tcp_stream, rx, events.clone(), log.clone()));
-            events.unbounded_send(NetworkEvent::Connection(ConnectionState::Connected(
-                peer_addr, tx,
-            )));
+            events.unbounded_send(NetworkEvent::Connection(
+                peer_addr,
+                ConnectionState::Connected(tx),
+            ));
             Ok(())
         });
     server
@@ -201,7 +208,12 @@ fn start_network_thread(
             let mut runtime = Runtime::new().expect("runtime creation in network main thread");
             let executor = runtime.executor();
 
-            runtime.spawn(start_tcp_server(executor.clone(), log.clone(), addr, events));
+            runtime.spawn(start_tcp_server(
+                executor.clone(),
+                log.clone(),
+                addr,
+                events,
+            ));
 
             let _res = tx.send(executor);
             runtime.shutdown_on_idle().wait().unwrap();

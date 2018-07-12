@@ -1,8 +1,8 @@
-use KompicsLogger;
+use spnl::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
-use spnl::frames::Frame;
+use KompicsLogger;
 
 /// Wrapper around a hashmap of frame queues.
 ///

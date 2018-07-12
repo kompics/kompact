@@ -17,7 +17,9 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use actors::UniquePath;
 use dispatch::lookup::ActorLookup;
+use dispatch::queue_manager::QueueManager;
 use futures::Async;
 use futures::AsyncSink;
 use futures::{self, Poll, StartSend};
@@ -27,6 +29,7 @@ use messaging::MsgEnvelope;
 use messaging::PathResolvable;
 use messaging::RegistrationEnvelope;
 use net;
+use net::events::NetworkEvent;
 use net::ConnectionState;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
@@ -35,8 +38,6 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use KompicsLogger;
-use net::events::NetworkEvent;
-use dispatch::queue_manager::QueueManager;
 
 mod lookup;
 mod queue_manager;
@@ -101,9 +102,7 @@ impl NetworkDispatcher {
             ex.spawn(
                 events
                     .map(|ev| {
-                        MsgEnvelope::Dispatch(DispatchEnvelope::Event(
-                            EventEnvelope::Network(ev),
-                        ))
+                        MsgEnvelope::Dispatch(DispatchEnvelope::Event(EventEnvelope::Network(ev)))
                     })
                     .forward(dispatcher)
                     .then(|_| Ok(())),
@@ -178,7 +177,9 @@ impl NetworkDispatcher {
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
                 );
-                self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
+                self.queue_manager
+                    .as_mut()
+                    .map(|ref mut q| q.enqueue_frame(frame, addr));
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
@@ -189,7 +190,7 @@ impl NetworkDispatcher {
                     Some(ConnectionState::Closed)
                 }
             }
-            ConnectionState::Connected(_, ref mut tx) => {
+            ConnectionState::Connected(ref mut tx) => {
                 match tx.try_send(frame) {
                     Ok(_) => None, // Successfully relayed frame into network bridge
                     Err(e) => {
@@ -199,12 +200,16 @@ impl NetworkDispatcher {
                                 "Sender to connection is  full; buffering in Bridge"
                             );
                             let frame = e.into_inner();
-                            self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
+                            self.queue_manager
+                                .as_mut()
+                                .map(|ref mut q| q.enqueue_frame(frame, addr));
                             None
                         } else if e.is_disconnected() {
                             warn!(self.ctx.log(), "Frame receiver has been dropped; did the connection handler panic?");
                             let frame = e.into_inner();
-                            self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
+                            self.queue_manager
+                                .as_mut()
+                                .map(|ref mut q| q.enqueue_frame(frame, addr));
                             Some(ConnectionState::Closed)
                         } else {
                             // Only two error types possible
@@ -215,7 +220,9 @@ impl NetworkDispatcher {
             }
             ConnectionState::Initializing => {
                 debug!(self.ctx.log(), "Connection is initializing; queuing frame");
-                self.queue_manager.as_mut().map(|ref mut q| q.enqueue_frame(frame, addr));
+                self.queue_manager
+                    .as_mut()
+                    .map(|ref mut q| q.enqueue_frame(frame, addr));
                 None
             }
             _ => None,
@@ -338,6 +345,7 @@ mod dispatch_tests {
     use super::super::*;
     use super::*;
 
+    use actors::ActorPath;
     use bytes::{Buf, BufMut};
     use component::ComponentContext;
     use component::Provide;
