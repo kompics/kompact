@@ -35,8 +35,11 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use KompicsLogger;
+use net::events::NetworkEvent;
+use dispatch::queue_manager::QueueManager;
 
 mod lookup;
+mod queue_manager;
 
 /// Configuration for network dispatcher
 pub struct NetworkConfig {
@@ -61,36 +64,6 @@ impl Default for NetworkConfig {
         NetworkConfig {
             addr: "127.0.0.1:8080".parse().unwrap(), // TODO remove hard-coded path
         }
-    }
-}
-
-/// Wrapper around a hashmap of frame queues.
-///
-/// Used when waiting for connections to establish and drained when possible.
-pub struct QueueManager {
-    log: KompicsLogger,
-    inner: HashMap<SocketAddr, VecDeque<Frame>>,
-}
-
-impl QueueManager {
-    pub fn new(log: KompicsLogger) -> Self {
-        QueueManager {
-            log,
-            inner: HashMap::new(),
-        }
-    }
-
-    /// Appends the given frame onto the SocketAddr's queue
-    pub fn enqueue_frame(&mut self, frame: Frame, dst: SocketAddr) {
-        debug!(self.log, "Enqueuing frame");
-        let queue = self.inner.entry(dst).or_insert(VecDeque::new());
-        queue.push_back(frame);
-    }
-
-    /// Extracts the next queue-up frame for the SocketAddr, if one exists
-    pub fn dequeue_frame(&mut self, dst: &SocketAddr) -> Option<Frame> {
-        debug!(self.log, "Dequeuing frame");
-        self.inner.get_mut(dst).and_then(|q| q.pop_back())
     }
 }
 
