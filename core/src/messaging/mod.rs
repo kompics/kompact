@@ -8,6 +8,8 @@ use serialisation::Serialisable;
 use std::any::Any;
 use uuid::Uuid;
 
+pub(crate) mod framing;
+
 #[derive(Debug)]
 pub enum MsgEnvelope {
     Dispatch(DispatchEnvelope),

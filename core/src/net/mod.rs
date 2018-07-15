@@ -1,11 +1,18 @@
+use actors::ActorPath;
 use actors::ActorRef;
+use actors::SystemPath;
 use actors::Transport;
+use actors::UniquePath;
 use futures;
 use futures::sync;
 use futures::Future;
 use futures::Stream;
+use messaging::framing::SerIdents::DispatchEnvelope;
+use messaging::MsgEnvelope;
+use messaging::ReceiveEnvelope;
 use net::events::NetworkError;
 use net::events::NetworkEvent;
+use serialisation::SerError;
 use spnl::codec::FrameCodec;
 use spnl::frames::Frame;
 use std;
@@ -15,6 +22,7 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
+use uuid::Uuid;
 use KompicsLogger;
 
 /// Default buffer amount for MPSC channels
@@ -233,20 +241,72 @@ fn handle_tcp(
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
+    let system = {
+        let peer_addr = stream.peer_addr().expect("Peer must have address");
+        SystemPath::new(Transport::TCP, peer_addr.ip(), peer_addr.port())
+    };
+
     let transport = FrameCodec::new(stream);
     let (frame_writer, frame_reader) = transport.split();
 
     frame_reader
         .map(move |frame: Frame| {
-            debug!(log, "Received frame: {:?}", frame);
             // Handle frame from protocol; yielding `Some(Frame)` if a response `Frame` should be sent
             match frame {
                 Frame::StreamRequest(_) => None,
                 Frame::CreditUpdate(_) => None,
                 Frame::Data(fr) => {
-                    // TODO deserialize raw data into MsgEnvelope (if possible), do actor lookup, etc.
-                    // TODO handle err
-                    tx.unbounded_send(NetworkEvent::Data(Frame::Data(fr)));
+
+                    // TODO Assert expected from stream & conn?
+                    let seq_num = fr.seq_num;
+
+                    let envelope = {
+                        use bytes::{Buf, BufMut, IntoBuf};
+                        use messaging::framing::SerIdents;
+
+                        // Consume payload
+                        let buf = fr.payload();
+                        let mut buf = buf.into_buf();
+
+                        let path_type: SerIdents = buf.get_u8().into();
+                        let (mut buf, src_path) = match path_type {
+                            SerIdents::UniqueActorPath => {
+                                let uuid_buf = buf.take(16);
+                                let uuid = Uuid::from_bytes(uuid_buf.bytes()).expect("UUID deser");
+                                let path = ActorPath::Unique(UniquePath::with_system(system.clone(), uuid));
+                                let mut buf = uuid_buf.into_inner();
+                                buf.advance(16);
+                                (buf, path)
+                            },
+                            _other => unimplemented!(),
+                        };
+
+                        let path_type: SerIdents = buf.get_u8().into();
+                        let (mut buf, dst_path) = match path_type {
+                            SerIdents::UniqueActorPath => {
+                                let uuid_buf = buf.take(16);
+                                let uuid = Uuid::from_bytes(uuid_buf.bytes()).expect("UUID deser");
+                                let path = ActorPath::Unique(UniquePath::with_system(system.clone(), uuid));
+                                let mut buf = uuid_buf.into_inner();
+                                buf.advance(16);
+                                (buf, path)
+                            },
+                            _other => unimplemented!(),
+                        };
+
+                        let ser_id: u64 = buf.get_u64();
+
+                        // Deserialize message
+                        MsgEnvelope::Receive(ReceiveEnvelope::Msg {
+                            src: src_path,
+                            dst: dst_path,
+                            ser_id,
+                            data: buf.bytes().into(),
+                        })
+                    };
+
+                    debug!(log, "Routing envelope up: {:?}", envelope);
+                    // Actor lookup
                     None
                 }
                 Frame::Ping(s, id) => {

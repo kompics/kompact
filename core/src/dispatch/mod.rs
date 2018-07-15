@@ -35,6 +35,7 @@ use net::events::NetworkEvent;
 use net::ConnectionState;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
+use spnl;
 use spnl::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -49,15 +50,27 @@ pub struct NetworkConfig {
     addr: SocketAddr,
 }
 
+struct DispatchCounts {
+    seq_num: u64,
+}
+
 /// Network-aware dispatcher for messages to remote actors.
 #[derive(ComponentDefinition)]
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
+    /// Stateful information
+    counts: DispatchCounts,
+    /// Local map of connection statuses
     connections: HashMap<SocketAddr, ConnectionState>,
+    /// Network configuration for this dispatcher
     cfg: NetworkConfig,
+    /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
     lookup: ActorLookup,
+
     // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
+    /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
+    /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
     queue_manager: Option<QueueManager>,
 }
 
@@ -70,6 +83,19 @@ impl Default for NetworkConfig {
     }
 }
 
+// impl DispatchCounts
+impl DispatchCounts {
+    fn new() -> Self {
+        DispatchCounts { seq_num: 0 }
+    }
+
+    fn incr_seq_num(&mut self) -> u64 {
+        let seq_num = self.seq_num;
+        self.seq_num += 1;
+        seq_num
+    }
+}
+
 // impl NetworkDispatcher
 impl NetworkDispatcher {
     pub fn new() -> Self {
@@ -79,6 +105,7 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig) -> Self {
         NetworkDispatcher {
             ctx: ComponentContext::new(),
+            counts: DispatchCounts::new(),
             connections: HashMap::new(),
             cfg,
             lookup: ActorLookup::new(),
@@ -214,9 +241,13 @@ impl NetworkDispatcher {
         // TODO serialize entire envelope into frame's payload, figure out deserialisation scheme as well
         // TODO ship over to network/tokio land
 
-        let frame = Frame::Data(Data::with_raw_payload(0.into(), 0, "TODObytes".as_bytes()));
-
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
+
+        let frame = {
+            let payload = self.serialize(&src, &dst, msg);
+            Frame::Data(Data::new(0.into(), 0, payload))
+        };
+
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
@@ -300,6 +331,38 @@ impl NetworkDispatcher {
             }
         }
     }
+
+    // TODO refactor this
+    fn serialize(
+        &mut self,
+        src: &PathResolvable,
+        dst: &ActorPath,
+        msg: Box<Serialisable>,
+    ) -> spnl::bytes_ext::Bytes {
+        //        use spnl::bytes_ext::{Bytes, BytesMut, Buf, BufMut};
+        use bytes::{Buf, BufMut, Bytes, BytesMut};
+        let mut size = msg.size_hint().unwrap_or(0);
+        let src_path = match src {
+            PathResolvable::Path(actor_path) => actor_path.clone(),
+            PathResolvable::ActorId(uuid) => {
+                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+            }
+            &PathResolvable::System => {
+                let uuid = self.ctx.id();
+                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+            }
+        };
+        size += 8; // ser_id: u64
+        size += src_path.size_hint().unwrap_or(0);
+        size += dst.size_hint().unwrap_or(0);
+
+        let mut buf = BytesMut::with_capacity(size);
+        Serialisable::serialise(&src_path, &mut buf).expect("s11n error");
+        Serialisable::serialise(dst, &mut buf).expect("s11n error");
+        buf.put_u64(msg.serid());
+        Serialisable::serialise(&(*msg), &mut buf).expect("s11n error");
+        spnl::bytes_ext::Bytes::from(buf.freeze().as_ref())
+    }
 }
 
 impl Default for NetworkDispatcher {
@@ -348,8 +411,10 @@ impl Dispatcher for NetworkDispatcher {
         }
     }
 
+    /// Generates a [SystemPath](kompics::actors) from this dispatcher's configuration
     fn system_path(&mut self) -> SystemPath {
-        SystemPath::new(Transport::LOCAL, self.cfg.addr.ip(), self.cfg.addr.port())
+        // TODO get protocol from configuration
+        SystemPath::new(Transport::TCP, self.cfg.addr.ip(), self.cfg.addr.port())
     }
 }
 
@@ -390,6 +455,7 @@ mod dispatch_tests {
     use super::*;
 
     use actors::ActorPath;
+    use actors::UniquePath;
     use bytes::{Buf, BufMut};
     use component::ComponentContext;
     use component::Provide;
@@ -413,16 +479,10 @@ mod dispatch_tests {
         let component = system.create_and_register(TestComponent::new);
 
         // FIXME @Johan
-        // let path = component.actor_path();
-        // let port = component.on_definition(|this| this.rec_port.share());
 
-        // system.trigger_i(Arc::new(String::from("local indication")), port);
-
-        let reference = {
-            use std::str::FromStr;
-            ActorPath::from_str("tcp://127.0.0.1:8080/dst_actor")
-                .expect("hardcoded path should parse")
-        };
+        let sys_path = system.system_path();
+        let reference =
+            ActorPath::Unique(UniquePath::with_system(sys_path, component.id().clone()));
 
         reference.tell("Network me, dispatch!", &system);
         thread::sleep(Duration::from_millis(10));
