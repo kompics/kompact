@@ -20,6 +20,8 @@ use std::sync::Arc;
 use actors::UniquePath;
 use dispatch::lookup::ActorLookup;
 use dispatch::queue_manager::QueueManager;
+use futures::sync;
+use futures::sync::mpsc::TrySendError;
 use futures::Async;
 use futures::AsyncSink;
 use futures::{self, Poll, StartSend};
@@ -38,7 +40,6 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use KompicsLogger;
-use futures::sync;
 
 mod lookup;
 mod queue_manager;
@@ -119,12 +120,10 @@ impl NetworkDispatcher {
         self.queue_manager = Some(queue_manager);
     }
 
-    fn handle_event(&mut self, ev: EventEnvelope) {
+    fn on_event(&mut self, ev: EventEnvelope) {
         match ev {
             EventEnvelope::Network(ev) => match ev {
-                NetworkEvent::Connection(addr, conn_state) => {
-                    self.handle_conn_state(addr, conn_state)
-                }
+                NetworkEvent::Connection(addr, conn_state) => self.on_conn_state(addr, conn_state),
                 NetworkEvent::Data(_) => {
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
@@ -133,7 +132,7 @@ impl NetworkDispatcher {
         }
     }
 
-    fn handle_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
+    fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
         use self::ConnectionState::*;
 
         match state {
@@ -240,33 +239,30 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Connected(ref mut tx) => {
-                // TODO check if we need to drain anything before sending
+                if let Some(ref mut qm) = self.queue_manager {
+                    if qm.has_frame(&addr) {
+                        qm.enqueue_frame(frame, addr.clone());
+                        qm.try_drain(addr, tx)
+                    } else {
+                        // Send frame
+                        if let Err(err) = tx.try_send(frame) {
+                            let mut next: Option<ConnectionState> = None;
+                            if err.is_disconnected() {
+                                next = Some(ConnectionState::Closed)
+                            }
 
-                match tx.try_send(frame) {
-                    Ok(_) => None, // Successfully relayed frame into network bridge
-                    Err(e) => {
-                        if e.is_full() {
-                            debug!(
-                                self.ctx.log(),
-                                "Sender to connection is  full; buffering in Bridge"
-                            );
-                            let frame = e.into_inner();
-                            self.queue_manager
-                                .as_mut()
-                                .map(|ref mut q| q.enqueue_frame(frame, addr));
-                            None
-                        } else if e.is_disconnected() {
-                            warn!(self.ctx.log(), "Frame receiver has been dropped; did the connection handler panic?");
-                            let frame = e.into_inner();
-                            self.queue_manager
-                                .as_mut()
-                                .map(|ref mut q| q.enqueue_frame(frame, addr));
-                            Some(ConnectionState::Closed)
+                            // Consume error and retrieve failed Frame
+                            let frame = err.into_inner();
+                            qm.enqueue_frame(frame, addr);
+
+                            next
                         } else {
-                            // Only two error types possible
-                            unreachable!();
+                            None
                         }
                     }
+                } else {
+                    // No queue manager available! Should we even allow this state?
+                    None
                 }
             }
             ConnectionState::Initializing => {
@@ -348,7 +344,7 @@ impl Dispatcher for NetworkDispatcher {
                     }
                 }
             }
-            DispatchEnvelope::Event(ev) => self.handle_event(ev),
+            DispatchEnvelope::Event(ev) => self.on_event(ev),
         }
     }
 

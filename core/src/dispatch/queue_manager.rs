@@ -1,3 +1,5 @@
+use futures::sync;
+use net::ConnectionState;
 use spnl::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -22,7 +24,10 @@ impl QueueManager {
 
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_frame(&mut self, frame: Frame, dst: SocketAddr) {
-        self.inner.entry(dst).or_insert(VecDeque::new()).push_back(frame);
+        self.inner
+            .entry(dst)
+            .or_insert(VecDeque::new())
+            .push_back(frame);
     }
 
     /// Extracts the next queue-up frame for the SocketAddr, if one exists
@@ -36,12 +41,35 @@ impl QueueManager {
         res
     }
 
-    pub fn exists(&self, dst: &SocketAddr) ->  bool {
+    /// Attempts to drain all Frame entries stored for the provided SocketAddr into the Sender
+    pub fn try_drain(
+        &mut self,
+        dst: SocketAddr,
+        tx: &mut sync::mpsc::Sender<Frame>,
+    ) -> Option<ConnectionState> {
+        while let Some(frame) = self.pop_frame(&dst) {
+            if let Err(err) = tx.try_send(frame) {
+                let mut next: Option<ConnectionState> = None;
+                if err.is_disconnected() {
+                    next = Some(ConnectionState::Closed);
+                }
+
+                // Consume error and retrieve failed Frame
+                let frame = err.into_inner();
+                self.enqueue_frame(frame, dst);
+
+                // End looping, return next state
+                return next;
+            }
+        }
+        None
+    }
+
+    pub fn exists(&self, dst: &SocketAddr) -> bool {
         self.inner.contains_key(dst)
     }
 
     pub fn has_frame(&self, dst: &SocketAddr) -> bool {
         self.inner.get(dst).map_or(false, |q| !q.is_empty())
     }
-
 }
