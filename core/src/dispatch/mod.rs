@@ -172,7 +172,7 @@ impl NetworkDispatcher {
                 );
 
                 if let Some(ref mut qm) = self.queue_manager {
-                    if !qm.has_frame(&addr) {
+                    if qm.has_frame(&addr) {
                         // Drain as much as possible
                         while let Some(frame) = qm.pop_frame(&addr) {
                             if let Err(err) = frame_sender.try_send(frame) {
