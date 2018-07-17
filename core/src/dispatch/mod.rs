@@ -333,6 +333,11 @@ impl NetworkDispatcher {
         }
     }
 
+    fn actor_path(&mut self) -> ActorPath {
+        let uuid = self.ctx.id();
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+    }
+
     // TODO refactor this
     fn serialize(
         &mut self,
@@ -348,10 +353,7 @@ impl NetworkDispatcher {
             PathResolvable::ActorId(uuid) => {
                 ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
             }
-            &PathResolvable::System => {
-                let uuid = self.ctx.id();
-                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
-            }
+            &PathResolvable::System => self.actor_path()
         };
         size += 8; // ser_id: u64
         size += src_path.size_hint().unwrap_or(0);
