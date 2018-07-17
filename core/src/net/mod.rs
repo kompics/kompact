@@ -24,6 +24,11 @@ use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
 use uuid::Uuid;
 use KompicsLogger;
+use futures::IntoFuture;
+use dispatch::lookup::ActorStore;
+use std::sync::Arc;
+use crossbeam::sync::ArcCell;
+use dispatch::lookup::ActorLookup;
 
 /// Default buffer amount for MPSC channels
 pub const MPSC_BUF_SIZE: usize = 0;
@@ -73,6 +78,8 @@ pub struct Bridge {
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     /// Core logger; shared with network thread
     log: KompicsLogger,
+    /// Shared actor refernce lookup table
+    lookup: Arc<ArcCell<ActorStore>>,
     /// Thread blocking on the Tokio runtime
     net_thread: Option<JoinHandle<()>>,
     /// Reference back to the Kompics dispatcher
@@ -86,12 +93,13 @@ impl Bridge {
     /// # Returns
     /// A tuple consisting of the new Bridge object and the network event receiver.
     /// The receiver will allow responding to [NetworkEvent]s for external state management.
-    pub fn new(log: KompicsLogger) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
+    pub fn new(lookup: Arc<ArcCell<ActorStore>>, log: KompicsLogger) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
         let bridge = Bridge {
             executor: None,
             events: sender,
             log,
+            lookup,
             net_thread: None,
             dispatcher: None,
         };
@@ -112,6 +120,7 @@ impl Bridge {
             network_log,
             addr,
             self.events.clone(),
+            self.lookup.clone(),
         );
         self.executor = Some(ex);
         self.net_thread = Some(th);
@@ -131,6 +140,7 @@ impl Bridge {
         match proto {
             Transport::TCP => {
                 if let Some(ref executor) = self.executor {
+                    let lookup = self.lookup.clone();
                     let events = self.events.clone();
                     let log = self.log.clone();
                     let connect_fut = TcpStream::connect(&addr)
@@ -147,7 +157,7 @@ impl Bridge {
                                 peer_addr,
                                 ConnectionState::Connected(tx),
                             ));
-                            handle_tcp(tcp_stream, rx, events.clone(), log)
+                            handle_tcp(tcp_stream, rx, events.clone(), log, lookup)
                         });
                     executor.spawn(connect_fut);
                     Ok(())
@@ -168,6 +178,7 @@ fn start_tcp_server(
     log: KompicsLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
+    lookup: Arc<ArcCell<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     let err_log = log.clone();
     let server = TcpListener::bind(&addr).expect("could not bind to address");
@@ -180,12 +191,12 @@ fn start_tcp_server(
         })
         .for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
-
+            let lookup = lookup.clone();
             let peer_addr = tcp_stream
                 .peer_addr()
                 .expect("stream must have a peer address");
             let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
-            executor.spawn(handle_tcp(tcp_stream, rx, events.clone(), log.clone()));
+            executor.spawn(handle_tcp(tcp_stream, rx, events.clone(), log.clone(), lookup));
             events.unbounded_send(NetworkEvent::Connection(
                 peer_addr,
                 ConnectionState::Connected(tx),
@@ -204,6 +215,7 @@ fn start_network_thread(
     log: KompicsLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
+    lookup: Arc<ArcCell<ActorStore>>,
 ) -> (TaskExecutor, JoinHandle<()>) {
     use std::thread::Builder;
 
@@ -219,6 +231,7 @@ fn start_network_thread(
                 log.clone(),
                 addr,
                 events,
+                lookup
             ));
 
             let _res = tx.send(executor);
@@ -238,7 +251,9 @@ fn handle_tcp(
     rx: sync::mpsc::Receiver<Frame>,
     tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
     log: KompicsLogger,
-) -> impl Future<Item = (), Error = ()> {
+    actor_lookup: Arc<ArcCell<ActorStore>>,
+) -> impl Future<Item = (), Error = ()>
+{
     use futures::Stream;
 
     let system = {
@@ -259,9 +274,11 @@ fn handle_tcp(
 
                     // TODO Assert expected from stream & conn?
                     let seq_num = fr.seq_num;
+                    let lookup = actor_lookup.get();
 
-                    let envelope = {
+                    let (actor, envelope ) = {
                         use bytes::{Buf, BufMut, IntoBuf};
+                        use dispatch::lookup::ActorLookup;
                         use messaging::framing::SerIdents;
 
                         // Consume payload
@@ -296,17 +313,20 @@ fn handle_tcp(
 
                         let ser_id: u64 = buf.get_u64();
 
-                        // Deserialize message
-                        MsgEnvelope::Receive(ReceiveEnvelope::Msg {
+                        let actor_ref = lookup.get_by_actor_path(&dst_path).expect("no actor registered for destination!");
+
+                        let envelope = MsgEnvelope::Receive(ReceiveEnvelope::Msg {
                             src: src_path,
                             dst: dst_path,
                             ser_id,
                             data: buf.bytes().into(),
-                        })
-                    };
+                        });
 
-                    debug!(log, "Routing envelope up: {:?}", envelope);
-                    // Actor lookup
+
+                        (actor_ref, envelope)
+                    };
+                    debug!(log, "Routing envelope {:?}", envelope);
+                    actor.enqueue(envelope);
                     None
                 }
                 Frame::Ping(s, id) => {

@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use actors::UniquePath;
-use dispatch::lookup::ActorLookup;
+use dispatch::lookup::ActorStore;
 use dispatch::queue_manager::QueueManager;
 use futures::sync;
 use futures::sync::mpsc::TrySendError;
@@ -41,8 +41,9 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use KompicsLogger;
+use crossbeam::sync::ArcCell;
 
-mod lookup;
+pub(crate) mod lookup;
 mod queue_manager;
 
 /// Configuration for network dispatcher
@@ -65,7 +66,7 @@ pub struct NetworkDispatcher {
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
     /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
-    lookup: ActorLookup,
+    lookup: Arc<ArcCell<ActorStore>>,
 
     // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
     /// Bridge into asynchronous networking layer
@@ -108,7 +109,7 @@ impl NetworkDispatcher {
             counts: DispatchCounts::new(),
             connections: HashMap::new(),
             cfg,
-            lookup: ActorLookup::new(),
+            lookup: Arc::new(ArcCell::new(Arc::new(ActorStore::new()))),
             net_bridge: None,
             queue_manager: None,
         }
@@ -122,7 +123,7 @@ impl NetworkDispatcher {
         };
 
         let bridge_logger = self.ctx().log().new(o!("owner" => "Bridge"));
-        let (mut bridge, events) = net::Bridge::new(bridge_logger);
+        let (mut bridge, events) = net::Bridge::new(self.lookup.clone(), bridge_logger);
         bridge.set_dispatcher(dispatcher.clone());
         bridge.start(self.cfg.addr.clone());
 
@@ -397,9 +398,14 @@ impl Dispatcher for NetworkDispatcher {
                 self.route(src, dst, msg);
             }
             DispatchEnvelope::Registration(reg) => {
+                use dispatch::lookup::ActorLookup;
+
                 match reg {
                     RegistrationEnvelope::Register(actor, path) => {
-                        self.lookup.insert(actor, path);
+                        let prev = self.lookup.get();
+                        let mut next = (*prev).clone();
+                        next.insert(actor, path);
+                        self.lookup.set(Arc::new(next));
                     }
                     RegistrationEnvelope::Deregister(actor_path) => {
                         debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
