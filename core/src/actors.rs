@@ -370,6 +370,10 @@ impl UniquePath {
         }
     }
 
+    pub fn with_system(system: SystemPath, id: Uuid) -> UniquePath {
+        UniquePath { system, id }
+    }
+
     pub fn with_socket(protocol: Transport, socket: SocketAddr, id: Uuid) -> UniquePath {
         UniquePath {
             system: SystemPath::with_socket(protocol, socket),

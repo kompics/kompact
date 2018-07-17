@@ -22,11 +22,13 @@ pub trait Serialiser<T>: Send {
 
 pub trait Serialisable: Send + Debug {
     fn serid(&self) -> u64;
-    /// Provides a suggested serialized size if possible, returning None otherwise.
+
+    /// Provides a suggested serialized size in bytes if possible, returning None otherwise.
     fn size_hint(&self) -> Option<usize>;
 
     /// Serialises this object into `buf`, returning a `SerError` if unsuccessful.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError>;
+
     fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>>;
 }
 
@@ -126,11 +128,15 @@ impl<T: Send> Deserialisable<T> for Box<T> {
 
 pub mod helpers {
     use actors::ActorPath;
-    use bytes::BytesMut;
+    use actors::SystemPath;
+    use actors::UniquePath;
+    use bytes::{Buf, Bytes, BytesMut};
+    use messaging::framing::SerIdents;
     use messaging::MsgEnvelope;
     use messaging::ReceiveEnvelope;
     use serialisation::SerError;
     use serialisation::Serialisable;
+    use uuid::Uuid;
 
     /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
     /// according to the message's size hint. The message's serialized data is stored in this buffer.
@@ -156,6 +162,86 @@ pub mod helpers {
         } else {
             Err(SerError::Unknown("Unknown serialisation size".into()))
         }
+    }
+
+    /// Serializes the provided actor paths and message into a new [BytesMut]
+    ///
+    /// # Format
+    /// The serialized format is:
+    ///     source          ActorPath
+    ///         path_type   u8
+    ///         path        `[u8; 16]` if [UniquePath], else a length-prefixed UTF-8 encoded string
+    ///     destination     ActorPath
+    ///         (see above for specific format)
+    ///     ser_id          u64
+    ///     message         raw bytes
+    pub fn serialise_msg(
+        src: &ActorPath,
+        dst: &ActorPath,
+        msg: Box<Serialisable>,
+    ) -> Result<Bytes, SerError> {
+        use bytes::BytesMut;
+        let mut size: usize = 0;
+        size += src.size_hint().unwrap_or(0);
+        size += dst.size_hint().unwrap_or(0);
+        size += Serialisable::size_hint(&msg.serid()).unwrap_or(0);
+        size += msg.size_hint().unwrap_or(0);
+
+        if size == 0 {
+            return Err(SerError::InvalidData("Encoded size is zero".into()));
+        }
+
+        let mut buf = BytesMut::with_capacity(size);
+        Serialisable::serialise(src, &mut buf)?;
+        Serialisable::serialise(dst, &mut buf)?;
+        Serialisable::serialise(&msg.serid(), &mut buf)?;
+        Serialisable::serialise(msg.as_ref(), &mut buf)?;
+
+        Ok(buf.freeze())
+    }
+
+    /// Extracts a [MsgEnvelope] from the provided buffer according to the format above.
+    pub fn deserialise_msg<B: Buf>(
+        mut buffer: B,
+        system: &SystemPath,
+    ) -> Result<ReceiveEnvelope, SerError> {
+
+        if buffer.remaining() < 1 {
+            return Err(SerError::InvalidData("Not enough bytes available".into()));
+        }
+
+        let (mut buffer, src) = deserialise_actor_path(&mut buffer, system)?;
+        let (buffer, dst) = deserialise_actor_path(&mut buffer, system)?;
+        let ser_id: u64 = buffer.get_u64();
+        let data = buffer.bytes().into();
+
+        let envelope = ReceiveEnvelope::Msg {
+            src,
+            dst,
+            ser_id,
+            data,
+        };
+
+        Ok(envelope)
+    }
+
+    fn deserialise_actor_path<B: Buf>(
+        mut buf: B,
+        system: &SystemPath,
+    ) -> Result<(B, ActorPath), SerError> {
+        let path_type: SerIdents = buf.get_u8().into();
+        let (buf, path) = match path_type {
+            SerIdents::UniqueActorPath => {
+                let uuid_buf = buf.take(16);
+                let uuid = Uuid::from_bytes(uuid_buf.bytes()).expect("UUID deser");
+                let path = ActorPath::Unique(UniquePath::with_system(system.clone(), uuid));
+                let mut buf = uuid_buf.into_inner();
+                buf.advance(16);
+                (buf, path)
+            }
+            _other => unimplemented!(),
+        };
+        Ok((buf, path))
     }
 }
 

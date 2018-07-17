@@ -17,14 +17,30 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-mod lookup;
-
-use dispatch::lookup::ActorLookup;
+use actors::UniquePath;
+use crossbeam::sync::ArcCell;
+use dispatch::lookup::ActorStore;
+use dispatch::queue_manager::QueueManager;
+use futures::Async;
+use futures::AsyncSink;
+use futures::{self, Poll, StartSend};
 use messaging::DispatchEnvelope;
+use messaging::EventEnvelope;
+use messaging::MsgEnvelope;
+use messaging::PathResolvable;
 use messaging::RegistrationEnvelope;
+use net;
+use net::events::NetworkEvent;
+use net::ConnectionState;
+use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
-use std::thread;
+use spnl;
+use std::collections::HashMap;
+
+pub(crate) mod lookup;
+mod queue_manager;
+
 /// Configuration for network dispatcher
 pub struct NetworkConfig {
     addr: SocketAddr,
@@ -34,9 +50,17 @@ pub struct NetworkConfig {
 #[derive(ComponentDefinition)]
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
+    /// Local map of connection statuses
+    connections: HashMap<SocketAddr, ConnectionState>,
+    /// Network configuration for this dispatcher
     cfg: NetworkConfig,
-    lookup: ActorLookup,
-    net_bridge: (),
+    /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
+    lookup: Arc<ArcCell<ActorStore>>,
+    // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
+    /// Bridge into asynchronous networking layer
+    net_bridge: Option<net::Bridge>,
+    /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
+    queue_manager: Option<QueueManager>,
 }
 
 // impl NetworkConfig
@@ -55,39 +79,108 @@ impl NetworkDispatcher {
     }
 
     pub fn with_config(cfg: NetworkConfig) -> Self {
-        let builder = thread::Builder::new();
-        let handle = builder.name("tokio-bridge".into()).spawn(|| {
-            println!("[TOKIO-THREAD] spawned"); // TODO get a logger here, maybe?
-                                                // TODO cross the vast asynchronous barrier here :-\
-                                                // maybe using futures::mpsc is the best way here, by having a sender
-        });
-
         NetworkDispatcher {
             ctx: ComponentContext::new(),
+            connections: HashMap::new(),
             cfg,
-            lookup: ActorLookup::new(),
-            net_bridge: (),
+            lookup: Arc::new(ArcCell::new(Arc::new(ActorStore::new()))),
+            net_bridge: None,
+            queue_manager: None,
         }
+    }
+
+    fn start(&mut self) {
+        debug!(self.ctx.log(), "Starting self and network bridge");
+        let dispatcher = {
+            use actors::ActorRefFactory;
+            self.actor_ref()
+        };
+
+        let bridge_logger = self.ctx().log().new(o!("owner" => "Bridge"));
+        let (mut bridge, events) = net::Bridge::new(self.lookup.clone(), bridge_logger);
+        bridge.set_dispatcher(dispatcher.clone());
+        bridge.start(self.cfg.addr.clone());
+
+        if let Some(ref ex) = bridge.executor.as_ref() {
+            use futures::{Future, Stream};
+            ex.spawn(
+                events
+                    .map(|ev| {
+                        MsgEnvelope::Dispatch(DispatchEnvelope::Event(EventEnvelope::Network(ev)))
+                    })
+                    .forward(dispatcher)
+                    .then(|_| Ok(())),
+            );
+        } else {
+            error!(
+                self.ctx.log(),
+                "No executor found in network bridge; network events can not be handled"
+            );
+        }
+        let queue_manager = QueueManager::new();
+        self.net_bridge = Some(bridge);
+        self.queue_manager = Some(queue_manager);
+    }
+
+    fn on_event(&mut self, ev: EventEnvelope) {
+        match ev {
+            EventEnvelope::Network(ev) => match ev {
+                NetworkEvent::Connection(addr, conn_state) => self.on_conn_state(addr, conn_state),
+                NetworkEvent::Data(_) => {
+                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
+                    debug!(self.ctx().log(), "Received important data!");
+                }
+            },
+        }
+    }
+
+    fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
+        use self::ConnectionState::*;
+
+        match state {
+            Connected(ref mut frame_sender) => {
+                debug!(
+                    self.ctx().log(),
+                    "registering newly connected conn at {:?}",
+                    addr
+                );
+
+                if let Some(ref mut qm) = self.queue_manager {
+                    if qm.has_frame(&addr) {
+                        // Drain as much as possible
+                        while let Some(frame) = qm.pop_frame(&addr) {
+                            if let Err(err) = frame_sender.try_send(frame) {
+                                qm.enqueue_frame(err.into_inner(), addr.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            Closed => {
+                warn!(self.ctx().log(), "connection closed for {:?}", addr);
+            }
+            Error(_) => {
+                error!(self.ctx().log(), "connection error for {:?}", addr);
+            }
+            ref _other => (), // Don't care
+        }
+        self.connections.insert(addr, state);
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
     ///
     /// # Errors
     /// TODO handle unknown destination actor
-    fn route_local(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        let actor = match dst {
-            ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
-            ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
-        };
-
-        if let Some(actor) = actor {
+    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+        use dispatch::lookup::ActorLookup;
+        let lookup = self.lookup.get();
+        let actor = lookup.get_by_actor_path(&dst);
+        if let Some(ref actor) = actor {
             //  TODO err handling
             match msg.local() {
                 Ok(boxed_value) => {
-                    let src_actor_opt = match src {
-                        ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
-                        ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
-                    };
+                    let src_actor_opt = lookup.get_by_actor_path(&src);
                     if let Some(src_actor) = src_actor_opt {
                         actor.tell_any(boxed_value, src_actor);
                     } else {
@@ -102,35 +195,120 @@ impl NetworkDispatcher {
             }
         } else {
             // TODO handle non-existent routes
-            error!(self.ctx.log(), "ERR on local actor found at {:?}", dst);
+            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
         }
     }
 
-    /// Forwards `msg` to remote `dst` actor via the network layer.
-    fn route_remote(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        trace!(self.ctx.log(), "Routing remote message {:?}", msg);
-        // TODO seralize entire envelope into frame's payload, figure out deserialisation scheme as well
-        // TODO ship over to network/tokio land
+    /// Routes the provided message to the destination, or queues the message until the connection
+    /// is available.
+    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+        use actors::SystemField;
+        use spnl::frames::*;
+
+        let addr = SocketAddr::new(dst.address().clone(), dst.port());
+        let frame = {
+            let payload = serialise_msg(&src, &dst, msg).expect("s11n error");
+            let payload = spnl::bytes_ext::Bytes::from(payload.as_ref());
+            // Convert to network-specific version of Bytes (due to Tokio lock-in)
+            // FIXME the method below _copies_ the new data into yet another buffer
+            Frame::Data(Data::new(0.into(), 0, payload))
+        };
+
+        let state: &mut ConnectionState =
+            self.connections.entry(addr).or_insert(ConnectionState::New);
+        let next: Option<ConnectionState> = match *state {
+            ConnectionState::New | ConnectionState::Closed => {
+                debug!(
+                    self.ctx.log(),
+                    "No connection found; establishing and queuing frame"
+                );
+                self.queue_manager
+                    .as_mut()
+                    .map(|ref mut q| q.enqueue_frame(frame, addr));
+
+                if let Some(ref mut bridge) = self.net_bridge {
+                    debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
+                    bridge.connect(Transport::TCP, addr).unwrap();
+                    Some(ConnectionState::Initializing)
+                } else {
+                    error!(self.ctx.log(), "No network bridge found; dropping message");
+                    Some(ConnectionState::Closed)
+                }
+            }
+            ConnectionState::Connected(ref mut tx) => {
+                if let Some(ref mut qm) = self.queue_manager {
+                    if qm.has_frame(&addr) {
+                        qm.enqueue_frame(frame, addr.clone());
+                        qm.try_drain(addr, tx)
+                    } else {
+                        // Send frame
+                        if let Err(err) = tx.try_send(frame) {
+                            let mut next: Option<ConnectionState> = None;
+                            if err.is_disconnected() {
+                                next = Some(ConnectionState::Closed)
+                            }
+
+                            // Consume error and retrieve failed Frame
+                            let frame = err.into_inner();
+                            qm.enqueue_frame(frame, addr);
+
+                            next
+                        } else {
+                            None
+                        }
+                    }
+                } else {
+                    // No queue manager available! Should we even allow this state?
+                    None
+                }
+            }
+            ConnectionState::Initializing => {
+                debug!(self.ctx.log(), "Connection is initializing; queuing frame");
+                self.queue_manager
+                    .as_mut()
+                    .map(|ref mut q| q.enqueue_frame(frame, addr));
+                None
+            }
+            _ => None,
+        };
+
+        if let Some(next) = next {
+            *state = next;
+        }
     }
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        use actors::{ActorRefFactory, SystemField};
-
-        let proto = {
-            let dst_sys = dst.system();
-            SystemField::protocol(dst_sys)
+    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<Serialisable>) {
+        let src_path = match src {
+            PathResolvable::Path(actor_path) => actor_path.clone(),
+            PathResolvable::ActorId(uuid) => {
+                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+            }
+            PathResolvable::System => self.actor_path(),
         };
 
+        let proto = {
+            use actors::SystemField;
+            let dst_sys = dst_path.system();
+            SystemField::protocol(dst_sys)
+        };
         match proto {
             Transport::LOCAL => {
-                self.route_local(src, dst, msg);
+                self.route_local(src_path, dst_path, msg);
             }
-            Transport::TCP | Transport::UDP => {
-                self.route_remote(src, dst, msg);
+            Transport::TCP => {
+                self.route_remote(src_path, dst_path, msg);
+            }
+            Transport::UDP => {
+                error!(self.ctx.log(), "UDP routing is not supported.");
             }
         }
+    }
+
+    fn actor_path(&mut self) -> ActorPath {
+        let uuid = self.ctx.id();
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
     }
 }
 
@@ -163,13 +341,17 @@ impl Dispatcher for NetworkDispatcher {
             }
             DispatchEnvelope::Msg { src, dst, msg } => {
                 // Look up destination (local or remote), then route or err
-                //self.route(src, dst, msg);
-                // FIXME @Johan
+                self.route(src, dst, msg);
             }
             DispatchEnvelope::Registration(reg) => {
+                use dispatch::lookup::ActorLookup;
+
                 match reg {
-                    RegistrationEnvelope::Register(actor) => {
-                        self.lookup.insert(actor);
+                    RegistrationEnvelope::Register(actor, path) => {
+                        let prev = self.lookup.get();
+                        let mut next = (*prev).clone();
+                        next.insert(actor, path);
+                        self.lookup.set(Arc::new(next));
                     }
                     RegistrationEnvelope::Deregister(actor_path) => {
                         debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
@@ -177,21 +359,45 @@ impl Dispatcher for NetworkDispatcher {
                     }
                 }
             }
+            DispatchEnvelope::Event(ev) => self.on_event(ev),
         }
     }
 
+    /// Generates a [SystemPath](kompics::actors) from this dispatcher's configuration
     fn system_path(&mut self) -> SystemPath {
-        SystemPath::new(Transport::LOCAL, self.cfg.addr.ip(), self.cfg.addr.port())
+        // TODO get protocol from configuration
+        SystemPath::new(Transport::TCP, self.cfg.addr.ip(), self.cfg.addr.port())
     }
 }
 
 impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
-            ControlEvent::Start => debug!(self.ctx.log(), "Starting"),
+            ControlEvent::Start => {
+                self.start();
+            }
             ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
             ControlEvent::Kill => info!(self.ctx.log(), "Killed"),
         }
+    }
+}
+
+/// Helper for forwarding [MsgEnvelope]s to actor references
+impl futures::Sink for ActorRef {
+    type SinkItem = MsgEnvelope;
+    type SinkError = ();
+
+    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+        ActorRef::enqueue(self, item);
+        Ok(AsyncSink::Ready)
+    }
+
+    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(Async::Ready(()))
+    }
+
+    fn close(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(Async::Ready(()))
     }
 }
 
@@ -200,126 +406,115 @@ mod dispatch_tests {
     use super::super::*;
     use super::*;
 
+    use actors::ActorPath;
+    use actors::UniquePath;
     use bytes::{Buf, BufMut};
     use component::ComponentContext;
     use component::Provide;
-    use component::Require;
     use default_components::DeadletterBox;
     use lifecycle::ControlEvent;
     use lifecycle::ControlPort;
-    use ports::Port;
-    use ports::RequiredPort;
     use runtime::KompicsConfig;
     use runtime::KompicsSystem;
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+
+
+
+    static GLOBAL_PORT_INCR: AtomicUsize = ATOMIC_USIZE_INIT;
+    const BASE_PORT: u16 = 8080;
+
+    fn tcp_listening_port() -> u16 {
+        let count = GLOBAL_PORT_INCR.fetch_add(1, Ordering::SeqCst) + 1;
+        BASE_PORT + (count as u16)
+    }
+
 
     #[test]
-    #[ignore]
-    fn registration() {
+    fn remote_delivery() {
         let mut cfg = KompicsConfig::new();
-        cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
+        cfg.system_components(DeadletterBox::new, || {
+            let net_config = NetworkConfig {
+                addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+            };
+            NetworkDispatcher::with_config(net_config)
+        });
         let system = KompicsSystem::new(cfg);
+        let ponger = system.create_and_register(PongerAct::new);
 
-        let component = system.create_and_register(TestComponent::new);
-        // FIXME @Johan
-        // let path = component.actor_path();
-        // let port = component.on_definition(|this| this.rec_port.share());
+        // Construct ActorPath with system's `proto` field defaulting to TCP
+        let ponger_path = ActorPath::Unique(UniquePath::with_system(
+            system.system_path(),
+            ponger.id().clone(),
+        ));
 
-        // system.trigger_i(Arc::new(String::from("local indication")), port);
+        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
 
-        // let reference = component.actor_path();
+        system.start(&ponger);
+        system.start(&pinger);
 
-        // reference.tell("Network me, dispatch!", &system);
+        thread::sleep(Duration::from_millis(1000));
 
-        // // Sleep; allow the system to progress
-        // thread::sleep(Duration::from_millis(1000));
+        let pingf = system.stop_notify(&pinger);
+        let pongf = system.kill_notify(ponger);
+        pingf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger.on_definition(|c| {
+            assert_eq!(c.remote_count, PING_COUNT);
+            assert_eq!(c.local_count, 0);
+        });
 
-        // match system.shutdown() {
-        //     Ok(_) => println!("Successful shutdown"),
-        //     Err(_) => eprintln!("Error shutting down system"),
-        // }
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
     }
 
     const PING_COUNT: u64 = 10;
 
     #[test]
-    #[ignore]
     fn local_delivery() {
         let mut cfg = KompicsConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
         let system = KompicsSystem::new(cfg);
 
         let ponger = system.create_and_register(PongerAct::new);
-        // FIXME @Johan
-        // let ponger_path = ponger.actor_path();
-        // let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
+        // Construct ActorPath with system's `proto` field explicitly set to LOCAL
+        let unique_path = UniquePath::new(
+            Transport::LOCAL,
+            "127.0.0.1".parse().expect("hardcoded IP"),
+            8080,
+            ponger.id().clone(),
+        );
+        let ponger_path = ActorPath::Unique(unique_path);
+        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
 
-        // system.start(&ponger);
-        // system.start(&pinger);
+        system.start(&ponger);
+        system.start(&pinger);
 
-        // thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(1000));
 
-        // let pingf = system.stop_notify(&pinger);
-        // let pongf = system.kill_notify(ponger);
-        // pingf
-        //     .await_timeout(Duration::from_millis(1000))
-        //     .expect("Pinger never stopped!");
-        // pongf
-        //     .await_timeout(Duration::from_millis(1000))
-        //     .expect("Ponger never died!");
-        // pinger.on_definition(|c| {
-        //     assert_eq!(c.local_count, PING_COUNT);
-        // });
+        let pingf = system.stop_notify(&pinger);
+        let pongf = system.kill_notify(ponger);
+        pingf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger.on_definition(|c| {
+            assert_eq!(c.local_count, PING_COUNT);
+            assert_eq!(c.remote_count, 0);
+        });
 
-        // system
-        //     .shutdown()
-        //     .expect("Kompics didn't shut down properly");
-    }
-
-    // struct definitions
-    struct TestPort;
-
-    #[derive(ComponentDefinition, Actor)]
-    struct TestComponent {
-        ctx: ComponentContext<TestComponent>,
-        counter: u64,
-        rec_port: RequiredPort<TestPort, TestComponent>,
-    }
-
-    // impl TestPort
-    impl Port for TestPort {
-        type Indication = Arc<String>;
-        type Request = Arc<u64>;
-    }
-
-    // impl TestComponent
-    impl TestComponent {
-        fn new() -> Self {
-            TestComponent {
-                ctx: ComponentContext::new(),
-                counter: 0,
-                rec_port: RequiredPort::new(),
-            }
-        }
-    }
-
-    impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting");
-                }
-                _ => (),
-            }
-        }
-    }
-
-    impl Require<TestPort> for TestComponent {
-        fn handle(&mut self, event: Arc<String>) -> () {
-            info!(self.ctx.log(), "Handling {:?}", event);
-        }
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
     }
 
     #[derive(Debug, Clone)]
@@ -413,7 +608,7 @@ mod dispatch_tests {
         ctx: ComponentContext<PingerAct>,
         target: ActorPath,
         local_count: u64,
-        msg_count: u64,
+        remote_count: u64,
     }
 
     impl PingerAct {
@@ -422,12 +617,12 @@ mod dispatch_tests {
                 ctx: ComponentContext::new(),
                 target,
                 local_count: 0,
-                msg_count: 0,
+                remote_count: 0,
             }
         }
 
         fn total_count(&self) -> u64 {
-            self.local_count + self.msg_count
+            self.local_count + self.remote_count
         }
     }
 
@@ -463,7 +658,7 @@ mod dispatch_tests {
                 match r {
                     Ok(pong) => {
                         info!(self.ctx.log(), "Got msg Pong({})", pong.i);
-                        self.msg_count += 1;
+                        self.remote_count += 1;
                         if self.total_count() < PING_COUNT {
                             self.target
                                 .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);

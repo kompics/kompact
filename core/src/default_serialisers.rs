@@ -4,6 +4,7 @@ use std::any::Any;
 
 mod serialisation_ids {
     pub const STR: u64 = 5;
+    pub const U64: u64 = 6;
 }
 
 impl Serialisable for &'static str {
@@ -22,6 +23,21 @@ impl Serialisable for &'static str {
     }
 }
 
+impl Serialisable for u64 {
+    fn serid(&self) -> u64 {
+        serialisation_ids::U64
+    }
+    fn size_hint(&self) -> Option<usize> {
+        Some(8)
+    }
+    fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+        buf.put_u64(*self);
+        Ok(())
+    }
+    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+        Ok(self)
+    }
+}
 // TODO finish later
 //pub struct SerdeSerialiser<S>
 //where

@@ -258,8 +258,10 @@ impl KompicsSystem {
         C: ComponentDefinition + 'static,
     {
         let c = self.create(f);
+        let id = c.core().id().clone();
+        let id_path = PathResolvable::ActorId(id);
         let actor = c.actor_ref();
-        self.inner.register_actor_ref(actor);
+        self.inner.register_actor_ref(actor, id_path);
         c
     }
 
@@ -269,8 +271,9 @@ impl KompicsSystem {
         C: ComponentDefinition + 'static,
     {
         let c = self.create(f);
+        let path = PathResolvable::ActorId(c.core().id().clone());
         let actor = c.actor_ref();
-        self.inner.register_actor_ref(actor);
+        self.inner.register_actor_ref(actor, path);
         self.start(&c);
         c
     }
@@ -511,11 +514,11 @@ impl KompicsRuntime {
         &self.logger
     }
 
-    fn register_actor_ref(&self, actor_ref: ActorRef) -> () {
-        debug!(self.logger(), "Registering actor at {:?}", actor_ref);
+    fn register_actor_ref(&self, actor_ref: ActorRef, path: PathResolvable) -> () {
+        debug!(self.logger(), "Registering actor at {:?}", path);
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
-            RegistrationEnvelope::Register(actor_ref),
+            RegistrationEnvelope::Register(actor_ref, path),
         ));
         dispatcher.enqueue(envelope);
     }

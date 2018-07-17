@@ -490,6 +490,10 @@ impl ComponentCore {
         &self.system
     }
 
+    pub fn id(&self) -> &Uuid {
+        &self.id
+    }
+
     pub(crate) fn set_component(&self, c: Arc<CoreContainer>) -> () {
         *self.component.borrow_mut() = Some(Arc::downgrade(&c));
     }
