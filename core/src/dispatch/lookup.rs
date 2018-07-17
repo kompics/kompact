@@ -12,12 +12,8 @@ use messaging::PathResolvable;
 use std::collections::HashMap;
 use trie::SequenceTrie;
 use uuid::Uuid;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 pub trait ActorLookup {
-
-
     /// Inserts or replaces the `path` in the lookup structure.
     /// If an entry already exists, it is removed and returned before being replaced.
     fn insert(&mut self, actor: ActorRef, path: PathResolvable) -> Option<ActorRef>;
@@ -43,7 +39,6 @@ pub trait ActorLookup {
     fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut ActorRef>;
 
     fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut ActorRef>;
-
 }
 
 /// Lookup structure for storing and retrieving `ActorRef`s.

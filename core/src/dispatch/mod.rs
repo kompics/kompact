@@ -18,10 +18,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use actors::UniquePath;
+use crossbeam::sync::ArcCell;
 use dispatch::lookup::ActorStore;
 use dispatch::queue_manager::QueueManager;
-use futures::sync;
-use futures::sync::mpsc::TrySendError;
 use futures::Async;
 use futures::AsyncSink;
 use futures::{self, Poll, StartSend};
@@ -33,15 +32,11 @@ use messaging::RegistrationEnvelope;
 use net;
 use net::events::NetworkEvent;
 use net::ConnectionState;
+use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use spnl;
-use spnl::frames::Frame;
 use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::sync::Mutex;
-use KompicsLogger;
-use crossbeam::sync::ArcCell;
 
 pub(crate) mod lookup;
 mod queue_manager;
@@ -51,23 +46,16 @@ pub struct NetworkConfig {
     addr: SocketAddr,
 }
 
-struct DispatchCounts {
-    seq_num: u64,
-}
-
 /// Network-aware dispatcher for messages to remote actors.
 #[derive(ComponentDefinition)]
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
-    /// Stateful information
-    counts: DispatchCounts,
     /// Local map of connection statuses
     connections: HashMap<SocketAddr, ConnectionState>,
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
     /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
     lookup: Arc<ArcCell<ActorStore>>,
-
     // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
     /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
@@ -84,19 +72,6 @@ impl Default for NetworkConfig {
     }
 }
 
-// impl DispatchCounts
-impl DispatchCounts {
-    fn new() -> Self {
-        DispatchCounts { seq_num: 0 }
-    }
-
-    fn incr_seq_num(&mut self) -> u64 {
-        let seq_num = self.seq_num;
-        self.seq_num += 1;
-        seq_num
-    }
-}
-
 // impl NetworkDispatcher
 impl NetworkDispatcher {
     pub fn new() -> Self {
@@ -106,7 +81,6 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig) -> Self {
         NetworkDispatcher {
             ctx: ComponentContext::new(),
-            counts: DispatchCounts::new(),
             connections: HashMap::new(),
             cfg,
             lookup: Arc::new(ArcCell::new(Arc::new(ActorStore::new()))),
@@ -143,7 +117,7 @@ impl NetworkDispatcher {
                 "No executor found in network bridge; network events can not be handled"
             );
         }
-        let queue_manager = QueueManager::new(self.ctx().log().new(o!("owner" => "QueueManager")));
+        let queue_manager = QueueManager::new();
         self.net_bridge = Some(bridge);
         self.queue_manager = Some(queue_manager);
     }
@@ -199,7 +173,7 @@ impl NetworkDispatcher {
     /// # Errors
     /// TODO handle unknown destination actor
     /// FIXME this fn
-    fn route_local(&mut self, src: PathResolvable, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
         //        let actor = match dst {
         //            ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
         //            ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
@@ -233,20 +207,16 @@ impl NetworkDispatcher {
 
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
-    fn route_remote(&mut self, src: PathResolvable, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
         use actors::SystemField;
         use spnl::frames::*;
 
-        debug!(self.ctx.log(), "Routing remote message {:?}", msg);
-
-        // TODO serialize entire envelope into frame's payload, figure out deserialisation scheme as well
-        // TODO ship over to network/tokio land
-
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
-
         let frame = {
-            let payload = self.serialize(&src, &dst, msg);
-            Frame::Data(Data::new(0.into(), 0, payload))
+            let payload = serialise_msg(&src, &dst, msg).expect("s11n error");
+            // Convert to network-specific version of Bytes (due to Tokio lock-in)
+            // FIXME the method below _copies_ the new data into yet another buffer
+            Frame::Data(Data::with_raw_payload(0.into(), 0, payload.as_ref()))
         };
 
         let state: &mut ConnectionState =
@@ -314,21 +284,29 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, src: PathResolvable, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<Serialisable>) {
+        let src_path = match src {
+            PathResolvable::Path(actor_path) => actor_path.clone(),
+            PathResolvable::ActorId(uuid) => {
+                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+            }
+            PathResolvable::System => self.actor_path(),
+        };
+
         let proto = {
             use actors::SystemField;
-            let dst_sys = dst.system();
+            let dst_sys = dst_path.system();
             SystemField::protocol(dst_sys)
         };
         match proto {
             Transport::LOCAL => {
-                self.route_local(src, dst, msg);
+                self.route_local(src_path, dst_path, msg);
             }
             Transport::TCP => {
-                self.route_remote(src, dst, msg);
+                self.route_remote(src_path, dst_path, msg);
             }
             Transport::UDP => {
-                error!(self.ctx.log(), "UDP routing not supported yet");
+                error!(self.ctx.log(), "UDP routing is not supported.");
             }
         }
     }
@@ -336,35 +314,6 @@ impl NetworkDispatcher {
     fn actor_path(&mut self) -> ActorPath {
         let uuid = self.ctx.id();
         ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
-    }
-
-    // TODO refactor this
-    fn serialize(
-        &mut self,
-        src: &PathResolvable,
-        dst: &ActorPath,
-        msg: Box<Serialisable>,
-    ) -> spnl::bytes_ext::Bytes {
-        //        use spnl::bytes_ext::{Bytes, BytesMut, Buf, BufMut};
-        use bytes::{Buf, BufMut, Bytes, BytesMut};
-        let mut size = msg.size_hint().unwrap_or(0);
-        let src_path = match src {
-            PathResolvable::Path(actor_path) => actor_path.clone(),
-            PathResolvable::ActorId(uuid) => {
-                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
-            }
-            &PathResolvable::System => self.actor_path()
-        };
-        size += 8; // ser_id: u64
-        size += src_path.size_hint().unwrap_or(0);
-        size += dst.size_hint().unwrap_or(0);
-
-        let mut buf = BytesMut::with_capacity(size);
-        Serialisable::serialise(&src_path, &mut buf).expect("s11n error");
-        Serialisable::serialise(dst, &mut buf).expect("s11n error");
-        buf.put_u64(msg.serid());
-        Serialisable::serialise(&(*msg), &mut buf).expect("s11n error");
-        spnl::bytes_ext::Bytes::from(buf.freeze().as_ref())
     }
 }
 

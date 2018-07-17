@@ -4,20 +4,17 @@ use spnl::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
-use KompicsLogger;
 
 /// Wrapper around a hashmap of frame queues.
 ///
 /// Used when waiting for connections to establish and drained when possible.
 pub struct QueueManager {
-    log: KompicsLogger,
     inner: HashMap<SocketAddr, VecDeque<Frame>>,
 }
 
 impl QueueManager {
-    pub fn new(log: KompicsLogger) -> Self {
+    pub fn new() -> Self {
         QueueManager {
-            log,
             inner: HashMap::new(),
         }
     }

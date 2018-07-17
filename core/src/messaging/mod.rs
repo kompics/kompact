@@ -66,3 +66,14 @@ pub enum PathResolvable {
     ActorId(Uuid),
     System,
 }
+
+impl ReceiveEnvelope {
+    pub fn dst(&self) -> &ActorPath {
+        match self {
+            ReceiveEnvelope::Cast(_) => unimplemented!(),
+            ReceiveEnvelope::Msg {
+                src: _, ref dst, ..
+            } => dst,
+        }
+    }
+}

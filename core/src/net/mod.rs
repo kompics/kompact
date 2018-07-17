@@ -1,34 +1,27 @@
-use actors::ActorPath;
 use actors::ActorRef;
 use actors::SystemPath;
 use actors::Transport;
-use actors::UniquePath;
+use crossbeam::sync::ArcCell;
+use dispatch::lookup::ActorStore;
 use futures;
 use futures::sync;
 use futures::Future;
 use futures::Stream;
-use messaging::framing::SerIdents::DispatchEnvelope;
 use messaging::MsgEnvelope;
-use messaging::ReceiveEnvelope;
 use net::events::NetworkError;
 use net::events::NetworkEvent;
-use serialisation::SerError;
+use serialisation::helpers::deserialise_msg;
 use spnl::codec::FrameCodec;
 use spnl::frames::Frame;
 use std;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
-use uuid::Uuid;
 use KompicsLogger;
-use futures::IntoFuture;
-use dispatch::lookup::ActorStore;
-use std::sync::Arc;
-use crossbeam::sync::ArcCell;
-use dispatch::lookup::ActorLookup;
 
 /// Default buffer amount for MPSC channels
 pub const MPSC_BUF_SIZE: usize = 0;
@@ -93,7 +86,10 @@ impl Bridge {
     /// # Returns
     /// A tuple consisting of the new Bridge object and the network event receiver.
     /// The receiver will allow responding to [NetworkEvent]s for external state management.
-    pub fn new(lookup: Arc<ArcCell<ActorStore>>, log: KompicsLogger) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
+    pub fn new(
+        lookup: Arc<ArcCell<ActorStore>>,
+        log: KompicsLogger,
+    ) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
         let bridge = Bridge {
             executor: None,
@@ -196,7 +192,13 @@ fn start_tcp_server(
                 .peer_addr()
                 .expect("stream must have a peer address");
             let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
-            executor.spawn(handle_tcp(tcp_stream, rx, events.clone(), log.clone(), lookup));
+            executor.spawn(handle_tcp(
+                tcp_stream,
+                rx,
+                events.clone(),
+                log.clone(),
+                lookup,
+            ));
             events.unbounded_send(NetworkEvent::Connection(
                 peer_addr,
                 ConnectionState::Connected(tx),
@@ -231,7 +233,7 @@ fn start_network_thread(
                 log.clone(),
                 addr,
                 events,
-                lookup
+                lookup,
             ));
 
             let _res = tx.send(executor);
@@ -246,14 +248,15 @@ fn start_network_thread(
 }
 
 /// Returns a future which drives TCP I/O over the [FrameCodec].
+///
+/// `tx` can be used to relay network events back into the [Bridge]
 fn handle_tcp(
     stream: TcpStream,
     rx: sync::mpsc::Receiver<Frame>,
-    tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
+    _tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
     log: KompicsLogger,
     actor_lookup: Arc<ArcCell<ActorStore>>,
-) -> impl Future<Item = (), Error = ()>
-{
+) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
     let system = {
@@ -273,60 +276,23 @@ fn handle_tcp(
                 Frame::Data(fr) => {
 
                     // TODO Assert expected from stream & conn?
-                    let seq_num = fr.seq_num;
+                    let _seq_num = fr.seq_num;
                     let lookup = actor_lookup.get();
 
                     let (actor, envelope ) = {
-                        use bytes::{Buf, BufMut, IntoBuf};
+                        use bytes::IntoBuf;
                         use dispatch::lookup::ActorLookup;
-                        use messaging::framing::SerIdents;
 
                         // Consume payload
                         let buf = fr.payload();
                         let mut buf = buf.into_buf();
-
-                        let path_type: SerIdents = buf.get_u8().into();
-                        let (mut buf, src_path) = match path_type {
-                            SerIdents::UniqueActorPath => {
-                                let uuid_buf = buf.take(16);
-                                let uuid = Uuid::from_bytes(uuid_buf.bytes()).expect("UUID deser");
-                                let path = ActorPath::Unique(UniquePath::with_system(system.clone(), uuid));
-                                let mut buf = uuid_buf.into_inner();
-                                buf.advance(16);
-                                (buf, path)
-                            },
-                            _other => unimplemented!(),
-                        };
-
-                        let path_type: SerIdents = buf.get_u8().into();
-                        let (mut buf, dst_path) = match path_type {
-                            SerIdents::UniqueActorPath => {
-                                let uuid_buf = buf.take(16);
-                                let uuid = Uuid::from_bytes(uuid_buf.bytes()).expect("UUID deser");
-                                let path = ActorPath::Unique(UniquePath::with_system(system.clone(), uuid));
-                                let mut buf = uuid_buf.into_inner();
-                                buf.advance(16);
-                                (buf, path)
-                            },
-                            _other => unimplemented!(),
-                        };
-
-                        let ser_id: u64 = buf.get_u64();
-
-                        let actor_ref = lookup.get_by_actor_path(&dst_path).expect("no actor registered for destination!");
-
-                        let envelope = MsgEnvelope::Receive(ReceiveEnvelope::Msg {
-                            src: src_path,
-                            dst: dst_path,
-                            ser_id,
-                            data: buf.bytes().into(),
-                        });
-
+                        let envelope = deserialise_msg(buf, &system).expect("s11n errors");
+                        let actor_ref = lookup.get_by_actor_path(envelope.dst()).expect("no actor registered for destination!");
 
                         (actor_ref, envelope)
                     };
                     debug!(log, "Routing envelope {:?}", envelope);
-                    actor.enqueue(envelope);
+                    actor.enqueue(MsgEnvelope::Receive(envelope));
                     None
                 }
                 Frame::Ping(s, id) => {
