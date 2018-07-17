@@ -172,37 +172,31 @@ impl NetworkDispatcher {
     ///
     /// # Errors
     /// TODO handle unknown destination actor
-    /// FIXME this fn
     fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        //        let actor = match dst {
-        //            ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
-        //            ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
-        //        };
-        //
-        //        if let Some(actor) = actor {
-        //            //  TODO err handling
-        //            match msg.local() {
-        //                Ok(boxed_value) => {
-        //                    let src_actor_opt = match src {
-        //                        ActorPath::Unique(ref up) => self.lookup.get_by_uuid(up.uuid_ref()),
-        //                        ActorPath::Named(ref np) => self.lookup.get_by_named_path(&np.path_ref()),
-        //                    };
-        //                    if let Some(src_actor) = src_actor_opt {
-        //                        actor.tell_any(boxed_value, src_actor);
-        //                    } else {
-        //                        panic!("Non-local ActorPath ended up in local dispatcher!");
-        //                    }
-        //                }
-        //                Err(msg) => {
-        //                    // local not implemented
-        //                    let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
-        //                    actor.enqueue(envelope);
-        //                }
-        //            }
-        //        } else {
-        //            // TODO handle non-existent routes
-        //            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
-        //        }
+        use dispatch::lookup::ActorLookup;
+        let lookup = self.lookup.get();
+        let actor = lookup.get_by_actor_path(&dst);
+        if let Some(ref actor) = actor {
+            //  TODO err handling
+            match msg.local() {
+                Ok(boxed_value) => {
+                    let src_actor_opt = lookup.get_by_actor_path(&src);
+                    if let Some(src_actor) = src_actor_opt {
+                        actor.tell_any(boxed_value, src_actor);
+                    } else {
+                        panic!("Non-local ActorPath ended up in local dispatcher!");
+                    }
+                }
+                Err(msg) => {
+                    // local not implemented
+                    let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
+                    actor.enqueue(envelope);
+                }
+            }
+        } else {
+            // TODO handle non-existent routes
+            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
+        }
     }
 
     /// Routes the provided message to the destination, or queues the message until the connection
@@ -214,9 +208,10 @@ impl NetworkDispatcher {
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
             let payload = serialise_msg(&src, &dst, msg).expect("s11n error");
+            let payload = spnl::bytes_ext::Bytes::from(payload.as_ref());
             // Convert to network-specific version of Bytes (due to Tokio lock-in)
             // FIXME the method below _copies_ the new data into yet another buffer
-            Frame::Data(Data::with_raw_payload(0.into(), 0, payload.as_ref()))
+            Frame::Data(Data::new(0.into(), 0, payload))
         };
 
         let state: &mut ConnectionState =
@@ -419,92 +414,90 @@ mod dispatch_tests {
     use default_components::DeadletterBox;
     use lifecycle::ControlEvent;
     use lifecycle::ControlPort;
-    use ports::Port;
     use runtime::KompicsConfig;
     use runtime::KompicsSystem;
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
-    use uuid::Uuid;
 
     #[test]
-    fn registration() {
+    fn remote_delivery() {
         let mut cfg = KompicsConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
         let system = KompicsSystem::new(cfg);
+        let ponger = system.create_and_register(PongerAct::new);
 
-        let component = system.create_and_register(TestComponent::new);
+        // Construct ActorPath with system's `proto` field defaulting to TCP
+        let ponger_path = ActorPath::Unique(UniquePath::with_system(
+            system.system_path(),
+            ponger.id().clone(),
+        ));
 
-        // FIXME @Johan
+        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
 
-        let sys_path = system.system_path();
-        let reference =
-            ActorPath::Unique(UniquePath::with_system(sys_path, component.id().clone()));
+        system.start(&ponger);
+        system.start(&pinger);
 
-        reference.tell("Network me, dispatch!", &system);
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(1000));
 
-        reference.tell("Network me, dispatch!", &system);
-        // Sleep; allow the system to progress
-        thread::sleep(Duration::from_secs(10));
+        let pingf = system.stop_notify(&pinger);
+        let pongf = system.kill_notify(ponger);
+        pingf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger.on_definition(|c| {
+            assert_eq!(c.remote_count, PING_COUNT);
+            assert_eq!(c.local_count, 0);
+        });
 
-        match system.shutdown() {
-            Ok(_) => println!("Successful shutdown"),
-            Err(_) => eprintln!("Error shutting down system"),
-        }
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
     }
 
     const PING_COUNT: u64 = 10;
 
     #[test]
-    #[ignore]
     fn local_delivery() {
         let mut cfg = KompicsConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
         let system = KompicsSystem::new(cfg);
 
         let ponger = system.create_and_register(PongerAct::new);
-        // FIXME @Johan
-        // let ponger_path = ponger.actor_path();
-        // let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
+        // Construct ActorPath with system's `proto` field explicitly set to LOCAL
+        let unique_path = UniquePath::new(
+            Transport::LOCAL,
+            "127.0.0.1".parse().expect("hardcoded IP"),
+            8080,
+            ponger.id().clone(),
+        );
+        let ponger_path = ActorPath::Unique(unique_path);
+        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
 
-        // system.start(&ponger);
-        // system.start(&pinger);
+        system.start(&ponger);
+        system.start(&pinger);
 
-        // thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(1000));
 
-        // let pingf = system.stop_notify(&pinger);
-        // let pongf = system.kill_notify(ponger);
-        // pingf
-        //     .await_timeout(Duration::from_millis(1000))
-        //     .expect("Pinger never stopped!");
-        // pongf
-        //     .await_timeout(Duration::from_millis(1000))
-        //     .expect("Ponger never died!");
-        // pinger.on_definition(|c| {
-        //     assert_eq!(c.local_count, PING_COUNT);
-        // });
+        let pingf = system.stop_notify(&pinger);
+        let pongf = system.kill_notify(ponger);
+        pingf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongf
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger.on_definition(|c| {
+            assert_eq!(c.local_count, PING_COUNT);
+            assert_eq!(c.remote_count, 0);
+        });
 
-        // system
-        //     .shutdown()
-        //     .expect("Kompics didn't shut down properly");
-    }
-
-    #[derive(ComponentDefinition, Actor)]
-    struct TestComponent {
-        ctx: ComponentContext<TestComponent>,
-    }
-
-    impl TestComponent {
-        fn new() -> Self {
-            TestComponent {
-                ctx: ComponentContext::new(),
-            }
-        }
-    }
-
-    impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, _event: <ControlPort as Port>::Request) -> () {}
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
     }
 
     #[derive(Debug, Clone)]
@@ -598,7 +591,7 @@ mod dispatch_tests {
         ctx: ComponentContext<PingerAct>,
         target: ActorPath,
         local_count: u64,
-        msg_count: u64,
+        remote_count: u64,
     }
 
     impl PingerAct {
@@ -607,12 +600,12 @@ mod dispatch_tests {
                 ctx: ComponentContext::new(),
                 target,
                 local_count: 0,
-                msg_count: 0,
+                remote_count: 0,
             }
         }
 
         fn total_count(&self) -> u64 {
-            self.local_count + self.msg_count
+            self.local_count + self.remote_count
         }
     }
 
@@ -648,7 +641,7 @@ mod dispatch_tests {
                 match r {
                     Ok(pong) => {
                         info!(self.ctx.log(), "Got msg Pong({})", pong.i);
-                        self.msg_count += 1;
+                        self.remote_count += 1;
                         if self.total_count() < PING_COUNT {
                             self.target
                                 .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);
