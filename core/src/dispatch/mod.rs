@@ -419,11 +419,28 @@ mod dispatch_tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+
+
+
+    static GLOBAL_PORT_INCR: AtomicUsize = ATOMIC_USIZE_INIT;
+    const BASE_PORT: u16 = 8080;
+
+    fn tcp_listening_port() -> u16 {
+        let count = GLOBAL_PORT_INCR.fetch_add(1, Ordering::SeqCst) + 1;
+        BASE_PORT + (count as u16)
+    }
+
 
     #[test]
     fn remote_delivery() {
         let mut cfg = KompicsConfig::new();
-        cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
+        cfg.system_components(DeadletterBox::new, || {
+            let net_config = NetworkConfig {
+                addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+            };
+            NetworkDispatcher::with_config(net_config)
+        });
         let system = KompicsSystem::new(cfg);
         let ponger = system.create_and_register(PongerAct::new);
 
