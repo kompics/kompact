@@ -433,6 +433,10 @@ impl NamedPath {
         }
     }
 
+    pub fn with_system(system: SystemPath, path: Vec<String>) -> NamedPath {
+        NamedPath { system, path }
+    }
+
     pub fn path_ref(&self) -> &Vec<String> {
         &self.path
     }

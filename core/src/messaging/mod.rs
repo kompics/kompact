@@ -6,6 +6,7 @@ use bytes::Bytes;
 use net::events::NetworkEvent;
 use serialisation::Serialisable;
 use std::any::Any;
+use utils;
 use uuid::Uuid;
 
 pub(crate) mod framing;
@@ -22,12 +23,22 @@ pub struct CastEnvelope {
     pub(crate) v: Box<Any + Send>,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum RegistrationError {
+    DuplicateEntry,
+    Unsupported,
+}
+
 /// Envelope representing an actor registration event.
 ///
 /// Used for registering and deregistering an [ActorPath](actors::ActorPath) with a name.
 #[derive(Debug)]
 pub enum RegistrationEnvelope {
-    Register(ActorRef, PathResolvable),
+    Register(
+        ActorRef,
+        PathResolvable,
+        Option<utils::Promise<Result<(), RegistrationError>>>,
+    ),
     Deregister(ActorRef),
 }
 
@@ -64,6 +75,7 @@ pub enum ReceiveEnvelope {
 pub enum PathResolvable {
     Path(ActorPath),
     ActorId(Uuid),
+    Alias(String),
     System,
 }
 
@@ -71,9 +83,7 @@ impl ReceiveEnvelope {
     pub fn dst(&self) -> &ActorPath {
         match self {
             ReceiveEnvelope::Cast(_) => unimplemented!(),
-            ReceiveEnvelope::Msg {
-                src: _, ref dst, ..
-            } => dst,
+            ReceiveEnvelope::Msg { src: _, dst, .. } => &dst,
         }
     }
 }
