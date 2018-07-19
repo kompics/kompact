@@ -46,8 +46,17 @@ pub trait ActorLookup {
 
 /// Lookup structure for storing and retrieving `ActorRef`s.
 ///
-/// UUID-based references are stored in a `HashMap`, and path-based named references
+/// UUID-based references are stored in a [HashMap], and path-based named references
 /// are stored in a Trie structure.
+///
+/// # Notes
+/// The sequence trie supports the use case of grouping many [ActorRefs] under the same path,
+/// similar to a directory structure. Thus, actors can broadcast to all actors under a certain path
+/// without requiring explicit identifiers for them.
+
+/// Ex: Broadcasting a message to actors stored on the system path "tcp://127.0.0.1:8080/pongers/*"
+///
+/// This use case is not currently being utilized, but it may be in the future.
 pub struct ActorStore {
     uuid_map: HashMap<Uuid, ActorRef>,
     name_map: SequenceTrie<String, ActorRef>,
