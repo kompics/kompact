@@ -24,16 +24,17 @@ slog-term = "2.4"
 
 # Network-specific
 futures = "0.1.2"
-tokio = "0.1.7"
+
+[dependencies.tokio]
+git = "https://github.com/jarlopez/tokio"
+branch = "bytes-v0.4.8-migration"
 
 [dependencies.bytes]
-git = "https://github.com/carllerche/bytes"
-branch = "master"
+version = "0.4.8"
 
 [dependencies.spaniel]
 git = "https://github.com/jarlopez/spaniel"
 branch = "master"
-#path = "../../spaniel/"
 
 [dev-dependencies]
 #env_logger = "0.4"

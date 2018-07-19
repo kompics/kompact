@@ -212,7 +212,7 @@ pub mod helpers {
 
         let (mut buffer, src) = deserialise_actor_path(&mut buffer, system)?;
         let (buffer, dst) = deserialise_actor_path(&mut buffer, system)?;
-        let ser_id: u64 = buffer.get_u64();
+        let ser_id: u64 = buffer.get_u64_be();
         let data = buffer.bytes().into();
 
         let envelope = ReceiveEnvelope::Msg {
@@ -270,17 +270,16 @@ mod tests {
             Some(88)
         }
         fn serialise(&self, v: &Test1, buf: &mut BufMut) -> Result<(), SerError> {
-            //buf.put_u64::<BigEndian>(v.i);
-            buf.put_u64(v.i);
+            buf.put_u64_be(v.i);
             for i in 0..10 {
-                buf.put_u64(i);
+                buf.put_u64_be(i);
             }
             Result::Ok(())
         }
     }
     impl Deserialiser<Test1> for T1Ser {
         fn deserialise(buf: &mut Buf) -> Result<Test1, SerError> {
-            let i = buf.get_u64();
+            let i = buf.get_u64_be();
             Result::Ok(Test1 { i })
         }
     }
