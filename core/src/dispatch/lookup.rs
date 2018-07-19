@@ -42,6 +42,16 @@ pub trait ActorLookup {
     fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut ActorRef>;
 
     fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut ActorRef>;
+
+    /// Removes all entries that point to the provided actor, returning how many were removed
+    /// (most likely O(n), subject to implementation details)
+    fn remove(&mut self, actor: ActorRef) -> usize;
+
+    /// Removes the value at the given key, returning `true` if it existed.
+    fn remove_by_uuid(&mut self, id: &Uuid) -> bool;
+
+    /// Removes the value at the given key, returning `true` if it existed.
+    fn remove_by_named_path(&mut self, path: &Vec<String>) -> bool;
 }
 
 /// Lookup structure for storing and retrieving `ActorRef`s.
@@ -129,6 +139,44 @@ impl ActorLookup for ActorStore {
     fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut ActorRef> {
         self.name_map.get_mut(path)
     }
+
+    fn remove(&mut self, actor: ActorRef) -> usize {
+        let mut num_deleted = 0;
+        num_deleted += self.remove_from_uuid_map(actor);
+
+        num_deleted
+    }
+
+    fn remove_by_uuid(&mut self, id: &Uuid) -> bool {
+        self.uuid_map.remove(id).is_some()
+    }
+
+    fn remove_by_named_path(&mut self, path: &Vec<String>) -> bool {
+        let existed = self.name_map.get(path).is_some();
+        self.name_map.remove(path);
+        existed
+    }
+}
+
+impl ActorStore {
+    fn remove_from_uuid_map(&mut self, actor: ActorRef) -> usize {
+        let matches: Vec<_> = self.uuid_map
+            .iter()
+            .filter(|rec| rec.1 == &actor)
+            .map(|rec| rec.0.clone())
+            .collect();
+        let existed = matches.len();
+        for m in matches {
+            self.uuid_map.remove(&m);
+        }
+        existed
+    }
+
+    fn remove_from_name_map(&mut self, actor: ActorRef) -> usize {
+        // FIXME
+        0
+    }
+
 }
 
 impl Clone for ActorStore {

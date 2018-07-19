@@ -16,6 +16,7 @@ use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
 use messaging::PathResolvable;
 use messaging::ReceiveEnvelope;
+use std::sync::Arc;
 
 pub trait ActorRaw: ExecuteSend {
     fn receive(&mut self, env: ReceiveEnvelope) -> ();
@@ -135,6 +136,17 @@ impl Debug for ActorRef {
 impl fmt::Display for ActorRef {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "<actor-ref>")
+    }
+}
+
+impl PartialEq for ActorRef {
+    fn eq(&self, other: &ActorRef) -> bool {
+        match (self.component.upgrade(), other.component.upgrade()) {
+            (Some(ref me), Some(ref it)) => {
+                Arc::ptr_eq(me, it)
+            }
+            _ => false,
+        }
     }
 }
 

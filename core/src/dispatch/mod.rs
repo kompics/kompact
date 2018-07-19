@@ -366,9 +366,20 @@ impl Dispatcher for NetworkDispatcher {
                             promise.fulfill(Ok(()));
                         }
                     }
-                    RegistrationEnvelope::Deregister(actor_path) => {
-                        debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
-                        // TODO handle
+                    RegistrationEnvelope::Deregister(actor_ref) => {
+                        debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_ref);
+
+                        let prev = self.lookup.get();
+                        let mut next = (*prev).clone();
+
+                        let num_removed = next.remove(actor_ref);
+                        if num_removed == 0 {
+                            warn!(self.ctx.log(), "Attempted to remove non-registered ActorRef");
+                        } else {
+                            debug!(self.ctx.log(), "Successfully deregistered {:?} entries", num_removed);
+                            self.lookup.set(Arc::new(next));
+                        }
+
                     }
                 }
             }
@@ -477,6 +488,13 @@ mod dispatch_tests {
             Err(RegistrationError::DuplicateEntry),
             "Duplicate alias registration should fail."
         );
+
+        system
+            .kill_notify(ponger)
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger did not die");
+        thread::sleep(Duration::from_millis(1000));
+
         system
             .shutdown()
             .expect("Kompics didn't shut down properly");
