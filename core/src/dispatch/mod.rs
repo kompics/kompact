@@ -208,7 +208,6 @@ impl NetworkDispatcher {
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
             let payload = serialise_msg(&src, &dst, msg).expect("s11n error");
-            let payload = spnl::bytes_ext::Bytes::from(payload.as_ref());
             // Convert to network-specific version of Bytes (due to Tokio lock-in)
             // FIXME the method below _copies_ the new data into yet another buffer
             Frame::Data(Data::new(0.into(), 0, payload))
@@ -540,7 +539,7 @@ mod dispatch_tests {
         }
         fn serialise(&self, v: &PingMsg, buf: &mut BufMut) -> Result<(), SerError> {
             buf.put_i8(PING_ID);
-            buf.put_u64(v.i);
+            buf.put_u64_be(v.i);
             Result::Ok(())
         }
     }
@@ -554,7 +553,7 @@ mod dispatch_tests {
         }
         fn serialise(&self, v: &PongMsg, buf: &mut BufMut) -> Result<(), SerError> {
             buf.put_i8(PONG_ID);
-            buf.put_u64(v.i);
+            buf.put_u64_be(v.i);
             Result::Ok(())
         }
     }
@@ -568,7 +567,7 @@ mod dispatch_tests {
             }
             match buf.get_i8() {
                 PING_ID => {
-                    let i = buf.get_u64();
+                    let i = buf.get_u64_be();
                     Ok(PingMsg { i })
                 }
                 PONG_ID => Err(SerError::InvalidType(
@@ -590,7 +589,7 @@ mod dispatch_tests {
             }
             match buf.get_i8() {
                 PONG_ID => {
-                    let i = buf.get_u64();
+                    let i = buf.get_u64_be();
                     Ok(PongMsg { i })
                 }
                 PING_ID => Err(SerError::InvalidType(

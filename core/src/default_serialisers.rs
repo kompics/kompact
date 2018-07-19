@@ -31,7 +31,7 @@ impl Serialisable for u64 {
         Some(8)
     }
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
-        buf.put_u64(*self);
+        buf.put_u64_be(*self);
         Ok(())
     }
     fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
