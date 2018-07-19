@@ -17,6 +17,7 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use actors::NamedPath;
 use actors::UniquePath;
 use crossbeam::sync::ArcCell;
 use dispatch::lookup::ActorStore;
@@ -24,18 +25,15 @@ use dispatch::queue_manager::QueueManager;
 use futures::Async;
 use futures::AsyncSink;
 use futures::{self, Poll, StartSend};
-use messaging::DispatchEnvelope;
-use messaging::EventEnvelope;
-use messaging::MsgEnvelope;
 use messaging::PathResolvable;
-use messaging::RegistrationEnvelope;
+use messaging::RegistrationError;
+use messaging::{DispatchEnvelope, EventEnvelope, MsgEnvelope, RegistrationEnvelope};
 use net;
 use net::events::NetworkEvent;
 use net::ConnectionState;
 use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
-use spnl;
 use std::collections::HashMap;
 
 pub(crate) mod lookup;
@@ -208,8 +206,6 @@ impl NetworkDispatcher {
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
             let payload = serialise_msg(&src, &dst, msg).expect("s11n error");
-            // Convert to network-specific version of Bytes (due to Tokio lock-in)
-            // FIXME the method below _copies_ the new data into yet another buffer
             Frame::Data(Data::new(0.into(), 0, payload))
         };
 
@@ -281,6 +277,9 @@ impl NetworkDispatcher {
     fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<Serialisable>) {
         let src_path = match src {
             PathResolvable::Path(actor_path) => actor_path.clone(),
+            PathResolvable::Alias(alias) => {
+                ActorPath::Named(NamedPath::with_system(self.system_path(), vec![alias]))
+            }
             PathResolvable::ActorId(uuid) => {
                 ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
             }
@@ -346,11 +345,26 @@ impl Dispatcher for NetworkDispatcher {
                 use dispatch::lookup::ActorLookup;
 
                 match reg {
-                    RegistrationEnvelope::Register(actor, path) => {
+                    RegistrationEnvelope::Register(actor, path, mut promise) => {
+                        debug!(self.ctx.log(), "Registering actor at {:?}", actor);
+
                         let prev = self.lookup.get();
                         let mut next = (*prev).clone();
+                        if next.contains(&path) {
+                            warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
+
+                            if let Some(promise) = promise.take() {
+                                promise.fulfill(Err(RegistrationError::DuplicateEntry));
+                            }
+                            // Return early; prevent registration from taking place
+                            return;
+                        }
                         next.insert(actor, path);
                         self.lookup.set(Arc::new(next));
+
+                        if let Some(promise) = promise.take() {
+                            promise.fulfill(Ok(()));
+                        }
                     }
                     RegistrationEnvelope::Deregister(actor_path) => {
                         debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
@@ -415,13 +429,12 @@ mod dispatch_tests {
     use lifecycle::ControlPort;
     use runtime::KompicsConfig;
     use runtime::KompicsSystem;
+    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
-    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 
-
-
+    // Thread-safe TCP port incrementer to enable parallel network tests
     static GLOBAL_PORT_INCR: AtomicUsize = ATOMIC_USIZE_INIT;
     const BASE_PORT: u16 = 8080;
 
@@ -430,6 +443,44 @@ mod dispatch_tests {
         BASE_PORT + (count as u16)
     }
 
+    #[test]
+    fn named_registration() {
+        const ACTOR_NAME: &str = "ponger";
+
+        let mut cfg = KompicsConfig::new();
+        cfg.system_components(DeadletterBox::new, || {
+            let net_config = NetworkConfig {
+                addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+            };
+            NetworkDispatcher::with_config(net_config)
+        });
+        let system = KompicsSystem::new(cfg);
+        let ponger = system.create(PongerAct::new);
+        system.start(&ponger);
+
+        let res = system
+            .register_by_alias(&ponger, ACTOR_NAME)
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Registration never completed.");
+        assert!(
+            res.is_ok(),
+            "Single registration with unique alias should succeed."
+        );
+
+        let res = system
+            .register_by_alias(&ponger, ACTOR_NAME)
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Registration never completed.");
+
+        assert_eq!(
+            res,
+            Err(RegistrationError::DuplicateEntry),
+            "Duplicate alias registration should fail."
+        );
+        system
+            .shutdown()
+            .expect("Kompics didn't shut down properly");
+    }
 
     #[test]
     fn remote_delivery() {

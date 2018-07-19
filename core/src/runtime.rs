@@ -1,6 +1,7 @@
 use super::*;
 
 use executors::*;
+use messaging::RegistrationError;
 use messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::clone::Clone;
@@ -261,7 +262,7 @@ impl KompicsSystem {
         let id = c.core().id().clone();
         let id_path = PathResolvable::ActorId(id);
         let actor = c.actor_ref();
-        self.inner.register_actor_ref(actor, id_path);
+        self.inner.register_by_path(actor, id_path);
         c
     }
 
@@ -273,9 +274,27 @@ impl KompicsSystem {
         let c = self.create(f);
         let path = PathResolvable::ActorId(c.core().id().clone());
         let actor = c.actor_ref();
-        self.inner.register_actor_ref(actor, path);
+        self.inner.register_by_path(actor, path);
         self.start(&c);
         c
+    }
+
+    /// Attempts to register the provided component with a human-readable alias.
+    ///
+    /// # Returns
+    /// A [Future](kompics::utils::Future) which resolves to an error if the alias is not unique,
+    /// and a unit () if successful.
+    pub fn register_by_alias<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+    ) -> Future<Result<(), RegistrationError>>
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>,
+    {
+        let actor = c.actor_ref();
+        self.inner.register_by_alias(actor, alias.into())
     }
 
     pub fn start<C>(&self, c: &Arc<Component<C>>) -> ()
@@ -514,13 +533,35 @@ impl KompicsRuntime {
         &self.logger
     }
 
-    fn register_actor_ref(&self, actor_ref: ActorRef, path: PathResolvable) -> () {
-        debug!(self.logger(), "Registering actor at {:?}", path);
+    /// Registers an actor with a path at the dispatcher
+    fn register_by_path(
+        &self,
+        actor_ref: ActorRef,
+        path: PathResolvable,
+    ) -> Future<Result<(), RegistrationError>> {
+        debug!(self.logger(), "Requesting actor registration at {:?}", path);
+        let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
-            RegistrationEnvelope::Register(actor_ref, path),
+            RegistrationEnvelope::Register(actor_ref, path, Some(promise)),
         ));
         dispatcher.enqueue(envelope);
+        future
+    }
+
+    /// Registers an actor with an alias at the dispatcher
+    fn register_by_alias(
+        &self,
+        actor_ref: ActorRef,
+        alias: String,
+    ) -> Future<Result<(), RegistrationError>> {
+        debug!(
+            self.logger(),
+            "Requesting actor registration for {:?}",
+            alias
+        );
+        let path = PathResolvable::Alias(alias);
+        self.register_by_path(actor_ref, path)
     }
 
     fn deregister_actor(&self, actor_ref: ActorRef) -> () {

@@ -18,6 +18,9 @@ pub trait ActorLookup {
     /// If an entry already exists, it is removed and returned before being replaced.
     fn insert(&mut self, actor: ActorRef, path: PathResolvable) -> Option<ActorRef>;
 
+    /// Returns true if the evaluated path is already stored.
+    fn contains(&self, path: &PathResolvable) -> bool;
+
     fn get_by_actor_path(&self, path: &ActorPath) -> Option<&ActorRef> {
         match path {
             ActorPath::Unique(ref up) => self.get_by_uuid(up.uuid_ref()),
@@ -76,10 +79,29 @@ impl ActorLookup for ActorStore {
                     self.name_map.insert(keys, actor)
                 }
             },
+            PathResolvable::Alias(alias) => self.name_map.insert(&vec![alias], actor),
             PathResolvable::ActorId(uuid) => self.uuid_map.insert(uuid, actor),
             PathResolvable::System => {
                 panic!("System paths should not be registered");
             }
+        }
+    }
+
+    fn contains(&self, path: &PathResolvable) -> bool {
+        match path {
+            PathResolvable::Path(actor_path) => match actor_path {
+                ActorPath::Unique(ref up) => self.uuid_map.contains_key(up.uuid_ref()),
+                ActorPath::Named(ref np) => {
+                    let keys = np.path_ref();
+                    self.name_map.get(keys).is_some()
+                }
+            },
+            PathResolvable::Alias(ref alias) => {
+                //  TODO avoid clone here
+                self.name_map.get(&[alias.clone()]).is_some()
+            }
+            PathResolvable::ActorId(ref uuid) => self.uuid_map.contains_key(uuid),
+            &PathResolvable::System => false, // System path registration is not allowed
         }
     }
 
