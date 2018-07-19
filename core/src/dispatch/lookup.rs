@@ -142,8 +142,8 @@ impl ActorLookup for ActorStore {
 
     fn remove(&mut self, actor: ActorRef) -> usize {
         let mut num_deleted = 0;
-        num_deleted += self.remove_from_uuid_map(actor);
-
+        num_deleted += self.remove_from_uuid_map(&actor);
+        num_deleted += self.remove_from_name_map(&actor);
         num_deleted
     }
 
@@ -159,24 +159,33 @@ impl ActorLookup for ActorStore {
 }
 
 impl ActorStore {
-    fn remove_from_uuid_map(&mut self, actor: ActorRef) -> usize {
+    fn remove_from_uuid_map(&mut self, actor: &ActorRef) -> usize {
         let matches: Vec<_> = self.uuid_map
             .iter()
-            .filter(|rec| rec.1 == &actor)
+            .filter(|rec| rec.1 == actor)
             .map(|rec| rec.0.clone())
             .collect();
         let existed = matches.len();
-        for m in matches {
-            self.uuid_map.remove(&m);
-        }
+        for m in matches { self.uuid_map.remove(&m); }
         existed
     }
 
-    fn remove_from_name_map(&mut self, actor: ActorRef) -> usize {
+    fn remove_from_name_map(&mut self, actor: &ActorRef) -> usize {
         // FIXME
-        0
+        let matches: Vec<_> = self.name_map
+            .iter()
+            .filter(|rec| rec.1 == actor)
+            .map(|(key, _)| {
+                // Clone the entire Vec<&String> path to be able to remove entries below
+                let mut cl = Vec::new();
+                for k in key { cl.push(k.clone()); }
+                cl
+            })
+            .collect();
+        let existed = matches.len();
+        for m in matches { self.name_map.remove(&m); }
+        existed
     }
-
 }
 
 impl Clone for ActorStore {
