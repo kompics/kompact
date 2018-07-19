@@ -64,6 +64,7 @@ impl<T: Send + Sized> Promise<T> {
     pub fn fulfill(self, t: T) {
         self.result_channel
             .send(t)
-            .expect("An error occurred during promise fulfillment!");
+            // ISSUE #12: Explicitly swallow errors
+            .map_err(|_| ());
     }
 }
