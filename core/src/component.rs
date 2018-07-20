@@ -296,7 +296,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     }
                 }
                 // then events
-                let rem_events = max_events - count;
+                let rem_events = max_events.saturating_sub(count);
                 if (rem_events > 0) {
                     let res = guard.execute(rem_events, self.skip.load(Ordering::Relaxed));
                     self.skip.store(res.skip, Ordering::Relaxed);

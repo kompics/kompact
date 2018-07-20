@@ -41,6 +41,8 @@ pub use component_definition_derive::*;
 pub use slog::{Drain, Fuse, Logger};
 pub use slog_async::Async;
 pub use std::convert::{From, Into};
+pub use std::any::Any;
+pub use bytes::Buf;
 
 mod actors;
 mod component;
