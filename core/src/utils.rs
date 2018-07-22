@@ -8,7 +8,7 @@ use super::*;
 
 //pub fn connect<P: Port>(c: &ProvidedRef<P>, p: &mut Required<P>) -> () {}
 
-pub fn on_dual_definition<C1, C2, F>(c1: Arc<Component<C1>>, c2: Arc<Component<C2>>, f: F) -> ()
+pub fn on_dual_definition<C1, C2, F>(c1: &Arc<Component<C1>>, c2: &Arc<Component<C2>>, f: F) -> ()
 where
     C1: ComponentDefinition + Sized + 'static,
     C2: ComponentDefinition + Sized + 'static,

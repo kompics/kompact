@@ -128,7 +128,7 @@ fn main() {
     for _ in 0..PROC_PAIRS {
         let pingerc = sys.create(move || Pinger::with(MSGS, l2.clone()));
         let pongerc = sys.create(move || Ponger::new());
-        on_dual_definition(pingerc.clone(), pongerc.clone(), |pingercd, pongercd| {
+        on_dual_definition(&pingerc, &pongerc, |pingercd, pongercd| {
             biconnect(&mut pongercd.ppp, &mut pingercd.ppp);
         });
         pingers.push(pingerc);
