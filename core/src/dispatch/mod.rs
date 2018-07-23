@@ -35,6 +35,7 @@ use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use std::collections::HashMap;
+use std::time::Duration;
 
 pub(crate) mod lookup;
 mod queue_manager;
@@ -59,6 +60,8 @@ pub struct NetworkDispatcher {
     net_bridge: Option<net::Bridge>,
     /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
     queue_manager: Option<QueueManager>,
+    /// Reaper which cleans up deregistered actor references in the actor lookup table
+    reaper: lookup::gc::ActorRefReaper,
 }
 
 // impl NetworkConfig
@@ -77,13 +80,17 @@ impl NetworkDispatcher {
     }
 
     pub fn with_config(cfg: NetworkConfig) -> Self {
+        let lookup = Arc::new(ArcCell::new(Arc::new(ActorStore::new())));
+        let reaper = lookup::gc::ActorRefReaper::default();
+
         NetworkDispatcher {
             ctx: ComponentContext::new(),
             connections: HashMap::new(),
             cfg,
-            lookup: Arc::new(ArcCell::new(Arc::new(ActorStore::new()))),
+            lookup,
             net_bridge: None,
             queue_manager: None,
+            reaper,
         }
     }
 
@@ -346,8 +353,6 @@ impl Dispatcher for NetworkDispatcher {
 
                 match reg {
                     RegistrationEnvelope::Register(actor, path, mut promise) => {
-                        debug!(self.ctx.log(), "Registering actor at {:?}", actor);
-
                         let prev = self.lookup.get();
                         let mut next = (*prev).clone();
                         if next.contains(&path) {
@@ -365,21 +370,14 @@ impl Dispatcher for NetworkDispatcher {
                         if let Some(promise) = promise.take() {
                             promise.fulfill(Ok(()));
                         }
-                    }
-                    RegistrationEnvelope::Deregister(actor_ref) => {
-                        debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_ref);
 
-                        let prev = self.lookup.get();
-                        let mut next = (*prev).clone();
-
-                        let num_removed = next.remove(actor_ref);
-                        if num_removed == 0 {
-                            warn!(self.ctx.log(), "Attempted to remove non-registered ActorRef");
-                        } else {
-                            debug!(self.ctx.log(), "Successfully deregistered {:?} entries", num_removed);
-                            self.lookup.set(Arc::new(next));
+                        if !self.reaper.is_scheduled() {
+                            use timer_manager::Timer;
+                            let first_wakeup = self.reaper.strategy().curr();
+                            self.schedule_once(Duration::from_millis(first_wakeup), |me, _id| {
+                                schedule_reaper(me);
+                            });
                         }
-
                     }
                 }
             }
@@ -392,6 +390,34 @@ impl Dispatcher for NetworkDispatcher {
         // TODO get protocol from configuration
         SystemPath::new(Transport::TCP, self.cfg.addr.ip(), self.cfg.addr.port())
     }
+}
+
+fn schedule_reaper(target: &mut NetworkDispatcher) {
+    use timer_manager::Timer;
+
+    if !target.reaper.is_scheduled() {
+        // First time running; mark as sheduled and jump straight to scheduling
+        target.reaper.schedule();
+    } else {
+        // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly
+        let num_reaped = target.reaper.run(&target.lookup);
+        if num_reaped == 0 {
+            // No work done; slow down interval
+            target.reaper.strategy_mut().incr();
+        } else {
+            target.reaper.strategy_mut().decr();
+        }
+    }
+    let next_wakeup = target.reaper.strategy().curr();
+    debug!(
+        target.ctx().log(),
+        "Scheduling reaping at {:?}ms",
+        next_wakeup
+    );
+
+    target.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
+        schedule_reaper(target)
+    });
 }
 
 impl Provide<ControlPort> for NetworkDispatcher {

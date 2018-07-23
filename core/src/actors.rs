@@ -119,6 +119,11 @@ impl ActorRef {
         });
         self.enqueue(MsgEnvelope::Dispatch(env))
     }
+
+    /// Attempts to upgrade the contained component, returning `true` is possible.
+    pub(crate) fn can_upgrade_component(&self) -> bool {
+        self.component.upgrade().is_some()
+    }
 }
 
 impl ActorRefFactory for ActorRef {
@@ -142,9 +147,7 @@ impl fmt::Display for ActorRef {
 impl PartialEq for ActorRef {
     fn eq(&self, other: &ActorRef) -> bool {
         match (self.component.upgrade(), other.component.upgrade()) {
-            (Some(ref me), Some(ref it)) => {
-                Arc::ptr_eq(me, it)
-            }
+            (Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
             _ => false,
         }
     }
