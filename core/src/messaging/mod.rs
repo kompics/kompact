@@ -31,7 +31,7 @@ pub enum RegistrationError {
 
 /// Envelope representing an actor registration event.
 ///
-/// Used for registering and deregistering an [ActorPath](actors::ActorPath) with a name.
+/// Used for registering an [ActorRef](actors::ActorRef) with a path.
 #[derive(Debug)]
 pub enum RegistrationEnvelope {
     Register(
@@ -39,7 +39,6 @@ pub enum RegistrationEnvelope {
         PathResolvable,
         Option<utils::Promise<Result<(), RegistrationError>>>,
     ),
-    Deregister(ActorRef),
 }
 
 /// Envelopes destined for the dispatcher

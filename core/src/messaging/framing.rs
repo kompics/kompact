@@ -41,8 +41,6 @@ impl Serialisable for ActorPath {
                 16, // UuidBytes has 16 bytes
             ),
             ActorPath::Named(ref _np) => {
-                //                let len = np.path_ref().iter().fold(0, |l, s| l + s.len());
-                //                Some(len)
                 unimplemented!();
             }
         }
@@ -58,7 +56,6 @@ impl Serialisable for ActorPath {
             }
             ActorPath::Named(_np) => {
                 unimplemented!();
-//                buf.put_u8(SerIdents::NamedActorPath as u8);
                 // TODO encode length and UTF-8 string of named path
             }
         }

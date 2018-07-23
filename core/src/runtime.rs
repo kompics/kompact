@@ -344,7 +344,6 @@ impl KompicsSystem {
         C: ComponentDefinition + 'static,
     {
         c.enqueue_control(ControlEvent::Kill);
-        self.inner.deregister_actor(c.actor_ref());
     }
 
     pub fn kill_notify<C>(&self, c: Arc<Component<C>>) -> Future<()>
@@ -358,7 +357,6 @@ impl KompicsSystem {
             ListenEvent::Destroyed(c.id().clone()),
         ));
         c.enqueue_control(ControlEvent::Kill);
-        self.inner.deregister_actor(c.actor_ref());
         f
     }
 
@@ -564,15 +562,6 @@ impl KompicsRuntime {
         self.register_by_path(actor_ref, path)
     }
 
-    fn deregister_actor(&self, actor_ref: ActorRef) -> () {
-        debug!(self.logger(), "Deregistering actor at {:?}", actor_ref);
-        let dispatcher = self.dispatcher_ref();
-        let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
-            RegistrationEnvelope::Deregister(actor_ref),
-        ));
-        dispatcher.enqueue(envelope);
-    }
-
     fn deadletter_ref(&self) -> ActorRef {
         match *self.internal_components {
             Some(ref sc) => sc.deadletter_ref(),
@@ -628,7 +617,10 @@ impl Clone for Box<Scheduler> {
 }
 
 #[derive(Clone)]
-struct ExecutorScheduler<E> where E: Executor + Sync {
+struct ExecutorScheduler<E>
+where
+    E: Executor + Sync,
+{
     exec: E,
 }
 

@@ -16,6 +16,7 @@ use messaging::DispatchEnvelope;
 use messaging::MsgEnvelope;
 use messaging::PathResolvable;
 use messaging::ReceiveEnvelope;
+use std::sync::Arc;
 
 pub trait ActorRaw: ExecuteSend {
     fn receive(&mut self, env: ReceiveEnvelope) -> ();
@@ -108,7 +109,7 @@ impl ActorRef {
     }
 
     // TODO figure out a way to have one function match both cases -.-
-    pub fn tell_any<S>(&self, v: Box<Any+Send>, from: &S) -> ()
+    pub fn tell_any<S>(&self, v: Box<Any + Send>, from: &S) -> ()
     where
         S: ActorRefFactory,
     {
@@ -117,6 +118,11 @@ impl ActorRef {
             v,
         });
         self.enqueue(MsgEnvelope::Dispatch(env))
+    }
+
+    /// Attempts to upgrade the contained component, returning `true` if possible.
+    pub(crate) fn can_upgrade_component(&self) -> bool {
+        self.component.upgrade().is_some()
     }
 }
 
@@ -135,6 +141,15 @@ impl Debug for ActorRef {
 impl fmt::Display for ActorRef {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "<actor-ref>")
+    }
+}
+
+impl PartialEq for ActorRef {
+    fn eq(&self, other: &ActorRef) -> bool {
+        match (self.component.upgrade(), other.component.upgrade()) {
+            (Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            _ => false,
+        }
     }
 }
 

@@ -13,7 +13,9 @@ use std::collections::HashMap;
 use trie::SequenceTrie;
 use uuid::Uuid;
 
-pub trait ActorLookup {
+pub mod gc;
+
+pub trait ActorLookup: Clone {
     /// Inserts or replaces the `path` in the lookup structure.
     /// If an entry already exists, it is removed and returned before being replaced.
     fn insert(&mut self, actor: ActorRef, path: PathResolvable) -> Option<ActorRef>;
@@ -42,12 +44,37 @@ pub trait ActorLookup {
     fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut ActorRef>;
 
     fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut ActorRef>;
+
+    /// Removes all entries that point to the provided actor, returning how many were removed
+    /// (most likely O(n), subject to implementation details)
+    fn remove(&mut self, actor: ActorRef) -> usize;
+
+    /// Removes the value at the given key, returning `true` if it existed.
+    fn remove_by_uuid(&mut self, id: &Uuid) -> bool;
+
+    /// Removes the value at the given key, returning `true` if it existed.
+    fn remove_by_named_path(&mut self, path: &Vec<String>) -> bool;
+
+    /// Performs cleanup on this lookup table, returning how many entries were affected.
+    fn cleanup(&mut self) -> usize {
+        0
+    }
 }
 
 /// Lookup structure for storing and retrieving `ActorRef`s.
 ///
-/// UUID-based references are stored in a `HashMap`, and path-based named references
+/// UUID-based references are stored in a [HashMap], and path-based named references
 /// are stored in a Trie structure.
+///
+/// # Notes
+/// The sequence trie supports the use case of grouping many [ActorRefs] under the same path,
+/// similar to a directory structure. Thus, actors can broadcast to all actors under a certain path
+/// without requiring explicit identifiers for them.
+
+/// Ex: Broadcasting a message to actors stored on the system path "tcp://127.0.0.1:8080/pongers/*"
+///
+/// This use case is not currently being utilized, but it may be in the future.
+#[derive(Clone)]
 pub struct ActorStore {
     uuid_map: HashMap<Uuid, ActorRef>,
     name_map: SequenceTrie<String, ActorRef>,
@@ -120,13 +147,97 @@ impl ActorLookup for ActorStore {
     fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut ActorRef> {
         self.name_map.get_mut(path)
     }
+
+    fn remove(&mut self, actor: ActorRef) -> usize {
+        let mut num_deleted = 0;
+        num_deleted += self.remove_from_uuid_map(&actor);
+        num_deleted += self.remove_from_name_map(&actor);
+        num_deleted
+    }
+
+    fn remove_by_uuid(&mut self, id: &Uuid) -> bool {
+        self.uuid_map.remove(id).is_some()
+    }
+
+    fn remove_by_named_path(&mut self, path: &Vec<String>) -> bool {
+        let existed = self.name_map.get(path).is_some();
+        self.name_map.remove(path);
+        existed
+    }
+
+    fn cleanup(&mut self) -> usize {
+        self.remove_deallocated_entries()
+    }
 }
 
-impl Clone for ActorStore {
-    fn clone(&self) -> Self {
-        ActorStore {
-            uuid_map: self.uuid_map.clone(),
-            name_map: self.name_map.clone(),
+impl ActorStore {
+    fn remove_from_uuid_map(&mut self, actor: &ActorRef) -> usize {
+        let matches: Vec<_> = self
+            .uuid_map
+            .iter()
+            .filter(|rec| rec.1 == actor)
+            .map(|rec| rec.0.clone())
+            .collect();
+        let existed = matches.len();
+        for m in matches {
+            self.uuid_map.remove(&m);
         }
+        existed
+    }
+
+    fn remove_from_name_map(&mut self, actor: &ActorRef) -> usize {
+        let matches: Vec<_> = self
+            .name_map
+            .iter()
+            .filter(|rec| rec.1 == actor)
+            .map(|(key, _)| {
+                // Clone the entire Vec<&String> path to be able to remove entries below
+                let mut cl = Vec::new();
+                for k in key {
+                    cl.push(k.clone());
+                }
+                cl
+            })
+            .collect();
+        let existed = matches.len();
+        for m in matches {
+            self.name_map.remove(&m);
+        }
+        existed
+    }
+
+    /// Walks through the `name_map`and `uuid_map`, removing [ActorRef]s which have been
+    /// deallocated by the runtime lifecycle management.
+    fn remove_deallocated_entries(&mut self) -> usize {
+        let mut existed = 0;
+        let matches: Vec<_> = self
+            .name_map
+            .iter()
+            .filter(|&(_, actor)| !actor.can_upgrade_component())
+            .map(|(key, _)| {
+                // Clone the entire Vec<&String> path to be able to remove entries below
+                let mut cl = Vec::new();
+                for k in key {
+                    cl.push(k.clone());
+                }
+                cl
+            })
+            .collect();
+        existed += matches.len();
+        for m in matches {
+            self.name_map.remove(&m);
+        }
+
+        let matches: Vec<_> = self
+            .uuid_map
+            .iter()
+            .filter(|&(_, actor)| !actor.can_upgrade_component())
+            .map(|(key, _)| key.clone())
+            .collect();
+        existed += matches.len();
+        for m in matches {
+            self.uuid_map.remove(&m);
+        }
+        existed
     }
 }

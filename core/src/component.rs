@@ -545,7 +545,7 @@ mod tests {
 
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
-        ctx: ComponentContext<TestComponent>
+        ctx: ComponentContext<TestComponent>,
     }
 
     impl TestComponent {

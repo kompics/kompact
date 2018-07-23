@@ -35,6 +35,7 @@ use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use std::collections::HashMap;
+use std::time::Duration;
 
 pub(crate) mod lookup;
 mod queue_manager;
@@ -59,6 +60,8 @@ pub struct NetworkDispatcher {
     net_bridge: Option<net::Bridge>,
     /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
     queue_manager: Option<QueueManager>,
+    /// Reaper which cleans up deregistered actor references in the actor lookup table
+    reaper: lookup::gc::ActorRefReaper,
 }
 
 // impl NetworkConfig
@@ -77,13 +80,17 @@ impl NetworkDispatcher {
     }
 
     pub fn with_config(cfg: NetworkConfig) -> Self {
+        let lookup = Arc::new(ArcCell::new(Arc::new(ActorStore::new())));
+        let reaper = lookup::gc::ActorRefReaper::default();
+
         NetworkDispatcher {
             ctx: ComponentContext::new(),
             connections: HashMap::new(),
             cfg,
-            lookup: Arc::new(ArcCell::new(Arc::new(ActorStore::new()))),
+            lookup,
             net_bridge: None,
             queue_manager: None,
+            reaper,
         }
     }
 
@@ -118,6 +125,34 @@ impl NetworkDispatcher {
         let queue_manager = QueueManager::new();
         self.net_bridge = Some(bridge);
         self.queue_manager = Some(queue_manager);
+    }
+
+    fn schedule_reaper(&mut self) {
+        use timer_manager::Timer;
+
+        if !self.reaper.is_scheduled() {
+            // First time running; mark as scheduled and jump straight to scheduling
+            self.reaper.schedule();
+        } else {
+            // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly
+            let num_reaped = self.reaper.run(&self.lookup);
+            if num_reaped == 0 {
+                // No work done; slow down interval
+                self.reaper.strategy_mut().incr();
+            } else {
+                self.reaper.strategy_mut().decr();
+            }
+        }
+        let next_wakeup = self.reaper.strategy().curr();
+        debug!(
+            self.ctx().log(),
+            "Scheduling reaping at {:?}ms",
+            next_wakeup
+        );
+
+        self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
+            target.schedule_reaper()
+        });
     }
 
     fn on_event(&mut self, ev: EventEnvelope) {
@@ -346,8 +381,6 @@ impl Dispatcher for NetworkDispatcher {
 
                 match reg {
                     RegistrationEnvelope::Register(actor, path, mut promise) => {
-                        debug!(self.ctx.log(), "Registering actor at {:?}", actor);
-
                         let prev = self.lookup.get();
                         let mut next = (*prev).clone();
                         if next.contains(&path) {
@@ -365,10 +398,10 @@ impl Dispatcher for NetworkDispatcher {
                         if let Some(promise) = promise.take() {
                             promise.fulfill(Ok(()));
                         }
-                    }
-                    RegistrationEnvelope::Deregister(actor_path) => {
-                        debug!(self.ctx.log(), "Deregistering actor at {:?}", actor_path);
-                        // TODO handle
+
+                        if !self.reaper.is_scheduled() {
+                            self.schedule_reaper();
+                        }
                     }
                 }
             }
@@ -477,6 +510,13 @@ mod dispatch_tests {
             Err(RegistrationError::DuplicateEntry),
             "Duplicate alias registration should fail."
         );
+
+        system
+            .kill_notify(ponger)
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger did not die");
+        thread::sleep(Duration::from_millis(1000));
+
         system
             .shutdown()
             .expect("Kompics didn't shut down properly");

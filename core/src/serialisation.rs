@@ -205,7 +205,6 @@ pub mod helpers {
         mut buffer: B,
         system: &SystemPath,
     ) -> Result<ReceiveEnvelope, SerError> {
-
         if buffer.remaining() < 1 {
             return Err(SerError::InvalidData("Not enough bytes available".into()));
         }
