@@ -74,12 +74,12 @@ impl TimerWithThread {
 
     pub fn shutdown(self) -> Result<(), ThreadTimerError> {
         self.work_queue.send(TimerMsg::Stop);
-         match self.timer_thread.join() {
-                Ok(_) => Ok(()),
-                Err(_) => {
-                    eprintln!("Timer thread panicked!");
-                    Err(ThreadTimerError::CouldNotJoinThread)
-                }       
+        match self.timer_thread.join() {
+            Ok(_) => Ok(()),
+            Err(_) => {
+                eprintln!("Timer thread panicked!");
+                Err(ThreadTimerError::CouldNotJoinThread)
+            }
         }
     }
 
@@ -151,10 +151,8 @@ impl TimerThread {
                                         self.reset(); // since we waited for an arbitrary time and taking a new timestamp incures no error
                                         self.handle_msg(msg)
                                     }
-                                    None => {
-                                        panic!("Timer work_queue unexpectedly shut down!")
-                                    }
-                                }                                
+                                    None => panic!("Timer work_queue unexpectedly shut down!"),
+                                }
                             }
                             Skip::Millis(ms) if ms > 5 => {
                                 let ms = ms - 5; // balance OS scheduler inaccuracy

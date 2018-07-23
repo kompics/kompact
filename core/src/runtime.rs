@@ -617,7 +617,10 @@ impl Clone for Box<Scheduler> {
 }
 
 #[derive(Clone)]
-struct ExecutorScheduler<E> where E: Executor + Sync {
+struct ExecutorScheduler<E>
+where
+    E: Executor + Sync,
+{
     exec: E,
 }
 

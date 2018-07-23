@@ -109,7 +109,7 @@ impl ActorRef {
     }
 
     // TODO figure out a way to have one function match both cases -.-
-    pub fn tell_any<S>(&self, v: Box<Any+Send>, from: &S) -> ()
+    pub fn tell_any<S>(&self, v: Box<Any + Send>, from: &S) -> ()
     where
         S: ActorRefFactory,
     {
@@ -120,7 +120,7 @@ impl ActorRef {
         self.enqueue(MsgEnvelope::Dispatch(env))
     }
 
-    /// Attempts to upgrade the contained component, returning `true` is possible.
+    /// Attempts to upgrade the contained component, returning `true` if possible.
     pub(crate) fn can_upgrade_component(&self) -> bool {
         self.component.upgrade().is_some()
     }
