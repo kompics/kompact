@@ -156,7 +156,6 @@ impl TimerThread {
                             }
                             Skip::Millis(ms) if ms > 5 => {
                                 let ms = ms - 5; // balance OS scheduler inaccuracy
-                                println!("Trying to wait {}ms for messages.", ms);
                                 // wait until something is scheduled but max skip
                                 let timeout = Duration::from_millis(ms as u64);
                                 let res = select! {
@@ -164,7 +163,6 @@ impl TimerThread {
                                     recv(channel::after(timeout)) => None,
                                 };
                                 let elap = self.elapsed();
-                                println!("Actually waited {}ms", elap);
                                 let longms = ms as u128;
                                 if elap > longms {
                                     // took longer to get rescheduled than we wanted
