@@ -61,7 +61,7 @@ mod timer_manager;
 mod utils;
 
 pub mod prelude {
-    pub use bytes::Buf;
+    pub use bytes::{Buf, BufMut};
 
     pub use ::Any;
     pub use runtime::{KompicsConfig, KompicsSystem};
@@ -86,6 +86,13 @@ pub mod prelude {
         PathResolvable,
         DispatchEnvelope,
         RegistrationError,
+    };
+    pub use serialisation::{
+        SerError,
+        Serialisable,
+        Deserialisable,
+        Deserialiser,
+        Serialiser,
     };
 }
 

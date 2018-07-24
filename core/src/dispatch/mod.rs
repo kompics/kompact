@@ -41,6 +41,7 @@ pub(crate) mod lookup;
 mod queue_manager;
 
 /// Configuration for network dispatcher
+#[derive(Clone)]
 pub struct NetworkConfig {
     addr: SocketAddr,
 }
