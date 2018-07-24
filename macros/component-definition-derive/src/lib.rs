@@ -6,6 +6,7 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 use std::iter::Iterator;
+use std::sync::Arc;
 
 #[proc_macro_derive(ComponentDefinition)]
 pub fn component_definition(input: TokenStream) -> TokenStream {
@@ -119,7 +120,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
         };
         quote! {
             impl ComponentDefinition for #name {
-                fn setup(&mut self, self_component: Arc<Component<Self>>) -> () {
+                fn setup(&mut self, self_component: ::std::sync::Arc<Component<Self>>) -> () {
                     #ctx_setup
                     //println!("Setting up ports");
                     #(#port_setup)*
