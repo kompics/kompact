@@ -60,6 +60,42 @@ pub mod timer;
 mod timer_manager;
 mod utils;
 
+pub mod prelude {
+    pub use bytes::{Buf, BufMut};
+
+    pub use ::Any;
+    pub use runtime::{KompicsConfig, KompicsSystem};
+    pub use component::{
+        ComponentDefinition,
+        Component,
+        ComponentContext,
+        ExecuteResult
+    };
+    pub use component::{Provide, Require};
+    pub use lifecycle::{ControlPort, ControlEvent};
+    pub use actors::{Actor, ActorPath, ActorRef};
+
+    pub use dispatch::{NetworkConfig, NetworkDispatcher};
+    pub use default_components::{
+        CustomComponents,
+        DeadletterBox,
+    };
+    pub use messaging::{
+        MsgEnvelope,
+        ReceiveEnvelope,
+        PathResolvable,
+        DispatchEnvelope,
+        RegistrationError,
+    };
+    pub use serialisation::{
+        SerError,
+        Serialisable,
+        Deserialisable,
+        Deserialiser,
+        Serialiser,
+    };
+}
+
 pub type KompicsLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]

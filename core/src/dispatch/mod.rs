@@ -41,6 +41,7 @@ pub(crate) mod lookup;
 mod queue_manager;
 
 /// Configuration for network dispatcher
+#[derive(Clone)]
 pub struct NetworkConfig {
     addr: SocketAddr,
 }
@@ -65,6 +66,13 @@ pub struct NetworkDispatcher {
 }
 
 // impl NetworkConfig
+impl NetworkConfig {
+    pub fn new(addr: SocketAddr) -> Self {
+        NetworkConfig {
+            addr,
+        }
+    }
+}
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
@@ -276,7 +284,7 @@ impl NetworkDispatcher {
                             let mut next: Option<ConnectionState> = None;
                             if err.is_disconnected() {
                                 next = Some(ConnectionState::Closed)
-                            }
+                            } // otherwise err.is_full()
 
                             // Consume error and retrieve failed Frame
                             let frame = err.into_inner();
