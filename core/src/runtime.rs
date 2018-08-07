@@ -8,7 +8,7 @@ use std::clone::Clone;
 use std::fmt::{Debug, Error, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::sync::{Once, ONCE_INIT};
 use supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
 
@@ -266,6 +266,8 @@ impl KompicsSystem {
         c
     }
 
+    /// Instantiates the component, registers it with the system dispatcher,
+    /// and starts its lifecycle.
     pub fn create_and_start<C, F>(&self, f: F) -> Arc<Component<C>>
     where
         F: FnOnce() -> C,
@@ -387,7 +389,7 @@ impl KompicsSystem {
         Ok(())
     }
 
-    pub(crate) fn system_path(&self) -> SystemPath {
+    pub fn system_path(&self) -> SystemPath {
         self.inner.system_path()
     }
 

@@ -1,7 +1,6 @@
 use super::*;
 
 use crossbeam_channel as channel;
-use std::sync::Arc;
 
 #[derive(Debug)]
 enum TimerMsg {
@@ -86,7 +85,7 @@ impl TimerWithThread {
     pub fn shutdown_async(&self) -> Result<(), ThreadTimerError> {
         self.work_queue.send(TimerMsg::Stop);
         Ok(())
-            //.map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
+        //.map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
     }
 }
 
@@ -156,7 +155,7 @@ impl TimerThread {
                             }
                             Skip::Millis(ms) if ms > 5 => {
                                 let ms = ms - 5; // balance OS scheduler inaccuracy
-                                // wait until something is scheduled but max skip
+                                                 // wait until something is scheduled but max skip
                                 let timeout = Duration::from_millis(ms as u64);
                                 let res = select! {
                                     recv(self.work_queue, msg) => msg,

@@ -132,7 +132,6 @@ pub mod helpers {
     use actors::SystemPath;
     use actors::UniquePath;
     use bytes::{Buf, Bytes, BytesMut};
-    use messaging::framing::SerIdents;
     use messaging::MsgEnvelope;
     use messaging::ReceiveEnvelope;
     use serialisation::SerError;

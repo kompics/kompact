@@ -140,11 +140,6 @@ pub struct SystemPathHeader {
 }
 
 impl SystemPathHeader {
-    // Bit-shift positions for fields
-    const PATH_TYPE_POS: u32 = 7;
-    const PROTOCOL_POS: u32 = 2;
-    const ADDRESS_TYPE_POS: u32 = 0;
-
     pub fn from_path(sys: &ActorPath) -> Self {
         use actors::SystemField;
         use bitfields::BitFieldExt;

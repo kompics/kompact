@@ -1,5 +1,4 @@
 use actors::ActorRef;
-use actors::SystemPath;
 use actors::Transport;
 use crossbeam::sync::ArcCell;
 use dispatch::lookup::ActorStore;
@@ -255,11 +254,6 @@ fn handle_tcp(
     actor_lookup: Arc<ArcCell<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
-
-    let system = {
-        let peer_addr = stream.peer_addr().expect("Peer must have address");
-        SystemPath::new(Transport::TCP, peer_addr.ip(), peer_addr.port())
-    };
 
     let transport = FrameCodec::new(stream);
     let (frame_writer, frame_reader) = transport.split();

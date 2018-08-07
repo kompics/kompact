@@ -4,7 +4,6 @@ extern crate kompics;
 //extern crate component_definition_derive;
 
 use kompics::*;
-use std::sync::Arc;
 use std::{thread, time};
 
 #[derive(Clone, Debug)]

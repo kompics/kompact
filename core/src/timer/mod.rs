@@ -1,7 +1,6 @@
 use std::boxed::FnBox;
 use std::fmt;
 use std::io;
-use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use uuid::Uuid;

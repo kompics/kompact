@@ -68,9 +68,7 @@ pub struct NetworkDispatcher {
 // impl NetworkConfig
 impl NetworkConfig {
     pub fn new(addr: SocketAddr) -> Self {
-        NetworkConfig {
-            addr,
-        }
+        NetworkConfig { addr }
     }
 }
 impl Default for NetworkConfig {
@@ -469,7 +467,6 @@ mod dispatch_tests {
     use runtime::KompicsConfig;
     use runtime::KompicsSystem;
     use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-    use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
 
