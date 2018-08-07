@@ -529,7 +529,11 @@ mod dispatch_tests {
     }
 
     #[test]
-    fn remote_delivery() {
+    /// Sets up a single KompicsSystem with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors() {
         let mut cfg = KompicsConfig::new();
         cfg.system_components(DeadletterBox::new, || {
             let net_config = NetworkConfig {
@@ -538,30 +542,52 @@ mod dispatch_tests {
             NetworkDispatcher::with_config(net_config)
         });
         let system = KompicsSystem::new(cfg);
-        let ponger = system.create_and_register(PongerAct::new);
+        let ponger_unique = system.create_and_register(PongerAct::new);
+        let ponger_named = system.create_and_register(PongerAct::new);
+        system.register_by_alias(&ponger_named, "custom_name");
 
-        // Construct ActorPath with system's `proto` field defaulting to TCP
-        let ponger_path = ActorPath::Unique(UniquePath::with_system(
+        let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
-            ponger.id().clone(),
+            vec!["custom_name".into()],
         ));
 
-        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
+        let unique_path = ActorPath::Unique(UniquePath::with_system(
+            system.system_path(),
+            ponger_unique.id().clone(),
+        ));
 
-        system.start(&ponger);
-        system.start(&pinger);
+        let pinger_unique = system.create_and_register(move || PingerAct::new(unique_path));
+        let pinger_named = system.create_and_register(move || PingerAct::new(named_path));
 
-        thread::sleep(Duration::from_millis(1000));
+        system.start(&ponger_unique);
+        system.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
 
-        let pingf = system.stop_notify(&pinger);
-        let pongf = system.kill_notify(ponger);
-        pingf
+        thread::sleep(Duration::from_millis(3000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = system.kill_notify(ponger_unique);
+        let pongfn = system.kill_notify(ponger_named);
+
+        pingfu
             .await_timeout(Duration::from_millis(1000))
             .expect("Pinger never stopped!");
-        pongf
+        pongfu
             .await_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
-        pinger.on_definition(|c| {
+        pingfn
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            assert_eq!(c.remote_count, PING_COUNT);
+            assert_eq!(c.local_count, 0);
+        });
+        pinger_unique.on_definition(|c| {
             assert_eq!(c.remote_count, PING_COUNT);
             assert_eq!(c.local_count, 0);
         });

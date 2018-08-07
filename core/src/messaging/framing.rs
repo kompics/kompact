@@ -370,3 +370,47 @@ mod identity_tests {
         assert_eq!(id, SerIdents::DispatchEnvelope);
     }
 }
+
+#[cfg(test)]
+mod serialisation {
+    use super::Serialisable;
+    use bytes::BytesMut;
+
+    #[test]
+    fn system_path_header() {
+        use super::{PathType, SystemPathHeader};
+        use actors::Transport;
+        use actors::{ActorPath, NamedPath, SystemPath};
+        use bytes::{Buf, IntoBuf};
+        use messaging::framing::AddressType;
+        use std::convert::TryFrom;
+
+        let system_path = SystemPath::new(Transport::TCP, "127.0.0.1".parse().unwrap(), 8080_u16);
+        let actor_path = ActorPath::Named(NamedPath::with_system(
+            system_path,
+            vec!["actor-name".into()],
+        ));
+        let header = SystemPathHeader::from_path(&actor_path);
+        let mut buf = BytesMut::with_capacity(1);
+        Serialisable::serialise(&header, &mut buf).unwrap();
+
+        let path_type = PathType::Named as u8;
+        let protocol = Transport::TCP as u8;
+        let address_type = AddressType::IPv4 as u8;
+
+        let mut buf = buf.freeze().into_buf();
+        let actual = buf.get_u8();
+        let deserialised = SystemPathHeader::try_from(actual);
+
+        assert!(deserialised.is_ok(), "Error parsing the serialised header");
+        let deserialised = deserialised.unwrap();
+        assert_eq!(deserialised.path_type, PathType::Named);
+        assert_eq!(deserialised.protocol, Transport::TCP);
+        assert_eq!(deserialised.address_type, AddressType::IPv4);
+        assert_eq!(
+            buf.remaining(),
+            0,
+            "There are remaining bytes in the buffer after serialisation."
+        );
+    }
+}
