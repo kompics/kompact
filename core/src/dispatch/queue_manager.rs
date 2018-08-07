@@ -42,14 +42,11 @@ impl QueueManager {
     pub fn try_drain(
         &mut self,
         dst: SocketAddr,
-        tx: &mut sync::mpsc::Sender<Frame>,
+        tx: &mut sync::mpsc::UnboundedSender<Frame>,
     ) -> Option<ConnectionState> {
         while let Some(frame) = self.pop_frame(&dst) {
-            if let Err(err) = tx.try_send(frame) {
-                let mut next: Option<ConnectionState> = None;
-                if err.is_disconnected() {
-                    next = Some(ConnectionState::Closed);
-                }
+            if let Err(err) = tx.unbounded_send(frame) {
+                let mut next = Some(ConnectionState::Closed);
 
                 // Consume error and retrieve failed Frame
                 let frame = err.into_inner();

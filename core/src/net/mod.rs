@@ -23,14 +23,11 @@ use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
 use KompicsLogger;
 
-/// Default buffer amount for MPSC channels
-pub const MPSC_BUF_SIZE: usize = 0;
-
 #[derive(Debug)]
 pub enum ConnectionState {
     New,
     Initializing,
-    Connected(sync::mpsc::Sender<Frame>),
+    Connected(sync::mpsc::UnboundedSender<Frame>),
     Closed,
     Error(std::io::Error),
 }
@@ -148,7 +145,7 @@ impl Bridge {
                             let peer_addr = tcp_stream
                                 .peer_addr()
                                 .expect("stream must have a peer address");
-                            let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
+                            let (tx, rx) = sync::mpsc::unbounded();
                             events.unbounded_send(NetworkEvent::Connection(
                                 peer_addr,
                                 ConnectionState::Connected(tx),
@@ -191,7 +188,7 @@ fn start_tcp_server(
             let peer_addr = tcp_stream
                 .peer_addr()
                 .expect("stream must have a peer address");
-            let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
+            let (tx, rx) = sync::mpsc::unbounded();
             executor.spawn(handle_tcp(
                 tcp_stream,
                 rx,
@@ -252,7 +249,7 @@ fn start_network_thread(
 /// `tx` can be used to relay network events back into the [Bridge]
 fn handle_tcp(
     stream: TcpStream,
-    rx: sync::mpsc::Receiver<Frame>,
+    rx: sync::mpsc::UnboundedReceiver<Frame>,
     _tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
     log: KompicsLogger,
     actor_lookup: Arc<ArcCell<ActorStore>>,

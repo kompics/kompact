@@ -190,7 +190,9 @@ impl NetworkDispatcher {
                     if qm.has_frame(&addr) {
                         // Drain as much as possible
                         while let Some(frame) = qm.pop_frame(&addr) {
-                            if let Err(err) = frame_sender.try_send(frame) {
+                            if let Err(err) = frame_sender.unbounded_send(frame) {
+                                // TODO the underlying channel has been dropped,
+                                // indicating that the entire connection is, in fact, not Connected
                                 qm.enqueue_frame(err.into_inner(), addr.clone());
                                 break;
                             }
@@ -280,16 +282,12 @@ impl NetworkDispatcher {
                         qm.try_drain(addr, tx)
                     } else {
                         // Send frame
-                        if let Err(err) = tx.try_send(frame) {
-                            let mut next: Option<ConnectionState> = None;
-                            if err.is_disconnected() {
-                                next = Some(ConnectionState::Closed)
-                            } // otherwise err.is_full()
-
+                        if let Err(err) = tx.unbounded_send(frame) {
+                            // Unbounded senders report errors only if dropped
+                            let mut next = Some(ConnectionState::Closed);
                             // Consume error and retrieve failed Frame
                             let frame = err.into_inner();
                             qm.enqueue_frame(frame, addr);
-
                             next
                         } else {
                             None
