@@ -27,6 +27,7 @@ extern crate slog_async;
 extern crate slog_term;
 extern crate spaniel as spnl;
 extern crate tokio;
+extern crate tokio_retry;
 
 pub use self::actors::*;
 pub use self::component::*;

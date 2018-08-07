@@ -531,42 +531,47 @@ mod dispatch_tests {
     /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
     /// messages.
     fn remote_delivery_to_registered_actors() {
-        let mut cfg = KompicsConfig::new();
-        cfg.system_components(DeadletterBox::new, || {
-            let net_config = NetworkConfig {
-                addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompicsConfig::new();
+                cfg.system_components(DeadletterBox::new, || {
+                    let net_config = NetworkConfig {
+                        addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+                    };
+                    NetworkDispatcher::with_config(net_config)
+                });
+                KompicsSystem::new(cfg)
             };
-            NetworkDispatcher::with_config(net_config)
-        });
-        let system = KompicsSystem::new(cfg);
-        let ponger_unique = system.create_and_register(PongerAct::new);
-        let ponger_named = system.create_and_register(PongerAct::new);
-        system.register_by_alias(&ponger_named, "custom_name");
+            (system(), system())
+        };
+        let ponger_unique = remote.create_and_register(PongerAct::new);
+        let ponger_named = remote.create_and_register(PongerAct::new);
+        remote.register_by_alias(&ponger_named, "custom_name");
 
         let named_path = ActorPath::Named(NamedPath::with_system(
-            system.system_path(),
+            remote.system_path(),
             vec!["custom_name".into()],
         ));
 
         let unique_path = ActorPath::Unique(UniquePath::with_system(
-            system.system_path(),
+            remote.system_path(),
             ponger_unique.id().clone(),
         ));
 
         let pinger_unique = system.create_and_register(move || PingerAct::new(unique_path));
         let pinger_named = system.create_and_register(move || PingerAct::new(named_path));
 
-        system.start(&ponger_unique);
-        system.start(&ponger_named);
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
         system.start(&pinger_unique);
         system.start(&pinger_named);
 
-        thread::sleep(Duration::from_millis(3000));
+        thread::sleep(Duration::from_millis(7000));
 
         let pingfu = system.stop_notify(&pinger_unique);
         let pingfn = system.stop_notify(&pinger_named);
-        let pongfu = system.kill_notify(ponger_unique);
-        let pongfn = system.kill_notify(ponger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
 
         pingfu
             .await_timeout(Duration::from_millis(1000))

@@ -24,6 +24,7 @@ slog-term = "2.4"
 
 # Network-specific
 futures = "0.1.2"
+tokio-retry = "0.2.0"
 
 [dependencies.tokio]
 git = "https://github.com/jarlopez/tokio"

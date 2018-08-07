@@ -20,7 +20,12 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
+use tokio_retry;
+use tokio_retry::strategy::ExponentialBackoff;
+
 use KompicsLogger;
+use tokio::net::ConnectFuture;
+use tokio_retry::Retry;
 
 #[derive(Debug)]
 pub enum ConnectionState {
@@ -59,8 +64,39 @@ pub mod events {
     }
 }
 
+struct BridgeConfig {
+    retry_strategy: RetryStrategy,
+}
+
+impl BridgeConfig {
+    pub fn new() -> Self {
+        BridgeConfig::default()
+    }
+}
+
+enum RetryStrategy {
+    ExponentialBackoff {
+        base_ms: u64,
+        num_tries: usize,
+    }
+}
+
+impl Default for BridgeConfig {
+    fn default() -> Self {
+        let retry_strategy = RetryStrategy::ExponentialBackoff {
+            base_ms: 100,
+            num_tries: 5,
+        };
+        BridgeConfig {
+            retry_strategy,
+        }
+    }
+}
+
 /// Bridge to Tokio land, responsible for network connection management
 pub struct Bridge {
+    /// Network-specific configuration
+    cfg: BridgeConfig,
     /// Executor belonging to the Tokio runtime
     pub(crate) executor: Option<TaskExecutor>,
     /// Queue of network events emitted by the network layer
@@ -88,6 +124,7 @@ impl Bridge {
     ) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
         let bridge = Bridge {
+            cfg: BridgeConfig::default(),
             executor: None,
             events: sender,
             log,
@@ -135,9 +172,24 @@ impl Bridge {
                     let lookup = self.lookup.clone();
                     let events = self.events.clone();
                     let log = self.log.clone();
-                    let connect_fut = TcpStream::connect(&addr)
-                        .map_err(|_err| {
+                    let err_log = log.clone();
+
+
+                    let retry_strategy = match self.cfg.retry_strategy {
+                        RetryStrategy::ExponentialBackoff { base_ms, num_tries} => {
+                            use tokio_retry::strategy::jitter;
+                            ExponentialBackoff::from_millis(base_ms)
+                                .map(jitter)
+                                .take(num_tries)
+                        },
+                    };
+
+
+                    let connect_fut =
+                        Retry::spawn(retry_strategy, TcpConnecter(addr.clone()))
+                        .map_err(move |why| {
                             // TODO err
+                            error!(err_log, "Error connecting TCP stream to {:?}: {:?}", addr, why);
                             ()
                         })
                         .and_then(move |tcp_stream| {
@@ -161,6 +213,19 @@ impl Bridge {
         }
     }
 }
+
+struct TcpConnecter(SocketAddr);
+
+impl tokio_retry::Action for TcpConnecter {
+    type Future = ConnectFuture;
+    type Item = TcpStream;
+    type Error = std::io::Error;
+
+    fn run(&mut self) -> Self::Future {
+        TcpStream::connect(&self.0)
+    }
+}
+
 
 /// Spawns a TCP server on the provided `TaskExecutor` and `addr`.
 ///
@@ -255,6 +320,8 @@ fn handle_tcp(
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
+    let err_log  = log.clone();
+
     let transport = FrameCodec::new(stream);
     let (frame_writer, frame_reader) = transport.split();
 
@@ -304,6 +371,7 @@ fn handle_tcp(
             // Combine above stream with RX side of MPSC channel
             rx
                 .map_err(|_err| {
+                    println!("ERROR receiving MPSC");
                     () // TODO err
                 })
                 .map(|frame: Frame| {
@@ -312,8 +380,9 @@ fn handle_tcp(
         )
         // Forward the combined streams to the frame writer
         .forward(frame_writer)
-        .map_err(|_res| {
+        .map_err(move |_res| {
             // TODO
+            error!(err_log, "TCP conn err");
             ()
         })
         .then(|_| {
