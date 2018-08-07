@@ -153,11 +153,12 @@ impl PartialEq for ActorRef {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
 pub enum Transport {
-    LOCAL,
-    TCP,
-    UDP,
+    LOCAL = 0b00,
+    TCP = 0b01,
+    UDP = 0b10,
 }
 
 // impl Transport
@@ -246,6 +247,7 @@ impl From<AddrParseError> for PathParseError {
 #[derive(Clone, Debug)]
 pub struct SystemPath {
     protocol: Transport,
+    // TODO address could be IPv4, IPv6, or a domain name (not supported yet)
     address: IpAddr,
     port: u16,
 }
@@ -265,6 +267,10 @@ impl SystemPath {
             address: socket.ip(),
             port: socket.port(),
         }
+    }
+
+    pub fn address(&self) -> &IpAddr {
+        &self.address
     }
 }
 
@@ -299,6 +305,7 @@ pub trait ActorSource: Dispatching {
 }
 
 #[derive(Clone, Debug)]
+#[repr(u8)]
 pub enum ActorPath {
     Unique(UniquePath),
     Named(NamedPath),

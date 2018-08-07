@@ -283,8 +283,13 @@ fn handle_tcp(
                         // Consume payload
                         let buf = fr.payload();
                         let mut buf = buf.into_buf();
-                        let envelope = deserialise_msg(buf, &system).expect("s11n errors");
-                        let actor_ref = lookup.get_by_actor_path(envelope.dst()).expect("no actor registered for destination!");
+                        let envelope = deserialise_msg(buf).expect("s11n errors");
+                        let actor_ref = match lookup.get_by_actor_path(envelope.dst()) {
+                            None => {
+                                panic!("Could not find actor reference for destination: {:?}", envelope.dst());
+                            },
+                            Some(actor) => actor,
+                        };
 
                         (actor_ref, envelope)
                     };

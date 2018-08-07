@@ -5,6 +5,7 @@
 #![feature(duration_as_u128)]
 #![feature(drain_filter)]
 extern crate as_num;
+extern crate bitfields;
 extern crate bytes;
 extern crate crossbeam;
 #[macro_use]
