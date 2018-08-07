@@ -414,10 +414,26 @@ impl TryFrom<String> for UniquePath {
     }
 }
 
+/// Attempts to parse a `&str` as a [UniquePath].
 impl FromStr for UniquePath {
     type Err = PathParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        unimplemented!();
+        let parts: Vec<&str> = s.split("://").collect();
+        // parts: [tcp]://[IP:port/path]
+        if parts.len() != 2 {
+            return Err(PathParseError::Form(s.to_string()));
+        }
+        let proto: Transport = parts[0].parse()?;
+        let parts: Vec<&str> = parts[1].split('/').collect();
+        // parts: [IP:port]/[UUID]
+        if parts.len() != 2 {
+            return Err(PathParseError::Form(s.to_string()));
+        }
+        let socket = SocketAddr::from_str(parts[0])?;
+        let uuid =
+            Uuid::from_str(parts[1]).map_err(|_parse_err| PathParseError::Form(s.to_string()))?;
+
+        Ok(UniquePath::with_socket(proto, socket, uuid))
     }
 }
 
