@@ -1,9 +1,9 @@
 #![allow(unused_parens)]
-extern crate kompics;
+extern crate kompact;
 extern crate synchronoise;
 extern crate time;
 
-use kompics::*;
+use kompact::*;
 use std::sync::Arc;
 use synchronoise::CountdownEvent;
 

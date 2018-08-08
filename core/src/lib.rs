@@ -16,9 +16,9 @@ extern crate oncemutex;
 extern crate serde;
 extern crate uuid;
 #[macro_use]
-extern crate component_definition_derive;
+extern crate kompact_component_derive;
 #[macro_use]
-extern crate actor_derive;
+extern crate kompact_actor_derive;
 extern crate sequence_trie as trie;
 #[macro_use]
 extern crate slog;
@@ -38,9 +38,9 @@ pub use self::runtime::*;
 pub use self::serialisation::*;
 pub use self::timer_manager::*;
 pub use self::utils::*;
-pub use actor_derive::*;
+pub use kompact_actor_derive::*;
 pub use bytes::Buf;
-pub use component_definition_derive::*;
+pub use kompact_component_derive::*;
 pub use slog::{Drain, Fuse, Logger};
 pub use slog_async::Async;
 pub use std::any::Any;

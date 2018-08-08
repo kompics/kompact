@@ -1,12 +1,28 @@
 [package]
-name = "kompics"
-version = "0.3.0"
-authors = ["Lars Kroll <lkroll@kth.se>"]
+name = "kompact"
+version = "0.4.0"
+authors = ["Lars Kroll <lkroll@kth.se>", "Johan Mickos <>"]
+
+description = "Kompact is a Rust implementation of the Kompics component model combined with the Actor model."
+
+# documentation = "..."
+homepage = "http://kompics.sics.se"
+repository = "https://github.com/kompics/kompact"
+readme = "../README.md"
+keywords = ["actor", "kompics", "component", "async"]
+categories = ["asynchronous", "concurrency", "network-programming"]
+license = "MIT"
+
+[badges]
+# Maintenance: `status` is required Available options are `actively-developed`,
+# `passively-maintained`, `as-is`, `none`, `experimental`, `looking-for-maintainer`
+# and `deprecated`.
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 log = "0.3"
-component-definition-derive = { path = "../macros/component-definition-derive/" }
-actor-derive = { path = "../macros/actor-derive/" }
+kompact-component-derive = { path = "../macros/component-definition-derive/" }
+kompact-actor-derive = { path = "../macros/actor-derive/" }
 executors = "0.4"
 crossbeam = "0.3"
 crossbeam-channel = "0.2"

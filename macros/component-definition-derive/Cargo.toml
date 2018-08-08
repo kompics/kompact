@@ -1,7 +1,23 @@
 [package]
-name = "component-definition-derive"
-version = "0.1.0"
+name = "kompact-component-derive"
+version = "0.4.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
+
+description = "A derive macro for Kompact component definitions."
+
+# documentation = "..."
+homepage = "http://kompics.sics.se"
+repository = "https://github.com/kompics/kompact"
+readme = "../../README.md"
+keywords = ["actor", "kompics", "component", "async"]
+categories = ["asynchronous", "concurrency", "network-programming"]
+license = "MIT"
+
+[badges]
+# Maintenance: `status` is required Available options are `actively-developed`,
+# `passively-maintained`, `as-is`, `none`, `experimental`, `looking-for-maintainer`
+# and `deprecated`.
+maintenance = { status = "passively-maintained" }
 
 [lib]
 proc-macro = true
