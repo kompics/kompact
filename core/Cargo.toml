@@ -21,8 +21,8 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 log = "0.3"
-kompact-component-derive = { path = "../macros/component-definition-derive/" }
-kompact-actor-derive = { path = "../macros/actor-derive/" }
+kompact-component-derive = { version="0.4.0", path = "../macros/component-definition-derive/" }
+kompact-actor-derive = { version="0.4.0", path = "../macros/actor-derive/" }
 executors = "0.4"
 crossbeam = "0.3"
 crossbeam-channel = "0.2"
