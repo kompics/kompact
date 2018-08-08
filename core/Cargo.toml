@@ -23,18 +23,19 @@ slog-async = "2.3"
 slog-term = "2.4"
 
 # Network-specific
+bytes = "0.4.8"
 futures = "0.1.2"
-
-[dependencies.tokio]
-git = "https://github.com/jarlopez/tokio"
-branch = "bytes-v0.4.8-migration"
-
-[dependencies.bytes]
-version = "0.4.8"
+tokio = "0.1.7"
+tokio-retry = "0.2.0"
 
 [dependencies.spaniel]
 git = "https://github.com/jarlopez/spaniel"
 branch = "master"
+
+[dependencies.bitfields]
+git = "https://github.com/jarlopez/bitfields-rs"
+branch = "master"
+
 
 [dev-dependencies]
 #env_logger = "0.4"

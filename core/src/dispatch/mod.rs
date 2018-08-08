@@ -36,6 +36,7 @@ use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use std::collections::HashMap;
 use std::time::Duration;
+use std::io::ErrorKind;
 
 pub(crate) mod lookup;
 mod queue_manager;
@@ -68,9 +69,7 @@ pub struct NetworkDispatcher {
 // impl NetworkConfig
 impl NetworkConfig {
     pub fn new(addr: SocketAddr) -> Self {
-        NetworkConfig {
-            addr,
-        }
+        NetworkConfig { addr }
     }
 }
 impl Default for NetworkConfig {
@@ -190,7 +189,9 @@ impl NetworkDispatcher {
                     if qm.has_frame(&addr) {
                         // Drain as much as possible
                         while let Some(frame) = qm.pop_frame(&addr) {
-                            if let Err(err) = frame_sender.try_send(frame) {
+                            if let Err(err) = frame_sender.unbounded_send(frame) {
+                                // TODO the underlying channel has been dropped,
+                                // indicating that the entire connection is, in fact, not Connected
                                 qm.enqueue_frame(err.into_inner(), addr.clone());
                                 break;
                             }
@@ -201,8 +202,18 @@ impl NetworkDispatcher {
             Closed => {
                 warn!(self.ctx().log(), "connection closed for {:?}", addr);
             }
-            Error(_) => {
-                error!(self.ctx().log(), "connection error for {:?}", addr);
+            Error(ref err) => {
+                match err {
+                    x if x.kind() == ErrorKind::ConnectionRefused => {
+                        error!(self.ctx().log(), "connection refused for {:?}", addr);
+                        // TODO determine how we want to proceed
+                        // If TCP, the network bridge has already attempted retries with exponential
+                        // backoff according to its configuration.
+                    },
+                    why => {
+                        error!(self.ctx().log(), "connection error for {:?}: {:?}", addr, why);
+                    }
+                }
             }
             ref _other => (), // Don't care
         }
@@ -280,16 +291,12 @@ impl NetworkDispatcher {
                         qm.try_drain(addr, tx)
                     } else {
                         // Send frame
-                        if let Err(err) = tx.try_send(frame) {
-                            let mut next: Option<ConnectionState> = None;
-                            if err.is_disconnected() {
-                                next = Some(ConnectionState::Closed)
-                            } // otherwise err.is_full()
-
+                        if let Err(err) = tx.unbounded_send(frame) {
+                            // Unbounded senders report errors only if dropped
+                            let mut next = Some(ConnectionState::Closed);
                             // Consume error and retrieve failed Frame
                             let frame = err.into_inner();
                             qm.enqueue_frame(frame, addr);
-
                             next
                         } else {
                             None
@@ -471,7 +478,6 @@ mod dispatch_tests {
     use runtime::KompicsConfig;
     use runtime::KompicsSystem;
     use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-    use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
 
@@ -531,39 +537,70 @@ mod dispatch_tests {
     }
 
     #[test]
-    fn remote_delivery() {
-        let mut cfg = KompicsConfig::new();
-        cfg.system_components(DeadletterBox::new, || {
-            let net_config = NetworkConfig {
-                addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+    /// Sets up a single KompicsSystem with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors() {
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompicsConfig::new();
+                cfg.system_components(DeadletterBox::new, || {
+                    let net_config = NetworkConfig {
+                        addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
+                    };
+                    NetworkDispatcher::with_config(net_config)
+                });
+                KompicsSystem::new(cfg)
             };
-            NetworkDispatcher::with_config(net_config)
-        });
-        let system = KompicsSystem::new(cfg);
-        let ponger = system.create_and_register(PongerAct::new);
+            (system(), system())
+        };
+        let ponger_unique = remote.create_and_register(PongerAct::new);
+        let ponger_named = remote.create_and_register(PongerAct::new);
+        remote.register_by_alias(&ponger_named, "custom_name");
 
-        // Construct ActorPath with system's `proto` field defaulting to TCP
-        let ponger_path = ActorPath::Unique(UniquePath::with_system(
-            system.system_path(),
-            ponger.id().clone(),
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            remote.system_path(),
+            vec!["custom_name".into()],
         ));
 
-        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
+        let unique_path = ActorPath::Unique(UniquePath::with_system(
+            remote.system_path(),
+            ponger_unique.id().clone(),
+        ));
 
-        system.start(&ponger);
-        system.start(&pinger);
+        let pinger_unique = system.create_and_register(move || PingerAct::new(unique_path));
+        let pinger_named = system.create_and_register(move || PingerAct::new(named_path));
 
-        thread::sleep(Duration::from_millis(1000));
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
 
-        let pingf = system.stop_notify(&pinger);
-        let pongf = system.kill_notify(ponger);
-        pingf
+        thread::sleep(Duration::from_millis(7000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfu
             .await_timeout(Duration::from_millis(1000))
             .expect("Pinger never stopped!");
-        pongf
+        pongfu
             .await_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
-        pinger.on_definition(|c| {
+        pingfn
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            assert_eq!(c.remote_count, PING_COUNT);
+            assert_eq!(c.local_count, 0);
+        });
+        pinger_unique.on_definition(|c| {
             assert_eq!(c.remote_count, PING_COUNT);
             assert_eq!(c.local_count, 0);
         });

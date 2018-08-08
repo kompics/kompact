@@ -153,11 +153,12 @@ impl PartialEq for ActorRef {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
 pub enum Transport {
-    LOCAL,
-    TCP,
-    UDP,
+    LOCAL = 0b00,
+    TCP = 0b01,
+    UDP = 0b10,
 }
 
 // impl Transport
@@ -246,6 +247,7 @@ impl From<AddrParseError> for PathParseError {
 #[derive(Clone, Debug)]
 pub struct SystemPath {
     protocol: Transport,
+    // TODO address could be IPv4, IPv6, or a domain name (not supported yet)
     address: IpAddr,
     port: u16,
 }
@@ -265,6 +267,10 @@ impl SystemPath {
             address: socket.ip(),
             port: socket.port(),
         }
+    }
+
+    pub fn address(&self) -> &IpAddr {
+        &self.address
     }
 }
 
@@ -299,6 +305,7 @@ pub trait ActorSource: Dispatching {
 }
 
 #[derive(Clone, Debug)]
+#[repr(u8)]
 pub enum ActorPath {
     Unique(UniquePath),
     Named(NamedPath),
@@ -414,10 +421,26 @@ impl TryFrom<String> for UniquePath {
     }
 }
 
+/// Attempts to parse a `&str` as a [UniquePath].
 impl FromStr for UniquePath {
     type Err = PathParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        unimplemented!();
+        let parts: Vec<&str> = s.split("://").collect();
+        // parts: [tcp]://[IP:port/path]
+        if parts.len() != 2 {
+            return Err(PathParseError::Form(s.to_string()));
+        }
+        let proto: Transport = parts[0].parse()?;
+        let parts: Vec<&str> = parts[1].split('/').collect();
+        // parts: [IP:port]/[UUID]
+        if parts.len() != 2 {
+            return Err(PathParseError::Form(s.to_string()));
+        }
+        let socket = SocketAddr::from_str(parts[0])?;
+        let uuid =
+            Uuid::from_str(parts[1]).map_err(|_parse_err| PathParseError::Form(s.to_string()))?;
+
+        Ok(UniquePath::with_socket(proto, socket, uuid))
     }
 }
 

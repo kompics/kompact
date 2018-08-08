@@ -5,6 +5,7 @@
 #![feature(duration_as_u128)]
 #![feature(drain_filter)]
 extern crate as_num;
+extern crate bitfields;
 extern crate bytes;
 extern crate crossbeam;
 #[macro_use]
@@ -26,6 +27,7 @@ extern crate slog_async;
 extern crate slog_term;
 extern crate spaniel as spnl;
 extern crate tokio;
+extern crate tokio_retry;
 
 pub use self::actors::*;
 pub use self::component::*;
@@ -63,37 +65,21 @@ mod utils;
 pub mod prelude {
     pub use bytes::{Buf, BufMut};
 
-    pub use ::Any;
-    pub use runtime::{KompicsConfig, KompicsSystem};
+    pub use actors::{Actor, ActorPath, ActorRef, NamedPath, UniquePath};
     pub use component::{
-        ComponentDefinition,
-        Component,
-        ComponentContext,
-        ExecuteResult
+        Component, ComponentContext, ComponentDefinition, CoreContainer, ExecuteResult,
     };
     pub use component::{Provide, Require};
-    pub use lifecycle::{ControlPort, ControlEvent};
-    pub use actors::{Actor, ActorPath, ActorRef};
+    pub use lifecycle::{ControlEvent, ControlPort};
+    pub use runtime::{KompicsConfig, KompicsSystem};
+    pub use Any;
 
+    pub use default_components::{CustomComponents, DeadletterBox};
     pub use dispatch::{NetworkConfig, NetworkDispatcher};
-    pub use default_components::{
-        CustomComponents,
-        DeadletterBox,
-    };
     pub use messaging::{
-        MsgEnvelope,
-        ReceiveEnvelope,
-        PathResolvable,
-        DispatchEnvelope,
-        RegistrationError,
+        DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope, RegistrationError,
     };
-    pub use serialisation::{
-        SerError,
-        Serialisable,
-        Deserialisable,
-        Deserialiser,
-        Serialiser,
-    };
+    pub use serialisation::{Deserialisable, Deserialiser, SerError, Serialisable, Serialiser};
 }
 
 pub type KompicsLogger = Logger<std::sync::Arc<Fuse<Async>>>;

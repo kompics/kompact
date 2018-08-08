@@ -1,5 +1,4 @@
 use actors::ActorRef;
-use actors::SystemPath;
 use actors::Transport;
 use crossbeam::sync::ArcCell;
 use dispatch::lookup::ActorStore;
@@ -21,16 +20,18 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
-use KompicsLogger;
+use tokio_retry;
+use tokio_retry::strategy::ExponentialBackoff;
 
-/// Default buffer amount for MPSC channels
-pub const MPSC_BUF_SIZE: usize = 0;
+use KompicsLogger;
+use tokio::net::ConnectFuture;
+use tokio_retry::Retry;
 
 #[derive(Debug)]
 pub enum ConnectionState {
     New,
     Initializing,
-    Connected(sync::mpsc::Sender<Frame>),
+    Connected(sync::mpsc::UnboundedSender<Frame>),
     Closed,
     Error(std::io::Error),
 }
@@ -63,8 +64,39 @@ pub mod events {
     }
 }
 
+struct BridgeConfig {
+    retry_strategy: RetryStrategy,
+}
+
+impl BridgeConfig {
+    pub fn new() -> Self {
+        BridgeConfig::default()
+    }
+}
+
+enum RetryStrategy {
+    ExponentialBackoff {
+        base_ms: u64,
+        num_tries: usize,
+    }
+}
+
+impl Default for BridgeConfig {
+    fn default() -> Self {
+        let retry_strategy = RetryStrategy::ExponentialBackoff {
+            base_ms: 100,
+            num_tries: 5,
+        };
+        BridgeConfig {
+            retry_strategy,
+        }
+    }
+}
+
 /// Bridge to Tokio land, responsible for network connection management
 pub struct Bridge {
+    /// Network-specific configuration
+    cfg: BridgeConfig,
     /// Executor belonging to the Tokio runtime
     pub(crate) executor: Option<TaskExecutor>,
     /// Queue of network events emitted by the network layer
@@ -92,6 +124,7 @@ impl Bridge {
     ) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
         let bridge = Bridge {
+            cfg: BridgeConfig::default(),
             executor: None,
             events: sender,
             log,
@@ -138,17 +171,38 @@ impl Bridge {
                 if let Some(ref executor) = self.executor {
                     let lookup = self.lookup.clone();
                     let events = self.events.clone();
+                    let err_events = events.clone();
                     let log = self.log.clone();
-                    let connect_fut = TcpStream::connect(&addr)
-                        .map_err(|_err| {
-                            // TODO err
-                            ()
+                    let err_log = log.clone();
+
+
+                    let retry_strategy = match self.cfg.retry_strategy {
+                        RetryStrategy::ExponentialBackoff { base_ms, num_tries} => {
+                            use tokio_retry::strategy::jitter;
+                            ExponentialBackoff::from_millis(base_ms)
+                                .map(jitter)
+                                .take(num_tries)
+                        },
+                    };
+
+
+                    let connect_fut =
+                        Retry::spawn(retry_strategy, TcpConnecter(addr.clone()))
+                        .map_err(move |why| {
+                            match why {
+                                tokio_retry::Error::TimerError(terr) => {
+                                    error!(err_log, "TimerError connecting to {:?}: {:?}", addr, terr);
+                                },
+                                tokio_retry::Error::OperationError(err) => {
+                                    err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(err)));
+                                }
+                            }
                         })
                         .and_then(move |tcp_stream| {
                             let peer_addr = tcp_stream
                                 .peer_addr()
                                 .expect("stream must have a peer address");
-                            let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
+                            let (tx, rx) = sync::mpsc::unbounded();
                             events.unbounded_send(NetworkEvent::Connection(
                                 peer_addr,
                                 ConnectionState::Connected(tx),
@@ -165,6 +219,19 @@ impl Bridge {
         }
     }
 }
+
+struct TcpConnecter(SocketAddr);
+
+impl tokio_retry::Action for TcpConnecter {
+    type Future = ConnectFuture;
+    type Item = TcpStream;
+    type Error = std::io::Error;
+
+    fn run(&mut self) -> Self::Future {
+        TcpStream::connect(&self.0)
+    }
+}
+
 
 /// Spawns a TCP server on the provided `TaskExecutor` and `addr`.
 ///
@@ -191,7 +258,7 @@ fn start_tcp_server(
             let peer_addr = tcp_stream
                 .peer_addr()
                 .expect("stream must have a peer address");
-            let (tx, rx) = sync::mpsc::channel(MPSC_BUF_SIZE);
+            let (tx, rx) = sync::mpsc::unbounded();
             executor.spawn(handle_tcp(
                 tcp_stream,
                 rx,
@@ -252,17 +319,14 @@ fn start_network_thread(
 /// `tx` can be used to relay network events back into the [Bridge]
 fn handle_tcp(
     stream: TcpStream,
-    rx: sync::mpsc::Receiver<Frame>,
+    rx: sync::mpsc::UnboundedReceiver<Frame>,
     _tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
     log: KompicsLogger,
     actor_lookup: Arc<ArcCell<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
-    let system = {
-        let peer_addr = stream.peer_addr().expect("Peer must have address");
-        SystemPath::new(Transport::TCP, peer_addr.ip(), peer_addr.port())
-    };
+    let err_log  = log.clone();
 
     let transport = FrameCodec::new(stream);
     let (frame_writer, frame_reader) = transport.split();
@@ -286,8 +350,13 @@ fn handle_tcp(
                         // Consume payload
                         let buf = fr.payload();
                         let mut buf = buf.into_buf();
-                        let envelope = deserialise_msg(buf, &system).expect("s11n errors");
-                        let actor_ref = lookup.get_by_actor_path(envelope.dst()).expect("no actor registered for destination!");
+                        let envelope = deserialise_msg(buf).expect("s11n errors");
+                        let actor_ref = match lookup.get_by_actor_path(envelope.dst()) {
+                            None => {
+                                panic!("Could not find actor reference for destination: {:?}", envelope.dst());
+                            },
+                            Some(actor) => actor,
+                        };
 
                         (actor_ref, envelope)
                     };
@@ -308,6 +377,7 @@ fn handle_tcp(
             // Combine above stream with RX side of MPSC channel
             rx
                 .map_err(|_err| {
+                    println!("ERROR receiving MPSC");
                     () // TODO err
                 })
                 .map(|frame: Frame| {
@@ -316,8 +386,9 @@ fn handle_tcp(
         )
         // Forward the combined streams to the frame writer
         .forward(frame_writer)
-        .map_err(|_res| {
+        .map_err(move |_res| {
             // TODO
+            error!(err_log, "TCP conn err");
             ()
         })
         .then(|_| {
