@@ -36,6 +36,7 @@ use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use std::collections::HashMap;
 use std::time::Duration;
+use std::io::ErrorKind;
 
 pub(crate) mod lookup;
 mod queue_manager;
@@ -201,8 +202,18 @@ impl NetworkDispatcher {
             Closed => {
                 warn!(self.ctx().log(), "connection closed for {:?}", addr);
             }
-            Error(_) => {
-                error!(self.ctx().log(), "connection error for {:?}", addr);
+            Error(ref err) => {
+                match err {
+                    x if x.kind() == ErrorKind::ConnectionRefused => {
+                        error!(self.ctx().log(), "connection refused for {:?}", addr);
+                        // TODO determine how we want to proceed
+                        // If TCP, the network bridge has already attempted retries with exponential
+                        // backoff according to its configuration.
+                    },
+                    why => {
+                        error!(self.ctx().log(), "connection error for {:?}: {:?}", addr, why);
+                    }
+                }
             }
             ref _other => (), // Don't care
         }

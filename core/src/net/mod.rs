@@ -171,6 +171,7 @@ impl Bridge {
                 if let Some(ref executor) = self.executor {
                     let lookup = self.lookup.clone();
                     let events = self.events.clone();
+                    let err_events = events.clone();
                     let log = self.log.clone();
                     let err_log = log.clone();
 
@@ -188,9 +189,14 @@ impl Bridge {
                     let connect_fut =
                         Retry::spawn(retry_strategy, TcpConnecter(addr.clone()))
                         .map_err(move |why| {
-                            // TODO err
-                            error!(err_log, "Error connecting TCP stream to {:?}: {:?}", addr, why);
-                            ()
+                            match why {
+                                tokio_retry::Error::TimerError(terr) => {
+                                    error!(err_log, "TimerError connecting to {:?}: {:?}", addr, terr);
+                                },
+                                tokio_retry::Error::OperationError(err) => {
+                                    err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(err)));
+                                }
+                            }
                         })
                         .and_then(move |tcp_stream| {
                             let peer_addr = tcp_stream
