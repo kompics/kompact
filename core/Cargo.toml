@@ -1,7 +1,7 @@
 [package]
 name = "kompact"
 version = "0.4.0"
-authors = ["Lars Kroll <lkroll@kth.se>", "Johan Mickos <>"]
+authors = ["Lars Kroll <lkroll@kth.se>", "Johan Mickos <johanmi@kth.se>"]
 
 description = "Kompact is a Rust implementation of the Kompics component model combined with the Actor model."
 
@@ -43,14 +43,16 @@ bytes = "0.4.8"
 futures = "0.1.2"
 tokio = "0.1.7"
 tokio-retry = "0.2.0"
+spaniel = "0.1"
+bitfields = "0.1"
 
-[dependencies.spaniel]
-git = "https://github.com/jarlopez/spaniel"
-branch = "master"
+#[dependencies.spaniel]
+#git = "https://github.com/jarlopez/spaniel"
+#branch = "master"
 
-[dependencies.bitfields]
-git = "https://github.com/jarlopez/bitfields-rs"
-branch = "master"
+#[dependencies.bitfields]
+#git = "https://github.com/jarlopez/bitfields-rs"
+#branch = "master"
 
 
 [dev-dependencies]
