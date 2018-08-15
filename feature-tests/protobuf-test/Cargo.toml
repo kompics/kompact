@@ -1,0 +1,13 @@
+[package]
+name = "protobuf-test"
+version = "0.1.0"
+authors = ["Lars Kroll <lkroll@kth.se>"]
+publish = false
+
+[dependencies]
+kompact = { path = "../../core/", features = ["protobuf"]}
+protobuf = "2.0"
+bytes = "0.4"
+
+[build-dependencies]
+protoc-rust = "2.0"

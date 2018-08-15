@@ -13,6 +13,8 @@ extern crate crossbeam_channel;
 extern crate executors;
 extern crate num_cpus;
 extern crate oncemutex;
+#[cfg(feature = "protobuf")]
+extern crate protobuf;
 #[cfg(feature = "serde")]
 extern crate serde;
 extern crate uuid;
@@ -50,7 +52,6 @@ pub use std::convert::{From, Into};
 mod actors;
 mod component;
 pub mod default_components;
-mod default_serialisers;
 mod dispatch;
 mod lifecycle;
 pub mod messaging;
@@ -64,7 +65,7 @@ mod timer_manager;
 mod utils;
 
 pub mod prelude {
-    pub use bytes::{Buf, BufMut};
+    pub use bytes::{Buf, BufMut, IntoBuf};
 
     pub use actors::{Actor, ActorPath, ActorRef, NamedPath, UniquePath};
     pub use component::{

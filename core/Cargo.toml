@@ -35,14 +35,14 @@ time = "0.1"
 as_num = "0.2"
 num_cpus = "1.0"
 oncemutex = "0.1.1"
-serde = {version = "1.0", optional = true}
 sequence_trie = "0.3.5"
 slog = {version = "2.2"}
 slog-async = "2.3"
 slog-term = "2.4"
 
 # Optional
-protobuf = {version = "2", optional = true}
+protobuf = {version = "2", optional = true, features = ["with-bytes"]}
+serde = {version = "1.0", optional = true}
 
 # Network-specific
 bytes = "0.4.8"

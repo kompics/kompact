@@ -1,10 +1,10 @@
 use super::*;
-use bytes::BufMut;
-use std::any::Any;
 
-mod serialisation_ids {
+pub mod serialisation_ids {
     pub const STR: u64 = 5;
     pub const U64: u64 = 6;
+
+    pub const PBUF: u64 = 20;
 }
 
 impl Serialisable for &'static str {

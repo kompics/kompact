@@ -101,6 +101,20 @@ pub trait Deserialisable<T> {
     fn get_deserialised(self) -> Result<T, SerError>;
 }
 
+pub trait BoxDeserialisable<T> {
+    fn boxed_serid(&self) -> u64;
+    fn boxed_get_deserialised(self: Box<Self>) -> Result<T, SerError>;
+}
+
+impl<T> Deserialisable<T> for Box<BoxDeserialisable<T>> {
+    fn serid(&self) -> u64 {
+        self.boxed_serid()
+    }
+    fn get_deserialised(self) -> Result<T, SerError> {
+        self.boxed_get_deserialised()
+    }
+}
+
 /// Trivial identity Deserialisable
 impl<T> Deserialisable<T> for T {
     fn serid(&self) -> u64 {

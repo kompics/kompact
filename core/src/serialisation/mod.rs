@@ -6,9 +6,35 @@ use std::fmt::Debug;
 use super::*;
 
 pub use self::core::*;
+pub use self::default_serialisers::*;
 
 mod core;
+mod default_serialisers;
 pub mod helpers;
+#[cfg(feature = "protobuf")]
+pub mod protobuf_serialisers;
+
+pub mod ser_test_helpers {
+    use super::*;
+
+    /// Directly serialise something into the given buf. Mostly for testing.
+    pub fn just_serialise<S>(si: S, buf: &mut BufMut) -> ()
+    where
+        S: Into<Box<Serialisable>>,
+    {
+        let s: Box<Serialisable> = si.into();
+        s.serialise(buf).expect("Did not serialise correctly");
+    }
+
+    /// Directly serialise something into some buf and throw it away. Only for testing.
+    pub fn test_serialise<S>(si: S) -> ()
+    where
+        S: Into<Box<Serialisable>>,
+    {
+        let mut buf: Vec<u8> = Vec::new();
+        just_serialise(si, &mut buf);
+    }
+}
 
 #[cfg(test)]
 mod tests {
