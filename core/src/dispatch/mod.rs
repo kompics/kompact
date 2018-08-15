@@ -35,8 +35,8 @@ use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
 use std::collections::HashMap;
-use std::time::Duration;
 use std::io::ErrorKind;
+use std::time::Duration;
 
 pub(crate) mod lookup;
 mod queue_manager;
@@ -119,8 +119,7 @@ impl NetworkDispatcher {
                 events
                     .map(|ev| {
                         MsgEnvelope::Dispatch(DispatchEnvelope::Event(EventEnvelope::Network(ev)))
-                    })
-                    .forward(dispatcher)
+                    }).forward(dispatcher)
                     .then(|_| Ok(())),
             );
         } else {
@@ -209,9 +208,14 @@ impl NetworkDispatcher {
                         // TODO determine how we want to proceed
                         // If TCP, the network bridge has already attempted retries with exponential
                         // backoff according to its configuration.
-                    },
+                    }
                     why => {
-                        error!(self.ctx().log(), "connection error for {:?}: {:?}", addr, why);
+                        error!(
+                            self.ctx().log(),
+                            "connection error for {:?}: {:?}",
+                            addr,
+                            why
+                        );
                     }
                 }
             }

@@ -13,6 +13,7 @@ extern crate crossbeam_channel;
 extern crate executors;
 extern crate num_cpus;
 extern crate oncemutex;
+#[cfg(feature = "serde")]
 extern crate serde;
 extern crate uuid;
 #[macro_use]
@@ -38,8 +39,8 @@ pub use self::runtime::*;
 pub use self::serialisation::*;
 pub use self::timer_manager::*;
 pub use self::utils::*;
-pub use kompact_actor_derive::*;
 pub use bytes::Buf;
+pub use kompact_actor_derive::*;
 pub use kompact_component_derive::*;
 pub use slog::{Drain, Fuse, Logger};
 pub use slog_async::Async;

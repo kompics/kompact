@@ -1,9 +1,9 @@
 #![allow(unused_parens)]
-extern crate kompics;
+extern crate kompact;
 //#[macro_use]
 //extern crate component_definition_derive;
 
-use kompics::*;
+use kompact::*;
 use std::{thread, time};
 
 #[derive(Clone, Debug)]

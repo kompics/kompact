@@ -23,9 +23,9 @@ use tokio::runtime::TaskExecutor;
 use tokio_retry;
 use tokio_retry::strategy::ExponentialBackoff;
 
-use KompicsLogger;
 use tokio::net::ConnectFuture;
 use tokio_retry::Retry;
+use KompicsLogger;
 
 #[derive(Debug)]
 pub enum ConnectionState {
@@ -75,10 +75,7 @@ impl BridgeConfig {
 }
 
 enum RetryStrategy {
-    ExponentialBackoff {
-        base_ms: u64,
-        num_tries: usize,
-    }
+    ExponentialBackoff { base_ms: u64, num_tries: usize },
 }
 
 impl Default for BridgeConfig {
@@ -87,9 +84,7 @@ impl Default for BridgeConfig {
             base_ms: 100,
             num_tries: 5,
         };
-        BridgeConfig {
-            retry_strategy,
-        }
+        BridgeConfig { retry_strategy }
     }
 }
 
@@ -175,30 +170,27 @@ impl Bridge {
                     let log = self.log.clone();
                     let err_log = log.clone();
 
-
                     let retry_strategy = match self.cfg.retry_strategy {
-                        RetryStrategy::ExponentialBackoff { base_ms, num_tries} => {
+                        RetryStrategy::ExponentialBackoff { base_ms, num_tries } => {
                             use tokio_retry::strategy::jitter;
                             ExponentialBackoff::from_millis(base_ms)
                                 .map(jitter)
                                 .take(num_tries)
-                        },
+                        }
                     };
 
-
-                    let connect_fut =
-                        Retry::spawn(retry_strategy, TcpConnecter(addr.clone()))
-                        .map_err(move |why| {
-                            match why {
-                                tokio_retry::Error::TimerError(terr) => {
-                                    error!(err_log, "TimerError connecting to {:?}: {:?}", addr, terr);
-                                },
-                                tokio_retry::Error::OperationError(err) => {
-                                    err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(err)));
-                                }
+                    let connect_fut = Retry::spawn(retry_strategy, TcpConnecter(addr.clone()))
+                        .map_err(move |why| match why {
+                            tokio_retry::Error::TimerError(terr) => {
+                                error!(err_log, "TimerError connecting to {:?}: {:?}", addr, terr);
                             }
-                        })
-                        .and_then(move |tcp_stream| {
+                            tokio_retry::Error::OperationError(err) => {
+                                err_events.unbounded_send(NetworkEvent::Connection(
+                                    addr,
+                                    ConnectionState::Error(err),
+                                ));
+                            }
+                        }).and_then(move |tcp_stream| {
                             let peer_addr = tcp_stream
                                 .peer_addr()
                                 .expect("stream must have a peer address");
@@ -232,7 +224,6 @@ impl tokio_retry::Action for TcpConnecter {
     }
 }
 
-
 /// Spawns a TCP server on the provided `TaskExecutor` and `addr`.
 ///
 /// Connection result and errors are propagated on the provided `events`.
@@ -251,8 +242,7 @@ fn start_tcp_server(
         .map_err(move |e| {
             error!(err_log, "err listening on TCP socket");
             err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(e)));
-        })
-        .for_each(move |tcp_stream| {
+        }).for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
             let lookup = lookup.clone();
             let peer_addr = tcp_stream
@@ -305,8 +295,7 @@ fn start_network_thread(
 
             let _res = tx.send(executor);
             runtime.shutdown_on_idle().wait().unwrap();
-        })
-        .expect("TCP serve thread spawning should not fail");
+        }).expect("TCP serve thread spawning should not fail");
     let executor = rx
         .wait()
         .expect("could not receive executor clone; did network thread panic?");
@@ -326,7 +315,7 @@ fn handle_tcp(
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
-    let err_log  = log.clone();
+    let err_log = log.clone();
 
     let transport = FrameCodec::new(stream);
     let (frame_writer, frame_reader) = transport.split();

@@ -19,6 +19,9 @@ license = "MIT"
 # and `deprecated`.
 maintenance = { status = "actively-developed" }
 
+[features]
+default = ["serde","slog/max_level_debug", "slog/release_max_level_info"]
+
 [dependencies]
 log = "0.3"
 kompact-component-derive = { version="0.4.0", path = "../macros/component-definition-derive/" }
@@ -27,16 +30,19 @@ executors = "0.4"
 crossbeam = "0.3"
 crossbeam-channel = "0.2"
 synchronoise = "0.4"
-uuid = { version = "0.4", features = ["serde", "v4"] }
+uuid = { version = "0.4", features = ["v4"] }
 time = "0.1"
 as_num = "0.2"
 num_cpus = "1.0"
 oncemutex = "0.1.1"
-serde = "1.0"
+serde = {version = "1.0", optional = true}
 sequence_trie = "0.3.5"
-slog = {version = "2.2", features = ["max_level_debug", "release_max_level_info"]}
+slog = {version = "2.2"}
 slog-async = "2.3"
 slog-term = "2.4"
+
+# Optional
+protobuf = {version = "2", optional = true}
 
 # Network-specific
 bytes = "0.4.8"

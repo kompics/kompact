@@ -417,8 +417,7 @@ mod tests {
                 id,
                 timeout: Duration::from_millis(1),
                 action: Box::new(|id| println!("{:?}", id)),
-            })
-            .expect("Could not insert timer entry!");
+            }).expect("Could not insert timer entry!");
         let res = timer.tick();
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].id(), id);
@@ -433,8 +432,7 @@ mod tests {
                 id,
                 timeout: Duration::from_millis(1),
                 action: Box::new(|id| println!("{:?}", id)),
-            })
-            .expect("Could not insert timer entry!");
+            }).expect("Could not insert timer entry!");
         timer.cancel(id).expect("Entry could not be cancelled!");
         let res = timer.tick();
         assert_eq!(res.len(), 0);

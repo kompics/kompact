@@ -197,8 +197,7 @@ impl ActorStore {
                     cl.push(k.clone());
                 }
                 cl
-            })
-            .collect();
+            }).collect();
         let existed = matches.len();
         for m in matches {
             self.name_map.remove(&m);
@@ -221,8 +220,7 @@ impl ActorStore {
                     cl.push(k.clone());
                 }
                 cl
-            })
-            .collect();
+            }).collect();
         existed += matches.len();
         for m in matches {
             self.name_map.remove(&m);
