@@ -37,6 +37,7 @@ pub use self::component::*;
 use self::default_components::*;
 pub use self::lifecycle::*;
 pub use self::ports::*;
+pub use self::dispatch::*;
 pub use self::runtime::*;
 pub use self::serialisation::*;
 pub use self::timer_manager::*;
