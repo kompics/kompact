@@ -382,11 +382,15 @@ impl KompicsSystem {
         self.inner.max_messages
     }
 
-    // TODO add shutdown_on_idle() to block the current thread until the system has nothing more to do
     pub fn shutdown(self) -> Result<(), String> {
         self.scheduler.shutdown()?;
         self.inner.shutdown()?;
         Ok(())
+    }
+
+    pub fn await_termination(self) -> Result<(), String> {
+        std::thread::park();
+        self.shutdown()
     }
 
     pub fn system_path(&self) -> SystemPath {
