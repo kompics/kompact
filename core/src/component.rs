@@ -1,4 +1,3 @@
-use crossbeam::sync::MsQueue;
 use std::cell::RefCell;
 use std::fmt;
 use std::ops::DerefMut;
@@ -32,8 +31,8 @@ impl fmt::Debug for CoreContainer {
 pub struct Component<C: ComponentDefinition + Sized + 'static> {
     core: ComponentCore,
     definition: Mutex<C>,
-    ctrl_queue: Arc<MsQueue<<ControlPort as Port>::Request>>,
-    msg_queue: Arc<MsQueue<MsgEnvelope>>,
+    ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
+    msg_queue: Arc<ConcurrentQueue<MsgEnvelope>>,
     skip: AtomicUsize,
     state: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
@@ -51,11 +50,11 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let msg_queue = Arc::new(MsQueue::new());
+        let msg_queue = Arc::new(ConcurrentQueue::new());
         Component {
             core,
             definition: Mutex::new(definition),
-            ctrl_queue: Arc::new(MsQueue::new()),
+            ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
@@ -73,8 +72,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         Component {
             core,
             definition: Mutex::new(definition),
-            ctrl_queue: Arc::new(MsQueue::new()),
-            msg_queue: Arc::new(MsQueue::new()),
+            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            msg_queue: Arc::new(ConcurrentQueue::new()),
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
             supervisor: None,
@@ -82,7 +81,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         }
     }
 
-    // pub(crate) fn msg_queue_wref(&self) -> Weak<MsQueue<MsgEnvelope>> {
+    // pub(crate) fn msg_queue_wref(&self) -> Weak<ConcurrentQueue<MsgEnvelope>> {
     //     Arc::downgrade(&self.msg_queue)
     // }
 

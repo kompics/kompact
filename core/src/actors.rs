@@ -1,5 +1,4 @@
 use bytes::{Buf, IntoBuf};
-use crossbeam::sync::MsQueue;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::error::Error;
@@ -60,13 +59,13 @@ pub trait Dispatching {
 #[derive(Clone)]
 pub struct ActorRef {
     component: Weak<CoreContainer>,
-    msg_queue: Weak<MsQueue<MsgEnvelope>>,
+    msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
 }
 
 impl ActorRef {
     pub(crate) fn new(
         component: Weak<CoreContainer>,
-        msg_queue: Weak<MsQueue<MsgEnvelope>>,
+        msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
     ) -> ActorRef {
         ActorRef {
             component,
