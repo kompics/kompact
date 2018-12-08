@@ -1,4 +1,3 @@
-use crossbeam::sync::MsQueue;
 use std::fmt::Debug;
 use std::sync::{Arc, Weak};
 
@@ -26,7 +25,7 @@ impl<P: Port + 'static> CommonPortData<P> {
 pub struct ProvidedPort<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> {
     common: CommonPortData<P>,
     parent: Option<Weak<Component<C>>>,
-    msg_queue: Arc<MsQueue<P::Request>>,
+    msg_queue: Arc<Queue<P::Request>>,
 }
 
 impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedPort<P, C> {
@@ -34,7 +33,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
         ProvidedPort {
             common: CommonPortData::new(),
             parent: None,
-            msg_queue: Arc::new(MsQueue::new()),
+            msg_queue: Arc::new(Queue::new()),
         }
     }
 
@@ -73,7 +72,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
 pub struct RequiredPort<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> {
     common: CommonPortData<P>,
     parent: Option<Weak<Component<C>>>,
-    msg_queue: Arc<MsQueue<P::Indication>>,
+    msg_queue: Arc<Queue<P::Indication>>,
 }
 
 impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredPort<P, C> {
@@ -81,7 +80,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
         RequiredPort {
             common: CommonPortData::new(),
             parent: None,
-            msg_queue: Arc::new(MsQueue::new()),
+            msg_queue: Arc::new(Queue::new()),
         }
     }
 
@@ -127,7 +126,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
 
 pub struct ProvidedRef<P: Port + 'static> {
     component: Weak<CoreContainer>,
-    msg_queue: Weak<MsQueue<P::Request>>,
+    msg_queue: Weak<Queue<P::Request>>,
 }
 
 impl<P: Port + 'static> Clone for ProvidedRef<P> {
@@ -142,7 +141,7 @@ impl<P: Port + 'static> Clone for ProvidedRef<P> {
 impl<P: Port + 'static> ProvidedRef<P> {
     pub(crate) fn new(
         component: Weak<CoreContainer>,
-        msg_queue: Weak<MsQueue<P::Request>>,
+        msg_queue: Weak<Queue<P::Request>>,
     ) -> ProvidedRef<P> {
         ProvidedRef {
             component,
@@ -174,7 +173,7 @@ impl<P: Port + 'static> ProvidedRef<P> {
 
 pub struct RequiredRef<P: Port + 'static> {
     component: Weak<CoreContainer>,
-    msg_queue: Weak<MsQueue<P::Indication>>,
+    msg_queue: Weak<Queue<P::Indication>>,
 }
 
 impl<P: Port + 'static> Clone for RequiredRef<P> {
