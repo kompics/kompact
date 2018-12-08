@@ -31,8 +31,8 @@ impl fmt::Debug for CoreContainer {
 pub struct Component<C: ComponentDefinition + Sized + 'static> {
     core: ComponentCore,
     definition: Mutex<C>,
-    ctrl_queue: Arc<Queue<<ControlPort as Port>::Request>>,
-    msg_queue: Arc<Queue<MsgEnvelope>>,
+    ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
+    msg_queue: Arc<ConcurrentQueue<MsgEnvelope>>,
     skip: AtomicUsize,
     state: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
@@ -50,11 +50,11 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let msg_queue = Arc::new(Queue::new());
+        let msg_queue = Arc::new(ConcurrentQueue::new());
         Component {
             core,
             definition: Mutex::new(definition),
-            ctrl_queue: Arc::new(Queue::new()),
+            ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
@@ -72,8 +72,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         Component {
             core,
             definition: Mutex::new(definition),
-            ctrl_queue: Arc::new(Queue::new()),
-            msg_queue: Arc::new(Queue::new()),
+            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            msg_queue: Arc::new(ConcurrentQueue::new()),
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
             supervisor: None,
@@ -81,7 +81,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         }
     }
 
-    // pub(crate) fn msg_queue_wref(&self) -> Weak<Queue<MsgEnvelope>> {
+    // pub(crate) fn msg_queue_wref(&self) -> Weak<ConcurrentQueue<MsgEnvelope>> {
     //     Arc::downgrade(&self.msg_queue)
     // }
 

@@ -47,7 +47,7 @@ pub use kompact_actor_derive::*;
 pub use kompact_component_derive::*;
 pub use slog::{Drain, Fuse, Logger};
 pub use slog_async::Async;
-pub use crossbeam::sync::SegQueue as Queue;
+pub use crossbeam::sync::SegQueue as ConcurrentQueue;
 pub use std::any::Any;
 pub use std::convert::{From, Into};
 

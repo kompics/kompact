@@ -59,13 +59,13 @@ pub trait Dispatching {
 #[derive(Clone)]
 pub struct ActorRef {
     component: Weak<CoreContainer>,
-    msg_queue: Weak<Queue<MsgEnvelope>>,
+    msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
 }
 
 impl ActorRef {
     pub(crate) fn new(
         component: Weak<CoreContainer>,
-        msg_queue: Weak<Queue<MsgEnvelope>>,
+        msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
     ) -> ActorRef {
         ActorRef {
             component,
