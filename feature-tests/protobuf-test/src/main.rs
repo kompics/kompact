@@ -54,6 +54,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn ser_wrong_deser() {
         let ex = SearchRequest::new();
         let ex1 = ex.clone();
