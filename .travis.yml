@@ -5,7 +5,8 @@ rust:
   - nightly
 matrix:
   allow_failures:
-    - rust: nightly
+    - rust: stable
+    - rust: beta
   fast_finish: true
 cache: cargo
 script:
