@@ -1,0 +1,20 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+matrix:
+  allow_failures:
+    - rust: stable
+    - rust: beta
+  fast_finish: true
+cache: cargo
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+# need be superuser so as to successfully compile & install protobuf library
+#sudo: true
+
+# make sure protobuf library is installed for build to succeed
+before_install:
+  - ./travis_install_protobuf.sh
