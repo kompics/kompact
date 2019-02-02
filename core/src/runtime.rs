@@ -39,29 +39,29 @@ fn default_logger() -> &'static KompicsLogger {
 
 type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
 
-impl Debug for SchedulerBuilder {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "<function>")
-    }
-}
+// impl Debug for SchedulerBuilder {
+//     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+//         write!(f, "<function>")
+//     }
+// }
 
 type SCBuilder = Fn(&KompicsSystem) -> Box<SystemComponents>;
 
-impl Debug for SCBuilder {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "<function>")
-    }
-}
+// impl Debug for SCBuilder {
+//     fn fmt(&self, f: &mut Formatter) -> FmtResult {
+//         write!(f, "<function>")
+//     }
+// }
 
 type TimerBuilder = Fn() -> Box<TimerComponent>;
 
-impl Debug for TimerBuilder {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "<function>")
-    }
-}
+// impl Debug for TimerBuilder {
+//     fn fmt(&self, f: &mut Formatter) -> FmtResult {
+//         write!(f, "<function>")
+//     }
+// }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct KompicsConfig {
     label: String,
     throughput: usize,
@@ -71,6 +71,22 @@ pub struct KompicsConfig {
     scheduler_builder: Rc<SchedulerBuilder>,
     sc_builder: Rc<SCBuilder>,
     root_logger: Option<KompicsLogger>,
+}
+
+impl Debug for KompicsConfig {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "KompicsConfig{{
+            label={},
+            throughput={},
+            msg_priority={},
+            threads={},
+            timer_builder=<function>,
+            scheduler_builder=<function>,
+            sc_builder=<function>,
+            root_logger={:?}
+        }}", 
+            self.label, self.throughput, self.msg_priority, self.threads, self.root_logger)
+    }
 }
 
 impl KompicsConfig {
