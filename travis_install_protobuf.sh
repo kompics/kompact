@@ -2,7 +2,7 @@
 set -ex
 VERSION="3.6.1"
 NAME="protoc-$VERSION-linux-x86_64.zip"
-URL="https://github.com/protocolbuffers/protobuf/releases/download/$VERSION/$NAME"
+URL="https://github.com/protocolbuffers/protobuf/releases/download/v$VERSION/$NAME"
 
 
 # Make sure you grab the latest version
