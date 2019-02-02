@@ -13,15 +13,10 @@ script:
   - cargo build --verbose --all
   - cargo test --verbose --all
 # need be superuser so as to successfully compile & install protobuf library
-sudo: true
+#sudo: true
 
 # make sure protobuf library is installed for build to succeed
-install:
-  - wget https://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz
-  - tar -xzvf protobuf-2.4.1.tar.gz
-  - cd protobuf-2.4.1
-  - ./configure --prefix=/usr
-  - make
-  - make check
-  - sudo make install
-  - cd ./../
+addons:
+  apt:
+    packages:
+    - protobuf
