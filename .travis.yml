@@ -16,7 +16,5 @@ script:
 #sudo: true
 
 # make sure protobuf library is installed for build to succeed
-addons:
-  apt:
-    packages:
-    - protobuf
+before_install:
+  - ./travis_install_protobuf.sh
