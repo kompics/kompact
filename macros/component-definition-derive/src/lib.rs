@@ -55,7 +55,8 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
             .map(|&(f, _)| {
                 let ref id = f.ident;
                 quote! { self.#id.set_parent(self_component.clone()); }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         let port_handles_skip = ports
             .iter()
             .enumerate()
@@ -75,7 +76,8 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                         }
                     }
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         let port_handles = ports
             .iter()
             .enumerate()
@@ -93,7 +95,8 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
                         done_work = true;
                     }
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         let exec = if port_handles.is_empty() {
             quote! {
                 fn execute(&mut self, _max_events: usize, _skip: usize) -> ExecuteResult {

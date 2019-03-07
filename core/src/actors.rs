@@ -152,7 +152,7 @@ impl PartialEq for ActorRef {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Transport {
     LOCAL = 0b00,
@@ -243,7 +243,7 @@ impl From<AddrParseError> for PathParseError {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SystemPath {
     protocol: Transport,
     // TODO address could be IPv4, IPv6, or a domain name (not supported yet)
@@ -305,6 +305,7 @@ pub trait ActorSource: Dispatching {
 
 #[derive(Clone, Debug)]
 #[repr(u8)]
+#[derive(PartialEq, Eq)]
 pub enum ActorPath {
     Unique(UniquePath),
     Named(NamedPath),
@@ -377,7 +378,7 @@ impl FromStr for ActorPath {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UniquePath {
     system: SystemPath,
     id: Uuid,
@@ -449,7 +450,7 @@ impl SystemField for UniquePath {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedPath {
     system: SystemPath,
     path: Vec<String>,
@@ -549,7 +550,12 @@ mod tests {
         let mut settings = KompicsConfig::new();
         settings.label("my_system".to_string());
         //let system = KompicsSystem::new(settings);
-        let ap = ActorPath::from_str(PATH);
-        println!("Got ActorPath={}", ap.expect("a proper path"));
+        let ap = ActorPath::from_str(PATH).expect("a proper path");
+        println!("Got ActorPath={}", ap);
+
+        let s = ap.to_string();
+        assert_eq!(PATH, &s);
+        let ap2: ActorPath = s.parse().expect("a proper path");
+        assert_eq!(ap, ap2);
     }
 }

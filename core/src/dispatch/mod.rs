@@ -119,7 +119,8 @@ impl NetworkDispatcher {
                 events
                     .map(|ev| {
                         MsgEnvelope::Dispatch(DispatchEnvelope::Event(EventEnvelope::Network(ev)))
-                    }).forward(dispatcher)
+                    })
+                    .forward(dispatcher)
                     .then(|_| Ok(())),
             );
         } else {
@@ -152,8 +153,7 @@ impl NetworkDispatcher {
         let next_wakeup = self.reaper.strategy().curr();
         debug!(
             self.ctx().log(),
-            "Scheduling reaping at {:?}ms",
-            next_wakeup
+            "Scheduling reaping at {:?}ms", next_wakeup
         );
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
@@ -180,8 +180,7 @@ impl NetworkDispatcher {
             Connected(ref mut frame_sender) => {
                 debug!(
                     self.ctx().log(),
-                    "registering newly connected conn at {:?}",
-                    addr
+                    "registering newly connected conn at {:?}", addr
                 );
 
                 if let Some(ref mut qm) = self.queue_manager {
@@ -212,9 +211,7 @@ impl NetworkDispatcher {
                     why => {
                         error!(
                             self.ctx().log(),
-                            "connection error for {:?}: {:?}",
-                            addr,
-                            why
+                            "connection error for {:?}: {:?}", addr, why
                         );
                     }
                 }
@@ -377,9 +374,7 @@ impl Actor for NetworkDispatcher {
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) {
         debug!(
             self.ctx.log(),
-            "Received buffer with id {:?} from {:?}",
-            ser_id,
-            sender
+            "Received buffer with id {:?} from {:?}", ser_id, sender
         );
     }
 }
@@ -808,9 +803,7 @@ mod dispatch_tests {
             } else {
                 error!(
                     self.ctx.log(),
-                    "Got message with unexpected serialiser {} from {}",
-                    ser_id,
-                    sender
+                    "Got message with unexpected serialiser {} from {}", ser_id, sender
                 );
             }
         }
@@ -863,9 +856,7 @@ mod dispatch_tests {
             } else {
                 error!(
                     self.ctx.log(),
-                    "Got message with unexpected serialiser {} from {}",
-                    ser_id,
-                    sender
+                    "Got message with unexpected serialiser {} from {}", ser_id, sender
                 );
             }
         }

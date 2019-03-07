@@ -139,17 +139,13 @@ impl Actor for DeadletterBox {
     fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
         info!(
             self.ctx.log(),
-            "DeadletterBox received {:?} from {}",
-            msg,
-            sender
+            "DeadletterBox received {:?} from {}", msg, sender
         );
     }
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) -> () {
         info!(
             self.ctx.log(),
-            "DeadletterBox received buffer with id {:?} from {}",
-            ser_id,
-            sender
+            "DeadletterBox received buffer with id {:?} from {}", ser_id, sender
         );
     }
 }
@@ -182,17 +178,13 @@ impl Actor for LocalDispatcher {
     fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
         info!(
             self.ctx.log(),
-            "LocalDispatcher received {:?} from {:?}",
-            msg,
-            sender
+            "LocalDispatcher received {:?} from {:?}", msg, sender
         );
     }
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) -> () {
         info!(
             self.ctx.log(),
-            "LocalDispatcher received buffer with id {:?} from {:?}",
-            ser_id,
-            sender
+            "LocalDispatcher received buffer with id {:?} from {:?}", ser_id, sender
         );
     }
 }

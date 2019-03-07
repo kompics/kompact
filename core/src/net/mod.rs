@@ -190,7 +190,8 @@ impl Bridge {
                                     ConnectionState::Error(err),
                                 ));
                             }
-                        }).and_then(move |tcp_stream| {
+                        })
+                        .and_then(move |tcp_stream| {
                             let peer_addr = tcp_stream
                                 .peer_addr()
                                 .expect("stream must have a peer address");
@@ -242,7 +243,8 @@ fn start_tcp_server(
         .map_err(move |e| {
             error!(err_log, "err listening on TCP socket");
             err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(e)));
-        }).for_each(move |tcp_stream| {
+        })
+        .for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
             let lookup = lookup.clone();
             let peer_addr = tcp_stream
@@ -295,7 +297,8 @@ fn start_network_thread(
 
             let _res = tx.send(executor);
             runtime.shutdown_on_idle().wait().unwrap();
-        }).expect("TCP serve thread spawning should not fail");
+        })
+        .expect("TCP serve thread spawning should not fail");
     let executor = rx
         .wait()
         .expect("could not receive executor clone; did network thread panic?");
@@ -327,12 +330,11 @@ fn handle_tcp(
                 Frame::StreamRequest(_) => None,
                 Frame::CreditUpdate(_) => None,
                 Frame::Data(fr) => {
-
                     // TODO Assert expected from stream & conn?
                     let _seq_num = fr.seq_num;
                     let lookup = actor_lookup.get();
 
-                    let (actor, envelope ) = {
+                    let (actor, envelope) = {
                         use bytes::IntoBuf;
                         use dispatch::lookup::ActorLookup;
 
@@ -342,8 +344,11 @@ fn handle_tcp(
                         let envelope = deserialise_msg(buf).expect("s11n errors");
                         let actor_ref = match lookup.get_by_actor_path(envelope.dst()) {
                             None => {
-                                panic!("Could not find actor reference for destination: {:?}", envelope.dst());
-                            },
+                                panic!(
+                                    "Could not find actor reference for destination: {:?}",
+                                    envelope.dst()
+                                );
+                            }
                             Some(actor) => actor,
                         };
 
@@ -353,25 +358,18 @@ fn handle_tcp(
                     actor.enqueue(MsgEnvelope::Receive(envelope));
                     None
                 }
-                Frame::Ping(s, id) => {
-                    Some(Frame::Pong(s, id))
-                }
+                Frame::Ping(s, id) => Some(Frame::Pong(s, id)),
                 Frame::Pong(_, _) => None,
-                Frame::Unknown => {
-                    None
-                }
+                Frame::Unknown => None,
             }
         })
         .select(
             // Combine above stream with RX side of MPSC channel
-            rx
-                .map_err(|_err| {
-                    println!("ERROR receiving MPSC");
-                    () // TODO err
-                })
-                .map(|frame: Frame| {
-                    Some(frame)
-                })
+            rx.map_err(|_err| {
+                println!("ERROR receiving MPSC");
+                () // TODO err
+            })
+            .map(|frame: Frame| Some(frame)),
         )
         // Forward the combined streams to the frame writer
         .forward(frame_writer)

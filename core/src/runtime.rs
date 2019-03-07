@@ -75,7 +75,9 @@ pub struct KompicsConfig {
 
 impl Debug for KompicsConfig {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "KompicsConfig{{
+        write!(
+            f,
+            "KompicsConfig{{
             label={},
             throughput={},
             msg_priority={},
@@ -84,8 +86,9 @@ impl Debug for KompicsConfig {
             scheduler_builder=<function>,
             sc_builder=<function>,
             root_logger={:?}
-        }}", 
-            self.label, self.throughput, self.msg_priority, self.threads, self.root_logger)
+        }}",
+            self.label, self.throughput, self.msg_priority, self.threads, self.root_logger
+        )
     }
 }
 
@@ -573,8 +576,7 @@ impl KompicsRuntime {
     ) -> Future<Result<(), RegistrationError>> {
         debug!(
             self.logger(),
-            "Requesting actor registration for {:?}",
-            alias
+            "Requesting actor registration for {:?}", alias
         );
         let path = PathResolvable::Alias(alias);
         self.register_by_path(actor_ref, path)

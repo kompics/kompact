@@ -273,15 +273,21 @@ impl QuadWheelWithOverflow {
                 let current2 = self.tertiary.tick(&mut move2);
                 for we in move2.drain(..) {
                     match we.rest {
-                        [0, 0] => if let Some(e) = self.take_timer(we.entry) {
-                            res.push(e)
-                        },
-                        [0, b0] => if self.is_alive(&we.entry) {
-                            self.primary.insert(b0, we.entry, []);
-                        },
-                        [b1, b0] => if self.is_alive(&we.entry) {
-                            self.secondary.insert(b1, we.entry, [b0]);
-                        },
+                        [0, 0] => {
+                            if let Some(e) = self.take_timer(we.entry) {
+                                res.push(e)
+                            }
+                        }
+                        [0, b0] => {
+                            if self.is_alive(&we.entry) {
+                                self.primary.insert(b0, we.entry, []);
+                            }
+                        }
+                        [b1, b0] => {
+                            if self.is_alive(&we.entry) {
+                                self.secondary.insert(b1, we.entry, [b0]);
+                            }
+                        }
                     }
                 }
                 if current2 == 0u8 {
@@ -290,18 +296,26 @@ impl QuadWheelWithOverflow {
                     let current3 = self.quarternary.tick(&mut move3);
                     for we in move3.drain(..) {
                         match we.rest {
-                            [0, 0, 0] => if let Some(e) = self.take_timer(we.entry) {
-                                res.push(e)
-                            },
-                            [0, 0, b0] => if self.is_alive(&we.entry) {
-                                self.primary.insert(b0, we.entry, []);
-                            },
-                            [0, b1, b0] => if self.is_alive(&we.entry) {
-                                self.secondary.insert(b1, we.entry, [b0]);
-                            },
-                            [b2, b1, b0] => if self.is_alive(&we.entry) {
-                                self.tertiary.insert(b2, we.entry, [b1, b0]);
-                            },
+                            [0, 0, 0] => {
+                                if let Some(e) = self.take_timer(we.entry) {
+                                    res.push(e)
+                                }
+                            }
+                            [0, 0, b0] => {
+                                if self.is_alive(&we.entry) {
+                                    self.primary.insert(b0, we.entry, []);
+                                }
+                            }
+                            [0, b1, b0] => {
+                                if self.is_alive(&we.entry) {
+                                    self.secondary.insert(b1, we.entry, [b0]);
+                                }
+                            }
+                            [b2, b1, b0] => {
+                                if self.is_alive(&we.entry) {
+                                    self.tertiary.insert(b2, we.entry, [b1, b0]);
+                                }
+                            }
                         }
                     }
                     if current3 == 0u8 {
@@ -417,7 +431,8 @@ mod tests {
                 id,
                 timeout: Duration::from_millis(1),
                 action: Box::new(|id| println!("{:?}", id)),
-            }).expect("Could not insert timer entry!");
+            })
+            .expect("Could not insert timer entry!");
         let res = timer.tick();
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].id(), id);
@@ -432,7 +447,8 @@ mod tests {
                 id,
                 timeout: Duration::from_millis(1),
                 action: Box::new(|id| println!("{:?}", id)),
-            }).expect("Could not insert timer entry!");
+            })
+            .expect("Could not insert timer entry!");
         timer.cancel(id).expect("Entry could not be cancelled!");
         let res = timer.tick();
         assert_eq!(res.len(), 0);

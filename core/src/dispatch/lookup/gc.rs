@@ -123,7 +123,8 @@ impl UpdateStrategy {
         self.curr = match self.algo {
             AIMD => self.curr + self.incr,
             MIMD => self.curr * self.incr,
-        }.min(self.max);
+        }
+        .min(self.max);
         self.curr
     }
 
@@ -133,7 +134,8 @@ impl UpdateStrategy {
         use self::FeedbackAlgorithm::*;
         self.curr = match self.algo {
             AIMD | MIMD => self.curr / self.decr,
-        }.max(self.min);
+        }
+        .max(self.min);
         self.curr
     }
 }

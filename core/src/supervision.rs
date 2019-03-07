@@ -122,8 +122,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         if (count == 1) {
                             debug!(
                                 self.ctx.log(),
-                                "Component({}) was killed and deallocated.",
-                                id
+                                "Component({}) was killed and deallocated.", id
                             ); // probably^^
                         } else {
                             warn!(self.ctx.log(), "Component({}) was killed but there are still outstanding references preventing deallocation.", id);
@@ -147,8 +146,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
             SupervisorMsg::Faulty(id) => {
                 warn!(
                     self.ctx.log(),
-                    "Component({}) has been marked as faulty.",
-                    id
+                    "Component({}) has been marked as faulty.", id
                 );
                 // TODO recovery
             }
