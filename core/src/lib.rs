@@ -1,8 +1,6 @@
 #![allow(unused_parens)]
-#![feature(try_from)]
 #![feature(specialization)]
 #![feature(fnbox)]
-#![feature(duration_as_u128)]
 #![feature(drain_filter)]
 extern crate as_num;
 extern crate bitfields;
@@ -11,18 +9,16 @@ extern crate crossbeam;
 #[macro_use]
 extern crate crossbeam_channel;
 extern crate executors;
+extern crate kompact_actor_derive;
+extern crate kompact_component_derive;
 extern crate num_cpus;
 extern crate oncemutex;
 #[cfg(feature = "protobuf")]
 extern crate protobuf;
+extern crate sequence_trie as trie;
 #[cfg(feature = "serde")]
 extern crate serde;
 extern crate uuid;
-#[macro_use]
-extern crate kompact_component_derive;
-#[macro_use]
-extern crate kompact_actor_derive;
-extern crate sequence_trie as trie;
 #[macro_use]
 extern crate slog;
 extern crate futures;
@@ -57,7 +53,7 @@ pub mod default_components;
 mod dispatch;
 mod lifecycle;
 pub mod messaging;
-mod net;
+pub mod net;
 mod ports;
 mod runtime;
 mod serialisation;

@@ -9,7 +9,7 @@ mod defaults {
     pub const MIN_INTERVAL_MS: u64 = 20;
     pub const MAX_INTERVAL_MS: u64 = 5_000;
     pub const ADDITIVE_INCREASE: u64 = 500;
-    pub const MULTIPLICATIVE_DECREASE_NUM: u64 = 1;
+    //pub const MULTIPLICATIVE_DECREASE_NUM: u64 = 1;
     pub const MULTIPLICATIVE_DECREASE_DEN: u64 = 2;
     pub const ALGORITHM: FeedbackAlgorithm = super::FeedbackAlgorithm::AIMD;
 }

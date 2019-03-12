@@ -23,7 +23,7 @@ use tokio::runtime::TaskExecutor;
 use tokio_retry;
 use tokio_retry::strategy::ExponentialBackoff;
 
-use tokio::net::ConnectFuture;
+use tokio::net::tcp::ConnectFuture;
 use tokio_retry::Retry;
 use KompicsLogger;
 
@@ -64,7 +64,7 @@ pub mod events {
     }
 }
 
-struct BridgeConfig {
+pub struct BridgeConfig {
     retry_strategy: RetryStrategy,
 }
 
@@ -169,6 +169,7 @@ impl Bridge {
                     let err_events = events.clone();
                     let log = self.log.clone();
                     let err_log = log.clone();
+                    let err_log2 = log.clone();
 
                     let retry_strategy = match self.cfg.retry_strategy {
                         RetryStrategy::ExponentialBackoff { base_ms, num_tries } => {
@@ -188,7 +189,9 @@ impl Bridge {
                                 err_events.unbounded_send(NetworkEvent::Connection(
                                     addr,
                                     ConnectionState::Error(err),
-                                ));
+                                )).unwrap_or_else(|e| {
+                                    error!(err_log, "OperationError connecting to {:?} could not be sent: {:?}", addr, e);
+                                });
                             }
                         })
                         .and_then(move |tcp_stream| {
@@ -199,7 +202,9 @@ impl Bridge {
                             events.unbounded_send(NetworkEvent::Connection(
                                 peer_addr,
                                 ConnectionState::Connected(tx),
-                            ));
+                            )).unwrap_or_else(|e| {
+                                error!(err_log2,"Connected to {:?} could not be sent: {:?}", peer_addr, e);
+                            });
                             handle_tcp(tcp_stream, rx, events.clone(), log, lookup)
                         });
                     executor.spawn(connect_fut);
@@ -236,13 +241,21 @@ fn start_tcp_server(
     lookup: Arc<ArcCell<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     let err_log = log.clone();
+    let err_log2 = log.clone();
     let server = TcpListener::bind(&addr).expect("could not bind to address");
     let err_events = events.clone();
     let server = server
         .incoming()
         .map_err(move |e| {
             error!(err_log, "err listening on TCP socket");
-            err_events.unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(e)));
+            err_events
+                .unbounded_send(NetworkEvent::Connection(addr, ConnectionState::Error(e)))
+                .unwrap_or_else(|e| {
+                    error!(
+                        err_log,
+                        "Connection error to {:?} could not be sent: {:?}", addr, e
+                    );
+                });
         })
         .for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
@@ -258,10 +271,17 @@ fn start_tcp_server(
                 log.clone(),
                 lookup,
             ));
-            events.unbounded_send(NetworkEvent::Connection(
-                peer_addr,
-                ConnectionState::Connected(tx),
-            ));
+            events
+                .unbounded_send(NetworkEvent::Connection(
+                    peer_addr,
+                    ConnectionState::Connected(tx),
+                ))
+                .unwrap_or_else(|e| {
+                    error!(
+                        err_log2,
+                        "Connected to {:?} could not be sent: {:?}", peer_addr, e
+                    );
+                });
             Ok(())
         });
     server

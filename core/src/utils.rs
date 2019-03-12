@@ -65,6 +65,6 @@ impl<T: Send + Sized> Promise<T> {
         self.result_channel
             .send(t)
             // ISSUE #12: Explicitly swallow errors
-            .map_err(|_| ());
+            .unwrap_or_else(|_| ());
     }
 }

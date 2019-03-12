@@ -28,12 +28,13 @@ impl ListenEvent {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum SupervisorMsg {
     Started(Arc<CoreContainer>),
     Stopped(Uuid),
     Killed(Uuid),
-    Faulty(Uuid),
+    Faulty(Uuid), // TODO implement fault handling!
     Listen(Arc<Mutex<Promise<()>>>, ListenEvent),
 }
 

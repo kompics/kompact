@@ -9,7 +9,7 @@ use std::any::Any;
 use utils;
 use uuid::Uuid;
 
-pub(crate) mod framing;
+pub mod framing;
 
 #[derive(Debug)]
 pub enum MsgEnvelope {

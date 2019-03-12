@@ -38,8 +38,8 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::time::Duration;
 
-pub(crate) mod lookup;
-mod queue_manager;
+pub mod lookup;
+pub mod queue_manager;
 
 /// Configuration for network dispatcher
 #[derive(Clone)]
