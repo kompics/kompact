@@ -7,8 +7,8 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::*;
-use messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope};
-use supervision::*;
+use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope};
+use crate::supervision::*;
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;

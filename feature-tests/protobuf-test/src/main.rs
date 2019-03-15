@@ -35,7 +35,7 @@ mod tests {
             let ex1 = ex.clone();
             let mut mbuf = BytesMut::with_capacity(64);
             just_serialise((ex, ProtobufSer {}), &mut mbuf);
-            let mut buf = mbuf.into_buf();
+            let buf = mbuf.into_buf();
             let ds = ProtobufDeser {
                 msg: SearchRequest::new(),
                 buf: buf,
@@ -49,7 +49,7 @@ mod tests {
             let ex1 = ex.clone();
             let mut mbuf = BytesMut::with_capacity(64);
             just_serialise((ex, ProtobufSer {}), &mut mbuf);
-            let mut buf = mbuf.into_buf();
+            let buf = mbuf.into_buf();
             let ds = ProtobufDeser {
                 msg: SearchResponse::new(),
                 buf: buf,
@@ -63,15 +63,15 @@ mod tests {
     #[should_panic]
     fn ser_wrong_deser() {
         let ex = SearchRequest::new();
-        let ex1 = ex.clone();
+        let _ex1 = ex.clone();
         let mut mbuf = BytesMut::with_capacity(64);
         just_serialise((ex, ProtobufSer {}), &mut mbuf);
-        let mut buf = mbuf.into_buf();
+        let buf = mbuf.into_buf();
         let ds = ProtobufDeser {
             msg: SearchResponse::new(),
             buf: buf,
         }; //(ex2, buf.into_buf());
-        let ex3: SearchResponse = ds.get_deserialised().expect("Did not deserialise");
+        let _ex3: SearchResponse = ds.get_deserialised().expect("Did not deserialise");
         // this should fail!
         unreachable!();
     }

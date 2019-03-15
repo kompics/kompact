@@ -6,11 +6,11 @@
 //!     3. Thread-local caching backed by a slower lookup method (like Arc<Mutex<...>>)
 //!     4. Broadcast to _all_ listeners, ensuring that the route/lookup exists in at least one of them.
 
-use actors::ActorPath;
-use actors::ActorRef;
-use messaging::PathResolvable;
+use crate::actors::ActorPath;
+use crate::actors::ActorRef;
+use crate::messaging::PathResolvable;
 use std::collections::HashMap;
-use trie::SequenceTrie;
+use crate::trie::SequenceTrie;
 use uuid::Uuid;
 
 pub mod gc;

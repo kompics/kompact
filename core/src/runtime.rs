@@ -1,8 +1,8 @@
 use super::*;
 
 use executors::*;
-use messaging::RegistrationError;
-use messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope};
+use crate::messaging::RegistrationError;
+use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::clone::Clone;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::sync::{Once, ONCE_INIT};
-use supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
+use crate::supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -445,7 +445,7 @@ pub trait SystemComponents: Send + Sync {
     fn deadletter_ref(&self) -> ActorRef;
     fn dispatcher_ref(&self) -> ActorRef;
     fn system_path(&self) -> SystemPath;
-    fn start(&self, &KompicsSystem) -> ();
+    fn start(&self, _: &KompicsSystem) -> ();
 }
 
 pub trait TimerComponent: TimerRefFactory + Send + Sync {

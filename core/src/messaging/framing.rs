@@ -1,12 +1,12 @@
 //! Message framing (serialization and deserialization into and from byte buffers)
 
-use actors::ActorPath;
-use actors::SystemPath;
-use actors::Transport;
+use crate::actors::ActorPath;
+use crate::actors::SystemPath;
+use crate::actors::Transport;
 use bitfields::BitField;
 use bytes::BufMut;
-use serialisation::SerError;
-use serialisation::Serialisable;
+use crate::serialisation::SerError;
+use crate::serialisation::Serialisable;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::net::IpAddr;
@@ -141,7 +141,7 @@ pub struct SystemPathHeader {
 
 impl SystemPathHeader {
     pub fn from_path(sys: &ActorPath) -> Self {
-        use actors::SystemField;
+        use crate::actors::SystemField;
         use bitfields::BitFieldExt;
 
         let path_type = match sys {
@@ -287,7 +287,7 @@ impl Serialisable for ActorPath {
     // Returns the total size for this actor path, including system path information.
     // Returns `None` if `ActorPath::Named` and the name overflows the designated 2 bytes.
     fn size_hint(&self) -> Option<usize> {
-        use actors::SystemField;
+        use crate::actors::SystemField;
 
         let mut size: usize = 0;
         size += 1; // System path header byte
@@ -319,7 +319,7 @@ impl Serialisable for ActorPath {
     ///
     /// See `deserialise_msg` in kompics::serialisation for matching deserialisation.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
-        use actors::SystemField;
+        use crate::actors::SystemField;
 
         // System Path
         let header = SystemPathHeader::from_path(&self);
@@ -374,10 +374,10 @@ mod serialisation {
     #[test]
     fn system_path_header() {
         use super::{PathType, SystemPathHeader};
-        use actors::Transport;
-        use actors::{ActorPath, NamedPath, SystemPath};
+        use crate::actors::Transport;
+        use crate::actors::{ActorPath, NamedPath, SystemPath};
         use bytes::{Buf, IntoBuf};
-        use messaging::framing::AddressType;
+        use crate::messaging::framing::AddressType;
         use std::convert::TryFrom;
 
         let system_path = SystemPath::new(Transport::TCP, "127.0.0.1".parse().unwrap(), 8080_u16);
@@ -389,9 +389,9 @@ mod serialisation {
         let mut buf = BytesMut::with_capacity(1);
         Serialisable::serialise(&header, &mut buf).unwrap();
 
-        let path_type = PathType::Named as u8;
-        let protocol = Transport::TCP as u8;
-        let address_type = AddressType::IPv4 as u8;
+        let _path_type = PathType::Named as u8;
+        let _protocol = Transport::TCP as u8;
+        let _address_type = AddressType::IPv4 as u8;
 
         let mut buf = buf.freeze().into_buf();
         let actual = buf.get_u8();

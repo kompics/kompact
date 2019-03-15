@@ -1,6 +1,6 @@
 use futures::sync;
-use net::ConnectionState;
-use spnl::frames::Frame;
+use crate::net::ConnectionState;
+use crate::spnl::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;

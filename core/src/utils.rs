@@ -46,7 +46,7 @@ pub struct Future<T: Send + Sized> {
 }
 
 impl<T: Send + Sized> Future<T> {
-    pub fn await(self) -> T {
+    pub fn r#await(self) -> T {
         self.result_channel.recv().unwrap()
     }
     pub fn await_timeout(self, timeout: Duration) -> Result<T, Future<T>> {

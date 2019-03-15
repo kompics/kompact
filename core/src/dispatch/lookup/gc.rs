@@ -1,5 +1,5 @@
 use crossbeam::sync::ArcCell;
-use dispatch::lookup::ActorLookup;
+use crate::dispatch::lookup::ActorLookup;
 use std::sync::Arc;
 
 mod defaults {

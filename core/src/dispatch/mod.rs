@@ -1,39 +1,39 @@
 use super::ComponentDefinition;
 
-use actors::Actor;
-use actors::ActorPath;
-use actors::ActorRef;
-use actors::Dispatcher;
-use actors::SystemPath;
-use actors::Transport;
+use crate::actors::Actor;
+use crate::actors::ActorPath;
+use crate::actors::ActorRef;
+use crate::actors::Dispatcher;
+use crate::actors::SystemPath;
+use crate::actors::Transport;
 use bytes::Buf;
-use component::Component;
-use component::ComponentContext;
-use component::ExecuteResult;
-use component::Provide;
-use lifecycle::ControlEvent;
-use lifecycle::ControlPort;
+use crate::component::Component;
+use crate::component::ComponentContext;
+use crate::component::ExecuteResult;
+use crate::component::Provide;
+use crate::lifecycle::ControlEvent;
+use crate::lifecycle::ControlPort;
 use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use actors::NamedPath;
-use actors::UniquePath;
+use crate::actors::NamedPath;
+use crate::actors::UniquePath;
 use crossbeam::sync::ArcCell;
-use dispatch::lookup::ActorStore;
-use dispatch::queue_manager::QueueManager;
+use crate::dispatch::lookup::ActorStore;
+use crate::dispatch::queue_manager::QueueManager;
 use futures::Async;
 use futures::AsyncSink;
 use futures::{self, Poll, StartSend};
-use messaging::PathResolvable;
-use messaging::RegistrationError;
-use messaging::{DispatchEnvelope, EventEnvelope, MsgEnvelope, RegistrationEnvelope};
-use net;
-use net::events::NetworkEvent;
-use net::ConnectionState;
-use serialisation::helpers::serialise_msg;
-use serialisation::helpers::serialise_to_recv_envelope;
-use serialisation::Serialisable;
+use crate::messaging::PathResolvable;
+use crate::messaging::RegistrationError;
+use crate::messaging::{DispatchEnvelope, EventEnvelope, MsgEnvelope, RegistrationEnvelope};
+use crate::net;
+use crate::net::events::NetworkEvent;
+use crate::net::ConnectionState;
+use crate::serialisation::helpers::serialise_msg;
+use crate::serialisation::helpers::serialise_to_recv_envelope;
+use crate::serialisation::Serialisable;
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::time::Duration;
@@ -104,7 +104,7 @@ impl NetworkDispatcher {
     fn start(&mut self) {
         debug!(self.ctx.log(), "Starting self and network bridge");
         let dispatcher = {
-            use actors::ActorRefFactory;
+            use crate::actors::ActorRefFactory;
             self.actor_ref()
         };
 
@@ -135,7 +135,7 @@ impl NetworkDispatcher {
     }
 
     fn schedule_reaper(&mut self) {
-        use timer_manager::Timer;
+        use crate::timer_manager::Timer;
 
         if !self.reaper.is_scheduled() {
             // First time running; mark as scheduled and jump straight to scheduling
@@ -226,7 +226,7 @@ impl NetworkDispatcher {
     /// # Errors
     /// TODO handle unknown destination actor
     fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        use dispatch::lookup::ActorLookup;
+        use crate::dispatch::lookup::ActorLookup;
         let lookup = self.lookup.get();
         let actor = lookup.get_by_actor_path(&dst);
         if let Some(ref actor) = actor {
@@ -255,8 +255,8 @@ impl NetworkDispatcher {
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
     fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        use actors::SystemField;
-        use spnl::frames::*;
+        use crate::actors::SystemField;
+        use crate::spnl::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
@@ -338,7 +338,7 @@ impl NetworkDispatcher {
         };
 
         let proto = {
-            use actors::SystemField;
+            use crate::actors::SystemField;
             let dst_sys = dst_path.system();
             SystemField::protocol(dst_sys)
         };
@@ -391,7 +391,7 @@ impl Dispatcher for NetworkDispatcher {
                 self.route(src, dst, msg);
             }
             DispatchEnvelope::Registration(reg) => {
-                use dispatch::lookup::ActorLookup;
+                use crate::dispatch::lookup::ActorLookup;
 
                 match reg {
                     RegistrationEnvelope::Register(actor, path, mut promise) => {
@@ -466,22 +466,22 @@ mod dispatch_tests {
     use super::super::*;
     use super::*;
 
-    use actors::ActorPath;
-    use actors::UniquePath;
+    use crate::actors::ActorPath;
+    use crate::actors::UniquePath;
     use bytes::{Buf, BufMut};
-    use component::ComponentContext;
-    use component::Provide;
-    use default_components::DeadletterBox;
-    use lifecycle::ControlEvent;
-    use lifecycle::ControlPort;
-    use runtime::KompicsConfig;
-    use runtime::KompicsSystem;
+    use crate::component::ComponentContext;
+    use crate::component::Provide;
+    use crate::default_components::DeadletterBox;
+    use crate::lifecycle::ControlEvent;
+    use crate::lifecycle::ControlPort;
+    use crate::runtime::KompicsConfig;
+    use crate::runtime::KompicsSystem;
     use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
     use std::thread;
     use std::time::Duration;
 
     // Thread-safe TCP port incrementer to enable parallel network tests
-    static GLOBAL_PORT_INCR: AtomicUsize = ATOMIC_USIZE_INIT;
+    static GLOBAL_PORT_INCR: AtomicUsize = AtomicUsize::new(0);
     const BASE_PORT: u16 = 8080;
 
     fn tcp_listening_port() -> u16 {

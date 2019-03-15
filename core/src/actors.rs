@@ -10,11 +10,11 @@ use std::sync::Weak;
 use uuid::Uuid;
 
 use super::*;
-use messaging::CastEnvelope;
-use messaging::DispatchEnvelope;
-use messaging::MsgEnvelope;
-use messaging::PathResolvable;
-use messaging::ReceiveEnvelope;
+use crate::messaging::CastEnvelope;
+use crate::messaging::DispatchEnvelope;
+use crate::messaging::MsgEnvelope;
+use crate::messaging::PathResolvable;
+use crate::messaging::ReceiveEnvelope;
 use std::sync::Arc;
 
 pub trait ActorRaw: ExecuteSend {

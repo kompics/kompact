@@ -1,12 +1,12 @@
-use actors::ActorPath;
-use actors::NamedPath;
-use actors::SystemPath;
-use actors::UniquePath;
+use crate::actors::ActorPath;
+use crate::actors::NamedPath;
+use crate::actors::SystemPath;
+use crate::actors::UniquePath;
 use bytes::{Buf, Bytes, BytesMut};
-use messaging::MsgEnvelope;
-use messaging::ReceiveEnvelope;
-use serialisation::SerError;
-use serialisation::Serialisable;
+use crate::messaging::MsgEnvelope;
+use crate::messaging::ReceiveEnvelope;
+use crate::serialisation::SerError;
+use crate::serialisation::Serialisable;
 use uuid::Uuid;
 
 /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
@@ -94,7 +94,7 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<ReceiveEnvelope, SerErro
 
 /// Deserializes data in the buffer according to the ActorPath strucutre in the [framing] module.
 fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError> {
-    use messaging::framing::{AddressType, PathType, SystemPathHeader};
+    use crate::messaging::framing::{AddressType, PathType, SystemPathHeader};
     use std::convert::TryFrom;
     use std::net::IpAddr;
 
@@ -184,14 +184,14 @@ fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError
 #[cfg(test)]
 mod helper_tests {
     use super::Serialisable;
-    use actors::ActorPath;
-    use actors::SystemField;
-    use actors::SystemPath;
-    use actors::Transport;
-    use actors::UniquePath;
+    use crate::actors::ActorPath;
+    use crate::actors::SystemField;
+    use crate::actors::SystemPath;
+    use crate::actors::Transport;
+    use crate::actors::UniquePath;
     use bytes::BytesMut;
     use bytes::{BufMut, IntoBuf};
-    use serialisation::helpers::deserialise_actor_path;
+    use crate::serialisation::helpers::deserialise_actor_path;
     use std::net::IpAddr;
     use uuid::Uuid;
     use uuid::UuidVersion;

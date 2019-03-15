@@ -1,17 +1,17 @@
-use actors::ActorRef;
-use actors::Transport;
+use crate::actors::ActorRef;
+use crate::actors::Transport;
 use crossbeam::sync::ArcCell;
-use dispatch::lookup::ActorStore;
+use crate::dispatch::lookup::ActorStore;
 use futures;
 use futures::sync;
 use futures::Future;
 use futures::Stream;
-use messaging::MsgEnvelope;
-use net::events::NetworkError;
-use net::events::NetworkEvent;
-use serialisation::helpers::deserialise_msg;
-use spnl::codec::FrameCodec;
-use spnl::frames::Frame;
+use crate::messaging::MsgEnvelope;
+use crate::net::events::NetworkError;
+use crate::net::events::NetworkEvent;
+use crate::serialisation::helpers::deserialise_msg;
+use crate::spnl::codec::FrameCodec;
+use crate::spnl::frames::Frame;
 use std;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ use tokio_retry::strategy::ExponentialBackoff;
 
 use tokio::net::tcp::ConnectFuture;
 use tokio_retry::Retry;
-use KompicsLogger;
+use crate::KompicsLogger;
 
 #[derive(Debug)]
 pub enum ConnectionState {
@@ -40,7 +40,7 @@ pub mod events {
     use std;
 
     use super::ConnectionState;
-    use spnl::frames::Frame;
+    use crate::spnl::frames::Frame;
     use std::net::SocketAddr;
 
     /// Network events emitted by the network `Bridge`
@@ -356,7 +356,7 @@ fn handle_tcp(
 
                     let (actor, envelope) = {
                         use bytes::IntoBuf;
-                        use dispatch::lookup::ActorLookup;
+                        use crate::dispatch::lookup::ActorLookup;
 
                         // Consume payload
                         let buf = fr.payload();

@@ -1,12 +1,12 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
-use actors::ActorPath;
-use actors::ActorRef;
+use crate::actors::ActorPath;
+use crate::actors::ActorRef;
 use bytes::Bytes;
-use net::events::NetworkEvent;
-use serialisation::Serialisable;
+use crate::net::events::NetworkEvent;
+use crate::serialisation::Serialisable;
 use std::any::Any;
-use utils;
+use crate::utils;
 use uuid::Uuid;
 
 pub mod framing;

@@ -1,6 +1,6 @@
 use super::*;
 use bytes::Buf;
-use messaging::DispatchEnvelope;
+use crate::messaging::DispatchEnvelope;
 use std::any::Any;
 use std::sync::Arc;
 

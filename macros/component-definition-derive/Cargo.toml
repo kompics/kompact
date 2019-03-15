@@ -2,6 +2,7 @@
 name = "kompact-component-derive"
 version = "0.4.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
+edition = "2018"
 
 description = "A derive macro for Kompact component definitions."
 

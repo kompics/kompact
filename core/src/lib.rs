@@ -65,21 +65,21 @@ mod utils;
 pub mod prelude {
     pub use bytes::{Buf, BufMut, IntoBuf};
 
-    pub use actors::{Actor, ActorPath, ActorRef, NamedPath, UniquePath};
-    pub use component::{
+    pub use crate::actors::{Actor, ActorPath, ActorRef, NamedPath, UniquePath};
+    pub use crate::component::{
         Component, ComponentContext, ComponentDefinition, CoreContainer, ExecuteResult,
     };
-    pub use component::{Provide, Require};
-    pub use lifecycle::{ControlEvent, ControlPort};
-    pub use runtime::{KompicsConfig, KompicsSystem};
-    pub use Any;
+    pub use crate::component::{Provide, Require};
+    pub use crate::lifecycle::{ControlEvent, ControlPort};
+    pub use crate::runtime::{KompicsConfig, KompicsSystem};
+    pub use crate::Any;
 
-    pub use default_components::{CustomComponents, DeadletterBox};
-    pub use dispatch::{NetworkConfig, NetworkDispatcher};
-    pub use messaging::{
+    pub use crate::default_components::{CustomComponents, DeadletterBox};
+    pub use crate::dispatch::{NetworkConfig, NetworkDispatcher};
+    pub use crate::messaging::{
         DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope, RegistrationError,
     };
-    pub use serialisation::{Deserialisable, Deserialiser, SerError, Serialisable, Serialiser};
+    pub use crate::serialisation::{Deserialisable, Deserialiser, SerError, Serialisable, Serialiser};
 }
 
 pub type KompicsLogger = Logger<std::sync::Arc<Fuse<Async>>>;
