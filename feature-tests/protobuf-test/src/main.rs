@@ -1,7 +1,7 @@
 #![allow(unused_parens)]
-extern crate bytes;
-extern crate kompact;
-extern crate protobuf;
+
+
+
 //#[macro_use]
 //extern crate component_definition_derive;
 

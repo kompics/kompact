@@ -1,7 +1,7 @@
 #![allow(unused_parens)]
-extern crate kompact;
-extern crate synchronoise;
-extern crate time;
+
+
+use time;
 
 use kompact::*;
 use std::sync::Arc;

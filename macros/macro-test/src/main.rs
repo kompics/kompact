@@ -1,5 +1,5 @@
 #![allow(unused_parens)]
-extern crate kompact;
+
 //#[macro_use]
 //extern crate component_definition_derive;
 
