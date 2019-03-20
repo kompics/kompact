@@ -1,4 +1,3 @@
-use std::boxed::FnBox;
 use std::fmt;
 use std::io;
 use std::thread;
@@ -33,7 +32,7 @@ pub enum TimerEntry {
     OneShot {
         id: Uuid,
         timeout: Duration,
-        action: Box<FnBox(Uuid) + Send + 'static>,
+        action: Box<dyn FnOnce(Uuid) + Send + 'static>,
     },
     Periodic {
         id: Uuid,
@@ -93,8 +92,7 @@ impl TimerEntry {
     pub fn execute(self) -> Option<TimerEntry> {
         match self {
             TimerEntry::OneShot { id, action, .. } => {
-                //FnOnceBox::call_box(action, id);
-                action.call_box((id,));
+                action(id,);
                 None
             }
             TimerEntry::Periodic {

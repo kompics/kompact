@@ -266,7 +266,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                     let c = guard.deref_mut();
                     match c.ctx_mut().timer_manager_mut().try_action() {
                         ExecuteAction::Once(id, action) => {
-                            action.call_box((c, id));
+                            action(c, id);
                             count += 1;
                         }
                         ExecuteAction::Periodic(id, action) => {

@@ -1,6 +1,6 @@
 #![allow(unused_parens)]
 #![feature(specialization)]
-#![feature(fnbox)]
+#![feature(unsized_locals)]
 #![feature(drain_filter)]
 extern crate as_num;
 extern crate bitfields;

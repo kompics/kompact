@@ -1,5 +1,4 @@
 use crossbeam::sync::MsQueue;
-use std::boxed::FnBox;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
@@ -45,7 +44,7 @@ pub(crate) struct Timeout(Uuid);
 pub(crate) enum ExecuteAction<C: ComponentDefinition> {
     None,
     Periodic(Uuid, Rc<Fn(&mut C, Uuid)>),
-    Once(Uuid, Box<FnBox(&mut C, Uuid)>),
+    Once(Uuid, Box<dyn FnOnce(&mut C, Uuid)>),
 }
 
 pub(crate) struct TimerManager<C: ComponentDefinition> {
@@ -144,7 +143,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
 pub(crate) enum TimerHandle<C: ComponentDefinition> {
     OneShot {
         _id: Uuid, // not used atm
-        action: Box<FnBox(&mut C, Uuid) + Send + 'static>,
+        action: Box<dyn FnOnce(&mut C, Uuid) + Send + 'static>,
     },
     Periodic {
         _id: Uuid, // not used atm
