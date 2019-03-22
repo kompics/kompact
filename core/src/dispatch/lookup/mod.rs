@@ -9,8 +9,8 @@
 use crate::actors::ActorPath;
 use crate::actors::ActorRef;
 use crate::messaging::PathResolvable;
+use sequence_trie::SequenceTrie;
 use std::collections::HashMap;
-use crate::trie::SequenceTrie;
 use uuid::Uuid;
 
 pub mod gc;

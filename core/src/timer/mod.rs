@@ -92,7 +92,7 @@ impl TimerEntry {
     pub fn execute(self) -> Option<TimerEntry> {
         match self {
             TimerEntry::OneShot { id, action, .. } => {
-                action(id,);
+                action(id);
                 None
             }
             TimerEntry::Periodic {

@@ -1,6 +1,5 @@
 #![allow(unused_parens)]
 
-
 use time;
 
 use kompact::*;

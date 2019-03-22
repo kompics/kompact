@@ -2,31 +2,31 @@
 #![feature(specialization)]
 #![feature(unsized_locals)]
 #![feature(drain_filter)]
-extern crate as_num;
-extern crate bitfields;
-extern crate bytes;
-extern crate crossbeam;
-#[macro_use]
-extern crate crossbeam_channel;
-extern crate executors;
-extern crate kompact_actor_derive;
-extern crate kompact_component_derive;
-extern crate num_cpus;
-extern crate oncemutex;
-#[cfg(feature = "protobuf")]
-extern crate protobuf;
-extern crate sequence_trie as trie;
-#[cfg(feature = "serde")]
-extern crate serde;
-extern crate uuid;
-#[macro_use]
-extern crate slog;
-extern crate futures;
-extern crate slog_async;
-extern crate slog_term;
-extern crate spaniel as spnl;
-extern crate tokio;
-extern crate tokio_retry;
+// extern crate as_num;
+// extern crate bitfields;
+// extern crate bytes;
+// extern crate crossbeam;
+// #[macro_use]
+// extern crate crossbeam_channel;
+// extern crate executors;
+// extern crate kompact_actor_derive;
+// extern crate kompact_component_derive;
+// extern crate num_cpus;
+// extern crate oncemutex;
+// #[cfg(feature = "protobuf")]
+// extern crate protobuf;
+// extern crate sequence_trie as trie;
+// #[cfg(feature = "serde")]
+// extern crate serde;
+// extern crate uuid;
+// #[macro_use]
+// extern crate slog;
+// extern crate futures;
+// extern crate slog_async;
+// extern crate slog_term;
+// extern crate spaniel as spnl;
+// extern crate tokio;
+// extern crate tokio_retry;
 
 pub use self::actors::*;
 pub use self::component::*;
@@ -39,10 +39,10 @@ pub use self::serialisation::*;
 pub use self::timer_manager::*;
 pub use self::utils::*;
 pub use bytes::Buf;
-pub use crossbeam::sync::SegQueue as ConcurrentQueue;
+pub use crossbeam_queue::SegQueue as ConcurrentQueue;
 pub use kompact_actor_derive::*;
 pub use kompact_component_derive::*;
-pub use slog::{Drain, Fuse, Logger};
+pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
 pub use slog_async::Async;
 pub use std::any::Any;
 pub use std::convert::{From, Into};
@@ -79,7 +79,9 @@ pub mod prelude {
     pub use crate::messaging::{
         DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope, RegistrationError,
     };
-    pub use crate::serialisation::{Deserialisable, Deserialiser, SerError, Serialisable, Serialiser};
+    pub use crate::serialisation::{
+        Deserialisable, Deserialiser, SerError, Serialisable, Serialiser,
+    };
 }
 
 pub type KompicsLogger = Logger<std::sync::Arc<Fuse<Async>>>;
@@ -340,7 +342,7 @@ mod tests {
     #[test]
     fn test_start_stop() -> () {
         let system = KompicsSystem::default();
-        let cc = system.create_and_register(CounterComponent::new);
+        let (cc, _) = system.create_and_register(CounterComponent::new);
         let ccref = cc.actor_ref();
 
         ccref.tell(Box::new(String::from("MsgTest")), &system);

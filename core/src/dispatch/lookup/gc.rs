@@ -1,5 +1,5 @@
-use crossbeam::sync::ArcCell;
 use crate::dispatch::lookup::ActorLookup;
+use arc_swap::ArcSwap;
 use std::sync::Arc;
 
 mod defaults {
@@ -68,11 +68,13 @@ impl ActorRefReaper {
 
     /// Walks through all stored [ActorRef] entries and removes
     /// the ones which have been deallocated, returning the # of removed instances.
-    pub fn run<T: ActorLookup>(&self, table: &Arc<ArcCell<T>>) -> usize {
-        let new_table = table.get();
-        let mut new_table = (*new_table).clone();
-        let removed = new_table.cleanup();
-        table.set(Arc::new(new_table));
+    pub fn run<T: ActorLookup>(&self, table: &ArcSwap<T>) -> usize {
+        let mut removed = 0;
+        table.rcu(|current| {
+            let mut next = (*current).clone();
+            removed = next.cleanup();
+            Arc::new(next)
+        });
         removed
     }
 

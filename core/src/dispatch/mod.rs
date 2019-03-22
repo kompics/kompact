@@ -1,39 +1,38 @@
-use super::ComponentDefinition;
+use super::*;
 
-use crate::actors::Actor;
-use crate::actors::ActorPath;
-use crate::actors::ActorRef;
-use crate::actors::Dispatcher;
-use crate::actors::SystemPath;
-use crate::actors::Transport;
+use actors::Actor;
+use actors::ActorPath;
+use actors::ActorRef;
+use actors::Dispatcher;
+use actors::SystemPath;
+use actors::Transport;
 use bytes::Buf;
-use crate::component::Component;
-use crate::component::ComponentContext;
-use crate::component::ExecuteResult;
-use crate::component::Provide;
-use crate::lifecycle::ControlEvent;
-use crate::lifecycle::ControlPort;
+use component::Component;
+use component::ComponentContext;
+use component::ExecuteResult;
+use component::Provide;
+use lifecycle::ControlEvent;
+use lifecycle::ControlPort;
 use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::actors::NamedPath;
 use crate::actors::UniquePath;
-use crossbeam::sync::ArcCell;
-use crate::dispatch::lookup::ActorStore;
-use crate::dispatch::queue_manager::QueueManager;
+use arc_swap::ArcSwap;
+use dispatch::lookup::ActorStore;
+use dispatch::queue_manager::QueueManager;
 use futures::Async;
 use futures::AsyncSink;
 use futures::{self, Poll, StartSend};
-use crate::messaging::PathResolvable;
-use crate::messaging::RegistrationError;
-use crate::messaging::{DispatchEnvelope, EventEnvelope, MsgEnvelope, RegistrationEnvelope};
-use crate::net;
-use crate::net::events::NetworkEvent;
-use crate::net::ConnectionState;
-use crate::serialisation::helpers::serialise_msg;
-use crate::serialisation::helpers::serialise_to_recv_envelope;
-use crate::serialisation::Serialisable;
+use messaging::PathResolvable;
+use messaging::RegistrationError;
+use messaging::{DispatchEnvelope, EventEnvelope, MsgEnvelope, RegistrationEnvelope};
+use net::events::NetworkEvent;
+use net::ConnectionState;
+use serialisation::helpers::serialise_msg;
+use serialisation::helpers::serialise_to_recv_envelope;
+use serialisation::Serialisable;
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::time::Duration;
@@ -56,7 +55,7 @@ pub struct NetworkDispatcher {
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
     /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
-    lookup: Arc<ArcCell<ActorStore>>,
+    lookup: Arc<ArcSwap<ActorStore>>,
     // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
     /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
@@ -87,7 +86,7 @@ impl NetworkDispatcher {
     }
 
     pub fn with_config(cfg: NetworkConfig) -> Self {
-        let lookup = Arc::new(ArcCell::new(Arc::new(ActorStore::new())));
+        let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
         let reaper = lookup::gc::ActorRefReaper::default();
 
         NetworkDispatcher {
@@ -227,7 +226,7 @@ impl NetworkDispatcher {
     /// TODO handle unknown destination actor
     fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
         use crate::dispatch::lookup::ActorLookup;
-        let lookup = self.lookup.get();
+        let lookup = self.lookup.lease();
         let actor = lookup.get_by_actor_path(&dst);
         if let Some(ref actor) = actor {
             //  TODO err handling
@@ -256,7 +255,7 @@ impl NetworkDispatcher {
     /// is available.
     fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
         use crate::actors::SystemField;
-        use crate::spnl::frames::*;
+        use spaniel::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
@@ -294,7 +293,7 @@ impl NetworkDispatcher {
                         // Send frame
                         if let Err(err) = tx.unbounded_send(frame) {
                             // Unbounded senders report errors only if dropped
-                            let mut next = Some(ConnectionState::Closed);
+                            let next = Some(ConnectionState::Closed);
                             // Consume error and retrieve failed Frame
                             let frame = err.into_inner();
                             qm.enqueue_frame(frame, addr);
@@ -391,30 +390,33 @@ impl Dispatcher for NetworkDispatcher {
                 self.route(src, dst, msg);
             }
             DispatchEnvelope::Registration(reg) => {
-                use crate::dispatch::lookup::ActorLookup;
+                use lookup::ActorLookup;
 
                 match reg {
-                    RegistrationEnvelope::Register(actor, path, mut promise) => {
-                        let prev = self.lookup.get();
-                        let mut next = (*prev).clone();
-                        if next.contains(&path) {
+                    RegistrationEnvelope::Register(actor, path, promise) => {
+                        let lease = self.lookup.lease();
+                        let res = if lease.contains(&path) {
                             warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
+                            drop(lease);
+                            Err(RegistrationError::DuplicateEntry)
+                        } else {
+                            drop(lease);
+                            self.lookup.rcu(move |current| {
+                                let mut next = (*current).clone();
+                                next.insert(actor.clone(), path.clone());
+                                Arc::new(next)
+                            });
+                            Ok(())
+                        };
 
-                            if let Some(promise) = promise.take() {
-                                promise.fulfill(Err(RegistrationError::DuplicateEntry));
+                        if res.is_ok() {
+                            if !self.reaper.is_scheduled() {
+                                self.schedule_reaper();
                             }
-                            // Return early; prevent registration from taking place
-                            return;
-                        }
-                        next.insert(actor, path);
-                        self.lookup.set(Arc::new(next));
-
-                        if let Some(promise) = promise.take() {
-                            promise.fulfill(Ok(()));
                         }
 
-                        if !self.reaper.is_scheduled() {
-                            self.schedule_reaper();
+                        if let Some(promise) = promise {
+                            promise.fulfill(res);
                         }
                     }
                 }
@@ -468,7 +470,6 @@ mod dispatch_tests {
 
     use crate::actors::ActorPath;
     use crate::actors::UniquePath;
-    use bytes::{Buf, BufMut};
     use crate::component::ComponentContext;
     use crate::component::Provide;
     use crate::default_components::DeadletterBox;
@@ -476,7 +477,8 @@ mod dispatch_tests {
     use crate::lifecycle::ControlPort;
     use crate::runtime::KompicsConfig;
     use crate::runtime::KompicsSystem;
-    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+    use bytes::{Buf, BufMut};
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
     use std::time::Duration;
 
@@ -536,7 +538,7 @@ mod dispatch_tests {
     }
 
     #[test]
-    /// Sets up a single KompicsSystem with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// Sets up two KompicsSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
     /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
     /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
     /// messages.
@@ -554,9 +556,19 @@ mod dispatch_tests {
             };
             (system(), system())
         };
-        let ponger_unique = remote.create_and_register(PongerAct::new);
-        let ponger_named = remote.create_and_register(PongerAct::new);
-        remote.register_by_alias(&ponger_named, "custom_name");
+        let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = remote.create_and_register(PongerAct::new);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+
+        pouf.await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never registered!")
+            .expect("Ponger failed to register!");
+        ponf.await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never registered!")
+            .expect("Ponger failed to register!");
+        poaf.await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never registered!")
+            .expect("Ponger failed to register!");
 
         let named_path = ActorPath::Named(NamedPath::with_system(
             remote.system_path(),
@@ -568,8 +580,15 @@ mod dispatch_tests {
             ponger_unique.id().clone(),
         ));
 
-        let pinger_unique = system.create_and_register(move || PingerAct::new(unique_path));
-        let pinger_named = system.create_and_register(move || PingerAct::new(named_path));
+        let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new(unique_path));
+        let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new(named_path));
+
+        piuf.await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never registered!")
+            .expect("Ponger failed to register!");
+        pinf.await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never registered!")
+            .expect("Ponger failed to register!");
 
         remote.start(&ponger_unique);
         remote.start(&ponger_named);
@@ -617,7 +636,7 @@ mod dispatch_tests {
         cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
         let system = KompicsSystem::new(cfg);
 
-        let ponger = system.create_and_register(PongerAct::new);
+        let (ponger, pof) = system.create_and_register(PongerAct::new);
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let unique_path = UniquePath::new(
             Transport::LOCAL,
@@ -626,7 +645,14 @@ mod dispatch_tests {
             ponger.id().clone(),
         );
         let ponger_path = ActorPath::Unique(unique_path);
-        let pinger = system.create_and_register(move || PingerAct::new(ponger_path));
+        let (pinger, pif) = system.create_and_register(move || PingerAct::new(ponger_path));
+
+        pof.await_timeout(Duration::from_millis(1000))
+            .expect("Ponger never registered!")
+            .expect("Ponger failed to register!");
+        pif.await_timeout(Duration::from_millis(1000))
+            .expect("Pinger never registered!")
+            .expect("Ponger failed to register!");
 
         system.start(&ponger);
         system.start(&pinger);

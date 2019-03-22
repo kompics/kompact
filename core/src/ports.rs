@@ -65,7 +65,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
     }
 
     pub fn dequeue(&self) -> Option<P::Request> {
-        self.msg_queue.try_pop()
+        self.msg_queue.pop().ok()
     }
 }
 
@@ -113,7 +113,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     }
 
     pub fn dequeue(&self) -> Option<P::Indication> {
-        self.msg_queue.try_pop()
+        self.msg_queue.pop().ok()
     }
 
     //    pub fn execute(&self, parent: &mut Require<P>) -> () {

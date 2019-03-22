@@ -220,7 +220,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
         match self.definition().lock() {
             Ok(mut guard) => {
                 let mut count: usize = 0;
-                while let Some(event) = self.ctrl_queue.try_pop() {
+                while let Ok(event) = self.ctrl_queue.pop() {
                     match event {
                         lifecycle::ControlEvent::Start => {
                             lifecycle::set_active(&self.state);
@@ -278,7 +278,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
                 }
                 // then some messages
                 while count < max_messages {
-                    if let Some(env) = self.msg_queue.try_pop() {
+                    if let Ok(env) = self.msg_queue.pop() {
                         match env {
                             MsgEnvelope::Receive(renv) => guard.receive(renv),
                             MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
@@ -303,7 +303,7 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
 
                     // and maybe some more messages
                     while count < max_events {
-                        if let Some(env) = self.msg_queue.try_pop() {
+                        if let Ok(env) = self.msg_queue.pop() {
                             match env {
                                 MsgEnvelope::Receive(renv) => guard.receive(renv),
                                 MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {

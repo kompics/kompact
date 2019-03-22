@@ -2,11 +2,11 @@
 
 use crate::actors::ActorPath;
 use crate::actors::ActorRef;
-use bytes::Bytes;
 use crate::net::events::NetworkEvent;
 use crate::serialisation::Serialisable;
-use std::any::Any;
 use crate::utils;
+use bytes::Bytes;
+use std::any::Any;
 use uuid::Uuid;
 
 pub mod framing;
@@ -70,7 +70,7 @@ pub enum ReceiveEnvelope {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PathResolvable {
     Path(ActorPath),
     ActorId(Uuid),

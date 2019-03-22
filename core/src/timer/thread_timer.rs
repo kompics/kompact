@@ -1,5 +1,6 @@
 use super::*;
 
+use channel::select;
 use crossbeam_channel as channel;
 
 #[derive(Debug)]
@@ -24,7 +25,9 @@ impl Timer for TimerRef {
             timeout,
             action: Box::new(action),
         };
-        self.work_queue.send(TimerMsg::Schedule(e));
+        self.work_queue
+            .send(TimerMsg::Schedule(e))
+            .unwrap_or_else(|e| eprintln!("Could not send Schedule msg: {:?}", e));
     }
 
     fn schedule_periodic<F>(&mut self, id: Uuid, delay: Duration, period: Duration, action: F) -> ()
@@ -37,10 +40,14 @@ impl Timer for TimerRef {
             period,
             action: Box::new(action),
         };
-        self.work_queue.send(TimerMsg::Schedule(e));
+        self.work_queue
+            .send(TimerMsg::Schedule(e))
+            .unwrap_or_else(|e| eprintln!("Could not send Schedule msg: {:?}", e));
     }
     fn cancel(&mut self, id: Uuid) {
-        self.work_queue.send(TimerMsg::Cancel(id));
+        self.work_queue
+            .send(TimerMsg::Cancel(id))
+            .unwrap_or_else(|e| eprintln!("Could not send Cancel msg: {:?}", e));
     }
 }
 
@@ -72,7 +79,9 @@ impl TimerWithThread {
     }
 
     pub fn shutdown(self) -> Result<(), ThreadTimerError> {
-        self.work_queue.send(TimerMsg::Stop);
+        self.work_queue
+            .send(TimerMsg::Stop)
+            .unwrap_or_else(|e| eprintln!("Could not send Stop msg: {:?}", e));
         match self.timer_thread.join() {
             Ok(_) => Ok(()),
             Err(_) => {
@@ -83,9 +92,10 @@ impl TimerWithThread {
     }
 
     pub fn shutdown_async(&self) -> Result<(), ThreadTimerError> {
-        self.work_queue.send(TimerMsg::Stop);
+        self.work_queue
+            .send(TimerMsg::Stop)
+            .unwrap_or_else(|e| eprintln!("Could not send Stop msg: {:?}", e));
         Ok(())
-        //.map_err(|_| ThreadTimerError::CouldNotSendStopAsync)
     }
 }
 
@@ -130,8 +140,8 @@ impl TimerThread {
                 }
             } else {
                 match self.work_queue.try_recv() {
-                    Some(msg) => self.handle_msg(msg),
-                    None => {
+                    Ok(msg) => self.handle_msg(msg),
+                    Err(channel::TryRecvError::Empty) => {
                         // nothing to tick and nothing in the queue
                         match self.timer.can_skip() {
                             Skip::None => {
@@ -146,11 +156,13 @@ impl TimerThread {
                                 // don't even need to bother skipping time in the wheel,
                                 // since all times in there are relative
                                 match self.work_queue.recv() {
-                                    Some(msg) => {
+                                    Ok(msg) => {
                                         self.reset(); // since we waited for an arbitrary time and taking a new timestamp incures no error
                                         self.handle_msg(msg)
                                     }
-                                    None => panic!("Timer work_queue unexpectedly shut down!"),
+                                    Err(channel::RecvError) => {
+                                        panic!("Timer work_queue unexpectedly shut down!")
+                                    }
                                 }
                             }
                             Skip::Millis(ms) if ms > 5 => {
@@ -158,8 +170,8 @@ impl TimerThread {
                                                  // wait until something is scheduled but max skip
                                 let timeout = Duration::from_millis(ms as u64);
                                 let res = select! {
-                                    recv(self.work_queue, msg) => msg,
-                                    recv(channel::after(timeout)) => None,
+                                    recv(self.work_queue) -> msg => msg.ok(),
+                                    default(timeout) => None,
                                 };
                                 let elap = self.elapsed();
                                 let longms = ms as u128;
@@ -190,6 +202,9 @@ impl TimerThread {
                                 // } // else hot wait to reduce inaccuracy
                             }
                         }
+                    }
+                    Err(channel::TryRecvError::Disconnected) => {
+                        panic!("Timer work_queue unexpectedly shut down!")
                     }
                 }
             }

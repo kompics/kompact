@@ -1,6 +1,6 @@
-use futures::sync;
 use crate::net::ConnectionState;
-use crate::spnl::frames::Frame;
+use futures::sync;
+use spaniel::frames::Frame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
@@ -46,7 +46,7 @@ impl QueueManager {
     ) -> Option<ConnectionState> {
         while let Some(frame) = self.pop_frame(&dst) {
             if let Err(err) = tx.unbounded_send(frame) {
-                let mut next = Some(ConnectionState::Closed);
+                let next = Some(ConnectionState::Closed);
 
                 // Consume error and retrieve failed Frame
                 let frame = err.into_inner();

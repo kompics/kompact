@@ -1,8 +1,9 @@
 use super::*;
 
-use executors::*;
 use crate::messaging::RegistrationError;
 use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope};
+use crate::supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
+use executors::*;
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::clone::Clone;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
@@ -10,7 +11,6 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::sync::{Once, ONCE_INIT};
-use crate::supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -28,7 +28,14 @@ fn default_logger() -> &'static KompicsLogger {
             let decorator = slog_term::TermDecorator::new().build();
             let drain = slog_term::FullFormat::new(decorator).build().fuse();
             let drain = slog_async::Async::new(drain).build().fuse();
-            DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(Arc::new(drain), o!()));
+            DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(
+                Arc::new(drain),
+                o!(
+                "location" => slog::PushFnValue(|r: &slog::Record, ser: slog::PushFnValueSerializer| {
+                    ser.emit(format_args!("{}:{}", r.file(), r.line()))
+                })
+                        ),
+            ));
         });
         match DEFAULT_ROOT_LOGGER {
             Some(ref l) => l,
@@ -272,7 +279,10 @@ impl KompicsSystem {
         return c;
     }
 
-    pub fn create_and_register<C, F>(&self, f: F) -> Arc<Component<C>>
+    pub fn create_and_register<C, F>(
+        &self,
+        f: F,
+    ) -> (Arc<Component<C>>, Future<Result<(), RegistrationError>>)
     where
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
@@ -281,8 +291,8 @@ impl KompicsSystem {
         let id = c.core().id().clone();
         let id_path = PathResolvable::ActorId(id);
         let actor = c.actor_ref();
-        self.inner.register_by_path(actor, id_path);
-        c
+        let r = self.inner.register_by_path(actor, id_path);
+        (c, r)
     }
 
     /// Instantiates the component, registers it with the system dispatcher,
@@ -576,7 +586,7 @@ impl KompicsRuntime {
     ) -> Future<Result<(), RegistrationError>> {
         debug!(
             self.logger(),
-            "Requesting actor registration for {:?}", alias
+            "Requesting actor alias registration for {:?}", alias
         );
         let path = PathResolvable::Alias(alias);
         self.register_by_path(actor_ref, path)

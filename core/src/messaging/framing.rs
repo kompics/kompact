@@ -3,10 +3,10 @@
 use crate::actors::ActorPath;
 use crate::actors::SystemPath;
 use crate::actors::Transport;
-use bitfields::BitField;
-use bytes::BufMut;
 use crate::serialisation::SerError;
 use crate::serialisation::Serialisable;
+use bitfields::BitField;
+use bytes::BufMut;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::net::IpAddr;
@@ -306,7 +306,7 @@ impl Serialisable for ActorPath {
             ActorPath::Named(ref np) => {
                 // Named paths are length-prefixed (2 bytes)
                 // followed by variable-length name
-                let mut path_len: u16 = 2;
+                let path_len: u16 = 2;
                 let name_len = np.path_ref().join("/").len();
                 let name_len = u16::try_from(name_len).ok()?;
                 path_len.checked_add(name_len)? as usize
@@ -376,8 +376,8 @@ mod serialisation {
         use super::{PathType, SystemPathHeader};
         use crate::actors::Transport;
         use crate::actors::{ActorPath, NamedPath, SystemPath};
-        use bytes::{Buf, IntoBuf};
         use crate::messaging::framing::AddressType;
+        use bytes::{Buf, IntoBuf};
         use std::convert::TryFrom;
 
         let system_path = SystemPath::new(Transport::TCP, "127.0.0.1".parse().unwrap(), 8080_u16);

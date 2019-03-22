@@ -2,11 +2,11 @@ use crate::actors::ActorPath;
 use crate::actors::NamedPath;
 use crate::actors::SystemPath;
 use crate::actors::UniquePath;
-use bytes::{Buf, Bytes, BytesMut};
 use crate::messaging::MsgEnvelope;
 use crate::messaging::ReceiveEnvelope;
 use crate::serialisation::SerError;
 use crate::serialisation::Serialisable;
+use bytes::{Buf, Bytes, BytesMut};
 use uuid::Uuid;
 
 /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
@@ -103,7 +103,7 @@ fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError
     let header = SystemPathHeader::try_from(fields)?;
     let (mut buf, address) = match header.address_type {
         AddressType::IPv4 => {
-            let (mut buf, ip) = {
+            let (buf, ip) = {
                 let ip_buf = buf.take(4);
                 if ip_buf.remaining() < 4 {
                     return Err(SerError::InvalidData(
@@ -121,7 +121,7 @@ fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError
             (buf, ip)
         }
         AddressType::IPv6 => {
-            let (mut buf, ip) = {
+            let (buf, ip) = {
                 let ip_buf = buf.take(16);
                 if ip_buf.remaining() < 16 {
                     return Err(SerError::InvalidData(
@@ -151,7 +151,7 @@ fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError
     let (buf, path) = match header.path_type {
         PathType::Unique => {
             let uuid_buf = buf.take(16);
-            let uuid = Uuid::from_bytes(uuid_buf.bytes())
+            let uuid = Uuid::from_slice(uuid_buf.bytes())
                 .map_err(|_err| SerError::InvalidData("Could not parse UUID".into()))?;
             let path = ActorPath::Unique(UniquePath::with_system(system.clone(), uuid));
             let mut buf = uuid_buf.into_inner();
@@ -189,18 +189,17 @@ mod helper_tests {
     use crate::actors::SystemPath;
     use crate::actors::Transport;
     use crate::actors::UniquePath;
+    use crate::serialisation::helpers::deserialise_actor_path;
     use bytes::BytesMut;
     use bytes::{BufMut, IntoBuf};
-    use crate::serialisation::helpers::deserialise_actor_path;
     use std::net::IpAddr;
     use uuid::Uuid;
-    use uuid::UuidVersion;
 
     #[test]
     fn actor_path_ser_deser_equivalence() {
         let expected_transport: Transport = Transport::TCP;
         let expected_addr: IpAddr = "12.0.0.1".parse().unwrap();
-        let unique_id: Uuid = Uuid::new(UuidVersion::Random).unwrap();
+        let unique_id: Uuid = Uuid::new_v4();
         let port: u16 = 1234;
 
         let path = ActorPath::Unique(UniquePath::new(

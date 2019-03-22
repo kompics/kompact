@@ -1,9 +1,8 @@
-use crossbeam::sync::MsQueue;
+use crate::timer::Timer as TTimer;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
-use crate::timer::Timer as TTimer;
 use uuid::Uuid;
 
 use super::*;
@@ -49,7 +48,7 @@ pub(crate) enum ExecuteAction<C: ComponentDefinition> {
 
 pub(crate) struct TimerManager<C: ComponentDefinition> {
     timer: timer::TimerRef,
-    timer_queue: Arc<MsQueue<Timeout>>,
+    timer_queue: Arc<ConcurrentQueue<Timeout>>,
     handles: HashMap<Uuid, TimerHandle<C>>,
 }
 
@@ -57,7 +56,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
     pub(crate) fn new(timer: timer::TimerRef) -> TimerManager<C> {
         TimerManager {
             timer,
-            timer_queue: Arc::new(MsQueue::new()),
+            timer_queue: Arc::new(ConcurrentQueue::new()),
             handles: HashMap::new(),
         }
     }
@@ -67,7 +66,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
     }
 
     pub(crate) fn try_action(&mut self) -> ExecuteAction<C> {
-        if let Some(timeout) = self.timer_queue.try_pop() {
+        if let Ok(timeout) = self.timer_queue.pop() {
             let res = self.handles.remove(&timeout.0);
             match res {
                 Some(TimerHandle::OneShot { action, .. }) => ExecuteAction::Once(timeout.0, action),
@@ -156,11 +155,14 @@ unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} // this isn't tec
 #[derive(Clone)]
 struct TimerActorRef {
     component: Weak<CoreContainer>,
-    msg_queue: Weak<MsQueue<Timeout>>,
+    msg_queue: Weak<ConcurrentQueue<Timeout>>,
 }
 
 impl TimerActorRef {
-    fn new(component: Weak<CoreContainer>, msg_queue: Weak<MsQueue<Timeout>>) -> TimerActorRef {
+    fn new(
+        component: Weak<CoreContainer>,
+        msg_queue: Weak<ConcurrentQueue<Timeout>>,
+    ) -> TimerActorRef {
         TimerActorRef {
             component,
             msg_queue,

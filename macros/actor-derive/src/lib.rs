@@ -1,18 +1,14 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
-use syn;
-#[macro_use]
-extern crate quote;
-
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Actor)]
 pub fn actor(input: TokenStream) -> TokenStream {
-    // Construct a string representation of the type definition
-    let s = input.to_string();
-
-    // Parse the string representation
-    let ast = syn::parse_derive_input(&s).unwrap();
+    // Parse the input stream
+    let ast = parse_macro_input!(input as DeriveInput);
 
     // Build the impl
     let gen = impl_actor(&ast);
@@ -20,12 +16,12 @@ pub fn actor(input: TokenStream) -> TokenStream {
     //println!("Derived code:\n{}", gen.clone().into_string());
 
     // Return the generated impl
-    gen.parse().unwrap()
+    gen.into()
 }
 
-fn impl_actor(ast: &syn::DeriveInput) -> quote::Tokens {
+fn impl_actor(ast: &syn::DeriveInput) -> TokenStream2 {
     let name = &ast.ident;
-    if let syn::Body::Struct(_) = ast.body {
+    if let syn::Data::Struct(_) = ast.data {
         quote! {
             impl ActorRaw for #name {
                 fn receive(&mut self, env: messaging::ReceiveEnvelope) -> () {

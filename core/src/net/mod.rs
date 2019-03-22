@@ -1,18 +1,18 @@
-use crate::actors::ActorRef;
-use crate::actors::Transport;
-use crossbeam::sync::ArcCell;
-use crate::dispatch::lookup::ActorStore;
+use super::*;
+use actors::ActorRef;
+use actors::Transport;
+use arc_swap::ArcSwap;
+use dispatch::lookup::ActorStore;
 use futures;
 use futures::sync;
 use futures::Future;
 use futures::Stream;
-use crate::messaging::MsgEnvelope;
-use crate::net::events::NetworkError;
-use crate::net::events::NetworkEvent;
-use crate::serialisation::helpers::deserialise_msg;
-use crate::spnl::codec::FrameCodec;
-use crate::spnl::frames::Frame;
-use std;
+use messaging::MsgEnvelope;
+use net::events::NetworkError;
+use net::events::NetworkEvent;
+use serialisation::helpers::deserialise_msg;
+use spaniel::codec::FrameCodec;
+use spaniel::frames::Frame;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -23,9 +23,9 @@ use tokio::runtime::TaskExecutor;
 use tokio_retry;
 use tokio_retry::strategy::ExponentialBackoff;
 
+use crate::KompicsLogger;
 use tokio::net::tcp::ConnectFuture;
 use tokio_retry::Retry;
-use crate::KompicsLogger;
 
 #[derive(Debug)]
 pub enum ConnectionState {
@@ -40,7 +40,7 @@ pub mod events {
     use std;
 
     use super::ConnectionState;
-    use crate::spnl::frames::Frame;
+    use spaniel::frames::Frame;
     use std::net::SocketAddr;
 
     /// Network events emitted by the network `Bridge`
@@ -99,7 +99,7 @@ pub struct Bridge {
     /// Core logger; shared with network thread
     log: KompicsLogger,
     /// Shared actor refernce lookup table
-    lookup: Arc<ArcCell<ActorStore>>,
+    lookup: Arc<ArcSwap<ActorStore>>,
     /// Thread blocking on the Tokio runtime
     net_thread: Option<JoinHandle<()>>,
     /// Reference back to the Kompics dispatcher
@@ -114,7 +114,7 @@ impl Bridge {
     /// A tuple consisting of the new Bridge object and the network event receiver.
     /// The receiver will allow responding to [NetworkEvent]s for external state management.
     pub fn new(
-        lookup: Arc<ArcCell<ActorStore>>,
+        lookup: Arc<ArcSwap<ActorStore>>,
         log: KompicsLogger,
     ) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
@@ -238,7 +238,7 @@ fn start_tcp_server(
     log: KompicsLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
-    lookup: Arc<ArcCell<ActorStore>>,
+    lookup: Arc<ArcSwap<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     let err_log = log.clone();
     let err_log2 = log.clone();
@@ -296,7 +296,7 @@ fn start_network_thread(
     log: KompicsLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
-    lookup: Arc<ArcCell<ActorStore>>,
+    lookup: Arc<ArcSwap<ActorStore>>,
 ) -> (TaskExecutor, JoinHandle<()>) {
     use std::thread::Builder;
 
@@ -334,7 +334,7 @@ fn handle_tcp(
     rx: sync::mpsc::UnboundedReceiver<Frame>,
     _tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
     log: KompicsLogger,
-    actor_lookup: Arc<ArcCell<ActorStore>>,
+    actor_lookup: Arc<ArcSwap<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;
 
@@ -352,31 +352,32 @@ fn handle_tcp(
                 Frame::Data(fr) => {
                     // TODO Assert expected from stream & conn?
                     let _seq_num = fr.seq_num;
-                    let lookup = actor_lookup.get();
+                    let lookup = actor_lookup.lease();
 
-                    let (actor, envelope) = {
+                    {
                         use bytes::IntoBuf;
-                        use crate::dispatch::lookup::ActorLookup;
+                        use dispatch::lookup::ActorLookup;
 
                         // Consume payload
                         let buf = fr.payload();
-                        let mut buf = buf.into_buf();
+                        let buf = buf.into_buf();
                         let envelope = deserialise_msg(buf).expect("s11n errors");
-                        let actor_ref = match lookup.get_by_actor_path(envelope.dst()) {
+                        match lookup.get_by_actor_path(envelope.dst()) {
                             None => {
-                                panic!(
+                                error!(
+                                    log,
                                     "Could not find actor reference for destination: {:?}",
                                     envelope.dst()
                                 );
+                                None
                             }
-                            Some(actor) => actor,
-                        };
-
-                        (actor_ref, envelope)
-                    };
-                    debug!(log, "Routing envelope {:?}", envelope);
-                    actor.enqueue(MsgEnvelope::Receive(envelope));
-                    None
+                            Some(actor) => {
+                                debug!(log, "Routing envelope {:?}", envelope);
+                                actor.enqueue(MsgEnvelope::Receive(envelope));
+                                None
+                            }
+                        }
+                    }
                 }
                 Frame::Ping(s, id) => Some(Frame::Pong(s, id)),
                 Frame::Pong(_, _) => None,

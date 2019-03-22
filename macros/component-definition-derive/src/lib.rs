@@ -1,19 +1,16 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
-use syn;
-#[macro_use]
-extern crate quote;
-
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
+
 use std::iter::Iterator;
 
 #[proc_macro_derive(ComponentDefinition)]
 pub fn component_definition(input: TokenStream) -> TokenStream {
-    // Construct a string representation of the type definition
-    let s = input.to_string();
-
-    // Parse the string representation
-    let ast = syn::parse_derive_input(&s).unwrap();
+    // Parse the input stream
+    let ast = parse_macro_input!(input as DeriveInput);
 
     // Build the impl
     let gen = impl_component_definition(&ast);
@@ -21,17 +18,17 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
     //println!("Derived code:\n{}", gen.clone().into_string());
 
     // Return the generated impl
-    gen.parse().unwrap()
+    gen.into()
 }
 
-fn impl_component_definition(ast: &syn::DeriveInput) -> quote::Tokens {
+fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
     let name = &ast.ident;
     let name_str = format!("{}", name);
-    if let syn::Body::Struct(ref vdata) = ast.body {
-        let fields = vdata.fields();
+    if let syn::Data::Struct(ref vdata) = ast.data {
+        let fields = &vdata.fields;
         let mut ports: Vec<(&syn::Field, PortField)> = Vec::new();
         let mut ctx_field: Option<&syn::Field> = None;
-        for field in fields {
+        for field in fields.iter() {
             let cf = identify_field(field);
             match cf {
                 ComponentField::Ctx => {
@@ -151,12 +148,12 @@ enum ComponentField {
 
 #[derive(Debug)]
 enum PortField {
-    Required(syn::Ty),
-    Provided(syn::Ty),
+    Required(syn::Type),
+    Provided(syn::Type),
 }
 
 impl PortField {
-    fn as_handle(&self) -> quote::Tokens {
+    fn as_handle(&self) -> TokenStream2 {
         match self {
             &PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
             &PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
@@ -170,33 +167,30 @@ const CTX: &'static str = "ComponentContext";
 const KOMPICS: &'static str = "kompics";
 
 fn identify_field(f: &syn::Field) -> ComponentField {
-    if let syn::Ty::Path(_, ref path) = f.ty {
-        if !path.global {
-            let port_seg_opt = if path.segments.len() == 1 {
-                Some(&path.segments[0])
-            } else if path.segments.len() == 2 {
-                if path.segments[0].ident == KOMPICS {
-                    Some(&path.segments[1])
-                } else {
-                    println!("Module is not 'kompics': {:?}", path);
-                    None
-                }
+    if let syn::Type::Path(ref patht) = f.ty {
+        let path = &patht.path;
+        let port_seg_opt = if path.segments.len() == 1 {
+            Some(&path.segments[0])
+        } else if path.segments.len() == 2 {
+            if path.segments[0].ident == KOMPICS {
+                Some(&path.segments[1])
             } else {
-                println!("Path too long for port: {:?}", path);
+                //println!("Module is not 'kompics': {:?}", path);
                 None
-            };
-            if let Some(seg) = port_seg_opt {
-                if seg.ident == REQP {
-                    ComponentField::Port(PortField::Required(extract_port_type(seg)))
-                } else if seg.ident == PROVP {
-                    ComponentField::Port(PortField::Provided(extract_port_type(seg)))
-                } else if seg.ident == CTX {
-                    ComponentField::Ctx
-                } else {
-                    //println!("Not a port: {:?}", path);
-                    ComponentField::Other
-                }
+            }
+        } else {
+            //println!("Path too long for port: {:?}", path);
+            None
+        };
+        if let Some(seg) = port_seg_opt {
+            if seg.ident == REQP {
+                ComponentField::Port(PortField::Required(extract_port_type(seg)))
+            } else if seg.ident == PROVP {
+                ComponentField::Port(PortField::Provided(extract_port_type(seg)))
+            } else if seg.ident == CTX {
+                ComponentField::Ctx
             } else {
+                //println!("Not a port: {:?}", path);
                 ComponentField::Other
             }
         } else {
@@ -207,9 +201,14 @@ fn identify_field(f: &syn::Field) -> ComponentField {
     }
 }
 
-fn extract_port_type(seg: &syn::PathSegment) -> syn::Ty {
-    match seg.parameters {
-        syn::PathParameters::AngleBracketed(ref abppd) => abppd.types[0].clone(),
+fn extract_port_type(seg: &syn::PathSegment) -> syn::Type {
+    match seg.arguments {
+        syn::PathArguments::AngleBracketed(ref abppd) => {
+            match abppd.args.first().expect("Invalid type argument!").value() {
+                syn::GenericArgument::Type(ty) => ty.clone(),
+                _ => panic!("Wrong generic argument type in {:?}", seg),
+            }
+        }
         _ => panic!("Wrong path parameter type! {:?}", seg),
     }
 }

@@ -1,7 +1,5 @@
 #![allow(unused_parens)]
 
-
-
 //#[macro_use]
 //extern crate component_definition_derive;
 
