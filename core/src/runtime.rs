@@ -16,13 +16,13 @@ static GLOBAL_RUNTIME_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 fn default_runtime_label() -> String {
     let runtime_count = GLOBAL_RUNTIME_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
-    format!("kompics-runtime-{}", runtime_count)
+    format!("kompact-runtime-{}", runtime_count)
 }
 
-static mut DEFAULT_ROOT_LOGGER: Option<KompicsLogger> = None;
+static mut DEFAULT_ROOT_LOGGER: Option<KompactLogger> = None;
 static DEFAULT_ROOT_LOGGER_INIT: Once = ONCE_INIT;
 
-fn default_logger() -> &'static KompicsLogger {
+fn default_logger() -> &'static KompactLogger {
     unsafe {
         DEFAULT_ROOT_LOGGER_INIT.call_once(|| {
             let decorator = slog_term::TermDecorator::new().build();
@@ -52,7 +52,7 @@ type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
 //     }
 // }
 
-type SCBuilder = Fn(&KompicsSystem) -> Box<SystemComponents>;
+type SCBuilder = Fn(&KompactSystem) -> Box<SystemComponents>;
 
 // impl Debug for SCBuilder {
 //     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -69,7 +69,7 @@ type TimerBuilder = Fn() -> Box<TimerComponent>;
 // }
 
 #[derive(Clone)]
-pub struct KompicsConfig {
+pub struct KompactConfig {
     label: String,
     throughput: usize,
     msg_priority: f32,
@@ -77,14 +77,14 @@ pub struct KompicsConfig {
     timer_builder: Rc<TimerBuilder>,
     scheduler_builder: Rc<SchedulerBuilder>,
     sc_builder: Rc<SCBuilder>,
-    root_logger: Option<KompicsLogger>,
+    root_logger: Option<KompactLogger>,
 }
 
-impl Debug for KompicsConfig {
+impl Debug for KompactConfig {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
-            "KompicsConfig{{
+            "KompactConfig{{
             label={},
             throughput={},
             msg_priority={},
@@ -99,9 +99,9 @@ impl Debug for KompicsConfig {
     }
 }
 
-impl KompicsConfig {
-    pub fn new() -> KompicsConfig {
-        KompicsConfig {
+impl KompactConfig {
+    pub fn new() -> KompactConfig {
+        KompactConfig {
             label: default_runtime_label(),
             throughput: 1,
             msg_priority: 0.5,
@@ -165,7 +165,7 @@ impl KompicsConfig {
         FB: Fn() -> B + 'static,
         FC: Fn() -> C + 'static,
     {
-        let sb = move |system: &KompicsSystem| {
+        let sb = move |system: &KompactSystem| {
             let deadletter_box = system.create_unsupervised(&deadletter_fn);
             let dispatcher = system.create_unsupervised(&dispatcher_fn);
 
@@ -179,7 +179,7 @@ impl KompicsConfig {
         self
     }
 
-    pub fn logger(&mut self, logger: KompicsLogger) -> &mut Self {
+    pub fn logger(&mut self, logger: KompactLogger) -> &mut Self {
         self.root_logger = Some(logger);
         self
     }
@@ -194,17 +194,17 @@ impl KompicsConfig {
 }
 
 #[derive(Clone)]
-pub struct KompicsSystem {
-    inner: Arc<KompicsRuntime>,
+pub struct KompactSystem {
+    inner: Arc<KompactRuntime>,
     scheduler: Box<Scheduler>,
 }
 
-impl Default for KompicsSystem {
+impl Default for KompactSystem {
     fn default() -> Self {
         let scheduler =
             ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(num_cpus::get()));
-        let runtime = Arc::new(KompicsRuntime::default());
-        let sys = KompicsSystem {
+        let runtime = Arc::new(KompactRuntime::default());
+        let sys = KompactSystem {
             inner: runtime,
             scheduler,
         };
@@ -217,12 +217,12 @@ impl Default for KompicsSystem {
     }
 }
 
-impl KompicsSystem {
-    pub fn new(conf: KompicsConfig) -> Self {
+impl KompactSystem {
+    pub fn new(conf: KompactConfig) -> Self {
         let scheduler = (*conf.scheduler_builder)(conf.threads);
         let sc_builder = conf.sc_builder.clone();
-        let runtime = Arc::new(KompicsRuntime::new(conf));
-        let sys = KompicsSystem {
+        let runtime = Arc::new(KompactRuntime::new(conf));
+        let sys = KompactSystem {
             inner: runtime,
             scheduler,
         };
@@ -238,7 +238,7 @@ impl KompicsSystem {
         self.scheduler.schedule(c);
     }
 
-    pub fn logger(&self) -> &KompicsLogger {
+    pub fn logger(&self) -> &KompactLogger {
         &self.inner.logger
     }
 
@@ -313,7 +313,7 @@ impl KompicsSystem {
     /// Attempts to register the provided component with a human-readable alias.
     ///
     /// # Returns
-    /// A [Future](kompics::utils::Future) which resolves to an error if the alias is not unique,
+    /// A [Future](kompact::utils::Future) which resolves to an error if the alias is not unique,
     /// and a unit () if successful.
     pub fn register_by_alias<C, A>(
         &self,
@@ -427,25 +427,25 @@ impl KompicsSystem {
     }
 }
 
-impl ActorRefFactory for KompicsSystem {
+impl ActorRefFactory for KompactSystem {
     fn actor_ref(&self) -> ActorRef {
         self.inner.deadletter_ref()
     }
 }
 
-impl Dispatching for KompicsSystem {
+impl Dispatching for KompactSystem {
     fn dispatcher_ref(&self) -> ActorRef {
         self.inner.dispatcher_ref()
     }
 }
 
-impl ActorSource for KompicsSystem {
+impl ActorSource for KompactSystem {
     fn path_resolvable(&self) -> PathResolvable {
         PathResolvable::System
     }
 }
 
-impl TimerRefFactory for KompicsSystem {
+impl TimerRefFactory for KompactSystem {
     fn timer_ref(&self) -> timer::TimerRef {
         self.inner.timer_ref()
     }
@@ -455,7 +455,7 @@ pub trait SystemComponents: Send + Sync {
     fn deadletter_ref(&self) -> ActorRef;
     fn dispatcher_ref(&self) -> ActorRef;
     fn system_path(&self) -> SystemPath;
-    fn start(&self, _: &KompicsSystem) -> ();
+    fn start(&self, _: &KompactSystem) -> ();
 }
 
 pub trait TimerComponent: TimerRefFactory + Send + Sync {
@@ -481,7 +481,7 @@ impl InternalComponents {
         }
     }
 
-    fn start(&self, system: &KompicsSystem) -> () {
+    fn start(&self, system: &KompactSystem) -> () {
         self.system_components.start(system);
         system.start(&self.supervisor);
     }
@@ -501,19 +501,19 @@ impl InternalComponents {
 }
 
 //#[derive(Clone)]
-struct KompicsRuntime {
+struct KompactRuntime {
     label: String,
     throughput: usize,
     max_messages: usize,
     timer: Box<TimerComponent>,
     internal_components: OnceMutex<Option<InternalComponents>>,
-    logger: KompicsLogger,
+    logger: KompactLogger,
 }
 
-impl Default for KompicsRuntime {
+impl Default for KompactRuntime {
     fn default() -> Self {
         let label = default_runtime_label();
-        KompicsRuntime {
+        KompactRuntime {
             label: label.clone(),
             throughput: 50,
             max_messages: 25,
@@ -524,14 +524,14 @@ impl Default for KompicsRuntime {
     }
 }
 
-impl KompicsRuntime {
-    fn new(conf: KompicsConfig) -> Self {
+impl KompactRuntime {
+    fn new(conf: KompactConfig) -> Self {
         let mm = conf.max_messages();
         let logger = match conf.root_logger {
             Some(log) => log.new(o!("system" => conf.label.clone())),
             None => default_logger().new(o!("system" => conf.label.clone())),
         };
-        KompicsRuntime {
+        KompactRuntime {
             label: conf.label,
             throughput: conf.throughput,
             max_messages: mm,
@@ -547,18 +547,18 @@ impl KompicsRuntime {
         if let Some(mut guard) = guard_opt {
             *guard = Some(internal_components);
         } else {
-            panic!("KompicsRuntime was already initialised!");
+            panic!("KompactRuntime was already initialised!");
         }
     }
 
-    fn start_internal_components(&self, system: &KompicsSystem) -> () {
+    fn start_internal_components(&self, system: &KompactSystem) -> () {
         match *self.internal_components {
             Some(ref ic) => ic.start(system),
-            None => panic!("KompicsRuntime was not properly initialised!"),
+            None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
 
-    fn logger(&self) -> &KompicsLogger {
+    fn logger(&self) -> &KompactLogger {
         &self.logger
     }
 
@@ -595,26 +595,26 @@ impl KompicsRuntime {
     fn deadletter_ref(&self) -> ActorRef {
         match *self.internal_components {
             Some(ref sc) => sc.deadletter_ref(),
-            None => panic!("KompicsRuntime was not properly initialised!"),
+            None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
     fn dispatcher_ref(&self) -> ActorRef {
         match *self.internal_components {
             Some(ref sc) => sc.dispatcher_ref(),
-            None => panic!("KompicsRuntime was not properly initialised!"),
+            None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
     fn system_path(&self) -> SystemPath {
         match *self.internal_components {
             Some(ref sc) => sc.system_path(),
-            None => panic!("KompicsRuntime was not properly initialised!"),
+            None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
 
     fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
         match *self.internal_components {
             Some(ref ic) => ic.supervision_port(),
-            None => panic!("KompicsRuntime was not properly initialised!"),
+            None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
 
@@ -627,9 +627,9 @@ impl KompicsRuntime {
     }
 }
 
-impl Debug for KompicsRuntime {
+impl Debug for KompactRuntime {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "KompicsRuntime({})", self.label)
+        write!(f, "KompactRuntime({})", self.label)
     }
 }
 

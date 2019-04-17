@@ -71,7 +71,7 @@ pub mod prelude {
     };
     pub use crate::component::{Provide, Require};
     pub use crate::lifecycle::{ControlEvent, ControlPort};
-    pub use crate::runtime::{KompicsConfig, KompicsSystem};
+    pub use crate::runtime::{KompactConfig, KompactSystem};
     pub use crate::Any;
 
     pub use crate::default_components::{CustomComponents, DeadletterBox};
@@ -84,7 +84,7 @@ pub mod prelude {
     };
 }
 
-pub type KompicsLogger = Logger<std::sync::Arc<Fuse<Async>>>;
+pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]
 mod tests {
@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn default_settings() {
         //let pool = ThreadPool::new(2);
-        let system = KompicsSystem::default();
+        let system = KompactSystem::default();
 
         test_with_system(system);
     }
@@ -201,15 +201,15 @@ mod tests {
     #[test]
     fn custom_settings() {
         //let pool = ThreadPool::new(2);
-        let mut settings = KompicsConfig::new();
+        let mut settings = KompactConfig::new();
         settings
             .threads(4)
             .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
-        let system = KompicsSystem::new(settings);
+        let system = KompactSystem::new(settings);
         test_with_system(system);
     }
 
-    fn test_with_system(system: KompicsSystem) -> () {
+    fn test_with_system(system: KompactSystem) -> () {
         let tc = system.create(TestComponent::new);
         let rc = system.create(RecvComponent::new);
         let rctp = rc.on_definition(|c| c.test_port.share());
@@ -250,7 +250,7 @@ mod tests {
 
         system
             .shutdown()
-            .expect("Kompics didn't shut down properly");
+            .expect("Kompact didn't shut down properly");
     }
 
     #[derive(ComponentDefinition, Actor)]
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_timer() -> () {
-        let system = KompicsSystem::default();
+        let system = KompactSystem::default();
         let trc = system.create_and_start(TimerRecvComponent::new);
 
         thread::sleep(Duration::from_millis(1000));
@@ -296,7 +296,7 @@ mod tests {
 
         system
             .shutdown()
-            .expect("Kompics didn't shut down properly");
+            .expect("Kompact didn't shut down properly");
     }
 
     #[derive(ComponentDefinition)]
@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_start_stop() -> () {
-        let system = KompicsSystem::default();
+        let system = KompactSystem::default();
         let (cc, _) = system.create_and_register(CounterComponent::new);
         let ccref = cc.actor_ref();
 
@@ -392,6 +392,6 @@ mod tests {
 
         system
             .shutdown()
-            .expect("Kompics didn't shut down properly");
+            .expect("Kompact didn't shut down properly");
     }
 }

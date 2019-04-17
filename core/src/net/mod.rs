@@ -4,9 +4,9 @@ use actors::Transport;
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 use futures;
+use futures::stream::Stream;
 use futures::sync;
 use futures::Future;
-use futures::Stream;
 use messaging::MsgEnvelope;
 use net::events::NetworkError;
 use net::events::NetworkEvent;
@@ -23,7 +23,6 @@ use tokio::runtime::TaskExecutor;
 use tokio_retry;
 use tokio_retry::strategy::ExponentialBackoff;
 
-use crate::KompicsLogger;
 use tokio::net::tcp::ConnectFuture;
 use tokio_retry::Retry;
 
@@ -97,12 +96,12 @@ pub struct Bridge {
     /// Queue of network events emitted by the network layer
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     /// Core logger; shared with network thread
-    log: KompicsLogger,
+    log: KompactLogger,
     /// Shared actor refernce lookup table
     lookup: Arc<ArcSwap<ActorStore>>,
     /// Thread blocking on the Tokio runtime
     net_thread: Option<JoinHandle<()>>,
-    /// Reference back to the Kompics dispatcher
+    /// Reference back to the Kompact dispatcher
     dispatcher: Option<ActorRef>,
 }
 
@@ -115,7 +114,7 @@ impl Bridge {
     /// The receiver will allow responding to [NetworkEvent]s for external state management.
     pub fn new(
         lookup: Arc<ArcSwap<ActorStore>>,
-        log: KompicsLogger,
+        log: KompactLogger,
     ) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
         let (sender, receiver) = sync::mpsc::unbounded();
         let bridge = Bridge {
@@ -235,7 +234,7 @@ impl tokio_retry::Action for TcpConnecter {
 /// Connection result and errors are propagated on the provided `events`.
 fn start_tcp_server(
     executor: TaskExecutor,
-    log: KompicsLogger,
+    log: KompactLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
@@ -293,7 +292,7 @@ fn start_tcp_server(
 /// A tuple consisting of the runtime's executor and a handle to the network thread.
 fn start_network_thread(
     name: String,
-    log: KompicsLogger,
+    log: KompactLogger,
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
@@ -333,7 +332,7 @@ fn handle_tcp(
     stream: TcpStream,
     rx: sync::mpsc::UnboundedReceiver<Frame>,
     _tx: futures::sync::mpsc::UnboundedSender<NetworkEvent>,
-    log: KompicsLogger,
+    log: KompactLogger,
     actor_lookup: Arc<ArcSwap<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     use futures::Stream;

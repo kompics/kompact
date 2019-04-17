@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn actor_path_strings() {
-        let mut settings = KompicsConfig::new();
+        let mut settings = KompactConfig::new();
         settings.label("my_system".to_string());
         //let system = KompicsSystem::new(settings);
         let ap = ActorPath::from_str(PATH).expect("a proper path");

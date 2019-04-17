@@ -164,7 +164,7 @@ impl PortField {
 const REQP: &'static str = "RequiredPort";
 const PROVP: &'static str = "ProvidedPort";
 const CTX: &'static str = "ComponentContext";
-const KOMPICS: &'static str = "kompics";
+const KOMPICS: &'static str = "kompact";
 
 fn identify_field(f: &syn::Field) -> ComponentField {
     if let syn::Type::Path(ref patht) = f.ty {
@@ -175,7 +175,7 @@ fn identify_field(f: &syn::Field) -> ComponentField {
             if path.segments[0].ident == KOMPICS {
                 Some(&path.segments[1])
             } else {
-                //println!("Module is not 'kompics': {:?}", path);
+                //println!("Module is not 'kompact': {:?}", path);
                 None
             }
         } else {

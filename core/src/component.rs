@@ -17,7 +17,7 @@ pub trait CoreContainer: Send + Sync {
 
     fn control_port(&self) -> ProvidedRef<ControlPort>;
     //fn actor_ref(&self) -> ActorRef;
-    fn system(&self) -> KompicsSystem {
+    fn system(&self) -> KompactSystem {
         self.core().system().clone()
     }
 }
@@ -36,12 +36,12 @@ pub struct Component<C: ComponentDefinition + Sized + 'static> {
     skip: AtomicUsize,
     state: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
-    logger: KompicsLogger,
+    logger: KompactLogger,
 }
 
 impl<C: ComponentDefinition + Sized> Component<C> {
     pub(crate) fn new(
-        system: KompicsSystem,
+        system: KompactSystem,
         definition: C,
         supervisor: ProvidedRef<SupervisionPort>,
     ) -> Component<C> {
@@ -63,7 +63,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         }
     }
 
-    pub(crate) fn without_supervisor(system: KompicsSystem, definition: C) -> Component<C> {
+    pub(crate) fn without_supervisor(system: KompactSystem, definition: C) -> Component<C> {
         let core = ComponentCore::with(system);
         let logger = core
             .system
@@ -111,7 +111,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         f(cd.deref_mut())
     }
 
-    pub fn logger(&self) -> &KompicsLogger {
+    pub fn logger(&self) -> &KompactLogger {
         &self.logger
     }
 }
@@ -371,7 +371,7 @@ pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
 struct ComponentContextInner<CD: ComponentDefinition + Sized + 'static> {
     timer_manager: TimerManager<CD>,
     component: Weak<Component<CD>>,
-    logger: KompicsLogger,
+    logger: KompactLogger,
     actor_ref: ActorRef,
 }
 
@@ -409,7 +409,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
-    pub fn log(&self) -> &KompicsLogger {
+    pub fn log(&self) -> &KompactLogger {
         &self.inner_ref().logger
     }
 
@@ -424,7 +424,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
-    pub fn system(&self) -> KompicsSystem {
+    pub fn system(&self) -> KompactSystem {
         self.component().system()
     }
 
@@ -470,13 +470,13 @@ pub enum SchedulingDecision {
 
 pub struct ComponentCore {
     id: Uuid,
-    system: KompicsSystem,
+    system: KompactSystem,
     work_count: AtomicUsize,
     component: RefCell<Option<Weak<CoreContainer>>>,
 }
 
 impl ComponentCore {
-    pub fn with(system: KompicsSystem) -> ComponentCore {
+    pub fn with(system: KompactSystem) -> ComponentCore {
         ComponentCore {
             id: Uuid::new_v4(),
             system,
@@ -485,7 +485,7 @@ impl ComponentCore {
         }
     }
 
-    pub fn system(&self) -> &KompicsSystem {
+    pub fn system(&self) -> &KompactSystem {
         &self.system
     }
 
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn component_core_send() -> () {
-        let system = KompicsSystem::default();
+        let system = KompactSystem::default();
         let cc = system.create(TestComponent::new);
         let core = cc.core();
         is_send(&core.id);

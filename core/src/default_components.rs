@@ -10,7 +10,7 @@ pub(crate) struct DefaultComponents {
 }
 
 impl DefaultComponents {
-    pub(crate) fn new(system: &KompicsSystem) -> DefaultComponents {
+    pub(crate) fn new(system: &KompactSystem) -> DefaultComponents {
         let dbc = system.create_unsupervised(DeadletterBox::new);
         let ldc = system.create_unsupervised(LocalDispatcher::new);
         DefaultComponents {
@@ -33,7 +33,7 @@ impl SystemComponents for DefaultComponents {
     fn system_path(&self) -> SystemPath {
         self.dispatcher.on_definition(|cd| cd.system_path())
     }
-    fn start(&self, system: &KompicsSystem) -> () {
+    fn start(&self, system: &KompactSystem) -> () {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
     }
@@ -78,30 +78,6 @@ where
     pub(crate) dispatcher: Arc<Component<C>>,
 }
 
-// Toooooooo complicated...just do it on demand
-//impl<B, C, FB, FC> From<(FB, FC)> for Rc<SCBuilder>
-//where
-//    B: ComponentDefinition + Sized + 'static,
-//    C: ComponentDefinition
-//        + Sized
-//        + 'static
-//        + Dispatcher,
-//    FB: Fn() -> B + 'static,
-//    FC: Fn() -> C + 'static,
-//{
-//    fn from(t: (FB, FC)) -> Rc<SCBuilder> {
-//        |system: &KompicsSystem| {
-//            let dbc = system.create(t.0);
-//            let ldc = system.create(t.1);
-//            let cc = CustomComponents {
-//                deadletter_box: dbc,
-//                dispatcher: ldc,
-//            };
-//            Box::new(cc) as Box<SystemComponents>
-//        }
-//    }
-//}
-
 impl<B, C> SystemComponents for CustomComponents<B, C>
 where
     B: ComponentDefinition + Sized + 'static,
@@ -116,7 +92,7 @@ where
     fn system_path(&self) -> SystemPath {
         self.dispatcher.on_definition(|cd| cd.system_path())
     }
-    fn start(&self, system: &KompicsSystem) -> () {
+    fn start(&self, system: &KompactSystem) -> () {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
     }

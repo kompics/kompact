@@ -317,7 +317,7 @@ impl Serialisable for ActorPath {
 
     /// Serializes a Unique or Named actor path.
     ///
-    /// See `deserialise_msg` in kompics::serialisation for matching deserialisation.
+    /// See `deserialise_msg` in kompact::serialisation for matching deserialisation.
     fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
         use crate::actors::SystemField;
 

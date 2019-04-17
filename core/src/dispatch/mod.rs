@@ -425,7 +425,7 @@ impl Dispatcher for NetworkDispatcher {
         }
     }
 
-    /// Generates a [SystemPath](kompics::actors) from this dispatcher's configuration
+    /// Generates a [SystemPath](kompact::actors) from this dispatcher's configuration
     fn system_path(&mut self) -> SystemPath {
         // TODO get protocol from configuration
         SystemPath::new(Transport::TCP, self.cfg.addr.ip(), self.cfg.addr.port())
@@ -475,8 +475,8 @@ mod dispatch_tests {
     use crate::default_components::DeadletterBox;
     use crate::lifecycle::ControlEvent;
     use crate::lifecycle::ControlPort;
-    use crate::runtime::KompicsConfig;
-    use crate::runtime::KompicsSystem;
+    use crate::runtime::KompactConfig;
+    use crate::runtime::KompactSystem;
     use bytes::{Buf, BufMut};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
@@ -495,14 +495,14 @@ mod dispatch_tests {
     fn named_registration() {
         const ACTOR_NAME: &str = "ponger";
 
-        let mut cfg = KompicsConfig::new();
+        let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, || {
             let net_config = NetworkConfig {
                 addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
             };
             NetworkDispatcher::with_config(net_config)
         });
-        let system = KompicsSystem::new(cfg);
+        let system = KompactSystem::new(cfg);
         let ponger = system.create(PongerAct::new);
         system.start(&ponger);
 
@@ -534,25 +534,25 @@ mod dispatch_tests {
 
         system
             .shutdown()
-            .expect("Kompics didn't shut down properly");
+            .expect("Kompact didn't shut down properly");
     }
 
     #[test]
-    /// Sets up two KompicsSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
     /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
     /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
     /// messages.
     fn remote_delivery_to_registered_actors() {
         let (system, remote) = {
             let system = || {
-                let mut cfg = KompicsConfig::new();
+                let mut cfg = KompactConfig::new();
                 cfg.system_components(DeadletterBox::new, || {
                     let net_config = NetworkConfig {
                         addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
                     };
                     NetworkDispatcher::with_config(net_config)
                 });
-                KompicsSystem::new(cfg)
+                KompactSystem::new(cfg)
             };
             (system(), system())
         };
@@ -625,16 +625,16 @@ mod dispatch_tests {
 
         system
             .shutdown()
-            .expect("Kompics didn't shut down properly");
+            .expect("Kompact didn't shut down properly");
     }
 
     const PING_COUNT: u64 = 10;
 
     #[test]
     fn local_delivery() {
-        let mut cfg = KompicsConfig::new();
+        let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
-        let system = KompicsSystem::new(cfg);
+        let system = KompactSystem::new(cfg);
 
         let (ponger, pof) = system.create_and_register(PongerAct::new);
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL

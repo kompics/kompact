@@ -119,7 +119,7 @@ const PROC_PAIRS: usize = 8;
 
 fn main() {
     println!("Starting system");
-    let sys = KompicsSystem::default();
+    let sys = KompactSystem::default();
     let latch = Arc::new(CountdownEvent::new(PROC_PAIRS));
     let ref l2 = latch;
     let mut pingers = Vec::<Arc<Component<Pinger>>>::new();
@@ -148,5 +148,5 @@ fn main() {
     let total_msgs = (MSGS * (PROC_PAIRS as u64)) as f64;
     let msgs = total_msgs / diffts;
     println!("Ran {}msgs/s", msgs);
-    sys.shutdown().expect("Kompics didn't shut down properly");
+    sys.shutdown().expect("Kompact didn't shut down properly");
 }
