@@ -40,10 +40,31 @@ use std::time::Duration;
 pub mod lookup;
 pub mod queue_manager;
 
-/// Configuration for network dispatcher
-#[derive(Clone)]
+/// Configuration builder for network dispatcher.
+#[derive(Clone, PartialEq, Debug)]
 pub struct NetworkConfig {
     addr: SocketAddr,
+}
+
+impl NetworkConfig {
+    pub fn new(addr: SocketAddr) -> Self {
+        NetworkConfig { addr }
+    }
+
+    /// Replace current socket addrss with `addr`.
+    pub fn with_socket(mut self, addr: SocketAddr) -> Self {
+        self.addr = addr;
+        self
+    }
+}
+
+/// Socket defaults to `127.0.0.1:8080`.
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        NetworkConfig {
+            addr: "127.0.0.1:8080".parse().unwrap(),
+        }
+    }
 }
 
 /// Network-aware dispatcher for messages to remote actors.
@@ -63,20 +84,6 @@ pub struct NetworkDispatcher {
     queue_manager: Option<QueueManager>,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
-}
-
-// impl NetworkConfig
-impl NetworkConfig {
-    pub fn new(addr: SocketAddr) -> Self {
-        NetworkConfig { addr }
-    }
-}
-impl Default for NetworkConfig {
-    fn default() -> Self {
-        NetworkConfig {
-            addr: "127.0.0.1:8080".parse().unwrap(), // TODO remove hard-coded path
-        }
-    }
 }
 
 // impl NetworkDispatcher
