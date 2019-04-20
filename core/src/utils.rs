@@ -39,6 +39,12 @@ pub fn promise<T: Send + Sized>() -> (Promise<T>, Future<T>) {
     (p, f)
 }
 
+#[derive(Debug)]
+pub enum PromiseErr {
+    ChannelBroken,
+    AlreadyFulfilled,
+}
+
 /// Until the futures crate stabilises
 #[derive(Debug)]
 pub struct Future<T: Send + Sized> {
@@ -46,12 +52,16 @@ pub struct Future<T: Send + Sized> {
 }
 
 impl<T: Send + Sized> Future<T> {
-    pub fn r#await(self) -> T {
+    pub fn wait(self) -> T {
         self.result_channel.recv().unwrap()
     }
-    pub fn await_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
+    pub fn wait_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
         self.result_channel.recv_timeout(timeout).map_err(|_| self)
     }
+}
+
+pub trait Fulfillable<T> {
+    fn fulfill(self, t: T) -> Result<(), PromiseErr>;
 }
 
 /// Until the futures crate stabilises
@@ -60,11 +70,10 @@ pub struct Promise<T: Send + Sized> {
     result_channel: mpsc::Sender<T>,
 }
 
-impl<T: Send + Sized> Promise<T> {
-    pub fn fulfill(self, t: T) {
+impl<T: Send + Sized> Fulfillable<T> for Promise<T> {
+    fn fulfill(self, t: T) -> Result<(), PromiseErr> {
         self.result_channel
             .send(t)
-            // ISSUE #12: Explicitly swallow errors
-            .unwrap_or_else(|_| ());
+            .map_err(|_| PromiseErr::ChannelBroken)
     }
 }

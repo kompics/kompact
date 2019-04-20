@@ -67,7 +67,7 @@ fn main() {
     {
         conf.throughput(5);
     }
-    let system = KompactSystem::new(conf);
+    let system = KompactSystem::new(conf).expect("KompactSystem");
     let pingerc = system.create(move || Pinger::new());
     system.start(&pingerc);
     system.trigger_i(Pong, pingerc.on_definition(|cd| cd.ppp.share()));

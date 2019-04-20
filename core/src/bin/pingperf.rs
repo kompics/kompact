@@ -119,7 +119,7 @@ const PROC_PAIRS: usize = 8;
 
 fn main() {
     println!("Starting system");
-    let sys = KompactSystem::default();
+    let sys = KompactConfig::default().build().expect("KompactSystem");
     let latch = Arc::new(CountdownEvent::new(PROC_PAIRS));
     let ref l2 = latch;
     let mut pingers = Vec::<Arc<Component<Pinger>>>::new();

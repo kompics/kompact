@@ -65,7 +65,9 @@ impl ComponentSupervisor {
                 .drain_filter(|entry| selector(&entry.0))
                 .collect::<Vec<_>>();
             for (_, p) in selected.drain(..) {
-                p.fulfill(());
+                p.fulfill(()).unwrap_or_else(|e| {
+                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                });
             }
         }
     }
@@ -149,7 +151,11 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     self.ctx.log(),
                     "Component({}) has been marked as faulty.", id
                 );
-                // TODO recovery
+                self.drop_listeners(&id); // will never be fulfilled
+                match self.children.remove(&id) {
+                    Some(carc) => drop(carc),
+                    None => warn!(self.ctx.log(), "Component({}) faulted during start!.", id),
+                }
             }
             SupervisorMsg::Listen(amp, event) => match Arc::try_unwrap(amp) {
                 Ok(mp) => {

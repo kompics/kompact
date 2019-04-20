@@ -44,11 +44,15 @@ pub mod queue_manager;
 #[derive(Clone, PartialEq, Debug)]
 pub struct NetworkConfig {
     addr: SocketAddr,
+    transport: Transport,
 }
 
 impl NetworkConfig {
     pub fn new(addr: SocketAddr) -> Self {
-        NetworkConfig { addr }
+        NetworkConfig {
+            addr,
+            transport: Transport::TCP,
+        }
     }
 
     /// Replace current socket addrss with `addr`.
@@ -56,13 +60,18 @@ impl NetworkConfig {
         self.addr = addr;
         self
     }
+
+    pub fn build(self) -> impl Fn(Promise<()>) -> NetworkDispatcher {
+        move |notify_ready| NetworkDispatcher::with_config(self.clone(), notify_ready)
+    }
 }
 
-/// Socket defaults to `127.0.0.1:8080`.
+/// Socket defaults to `127.0.0.1:0` (i.e. a random local port).
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
-            addr: "127.0.0.1:8080".parse().unwrap(),
+            addr: "127.0.0.1:0".parse().unwrap(),
+            transport: Transport::TCP,
         }
     }
 }
@@ -84,15 +93,17 @@ pub struct NetworkDispatcher {
     queue_manager: Option<QueueManager>,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
+    notify_ready: Option<Promise<()>>,
 }
 
 // impl NetworkDispatcher
 impl NetworkDispatcher {
-    pub fn new() -> Self {
-        NetworkDispatcher::default()
+    pub fn new(notify_ready: Promise<()>) -> Self {
+        let config = NetworkConfig::default();
+        NetworkDispatcher::with_config(config, notify_ready)
     }
 
-    pub fn with_config(cfg: NetworkConfig) -> Self {
+    pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
         let reaper = lookup::gc::ActorRefReaper::default();
 
@@ -104,20 +115,18 @@ impl NetworkDispatcher {
             net_bridge: None,
             queue_manager: None,
             reaper,
+            notify_ready: Some(notify_ready),
         }
     }
 
-    fn start(&mut self) {
+    fn start(&mut self) -> Result<(), net::NetworkBridgeErr> {
         debug!(self.ctx.log(), "Starting self and network bridge");
-        let dispatcher = {
-            use crate::actors::ActorRefFactory;
-            self.actor_ref()
-        };
+        let dispatcher = self.actor_ref();
 
         let bridge_logger = self.ctx().log().new(o!("owner" => "Bridge"));
         let (mut bridge, events) = net::Bridge::new(self.lookup.clone(), bridge_logger);
         bridge.set_dispatcher(dispatcher.clone());
-        bridge.start(self.cfg.addr.clone());
+        bridge.start(self.cfg.addr.clone())?;
 
         if let Some(ref ex) = bridge.executor.as_ref() {
             use futures::{Future, Stream};
@@ -130,19 +139,18 @@ impl NetworkDispatcher {
                     .then(|_| Ok(())),
             );
         } else {
-            error!(
-                self.ctx.log(),
+            return Err(net::NetworkBridgeErr::Other(
                 "No executor found in network bridge; network events can not be handled"
-            );
+                    .to_string(),
+            ));
         }
         let queue_manager = QueueManager::new();
         self.net_bridge = Some(bridge);
         self.queue_manager = Some(queue_manager);
+        Ok(())
     }
 
     fn schedule_reaper(&mut self) {
-        use crate::timer_manager::Timer;
-
         if !self.reaper.is_scheduled() {
             // First time running; mark as scheduled and jump straight to scheduling
             self.reaper.schedule();
@@ -261,7 +269,6 @@ impl NetworkDispatcher {
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
     fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
-        use crate::actors::SystemField;
         use spaniel::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
@@ -344,7 +351,6 @@ impl NetworkDispatcher {
         };
 
         let proto = {
-            use crate::actors::SystemField;
             let dst_sys = dst_path.system();
             SystemField::protocol(dst_sys)
         };
@@ -364,12 +370,6 @@ impl NetworkDispatcher {
     fn actor_path(&mut self) -> ActorPath {
         let uuid = self.ctx.id();
         ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
-    }
-}
-
-impl Default for NetworkDispatcher {
-    fn default() -> Self {
-        NetworkDispatcher::with_config(NetworkConfig::default())
     }
 }
 
@@ -423,7 +423,9 @@ impl Dispatcher for NetworkDispatcher {
                         }
 
                         if let Some(promise) = promise {
-                            promise.fulfill(res);
+                            promise.fulfill(res).unwrap_or_else(|e| {
+                                error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                            });
                         }
                     }
                 }
@@ -433,9 +435,14 @@ impl Dispatcher for NetworkDispatcher {
     }
 
     /// Generates a [SystemPath](kompact::actors) from this dispatcher's configuration
+    /// This is only possible after the socket is bound and will panic if attempted earlier!
     fn system_path(&mut self) -> SystemPath {
         // TODO get protocol from configuration
-        SystemPath::new(Transport::TCP, self.cfg.addr.ip(), self.cfg.addr.port())
+        let bound_addr = match self.net_bridge {
+            Some(ref net_bridge) => net_bridge.local_addr().clone().expect("If net bridge is ready, port should be as well!"),
+            None => panic!("You must wait until the socket is bound before attempting to create a system path!"),
+        };
+        SystemPath::new(self.cfg.transport, bound_addr.ip(), bound_addr.port())
     }
 }
 
@@ -443,7 +450,23 @@ impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Start => {
-                self.start();
+                info!(self.ctx.log(), "Starting network...");
+                let res = self.start(); //.expect("Could not create NetworkDispatcher!");
+                match res {
+                    Ok(_) => {
+                        info!(self.ctx.log(), "Started network just fine.");
+                        match self.notify_ready.take() {
+                            Some(promise) => promise.fulfill(()).unwrap_or_else(|e| {
+                                error!(self.ctx.log(), "Could not start network! {:?}", e)
+                            }),
+                            None => (),
+                        }
+                    }
+                    Err(e) => {
+                        error!(self.ctx.log(), "Could not start network! {:?}", e);
+                        panic!("Kill me now!");
+                    }
+                }
             }
             ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
             ControlEvent::Kill => info!(self.ctx.log(), "Killed"),
@@ -485,17 +508,46 @@ mod dispatch_tests {
     use crate::runtime::KompactConfig;
     use crate::runtime::KompactSystem;
     use bytes::{Buf, BufMut};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
     use std::time::Duration;
 
-    // Thread-safe TCP port incrementer to enable parallel network tests
-    static GLOBAL_PORT_INCR: AtomicUsize = AtomicUsize::new(0);
-    const BASE_PORT: u16 = 8080;
+    #[test]
+    #[should_panic(expected = "KompactSystem: Poisoned")]
+    fn failed_network() {
+        let mut cfg = KompactConfig::new();
+        println!("Configuring network");
+        cfg.system_components(DeadletterBox::new, {
+            // shouldn't be able to bind on port 80 without root rights
+            let net_config =
+                NetworkConfig::new("127.0.0.1:80".parse().expect("Address should work"));
+            net_config.build()
+        });
+        println!("Starting KompactSystem");
+        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        thread::sleep(Duration::from_secs(1));
+        assert!(false, "System should not start correctly!");
+        println!("KompactSystem started just fine.");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+    }
 
-    fn tcp_listening_port() -> u16 {
-        let count = GLOBAL_PORT_INCR.fetch_add(1, Ordering::SeqCst) + 1;
-        BASE_PORT + (count as u16)
+    #[test]
+    fn test_system_path_timing() {
+        let mut cfg = KompactConfig::new();
+        println!("Configuring network");
+        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        println!("Starting KompactSystem");
+        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        println!("KompactSystem started just fine.");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        // if nothing panics the test succeeds
     }
 
     #[test]
@@ -503,19 +555,14 @@ mod dispatch_tests {
         const ACTOR_NAME: &str = "ponger";
 
         let mut cfg = KompactConfig::new();
-        cfg.system_components(DeadletterBox::new, || {
-            let net_config = NetworkConfig {
-                addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
-            };
-            NetworkDispatcher::with_config(net_config)
-        });
-        let system = KompactSystem::new(cfg);
+        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        let system = KompactSystem::new(cfg).expect("KompactSystem");
         let ponger = system.create(PongerAct::new);
         system.start(&ponger);
 
         let res = system
             .register_by_alias(&ponger, ACTOR_NAME)
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Registration never completed.");
         assert!(
             res.is_ok(),
@@ -524,7 +571,7 @@ mod dispatch_tests {
 
         let res = system
             .register_by_alias(&ponger, ACTOR_NAME)
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Registration never completed.");
 
         assert_eq!(
@@ -535,7 +582,7 @@ mod dispatch_tests {
 
         system
             .kill_notify(ponger)
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger did not die");
         thread::sleep(Duration::from_millis(1000));
 
@@ -553,13 +600,8 @@ mod dispatch_tests {
         let (system, remote) = {
             let system = || {
                 let mut cfg = KompactConfig::new();
-                cfg.system_components(DeadletterBox::new, || {
-                    let net_config = NetworkConfig {
-                        addr: SocketAddr::new("127.0.0.1".parse().unwrap(), tcp_listening_port()),
-                    };
-                    NetworkDispatcher::with_config(net_config)
-                });
-                KompactSystem::new(cfg)
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                KompactSystem::new(cfg).expect("KompactSystem")
             };
             (system(), system())
         };
@@ -567,13 +609,13 @@ mod dispatch_tests {
         let (ponger_named, ponf) = remote.create_and_register(PongerAct::new);
         let poaf = remote.register_by_alias(&ponger_named, "custom_name");
 
-        pouf.await_timeout(Duration::from_millis(1000))
+        pouf.wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never registered!")
             .expect("Ponger failed to register!");
-        ponf.await_timeout(Duration::from_millis(1000))
+        ponf.wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never registered!")
             .expect("Ponger failed to register!");
-        poaf.await_timeout(Duration::from_millis(1000))
+        poaf.wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never registered!")
             .expect("Ponger failed to register!");
 
@@ -590,10 +632,10 @@ mod dispatch_tests {
         let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new(unique_path));
         let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new(named_path));
 
-        piuf.await_timeout(Duration::from_millis(1000))
+        piuf.wait_timeout(Duration::from_millis(1000))
             .expect("Pinger never registered!")
             .expect("Ponger failed to register!");
-        pinf.await_timeout(Duration::from_millis(1000))
+        pinf.wait_timeout(Duration::from_millis(1000))
             .expect("Pinger never registered!")
             .expect("Ponger failed to register!");
 
@@ -610,16 +652,16 @@ mod dispatch_tests {
         let pongfn = remote.kill_notify(ponger_named);
 
         pingfu
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Pinger never stopped!");
         pongfu
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
         pingfn
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Pinger never stopped!");
         pongfn
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
         pinger_named.on_definition(|c| {
             assert_eq!(c.remote_count, PING_COUNT);
@@ -640,8 +682,8 @@ mod dispatch_tests {
     #[test]
     fn local_delivery() {
         let mut cfg = KompactConfig::new();
-        cfg.system_components(DeadletterBox::new, NetworkDispatcher::default);
-        let system = KompactSystem::new(cfg);
+        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        let system = KompactSystem::new(cfg).expect("KompactSystem");
 
         let (ponger, pof) = system.create_and_register(PongerAct::new);
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
@@ -654,10 +696,10 @@ mod dispatch_tests {
         let ponger_path = ActorPath::Unique(unique_path);
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(ponger_path));
 
-        pof.await_timeout(Duration::from_millis(1000))
+        pof.wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never registered!")
             .expect("Ponger failed to register!");
-        pif.await_timeout(Duration::from_millis(1000))
+        pif.wait_timeout(Duration::from_millis(1000))
             .expect("Pinger never registered!")
             .expect("Ponger failed to register!");
 
@@ -669,10 +711,10 @@ mod dispatch_tests {
         let pingf = system.stop_notify(&pinger);
         let pongf = system.kill_notify(ponger);
         pingf
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Pinger never stopped!");
         pongf
-            .await_timeout(Duration::from_millis(1000))
+            .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
         pinger.on_definition(|c| {
             assert_eq!(c.local_count, PING_COUNT);

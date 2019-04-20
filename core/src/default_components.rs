@@ -10,9 +10,13 @@ pub(crate) struct DefaultComponents {
 }
 
 impl DefaultComponents {
-    pub(crate) fn new(system: &KompactSystem) -> DefaultComponents {
-        let dbc = system.create_unsupervised(DeadletterBox::new);
-        let ldc = system.create_unsupervised(LocalDispatcher::new);
+    pub(crate) fn new(
+        system: &KompactSystem,
+        dead_prom: Promise<()>,
+        disp_prom: Promise<()>,
+    ) -> DefaultComponents {
+        let dbc = system.create_unsupervised(|| DeadletterBox::new(dead_prom));
+        let ldc = system.create_unsupervised(|| LocalDispatcher::new(disp_prom));
         DefaultComponents {
             deadletter_box: dbc,
             dispatcher: ldc,
@@ -101,12 +105,14 @@ where
 #[derive(ComponentDefinition)]
 pub struct DeadletterBox {
     ctx: ComponentContext<DeadletterBox>,
+    notify_ready: Option<Promise<()>>,
 }
 
 impl DeadletterBox {
-    pub fn new() -> DeadletterBox {
+    pub fn new(notify_ready: Promise<()>) -> DeadletterBox {
         DeadletterBox {
             ctx: ComponentContext::new(),
+            notify_ready: Some(notify_ready),
         }
     }
 }
@@ -131,6 +137,10 @@ impl Provide<ControlPort> for DeadletterBox {
         match event {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting DeadletterBox");
+                match self.notify_ready.take() {
+                    Some(promise) => promise.fulfill(()).unwrap_or_else(|_| ()),
+                    None => (),
+                }
             }
             _ => (), // ignore
         }
@@ -140,12 +150,14 @@ impl Provide<ControlPort> for DeadletterBox {
 #[derive(ComponentDefinition)]
 pub struct LocalDispatcher {
     ctx: ComponentContext<LocalDispatcher>,
+    notify_ready: Option<Promise<()>>,
 }
 
 impl LocalDispatcher {
-    pub fn new() -> LocalDispatcher {
+    pub fn new(notify_ready: Promise<()>) -> LocalDispatcher {
         LocalDispatcher {
             ctx: ComponentContext::new(),
+            notify_ready: Some(notify_ready),
         }
     }
 }
@@ -183,6 +195,10 @@ impl Provide<ControlPort> for LocalDispatcher {
         match event {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting LocalDispatcher");
+                match self.notify_ready.take() {
+                    Some(promise) => promise.fulfill(()).unwrap_or_else(|_| ()),
+                    None => (),
+                }
             }
             _ => (), // ignore
         }

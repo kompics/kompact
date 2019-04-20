@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn default_settings() {
         //let pool = ThreadPool::new(2);
-        let system = KompactSystem::default();
+        let system = KompactConfig::default().build().expect("KompactSystem");
 
         test_with_system(system);
     }
@@ -205,7 +205,7 @@ mod tests {
         settings
             .threads(4)
             .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
-        let system = KompactSystem::new(settings);
+        let system = KompactSystem::new(settings).expect("KompactSystem");
         test_with_system(system);
     }
 
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_timer() -> () {
-        let system = KompactSystem::default();
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let trc = system.create_and_start(TimerRecvComponent::new);
 
         thread::sleep(Duration::from_millis(1000));
@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_start_stop() -> () {
-        let system = KompactSystem::default();
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let (cc, _) = system.create_and_register(CounterComponent::new);
         let ccref = cc.actor_ref();
 
@@ -356,7 +356,7 @@ mod tests {
 
         let f = system.start_notify(&cc);
 
-        f.await_timeout(Duration::from_millis(1000))
+        f.wait_timeout(Duration::from_millis(1000))
             .expect("Component never started!");
 
         cc.on_definition(|c| {
@@ -367,7 +367,7 @@ mod tests {
         let f = system.stop_notify(&cc);
         ccref.tell(Box::new(String::from("MsgTest")), &system);
 
-        f.await_timeout(Duration::from_millis(1000))
+        f.wait_timeout(Duration::from_millis(1000))
             .expect("Component never stopped!");
 
         cc.on_definition(|c| {
@@ -377,7 +377,7 @@ mod tests {
 
         let f = system.start_notify(&cc);
 
-        f.await_timeout(Duration::from_millis(1000))
+        f.wait_timeout(Duration::from_millis(1000))
             .expect("Component never started again!");
 
         cc.on_definition(|c| {
@@ -387,8 +387,124 @@ mod tests {
 
         let f = system.kill_notify(cc);
 
-        f.await_timeout(Duration::from_millis(1000))
+        f.wait_timeout(Duration::from_millis(1000))
             .expect("Component never died!");
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    struct CrashPort;
+
+    impl Port for CrashPort {
+        type Indication = ();
+        type Request = ();
+    }
+
+    #[derive(ComponentDefinition)]
+    struct CrasherComponent {
+        ctx: ComponentContext<CrasherComponent>,
+        crash_port: ProvidedPort<CrashPort, CrasherComponent>,
+        crash_on_start: bool,
+    }
+
+    impl CrasherComponent {
+        fn new(crash_on_start: bool) -> CrasherComponent {
+            CrasherComponent {
+                ctx: ComponentContext::new(),
+                crash_port: ProvidedPort::new(),
+                crash_on_start,
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for CrasherComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    if self.crash_on_start {
+                        info!(self.ctx.log(), "Crashing CounterComponent");
+                        panic!("Test panic please ignore");
+                    } else {
+                        info!(self.ctx.log(), "Starting CounterComponent");
+                    }
+                }
+                ControlEvent::Stop => {
+                    info!(self.ctx.log(), "Stopping CounterComponent");
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    impl Provide<CrashPort> for CrasherComponent {
+        fn handle(&mut self, _event: ()) -> () {
+            info!(self.ctx.log(), "Crashing CounterComponent");
+            panic!("Test panic please ignore");
+        }
+    }
+
+    impl Actor for CrasherComponent {
+        fn receive_local(&mut self, _sender: ActorRef, _msg: Box<Any>) -> () {
+            info!(self.ctx.log(), "Crashing CounterComponent");
+            panic!("Test panic please ignore");
+        }
+        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+            info!(self.ctx.log(), "Crashing CounterComponent");
+            panic!("Test panic please ignore");
+        }
+    }
+
+    #[test]
+    fn test_component_failure() -> () {
+        let system = KompactConfig::default().build().expect("KompactSystem");
+
+        {
+            // limit scope
+            let cc = system.create(|| CrasherComponent::new(true));
+
+            let f = system.start_notify(&cc);
+
+            let res = f.wait_timeout(Duration::from_millis(1000));
+            assert!(res.is_err(), "Component should crash on start");
+        }
+
+        {
+            // limit scope
+            let cc = system.create(|| CrasherComponent::new(false));
+
+            let crash_port = cc.on_definition(|def| def.crash_port.share());
+
+            let f = system.start_notify(&cc);
+
+            let res = f.wait_timeout(Duration::from_millis(1000));
+            assert!(res.is_ok(), "Component should not crash on start");
+
+            system.trigger_r((), crash_port);
+
+            thread::sleep(Duration::from_millis(1000));
+
+            assert!(cc.is_faulty(), "Component should have crashed.");
+        }
+
+        {
+            // limit scope
+            let cc = system.create(|| CrasherComponent::new(false));
+
+            let ccref = cc.actor_ref();
+
+            let f = system.start_notify(&cc);
+
+            let res = f.wait_timeout(Duration::from_millis(1000));
+            assert!(res.is_ok(), "Component should not crash on start");
+
+            ccref.tell(Box::new(()), &system);
+
+            thread::sleep(Duration::from_millis(1000));
+
+            assert!(cc.is_faulty(), "Component should have crashed.");
+        }
 
         system
             .shutdown()

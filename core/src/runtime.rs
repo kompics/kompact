@@ -9,8 +9,7 @@ use std::clone::Clone;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use std::sync::{Once, ONCE_INIT};
+use std::sync::{Arc, Mutex, Once, ONCE_INIT};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -27,7 +26,7 @@ fn default_logger() -> &'static KompactLogger {
         DEFAULT_ROOT_LOGGER_INIT.call_once(|| {
             let decorator = slog_term::TermDecorator::new().build();
             let drain = slog_term::FullFormat::new(decorator).build().fuse();
-            let drain = slog_async::Async::new(drain).build().fuse();
+            let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
             DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(
                 Arc::new(drain),
                 o!(
@@ -52,7 +51,7 @@ type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
 //     }
 // }
 
-type SCBuilder = Fn(&KompactSystem) -> Box<SystemComponents>;
+type SCBuilder = Fn(&KompactSystem, Promise<()>, Promise<()>) -> Box<SystemComponents>;
 
 // impl Debug for SCBuilder {
 //     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -67,6 +66,11 @@ type TimerBuilder = Fn() -> Box<TimerComponent>;
 //         write!(f, "<function>")
 //     }
 // }
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum KompactError {
+    Poisoned,
+}
 
 #[derive(Clone)]
 pub struct KompactConfig {
@@ -103,14 +107,16 @@ impl KompactConfig {
     pub fn new() -> KompactConfig {
         KompactConfig {
             label: default_runtime_label(),
-            throughput: 1,
+            throughput: 2,
             msg_priority: 0.5,
             threads: 1,
             timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
             scheduler_builder: Rc::new(|t| {
                 ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(t))
             }),
-            sc_builder: Rc::new(|sys| Box::new(DefaultComponents::new(sys))),
+            sc_builder: Rc::new(|sys, dead_prom, disp_prom| {
+                Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))
+            }),
             root_logger: None,
         }
     }
@@ -162,12 +168,12 @@ impl KompactConfig {
     where
         B: ComponentDefinition + Sized + 'static,
         C: ComponentDefinition + Sized + 'static + Dispatcher,
-        FB: Fn() -> B + 'static,
-        FC: Fn() -> C + 'static,
+        FB: Fn(Promise<()>) -> B + 'static,
+        FC: Fn(Promise<()>) -> C + 'static,
     {
-        let sb = move |system: &KompactSystem| {
-            let deadletter_box = system.create_unsupervised(&deadletter_fn);
-            let dispatcher = system.create_unsupervised(&dispatcher_fn);
+        let sb = move |system: &KompactSystem, dead_prom: Promise<()>, disp_prom: Promise<()>| {
+            let deadletter_box = system.create_unsupervised(|| deadletter_fn(dead_prom));
+            let dispatcher = system.create_unsupervised(|| dispatcher_fn(disp_prom));
 
             let cc = CustomComponents {
                 deadletter_box,
@@ -184,6 +190,10 @@ impl KompactConfig {
         self
     }
 
+    pub fn build(self) -> Result<KompactSystem, KompactError> {
+        KompactSystem::new(self)
+    }
+
     fn max_messages(&self) -> usize {
         let tpf = self.throughput as f32;
         let mmf = tpf * self.msg_priority;
@@ -193,32 +203,56 @@ impl KompactConfig {
     }
 }
 
+impl Default for KompactConfig {
+    fn default() -> Self {
+        KompactConfig {
+            label: default_runtime_label(),
+            throughput: 50,
+            msg_priority: 0.5,
+            threads: num_cpus::get(),
+            timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
+            scheduler_builder: Rc::new(|t| {
+                ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(t))
+            }),
+            sc_builder: Rc::new(|sys, dead_prom, disp_prom| {
+                Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))
+            }),
+            root_logger: None,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct KompactSystem {
     inner: Arc<KompactRuntime>,
     scheduler: Box<Scheduler>,
 }
 
-impl Default for KompactSystem {
-    fn default() -> Self {
-        let scheduler =
-            ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(num_cpus::get()));
-        let runtime = Arc::new(KompactRuntime::default());
-        let sys = KompactSystem {
-            inner: runtime,
-            scheduler,
-        };
-        let system_components = Box::new(DefaultComponents::new(&sys));
-        let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
-        let ic = InternalComponents::new(supervisor, system_components);
-        sys.inner.set_internal_components(ic);
-        sys.inner.start_internal_components(&sys);
-        sys
-    }
-}
+// This can fail!
+// impl Default for KompactSystem {
+//     fn default() -> Self {
+//         let scheduler =
+//             ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(num_cpus::get()));
+//         let runtime = Arc::new(KompactRuntime::default());
+//         let sys = KompactSystem {
+//             inner: runtime,
+//             scheduler,
+//         };
+//         let (dead_prom, dead_f) = utils::promise();
+//         let (disp_prom, disp_f) = utils::promise();
+//         let system_components = Box::new(DefaultComponents::new(&sys, dead_prom, disp_prom));
+//         let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
+//         let ic = InternalComponents::new(supervisor, system_components);
+//         sys.inner.set_internal_components(ic);
+//         sys.inner.start_internal_components(&sys);
+//         dead_f.wait();
+//         disp_f.wait();
+//         sys
+//     }
+// }
 
 impl KompactSystem {
-    pub fn new(conf: KompactConfig) -> Self {
+    pub fn new(conf: KompactConfig) -> Result<Self, KompactError> {
         let scheduler = (*conf.scheduler_builder)(conf.threads);
         let sc_builder = conf.sc_builder.clone();
         let runtime = Arc::new(KompactRuntime::new(conf));
@@ -226,12 +260,35 @@ impl KompactSystem {
             inner: runtime,
             scheduler,
         };
-        let system_components = (*sc_builder)(&sys); //(*conf.sc_builder)(&sys);
+        let (dead_prom, dead_f) = utils::promise();
+        let (disp_prom, disp_f) = utils::promise();
+        let system_components = (*sc_builder)(&sys, dead_prom, disp_prom); //(*conf.sc_builder)(&sys);
         let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
         let ic = InternalComponents::new(supervisor, system_components);
         sys.inner.set_internal_components(ic);
         sys.inner.start_internal_components(&sys);
-        sys
+        let timeout = std::time::Duration::from_millis(50);
+        let mut wait_for: Option<Future<()>> = Some(dead_f);
+        while wait_for.is_some() {
+            if sys.inner.is_poisoned() {
+                return Err(KompactError::Poisoned);
+            }
+            match wait_for.take().unwrap().wait_timeout(timeout) {
+                Ok(_) => (),
+                Err(w) => wait_for = Some(w),
+            }
+        }
+        let mut wait_for: Option<Future<()>> = Some(disp_f);
+        while wait_for.is_some() {
+            if sys.inner.is_poisoned() {
+                return Err(KompactError::Poisoned);
+            }
+            match wait_for.take().unwrap().wait_timeout(timeout) {
+                Ok(_) => (),
+                Err(w) => wait_for = Some(w),
+            }
+        }
+        Ok(sys)
     }
 
     pub fn schedule(&self, c: Arc<CoreContainer>) -> () {
@@ -242,6 +299,11 @@ impl KompactSystem {
         &self.inner.logger
     }
 
+    pub fn poison(&self) {
+        self.inner.poison();
+        self.scheduler.poison();
+    }
+
     /// Create a new component.
     ///
     /// New components are not started automatically.
@@ -250,6 +312,7 @@ impl KompactSystem {
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
         {
             let mut cd = c.definition().lock().unwrap();
@@ -287,6 +350,7 @@ impl KompactSystem {
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         let c = self.create(f);
         let id = c.core().id().clone();
         let id_path = PathResolvable::ActorId(id);
@@ -302,6 +366,7 @@ impl KompactSystem {
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         let c = self.create(f);
         let path = PathResolvable::ActorId(c.core().id().clone());
         let actor = c.actor_ref();
@@ -324,6 +389,7 @@ impl KompactSystem {
         C: ComponentDefinition + 'static,
         A: Into<String>,
     {
+        self.inner.assert_active();
         let actor = c.actor_ref();
         self.inner.register_by_alias(actor, alias.into())
     }
@@ -332,6 +398,7 @@ impl KompactSystem {
     where
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_not_poisoned();
         c.enqueue_control(ControlEvent::Start);
     }
 
@@ -339,6 +406,7 @@ impl KompactSystem {
     where
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
@@ -353,6 +421,7 @@ impl KompactSystem {
     where
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         c.enqueue_control(ControlEvent::Stop);
     }
 
@@ -360,6 +429,7 @@ impl KompactSystem {
     where
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
@@ -374,6 +444,7 @@ impl KompactSystem {
     where
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         c.enqueue_control(ControlEvent::Kill);
     }
 
@@ -381,6 +452,7 @@ impl KompactSystem {
     where
         C: ComponentDefinition + 'static,
     {
+        self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
@@ -392,10 +464,12 @@ impl KompactSystem {
     }
 
     pub fn trigger_i<P: Port + 'static>(&self, msg: P::Indication, port: RequiredRef<P>) {
+        self.inner.assert_active();
         port.enqueue(msg);
     }
 
     pub fn trigger_r<P: Port + 'static>(&self, msg: P::Request, port: ProvidedRef<P>) {
+        self.inner.assert_active();
         port.enqueue(msg);
     }
 
@@ -411,14 +485,26 @@ impl KompactSystem {
         self.inner.max_messages
     }
 
-    // TODO add shutdown_on_idle() to block the current thread until the system has nothing more to do
+    pub fn await_termination(self) {
+        loop {
+            if lifecycle::is_destroyed(self.inner.state())
+                || lifecycle::is_faulty(self.inner.state())
+            {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+
     pub fn shutdown(self) -> Result<(), String> {
+        self.inner.assert_active();
         self.scheduler.shutdown()?;
         self.inner.shutdown()?;
         Ok(())
     }
 
     pub fn system_path(&self) -> SystemPath {
+        self.inner.assert_active();
         self.inner.system_path()
     }
 
@@ -429,12 +515,14 @@ impl KompactSystem {
 
 impl ActorRefFactory for KompactSystem {
     fn actor_ref(&self) -> ActorRef {
+        self.inner.assert_active();
         self.inner.deadletter_ref()
     }
 }
 
 impl Dispatching for KompactSystem {
     fn dispatcher_ref(&self) -> ActorRef {
+        self.inner.assert_active();
         self.inner.dispatcher_ref()
     }
 }
@@ -447,6 +535,7 @@ impl ActorSource for KompactSystem {
 
 impl TimerRefFactory for KompactSystem {
     fn timer_ref(&self) -> timer::TimerRef {
+        self.inner.assert_not_poisoned();
         self.inner.timer_ref()
     }
 }
@@ -455,7 +544,7 @@ pub trait SystemComponents: Send + Sync {
     fn deadletter_ref(&self) -> ActorRef;
     fn dispatcher_ref(&self) -> ActorRef;
     fn system_path(&self) -> SystemPath;
-    fn start(&self, _: &KompactSystem) -> ();
+    fn start(&self, _system: &KompactSystem) -> ();
 }
 
 pub trait TimerComponent: TimerRefFactory + Send + Sync {
@@ -508,21 +597,24 @@ struct KompactRuntime {
     timer: Box<TimerComponent>,
     internal_components: OnceMutex<Option<InternalComponents>>,
     logger: KompactLogger,
+    state: AtomicUsize,
 }
 
-impl Default for KompactRuntime {
-    fn default() -> Self {
-        let label = default_runtime_label();
-        KompactRuntime {
-            label: label.clone(),
-            throughput: 50,
-            max_messages: 25,
-            timer: DefaultTimer::new_timer_component(),
-            internal_components: OnceMutex::new(None),
-            logger: default_logger().new(o!("system" => label)),
-        }
-    }
-}
+// Moved into default config
+// impl Default for KompactRuntime {
+//     fn default() -> Self {
+//         let label = default_runtime_label();
+//         KompactRuntime {
+//             label: label.clone(),
+//             throughput: 50,
+//             max_messages: 25,
+//             timer: DefaultTimer::new_timer_component(),
+//             internal_components: OnceMutex::new(None),
+//             logger: default_logger().new(o!("system" => label)),
+//             state: lifecycle::initial_state(),
+//         }
+//     }
+// }
 
 impl KompactRuntime {
     fn new(conf: KompactConfig) -> Self {
@@ -538,6 +630,7 @@ impl KompactRuntime {
             timer: (conf.timer_builder)(),
             internal_components: OnceMutex::new(None),
             logger,
+            state: lifecycle::initial_state(),
         }
     }
 
@@ -553,7 +646,10 @@ impl KompactRuntime {
 
     fn start_internal_components(&self, system: &KompactSystem) -> () {
         match *self.internal_components {
-            Some(ref ic) => ic.start(system),
+            Some(ref ic) => {
+                ic.start(system);
+                lifecycle::set_active(self.state());
+            }
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
@@ -623,7 +719,28 @@ impl KompactRuntime {
     }
 
     pub fn shutdown(&self) -> Result<(), String> {
+        lifecycle::set_destroyed(self.state());
         self.timer.shutdown()
+    }
+
+    pub(crate) fn poison(&self) {
+        lifecycle::set_faulty(self.state());
+        let _ = self.timer.shutdown();
+    }
+    fn state(&self) -> &AtomicUsize {
+        &self.state
+    }
+    fn is_active(&self) -> bool {
+        lifecycle::is_active(self.state())
+    }
+    fn is_poisoned(&self) -> bool {
+        lifecycle::is_faulty(self.state())
+    }
+    fn assert_active(&self) {
+        assert!(self.is_active(), "KompactRuntime was not in active state!");
+    }
+    fn assert_not_poisoned(&self) {
+        assert!(!self.is_poisoned(), "KompactRuntime was poisoned!");
     }
 }
 
@@ -638,6 +755,7 @@ pub trait Scheduler: Send + Sync {
     fn shutdown_async(&self) -> ();
     fn shutdown(&self) -> Result<(), String>;
     fn box_clone(&self) -> Box<Scheduler>;
+    fn poison(&self) -> ();
 }
 
 impl Clone for Box<Scheduler> {
@@ -678,4 +796,25 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     fn box_clone(&self) -> Box<Scheduler> {
         Box::new(self.clone())
     }
+    fn poison(&self) -> () {
+        self.exec.shutdown_async();
+    }
 }
+
+// struct PanicGuard(Arc<CoreContainer>);
+
+// impl Deref for PanicGuard {
+//     type Target = Arc<CoreContainer>;
+
+//     fn deref(&self) -> &Arc<CoreContainer> {
+//         &self.0
+//     }
+// }
+
+// impl Drop for Inner {
+//     fn drop(&mut self) {
+//         if thread::panicking() {
+//             self.0.set_fault()
+//         }
+//     }
+// }

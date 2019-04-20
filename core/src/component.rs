@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::ops::DerefMut;
+use std::panic;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
@@ -114,6 +115,133 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     pub fn logger(&self) -> &KompactLogger {
         &self.logger
     }
+
+    pub fn is_faulty(&self) -> bool {
+        lifecycle::is_faulty(&self.state)
+    }
+
+    pub fn is_active(&self) -> bool {
+        lifecycle::is_active(&self.state)
+    }
+
+    fn inner_execute(&self) {
+        let max_events = self.core.system.throughput();
+        let max_messages = self.core.system.max_messages();
+        match self.definition().lock() {
+            Ok(mut guard) => {
+                let mut count: usize = 0;
+                while let Ok(event) = self.ctrl_queue.pop() {
+                    // ignore max_events for lifecyle events
+                    // println!("Executing event: {:?}", event);
+                    let supervisor_msg = match event {
+                        lifecycle::ControlEvent::Start => {
+                            lifecycle::set_active(&self.state);
+                            debug!(self.logger, "Component started.");
+                            SupervisorMsg::Started(self.core.component())
+                        }
+                        lifecycle::ControlEvent::Stop => {
+                            lifecycle::set_passive(&self.state);
+                            debug!(self.logger, "Component stopped.");
+                            SupervisorMsg::Stopped(self.core.id)
+                        }
+                        lifecycle::ControlEvent::Kill => {
+                            lifecycle::set_destroyed(&self.state);
+                            debug!(self.logger, "Component killed.");
+                            SupervisorMsg::Killed(self.core.id)
+                        }
+                    };
+                    guard.handle(event);
+                    count += 1;
+                    // inform supervisor after local handling to make sure crashing component don't count as started
+                    if let Some(ref supervisor) = self.supervisor {
+                        supervisor.enqueue(supervisor_msg);
+                    }
+                }
+                if (!lifecycle::is_active(&self.state)) {
+                    trace!(self.logger, "Not running inactive scheduled.");
+                    match self.core.decrement_work(count) {
+                        SchedulingDecision::Schedule => {
+                            let system = self.core.system();
+                            let cc = self.core.component();
+                            system.schedule(cc);
+                        }
+                        _ => (), // ignore
+                    }
+                    return;
+                }
+                // timers have highest priority
+                while count < max_events {
+                    let c = guard.deref_mut();
+                    match c.ctx_mut().timer_manager_mut().try_action() {
+                        ExecuteAction::Once(id, action) => {
+                            action(c, id);
+                            count += 1;
+                        }
+                        ExecuteAction::Periodic(id, action) => {
+                            action(c, id);
+                            count += 1;
+                        }
+                        ExecuteAction::None => break,
+                    }
+                }
+                // then some messages
+                while count < max_messages {
+                    if let Ok(env) = self.msg_queue.pop() {
+                        match env {
+                            MsgEnvelope::Receive(renv) => guard.receive(renv),
+                            MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
+                                let renv = ReceiveEnvelope::Cast(cenv);
+                                guard.receive(renv);
+                            }
+                            MsgEnvelope::Dispatch(senv) => {
+                                guard.execute_send(senv);
+                            }
+                        }
+                        count += 1;
+                    } else {
+                        break;
+                    }
+                }
+                // then events
+                let rem_events = max_events.saturating_sub(count);
+                if (rem_events > 0) {
+                    let res = guard.execute(rem_events, self.skip.load(Ordering::Relaxed));
+                    self.skip.store(res.skip, Ordering::Relaxed);
+                    count = count + res.count;
+
+                    // and maybe some more messages
+                    while count < max_events {
+                        if let Ok(env) = self.msg_queue.pop() {
+                            match env {
+                                MsgEnvelope::Receive(renv) => guard.receive(renv),
+                                MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
+                                    let renv = ReceiveEnvelope::Cast(cenv);
+                                    guard.receive(renv);
+                                }
+                                MsgEnvelope::Dispatch(senv) => {
+                                    guard.execute_send(senv);
+                                }
+                            }
+                            count += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                match self.core.decrement_work(count) {
+                    SchedulingDecision::Schedule => {
+                        let system = self.core.system();
+                        let cc = self.core.component();
+                        system.schedule(cc);
+                    }
+                    _ => (), // ignore
+                }
+            }
+            _ => {
+                panic!("System poisoned!"); //TODO better error handling
+            }
+        }
+    }
 }
 
 impl<CD> ActorRefFactory for Arc<Component<CD>>
@@ -211,126 +339,36 @@ impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C
     fn core(&self) -> &ComponentCore {
         &self.core
     }
+
     fn execute(&self) -> () {
         if (lifecycle::is_destroyed(&self.state)) {
             return; // don't execute anything
         }
-        let max_events = self.core.system.throughput();
-        let max_messages = self.core.system.max_messages();
-        match self.definition().lock() {
-            Ok(mut guard) => {
-                let mut count: usize = 0;
-                while let Ok(event) = self.ctrl_queue.pop() {
-                    match event {
-                        lifecycle::ControlEvent::Start => {
-                            lifecycle::set_active(&self.state);
-                            if let Some(ref supervisor) = self.supervisor {
-                                supervisor.enqueue(SupervisorMsg::Started(self.core.component()));
-                            }
-                            debug!(self.logger, "Component started.");
-                        }
-                        lifecycle::ControlEvent::Stop => {
-                            lifecycle::set_passive(&self.state);
-                            if let Some(ref supervisor) = self.supervisor {
-                                supervisor.enqueue(SupervisorMsg::Stopped(self.core.id));
-                            }
-                            debug!(self.logger, "Component stopped.");
-                        }
-                        lifecycle::ControlEvent::Kill => {
-                            lifecycle::set_destroyed(&self.state);
-                            if let Some(ref supervisor) = self.supervisor {
-                                supervisor.enqueue(SupervisorMsg::Killed(self.core.id));
-                            }
-                            debug!(self.logger, "Component killed.");
-                        }
-                    }
-                    // ignore max_events for lifecyle events
-                    // println!("Executing event: {:?}", event);
-                    guard.handle(event);
-                    count += 1;
+        if (lifecycle::is_faulty(&self.state)) {
+            warn!(
+                self.logger,
+                "Ignoring attempt to execute a faulty component!"
+            );
+            return; // don't execute anything
+        }
+        let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+            self.inner_execute();
+        }));
+        match res {
+            Ok(_) => (), // great
+            Err(e) => {
+                error!(self.logger, "Component panicked with: {:?}", e);
+                lifecycle::set_faulty(&self.state);
+                if let Some(ref supervisor) = self.supervisor {
+                    supervisor.enqueue(SupervisorMsg::Faulty(self.core.id));
+                } else {
+                    // we are the supervisor!
+                    error!(
+                        self.logger,
+                        "Top level component panicked! Poisoning system."
+                    );
+                    self.system().poison();
                 }
-                if (!lifecycle::is_active(&self.state)) {
-                    trace!(self.logger, "Not running inactive scheduled.");
-                    match self.core.decrement_work(count) {
-                        SchedulingDecision::Schedule => {
-                            let system = self.core.system();
-                            let cc = self.core.component();
-                            system.schedule(cc);
-                        }
-                        _ => (), // ignore
-                    }
-                    return;
-                }
-                // timers have highest priority
-                while count < max_events {
-                    let c = guard.deref_mut();
-                    match c.ctx_mut().timer_manager_mut().try_action() {
-                        ExecuteAction::Once(id, action) => {
-                            action(c, id);
-                            count += 1;
-                        }
-                        ExecuteAction::Periodic(id, action) => {
-                            action(c, id);
-                            count += 1;
-                        }
-                        ExecuteAction::None => break,
-                    }
-                }
-                // then some messages
-                while count < max_messages {
-                    if let Ok(env) = self.msg_queue.pop() {
-                        match env {
-                            MsgEnvelope::Receive(renv) => guard.receive(renv),
-                            MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
-                                let renv = ReceiveEnvelope::Cast(cenv);
-                                guard.receive(renv);
-                            }
-                            MsgEnvelope::Dispatch(senv) => {
-                                guard.execute_send(senv);
-                            }
-                        }
-                        count += 1;
-                    } else {
-                        break;
-                    }
-                }
-                // then events
-                let rem_events = max_events.saturating_sub(count);
-                if (rem_events > 0) {
-                    let res = guard.execute(rem_events, self.skip.load(Ordering::Relaxed));
-                    self.skip.store(res.skip, Ordering::Relaxed);
-                    count = count + res.count;
-
-                    // and maybe some more messages
-                    while count < max_events {
-                        if let Ok(env) = self.msg_queue.pop() {
-                            match env {
-                                MsgEnvelope::Receive(renv) => guard.receive(renv),
-                                MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
-                                    let renv = ReceiveEnvelope::Cast(cenv);
-                                    guard.receive(renv);
-                                }
-                                MsgEnvelope::Dispatch(senv) => {
-                                    guard.execute_send(senv);
-                                }
-                            }
-                            count += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                }
-                match self.core.decrement_work(count) {
-                    SchedulingDecision::Schedule => {
-                        let system = self.core.system();
-                        let cc = self.core.component();
-                        system.schedule(cc);
-                    }
-                    _ => (), // ignore
-                }
-            }
-            _ => {
-                panic!("System poisoned!"); //TODO better error handling
             }
         }
     }
@@ -568,7 +606,7 @@ mod tests {
 
     #[test]
     fn component_core_send() -> () {
-        let system = KompactSystem::default();
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let cc = system.create(TestComponent::new);
         let core = cc.core();
         is_send(&core.id);

@@ -19,7 +19,7 @@ impl Port for ControlPort {
 const PASSIVE: usize = 0;
 const ACTIVE: usize = 1;
 const DESTROYED: usize = 2;
-//const FAULTY: usize = 3; // not in use for now
+const FAULTY: usize = 3;
 
 pub(crate) fn initial_state() -> AtomicUsize {
     AtomicUsize::new(PASSIVE)
@@ -37,8 +37,16 @@ pub(crate) fn set_destroyed(state: &AtomicUsize) {
     state.store(DESTROYED, Ordering::SeqCst);
 }
 
+pub(crate) fn set_faulty(state: &AtomicUsize) {
+    state.store(FAULTY, Ordering::SeqCst);
+}
+
 pub(crate) fn is_active(state: &AtomicUsize) -> bool {
     state.load(Ordering::SeqCst) == ACTIVE
+}
+
+pub(crate) fn is_faulty(state: &AtomicUsize) -> bool {
+    state.load(Ordering::SeqCst) == FAULTY
 }
 
 pub(crate) fn is_destroyed(state: &AtomicUsize) -> bool {

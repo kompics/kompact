@@ -103,6 +103,8 @@ pub struct Bridge {
     net_thread: Option<JoinHandle<()>>,
     /// Reference back to the Kompact dispatcher
     dispatcher: Option<ActorRef>,
+    /// Socket the network actually bound on
+    bound_addr: Option<SocketAddr>,
 }
 
 // impl bridge
@@ -125,6 +127,7 @@ impl Bridge {
             lookup,
             net_thread: None,
             dispatcher: None,
+            bound_addr: None,
         };
 
         (bridge, receiver)
@@ -136,17 +139,23 @@ impl Bridge {
     }
 
     /// Starts the Tokio runtime and binds a [TcpListener] to the provided `addr`
-    pub fn start(&mut self, addr: SocketAddr) {
+    pub fn start(&mut self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         let network_log = self.log.new(o!("thread" => "tokio-runtime"));
-        let (ex, th) = start_network_thread(
+        let nthread = start_network_thread(
             "tokio-runtime".into(),
             network_log,
             addr,
             self.events.clone(),
             self.lookup.clone(),
-        );
-        self.executor = Some(ex);
-        self.net_thread = Some(th);
+        )?;
+        self.executor = Some(nthread.executor);
+        self.net_thread = Some(nthread.handle);
+        self.bound_addr = Some(nthread.bound_addr);
+        Ok(())
+    }
+
+    pub fn local_addr(&self) -> &Option<SocketAddr> {
+        &self.bound_addr
     }
 
     /// Attempts to establish a TCP connection to the provided `addr`.
@@ -236,14 +245,21 @@ fn start_tcp_server(
     executor: TaskExecutor,
     log: KompactLogger,
     addr: SocketAddr,
+    addr_tx: sync::oneshot::Sender<SocketAddr>,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
     let err_log = log.clone();
     let err_log2 = log.clone();
-    let server = TcpListener::bind(&addr).expect("could not bind to address");
+    let server_listener = TcpListener::bind(&addr).expect("could not bind to address");
+    let actual_addr = server_listener
+        .local_addr()
+        .expect("could not get real address");
+    addr_tx
+        .send(actual_addr)
+        .expect("could not communicate real address");
     let err_events = events.clone();
-    let server = server
+    let server = server_listener
         .incoming()
         .map_err(move |e| {
             error!(err_log, "err listening on TCP socket");
@@ -296,33 +312,57 @@ fn start_network_thread(
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
-) -> (TaskExecutor, JoinHandle<()>) {
+) -> Result<NetworkThread, NetworkBridgeErr> {
     use std::thread::Builder;
 
     let (tx, rx) = sync::oneshot::channel();
+    let (addr_tx, addr_rx) = sync::oneshot::channel();
     let th = Builder::new()
         .name(name)
         .spawn(move || {
-            let mut runtime = Runtime::new().expect("runtime creation in network main thread");
+            let mut runtime = Runtime::new().expect("Could not create Tokio Runtime!");
             let executor = runtime.executor();
 
             runtime.spawn(start_tcp_server(
                 executor.clone(),
                 log.clone(),
                 addr,
+                addr_tx,
                 events,
                 lookup,
             ));
-
-            let _res = tx.send(executor);
+            tx.send(executor).expect("Onceshot channel died!");
             runtime.shutdown_on_idle().wait().unwrap();
         })
-        .expect("TCP serve thread spawning should not fail");
-    let executor = rx
-        .wait()
-        .expect("could not receive executor clone; did network thread panic?");
+        .map_err(|_| NetworkBridgeErr::Thread("TCP serve thread spawning failed!".to_string()))?;
 
-    (executor, th)
+    let bound_addr = addr_rx.wait().map_err(|_| {
+        NetworkBridgeErr::Binding(format!("Could not get true bind address for {}", addr))
+    })?;
+    let executor = rx.wait().map_err(|_| {
+        NetworkBridgeErr::Thread(
+            "Could not receive executor; network thread may have panicked!".to_string(),
+        )
+    })?;
+    Ok(NetworkThread {
+        executor,
+        handle: th,
+        bound_addr,
+    })
+}
+
+struct NetworkThread {
+    executor: TaskExecutor,
+    handle: JoinHandle<()>,
+    bound_addr: SocketAddr,
+}
+
+#[derive(Debug)]
+pub enum NetworkBridgeErr {
+    Tokio(tokio::io::Error),
+    Binding(String),
+    Thread(String),
+    Other(String),
 }
 
 /// Returns a future which drives TCP I/O over the [FrameCodec].
@@ -335,9 +375,8 @@ fn handle_tcp(
     log: KompactLogger,
     actor_lookup: Arc<ArcSwap<ActorStore>>,
 ) -> impl Future<Item = (), Error = ()> {
-    use futures::Stream;
-
     let err_log = log.clone();
+    let err_log2 = log.clone();
 
     let transport = FrameCodec::new(stream);
     let (frame_writer, frame_reader) = transport.split();
@@ -385,17 +424,16 @@ fn handle_tcp(
         })
         .select(
             // Combine above stream with RX side of MPSC channel
-            rx.map_err(|_err| {
-                println!("ERROR receiving MPSC");
-                () // TODO err
+            rx.map_err(move |err| {
+                error!(err_log, "ERROR receiving MPSC: {:?}", err);
+                ()
             })
             .map(|frame: Frame| Some(frame)),
         )
         // Forward the combined streams to the frame writer
         .forward(frame_writer)
-        .map_err(move |_res| {
-            // TODO
-            error!(err_log, "TCP conn err");
+        .map_err(move |err| {
+            error!(err_log2, "TCP conn err: {:?}", err);
             ()
         })
         .then(|_| {
