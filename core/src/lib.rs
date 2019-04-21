@@ -450,7 +450,7 @@ mod tests {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }
-        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+        fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }

@@ -719,8 +719,9 @@ impl KompactRuntime {
     }
 
     pub fn shutdown(&self) -> Result<(), String> {
+        let res = self.timer.shutdown();
         lifecycle::set_destroyed(self.state());
-        self.timer.shutdown()
+        res
     }
 
     pub(crate) fn poison(&self) {

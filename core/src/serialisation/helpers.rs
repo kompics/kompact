@@ -51,7 +51,6 @@ pub fn serialise_msg(
     dst: &ActorPath,
     msg: Box<Serialisable>,
 ) -> Result<Bytes, SerError> {
-    use bytes::BytesMut;
     let mut size: usize = 0;
     size += src.size_hint().unwrap_or(0);
     size += dst.size_hint().unwrap_or(0);

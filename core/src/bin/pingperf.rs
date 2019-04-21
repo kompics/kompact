@@ -114,7 +114,7 @@ impl Provide<PingPongPort> for Ponger {
 }
 
 const NS_TO_S: f64 = 1.0 / (1000.0 * 1000.0 * 1000.0);
-const MSGS: u64 = 5000000;
+const MSGS: u64 = 50000000;
 const PROC_PAIRS: usize = 8;
 
 fn main() {
@@ -129,7 +129,8 @@ fn main() {
         let pongerc = sys.create(move || Ponger::new());
         on_dual_definition(&pingerc, &pongerc, |pingercd, pongercd| {
             biconnect(&mut pongercd.ppp, &mut pingercd.ppp);
-        });
+        })
+        .expect("Could not connect two pingers!");
         pingers.push(pingerc);
         pongers.push(pongerc);
     }

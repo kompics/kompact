@@ -2,22 +2,41 @@ use std::sync::Arc;
 
 use std::ops::DerefMut;
 use std::sync::mpsc;
+use std::sync::TryLockError;
 use std::time::Duration;
 
 use super::*;
 
 //pub fn connect<P: Port>(c: &ProvidedRef<P>, p: &mut Required<P>) -> () {}
 
-pub fn on_dual_definition<C1, C2, F>(c1: &Arc<Component<C1>>, c2: &Arc<Component<C2>>, f: F) -> ()
+#[derive(Debug)]
+pub enum TryDualLockError {
+    LeftWouldBlock,
+    RightWouldBlock,
+    LeftPoisoned,
+    RightPoisoned,
+}
+
+pub fn on_dual_definition<C1, C2, F, T>(
+    c1: &Arc<Component<C1>>,
+    c2: &Arc<Component<C2>>,
+    f: F,
+) -> Result<T, TryDualLockError>
 where
     C1: ComponentDefinition + Sized + 'static,
     C2: ComponentDefinition + Sized + 'static,
-    F: FnOnce(&mut C1, &mut C2) -> (),
+    F: FnOnce(&mut C1, &mut C2) -> T,
 {
     //c1.on_definition(|cd1| c2.on_definition(|cd2| f(cd1, cd2)))
-    let mut cd1 = c1.definition().lock().unwrap();
-    let mut cd2 = c2.definition().lock().unwrap();
-    f(cd1.deref_mut(), cd2.deref_mut());
+    let mut cd1 = c1.definition().try_lock().map_err(|e| match e {
+        TryLockError::Poisoned(_) => TryDualLockError::LeftPoisoned,
+        TryLockError::WouldBlock => TryDualLockError::LeftWouldBlock,
+    })?;
+    let mut cd2 = c2.definition().try_lock().map_err(|e| match e {
+        TryLockError::Poisoned(_) => TryDualLockError::RightPoisoned,
+        TryLockError::WouldBlock => TryDualLockError::RightWouldBlock,
+    })?;
+    Ok(f(cd1.deref_mut(), cd2.deref_mut()))
 }
 
 pub fn biconnect<P, C1, C2>(prov: &mut ProvidedPort<P, C1>, req: &mut RequiredPort<P, C2>) -> ()
