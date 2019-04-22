@@ -76,8 +76,9 @@ impl ActorRef {
     pub(crate) fn enqueue(&self, env: MsgEnvelope) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
+                let sd = c.core().increment_work();
                 q.push(env);
-                match c.core().increment_work() {
+                match sd {
                     SchedulingDecision::Schedule => {
                         let system = c.core().system();
                         system.schedule(c.clone());

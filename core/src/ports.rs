@@ -152,8 +152,9 @@ impl<P: Port + 'static> ProvidedRef<P> {
     pub(crate) fn enqueue(&self, event: P::Request) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
+                let sd = c.core().increment_work();
                 q.push(event);
-                match c.core().increment_work() {
+                match sd {
                     SchedulingDecision::Schedule => {
                         let system = c.core().system();
                         system.schedule(c.clone());
@@ -189,8 +190,9 @@ impl<P: Port + 'static> RequiredRef<P> {
     pub(crate) fn enqueue(&self, event: P::Indication) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
+                let sd = c.core().increment_work();
                 q.push(event);
-                match c.core().increment_work() {
+                match sd {
                     SchedulingDecision::Schedule => {
                         let system = c.core().system();
                         system.schedule(c.clone());

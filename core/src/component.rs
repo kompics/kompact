@@ -238,7 +238,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 }
             }
             _ => {
-                panic!("System poisoned!"); //TODO better error handling
+                panic!("Component {} is poisoned but not faulty!", self.id());
             }
         }
     }

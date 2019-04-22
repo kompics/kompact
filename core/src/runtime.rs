@@ -24,7 +24,7 @@ static DEFAULT_ROOT_LOGGER_INIT: Once = ONCE_INIT;
 fn default_logger() -> &'static KompactLogger {
     unsafe {
         DEFAULT_ROOT_LOGGER_INIT.call_once(|| {
-            let decorator = slog_term::TermDecorator::new().build();
+            let decorator = slog_term::TermDecorator::new().stdout().build();
             let drain = slog_term::FullFormat::new(decorator).build().fuse();
             let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
             DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(
