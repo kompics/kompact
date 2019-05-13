@@ -345,6 +345,7 @@ impl From<(SystemPath, Uuid)> for ActorPath {
 }
 
 const PATH_SEP: &'static str = "/";
+const UNIQUE_PATH_SEP: &'static str = "#";
 
 impl fmt::Display for ActorPath {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
@@ -356,7 +357,7 @@ impl fmt::Display for ActorPath {
                     .fold(String::new(), |acc, arg| acc + PATH_SEP + arg);
                 write!(fmt, "{}{}", np.system, path)
             }
-            &ActorPath::Unique(ref up) => write!(fmt, "{}{}{}", up.system, PATH_SEP, up.id),
+            &ActorPath::Unique(ref up) => write!(fmt, "{}{}{}", up.system, UNIQUE_PATH_SEP, up.id),
         }
     }
 }
@@ -373,9 +374,13 @@ impl TryFrom<String> for ActorPath {
 impl FromStr for ActorPath {
     type Err = PathParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // TODO UniquePath
-        let p = NamedPath::from_str(s)?;
-        Ok(ActorPath::Named(p))
+        if s.contains(UNIQUE_PATH_SEP) {
+            let p = UniquePath::from_str(s)?;
+            Ok(ActorPath::Unique(p))
+        } else {
+            let p = NamedPath::from_str(s)?;
+            Ok(ActorPath::Named(p))
+        }
     }
 }
 
@@ -427,13 +432,13 @@ impl FromStr for UniquePath {
     type Err = PathParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.split("://").collect();
-        // parts: [tcp]://[IP:port/path]
+        // parts: [tcp]://[IP:port#id]
         if parts.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
         let proto: Transport = parts[0].parse()?;
-        let parts: Vec<&str> = parts[1].split('/').collect();
-        // parts: [IP:port]/[UUID]
+        let parts: Vec<&str> = parts[1].split(UNIQUE_PATH_SEP).collect();
+        // parts: [IP:port]#[UUID]
         if parts.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
@@ -508,7 +513,7 @@ impl FromStr for NamedPath {
             return Err(PathParseError::Form(s.to_string()));
         }
         let proto: Transport = s1[0].parse()?;
-        let mut s2: Vec<&str> = s1[1].split('/').collect();
+        let mut s2: Vec<&str> = s1[1].split(PATH_SEP).collect();
         if s2.len() < 1 {
             return Err(PathParseError::Form(s.to_string()));
         }
@@ -558,5 +563,33 @@ mod tests {
         assert_eq!(PATH, &s);
         let ap2: ActorPath = s.parse().expect("a proper path");
         assert_eq!(ap, ap2);
+    }
+    #[test]
+    fn actor_path_unique_strings() {
+        let ref1 = ActorPath::Unique(UniquePath::new(
+            Transport::LOCAL,
+            "127.0.0.1".parse().expect("hardcoded IP"),
+            8080,
+            Uuid::new_v4(),
+        ));
+        let ref1_string = ref1.to_string();
+        let ref1_deser = ActorPath::from_str(&ref1_string).expect("a proper path");
+        let ref1_deser2: ActorPath = ref1_string.parse().expect("a proper path");
+        assert_eq!(ref1, ref1_deser);
+        assert_eq!(ref1, ref1_deser2);
+    }
+    #[test]
+    fn actor_path_named_strings() {
+        let ref1 = ActorPath::Named(NamedPath::new(
+            Transport::LOCAL,
+            "127.0.0.1".parse().expect("hardcoded IP"),
+            8080,
+            vec!["test".to_string(), "path".to_string()],
+        ));
+        let ref1_string = ref1.to_string();
+        let ref1_deser = ActorPath::from_str(&ref1_string).expect("a proper path");
+        let ref1_deser2: ActorPath = ref1_string.parse().expect("a proper path");
+        assert_eq!(ref1, ref1_deser);
+        assert_eq!(ref1, ref1_deser2);
     }
 }
