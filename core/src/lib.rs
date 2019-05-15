@@ -2,31 +2,6 @@
 #![feature(specialization)]
 #![feature(unsized_locals)]
 #![feature(drain_filter)]
-// extern crate as_num;
-// extern crate bitfields;
-// extern crate bytes;
-// extern crate crossbeam;
-// #[macro_use]
-// extern crate crossbeam_channel;
-// extern crate executors;
-// extern crate kompact_actor_derive;
-// extern crate kompact_component_derive;
-// extern crate num_cpus;
-// extern crate oncemutex;
-// #[cfg(feature = "protobuf")]
-// extern crate protobuf;
-// extern crate sequence_trie as trie;
-// #[cfg(feature = "serde")]
-// extern crate serde;
-// extern crate uuid;
-// #[macro_use]
-// extern crate slog;
-// extern crate futures;
-// extern crate slog_async;
-// extern crate slog_term;
-// extern crate spaniel as spnl;
-// extern crate tokio;
-// extern crate tokio_retry;
 
 pub use self::actors::*;
 pub use self::component::*;
