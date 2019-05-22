@@ -7,9 +7,57 @@ use crate::serialisation::Serialisable;
 use crate::utils;
 use bytes::Bytes;
 use std::any::Any;
+use std::fmt;
+use std::sync::Arc;
 use uuid::Uuid;
 
 pub mod framing;
+
+/// Abstracts over the exact memory allocation of dynamic messages being sent.
+pub enum Message {
+    StaticRef(&'static (Any + Sync)),
+    Owned(Box<Any + Send>),
+    Shared(Arc<Any + Sync + Send>),
+}
+impl fmt::Debug for Message {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Message::StaticRef(_) => write!(f, "Message(&'static Any)"),
+            Message::Owned(_) => write!(f, "Message(Box<Any>)"),
+            Message::Shared(_) => write!(f, "Message(Arc<Any>)"),
+        }
+    }
+}
+
+impl<T: Sync> From<&'static T> for Message {
+    fn from(v: &'static T) -> Self {
+        Message::StaticRef(v)
+    }
+}
+
+impl<T: Send + 'static> From<Box<T>> for Message {
+    fn from(v: Box<T>) -> Self {
+        Message::Owned(v as Box<Any + Send>)
+    }
+}
+
+impl From<Box<Any + Send>> for Message {
+    fn from(v: Box<Any + Send>) -> Self {
+        Message::Owned(v)
+    }
+}
+
+impl<T: Send + Sync + 'static> From<Arc<T>> for Message {
+    fn from(v: Arc<T>) -> Self {
+        Message::Shared(v as Arc<Any + Sync + Send>)
+    }
+}
+
+impl From<Arc<Any + Sync + Send>> for Message {
+    fn from(v: Arc<Any + Sync + Send>) -> Self {
+        Message::Shared(v)
+    }
+}
 
 #[derive(Debug)]
 pub enum MsgEnvelope {
@@ -19,8 +67,8 @@ pub enum MsgEnvelope {
 
 #[derive(Debug)]
 pub struct CastEnvelope {
-    pub(crate) src: ActorRef,
-    pub(crate) v: Box<Any + Send>,
+    pub src: ActorRef,
+    pub msg: Message,
 }
 
 #[derive(Debug, PartialEq)]
@@ -84,5 +132,31 @@ impl ReceiveEnvelope {
             ReceiveEnvelope::Cast(_) => unimplemented!(),
             ReceiveEnvelope::Msg { src: _, dst, .. } => &dst,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    // fn force_sync<S: Sync>(_s: S) -> () {
+    //     // do nothing
+    // }
+
+    fn force_send<S: Send>(_s: S) -> () {
+        // do nothing
+    }
+
+    const TEST_V: u64 = 123456;
+
+    #[test]
+    fn force_send_inference() {
+        let msg1 = Message::StaticRef(&TEST_V);
+        force_send(msg1);
+        let msg2 = Message::Owned(Box::new(TEST_V));
+        force_send(msg2);
+        let msg3 = Message::Shared(Arc::new(TEST_V));
+        force_send(msg3);
     }
 }

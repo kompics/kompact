@@ -249,7 +249,7 @@ impl NetworkDispatcher {
                 Ok(boxed_value) => {
                     let src_actor_opt = lookup.get_by_actor_path(&src);
                     if let Some(src_actor) = src_actor_opt {
-                        actor.tell_any(boxed_value, src_actor);
+                        actor.tell(boxed_value, src_actor);
                     } else {
                         panic!("Non-local ActorPath ended up in local dispatcher!");
                     }
@@ -374,8 +374,14 @@ impl NetworkDispatcher {
 }
 
 impl Actor for NetworkDispatcher {
-    fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) {
-        debug!(self.ctx.log(), "Received LOCAL {:?} from {:?}", msg, sender);
+    fn receive_local(&mut self, sender: ActorRef, msg: &Any) {
+        debug!(
+            self.ctx.log(),
+            "Received LOCAL {:?} (type_id={:?}) from {:?}",
+            msg,
+            msg.type_id(),
+            sender
+        );
     }
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) {
         debug!(
@@ -848,7 +854,7 @@ mod dispatch_tests {
     }
 
     impl Actor for PingerAct {
-        fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
+        fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
             match msg.downcast_ref::<PongMsg>() {
                 Some(ref pong) => {
                     info!(self.ctx.log(), "Got local Pong({})", pong.i);
@@ -909,7 +915,7 @@ mod dispatch_tests {
     }
 
     impl Actor for PongerAct {
-        fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
+        fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
             match msg.downcast_ref::<PingMsg>() {
                 Some(ref ping) => {
                     info!(self.ctx.log(), "Got local Ping({})", ping.i);

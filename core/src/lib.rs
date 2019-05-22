@@ -132,13 +132,15 @@ mod tests {
         }
     }
 
+    //const RECV: &str = "Msg Received";
+
     impl Actor for RecvComponent {
-        fn receive_local(&mut self, sender: ActorRef, msg: Box<Any>) -> () {
+        fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
             info!(self.ctx.log(), "RecvComponent received {:?}", msg);
-            if let Ok(s) = msg.downcast::<String>() {
-                self.last_string = *s;
+            if let Some(s) = msg.downcast_ref::<&str>() {
+                self.last_string = s.to_string();
             }
-            sender.tell(Box::new("Msg Received".to_string()), self);
+            sender.tell(&"Msg Received", self);
             //sender.actor_path().tell("Msg Received", self);
         }
         fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
@@ -214,7 +216,7 @@ mod tests {
         });
 
         let rcref = rc.actor_ref();
-        rcref.tell(Box::new(String::from("MsgTest")), &system);
+        rcref.tell(&"MsgTest", &system);
 
         thread::sleep(ten_millis);
 
@@ -304,7 +306,7 @@ mod tests {
     }
 
     impl Actor for CounterComponent {
-        fn receive_local(&mut self, _sender: ActorRef, _msg: Box<Any>) -> () {
+        fn receive_local(&mut self, _sender: ActorRef, _msg: &Any) -> () {
             info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
         }
@@ -421,7 +423,7 @@ mod tests {
     }
 
     impl Actor for CrasherComponent {
-        fn receive_local(&mut self, _sender: ActorRef, _msg: Box<Any>) -> () {
+        fn receive_local(&mut self, _sender: ActorRef, _msg: &Any) -> () {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }
