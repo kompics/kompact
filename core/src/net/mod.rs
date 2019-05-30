@@ -97,7 +97,7 @@ pub struct Bridge {
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     /// Core logger; shared with network thread
     log: KompactLogger,
-    /// Shared actor refernce lookup table
+    /// Shared actor reference lookup table
     lookup: Arc<ArcSwap<ActorStore>>,
     /// Thread blocking on the Tokio runtime
     net_thread: Option<JoinHandle<()>>,

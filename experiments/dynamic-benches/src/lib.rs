@@ -2,6 +2,8 @@
 
 extern crate test;
 
+pub mod hashes;
+
 use std::any::*;
 use std::sync::Arc;
 

@@ -33,7 +33,8 @@ use net::ConnectionState;
 use serialisation::helpers::serialise_msg;
 use serialisation::helpers::serialise_to_recv_envelope;
 use serialisation::Serialisable;
-use std::collections::HashMap;
+//use std::collections::HashMap;
+use fnv::FnvHashMap;
 use std::io::ErrorKind;
 use std::time::Duration;
 
@@ -81,7 +82,7 @@ impl Default for NetworkConfig {
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
     /// Local map of connection statuses
-    connections: HashMap<SocketAddr, ConnectionState>,
+    connections: FnvHashMap<SocketAddr, ConnectionState>,
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
     /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
@@ -109,7 +110,7 @@ impl NetworkDispatcher {
 
         NetworkDispatcher {
             ctx: ComponentContext::new(),
-            connections: HashMap::new(),
+            connections: FnvHashMap::default(),
             cfg,
             lookup,
             net_bridge: None,

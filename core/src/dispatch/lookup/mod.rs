@@ -10,7 +10,8 @@ use crate::actors::ActorPath;
 use crate::actors::ActorRef;
 use crate::messaging::PathResolvable;
 use sequence_trie::SequenceTrie;
-use std::collections::HashMap;
+//use std::collections::HashMap;
+use fnv::FnvHashMap;
 use uuid::Uuid;
 
 pub mod gc;
@@ -76,7 +77,7 @@ pub trait ActorLookup: Clone {
 /// This use case is not currently being utilized, but it may be in the future.
 #[derive(Clone)]
 pub struct ActorStore {
-    uuid_map: HashMap<Uuid, ActorRef>,
+    uuid_map: FnvHashMap<Uuid, ActorRef>,
     name_map: SequenceTrie<String, ActorRef>,
 }
 
@@ -85,7 +86,7 @@ pub struct ActorStore {
 impl ActorStore {
     pub fn new() -> Self {
         ActorStore {
-            uuid_map: HashMap::new(),
+            uuid_map: FnvHashMap::default(),
             name_map: SequenceTrie::new(),
         }
     }
