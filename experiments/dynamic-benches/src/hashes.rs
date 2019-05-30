@@ -1,4 +1,5 @@
 use fnv::FnvHashMap;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use uuid::Uuid;
@@ -35,7 +36,7 @@ mod tests {
     use test::Bencher;
 
     #[bench]
-    fn bench_uuid_sip(b: &mut Bencher) {
+    fn bench_uuid_insert_sip(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: HashMap<Uuid, &'static str> =
             HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -51,7 +52,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_uuid_fnv(b: &mut Bencher) {
+    fn bench_uuid_insert_fnv(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: FnvHashMap<Uuid, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -67,7 +68,23 @@ mod tests {
     }
 
     #[bench]
-    fn bench_socket_sip(b: &mut Bencher) {
+    fn bench_uuid_insert_btree(b: &mut Bencher) {
+        let data = load_uuid_data();
+        let mut map: BTreeMap<Uuid, &'static str> = BTreeMap::new();
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(id.clone(), VAL);
+            });
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        map.iter().for_each(|v| {
+            assert_eq!(*v.1, VAL);
+        });
+        map.clear();
+    }
+
+    #[bench]
+    fn bench_socket_insert_sip(b: &mut Bencher) {
         let data = load_addr_data();
         let mut map: HashMap<SocketAddr, &'static str> =
             HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -83,7 +100,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_socket_fnv(b: &mut Bencher) {
+    fn bench_socket_insert_fnv(b: &mut Bencher) {
         let data = load_addr_data();
         let mut map: FnvHashMap<SocketAddr, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -96,5 +113,96 @@ mod tests {
         map.drain().for_each(|v| {
             assert_eq!(v.1, VAL);
         });
+    }
+
+    // LOOKUPS
+
+    #[bench]
+    fn bench_uuid_lookup_sip(b: &mut Bencher) {
+        let data = load_uuid_data();
+        let mut map: HashMap<Uuid, &'static str> =
+            HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    #[bench]
+    fn bench_uuid_lookup_fnv(b: &mut Bencher) {
+        let data = load_uuid_data();
+        let mut map: FnvHashMap<Uuid, &'static str> =
+            FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    #[bench]
+    fn bench_uuid_lookup_btree(b: &mut Bencher) {
+        let data = load_uuid_data();
+        let mut map: BTreeMap<Uuid, &'static str> = BTreeMap::new();
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    #[bench]
+    fn bench_socket_lookup_sip(b: &mut Bencher) {
+        let data = load_addr_data();
+        let mut map: HashMap<SocketAddr, &'static str> =
+            HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    #[bench]
+    fn bench_socket_lookup_fnv(b: &mut Bencher) {
+        let data = load_addr_data();
+        let mut map: FnvHashMap<SocketAddr, &'static str> =
+            FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
     }
 }
