@@ -25,6 +25,9 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
     let name = &ast.ident;
     let name_str = format!("{}", name);
     if let syn::Data::Struct(ref vdata) = ast.data {
+        let generics = &ast.generics;
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         let fields = &vdata.fields;
         let mut ports: Vec<(&syn::Field, PortField)> = Vec::new();
         let mut ctx_field: Option<&syn::Field> = None;
@@ -115,7 +118,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
             }
         };
         quote! {
-            impl ComponentDefinition for #name {
+            impl #impl_generics ComponentDefinition for #name #ty_generics #where_clause {
                 fn setup(&mut self, self_component: ::std::sync::Arc<Component<Self>>) -> () {
                     #ctx_setup
                     //println!("Setting up ports");

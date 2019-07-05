@@ -22,8 +22,11 @@ pub fn actor(input: TokenStream) -> TokenStream {
 fn impl_actor(ast: &syn::DeriveInput) -> TokenStream2 {
     let name = &ast.ident;
     if let syn::Data::Struct(_) = ast.data {
+        let generics = &ast.generics;
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         quote! {
-            impl ActorRaw for #name {
+            impl #impl_generics ActorRaw for #name #ty_generics #where_clause {
                 fn receive(&mut self, env: messaging::ReceiveEnvelope) -> () {
                     println!("Got msg, but component isn't handling any: {:?}", env);
                 }

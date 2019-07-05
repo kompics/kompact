@@ -7,4 +7,3 @@ publish = false
 
 [dependencies]
 kompact = { path = "../../core/"}
-#component-definition-derive = { path = "../component-definition-derive/" }

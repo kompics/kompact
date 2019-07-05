@@ -1,8 +1,5 @@
 #![allow(unused_parens)]
 
-//#[macro_use]
-//extern crate component_definition_derive;
-
 use kompact::*;
 use std::{thread, time};
 
@@ -60,9 +57,47 @@ impl Provide<PingPongPort> for Pinger {
     }
 }
 
+#[derive(ComponentDefinition)]
+pub struct GenericComp<A>
+where
+    A: 'static + Sync + Send + Clone,
+{
+    ctx: ComponentContext<Self>,
+    test: Option<A>,
+}
+
+impl<A> GenericComp<A>
+where
+    A: 'static + Sync + Send + Clone,
+{
+    fn new() -> Self {
+        GenericComp {
+            ctx: ComponentContext::new(),
+            test: None,
+        }
+    }
+}
+
+impl<A> Provide<ControlPort> for GenericComp<A>
+where
+    A: 'static + Sync + Send + Clone,
+{
+    fn handle(&mut self, event: ControlEvent) -> () {}
+}
+
+impl<A> Actor for GenericComp<A>
+where
+    A: 'static + Sync + Send + Clone,
+{
+    fn receive_local(&mut self, _sender: ActorRef, msg: &Any) {
+        if let Some(event) = msg.downcast_ref::<A>() {
+            self.test = Some(event.clone());
+        }
+    }
+    fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut Buf) {}
+}
+
 fn main() {
-    println!("Hello, world!");
-    //let cd = SomeCD { test: 3 };
     let mut conf = KompactConfig::new();
     {
         conf.throughput(5);
@@ -72,4 +107,14 @@ fn main() {
     system.start(&pingerc);
     system.trigger_i(Pong, pingerc.on_definition(|cd| cd.ppp.share()));
     thread::sleep(time::Duration::from_millis(5000));
+
+    let generic_comp = system.create_and_start(move || {
+        let g: GenericComp<String> = GenericComp::new();
+        g
+    });
+    thread::sleep(time::Duration::from_millis(100));
+    generic_comp.actor_ref().tell(Box::new(String::from("Test")), &generic_comp);
+    thread::sleep(time::Duration::from_millis(100));
+    let comp_inspect = &generic_comp.definition().lock().unwrap();
+    assert_eq!(comp_inspect.test.as_ref().unwrap(), &String::from("Test"));
 }
