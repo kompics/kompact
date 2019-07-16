@@ -105,7 +105,7 @@ fn main() {
     let system = KompactSystem::new(conf).expect("KompactSystem");
     let pingerc = system.create(move || Pinger::new());
     system.start(&pingerc);
-    system.trigger_i(Pong, pingerc.on_definition(|cd| cd.ppp.share()));
+    system.trigger_i(Pong, &pingerc.on_definition(|cd| cd.ppp.share()));
     thread::sleep(time::Duration::from_millis(5000));
 
     let generic_comp = system.create_and_start(move || {

@@ -2,6 +2,7 @@
 
 extern crate test;
 
+pub mod actorrefs;
 pub mod hashes;
 
 use std::any::*;

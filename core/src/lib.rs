@@ -197,7 +197,7 @@ mod tests {
         system.start(&tc);
         system.start(&rc);
         let msg = Arc::new(1234);
-        system.trigger_r(msg, tctp);
+        system.trigger_r(msg, &tctp);
 
         let ten_millis = time::Duration::from_millis(1000);
 
@@ -458,7 +458,7 @@ mod tests {
             let res = f.wait_timeout(Duration::from_millis(1000));
             assert!(res.is_ok(), "Component should not crash on start");
 
-            system.trigger_r((), crash_port);
+            system.trigger_r((), &crash_port);
 
             thread::sleep(Duration::from_millis(1000));
 

@@ -68,6 +68,41 @@ pub trait Dispatching {
 }
 
 #[derive(Clone)]
+pub struct ActorRefStrong {
+    component: Arc<CoreContainer>,
+    msg_queue: Arc<ConcurrentQueue<MsgEnvelope>>,
+}
+
+impl ActorRefStrong {
+    pub(crate) fn enqueue(&self, env: MsgEnvelope) -> () {
+        let q = &self.msg_queue;
+        let c = &self.component;
+        let sd = c.core().increment_work();
+        q.push(env);
+        match sd {
+            SchedulingDecision::Schedule => {
+                let system = c.core().system();
+                system.schedule(c.clone());
+            }
+            _ => (), // nothing
+        }
+    }
+
+    pub fn tell<I, S>(&self, v: I, from: &S) -> ()
+    where
+        I: Into<Message>,
+        S: ActorRefFactory,
+    {
+        let msg: Message = v.into();
+        let env = DispatchEnvelope::Cast(CastEnvelope {
+            src: from.actor_ref(),
+            msg,
+        });
+        self.enqueue(MsgEnvelope::Dispatch(env))
+    }
+}
+
+#[derive(Clone)]
 pub struct ActorRef {
     component: Weak<CoreContainer>,
     msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
@@ -103,6 +138,19 @@ impl ActorRef {
                 c.is_some(),
                 env
             ),
+        }
+    }
+
+    pub fn hold(&self) -> Option<ActorRefStrong> {
+        match (self.msg_queue.upgrade(), self.component.upgrade()) {
+            (Some(q), Some(c)) => {
+                let r = ActorRefStrong {
+                    component: c,
+                    msg_queue: q,
+                };
+                Some(r)
+            }
+            _ => None,
         }
     }
 

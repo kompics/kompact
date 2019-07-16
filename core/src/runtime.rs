@@ -463,12 +463,12 @@ impl KompactSystem {
         f
     }
 
-    pub fn trigger_i<P: Port + 'static>(&self, msg: P::Indication, port: RequiredRef<P>) {
+    pub fn trigger_i<P: Port + 'static>(&self, msg: P::Indication, port: &RequiredRef<P>) {
         self.inner.assert_active();
         port.enqueue(msg);
     }
 
-    pub fn trigger_r<P: Port + 'static>(&self, msg: P::Request, port: ProvidedRef<P>) {
+    pub fn trigger_r<P: Port + 'static>(&self, msg: P::Request, port: &ProvidedRef<P>) {
         self.inner.assert_active();
         port.enqueue(msg);
     }
