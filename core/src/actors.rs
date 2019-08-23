@@ -26,10 +26,10 @@ pub trait Actor {
     /// owned (`Box<Any>`) and shared (`Arc<Any>`) references after this method finishes.
     /// If you want to keep the message and really don't want to pay the cost of a clone invokation here,
     /// you must implement `ActorRaw` instead.
-    fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> ();
+    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> ();
 
     /// Handles (serialised) messages from the network.
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> ();
+    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> ();
 }
 
 /// A dispatcher is a system component that knows how to route messages and create system paths.
@@ -69,7 +69,7 @@ pub trait Dispatching {
 
 #[derive(Clone)]
 pub struct ActorRefStrong {
-    component: Arc<CoreContainer>,
+    component: Arc<dyn CoreContainer>,
     msg_queue: Arc<ConcurrentQueue<MsgEnvelope>>,
 }
 
@@ -104,13 +104,13 @@ impl ActorRefStrong {
 
 #[derive(Clone)]
 pub struct ActorRef {
-    component: Weak<CoreContainer>,
+    component: Weak<dyn CoreContainer>,
     msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
 }
 
 impl ActorRef {
     pub(crate) fn new(
-        component: Weak<CoreContainer>,
+        component: Weak<dyn CoreContainer>,
         msg_queue: Weak<ConcurrentQueue<MsgEnvelope>>,
     ) -> ActorRef {
         ActorRef {
@@ -192,13 +192,13 @@ impl ActorRefFactory for ActorRef {
 }
 
 impl Debug for ActorRef {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "<actor-ref>")
     }
 }
 
 impl fmt::Display for ActorRef {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "<actor-ref>")
     }
 }
@@ -235,7 +235,7 @@ impl Transport {
 }
 
 impl fmt::Display for Transport {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &Transport::LOCAL => write!(fmt, "local"),
             &Transport::TCP => write!(fmt, "tcp"),
@@ -259,7 +259,7 @@ impl FromStr for Transport {
 #[derive(Clone, Debug)]
 pub struct TransportParseError(());
 impl fmt::Display for TransportParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str(self.description())
     }
 }
@@ -276,7 +276,7 @@ pub enum PathParseError {
     Addr(AddrParseError),
 }
 impl fmt::Display for PathParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str(self.description())
     }
 }
@@ -284,7 +284,7 @@ impl Error for PathParseError {
     fn description(&self) -> &str {
         "Path could not be parsed"
     }
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         match self {
             &PathParseError::Form(_) => None,
             &PathParseError::Transport(ref e) => Some(e),
@@ -334,7 +334,7 @@ impl SystemPath {
 }
 
 impl fmt::Display for SystemPath {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "{}://{}:{}", self.protocol, self.address, self.port)
     }
 }
@@ -375,9 +375,9 @@ impl ActorPath {
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
     where
         S: ActorSource,
-        B: Into<Box<Serialisable>>,
+        B: Into<Box<dyn Serialisable>>,
     {
-        let msg: Box<Serialisable> = m.into();
+        let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
         let dst = self.clone();
         let env = DispatchEnvelope::Msg { src, dst, msg };
@@ -407,7 +407,7 @@ const PATH_SEP: &'static str = "/";
 const UNIQUE_PATH_SEP: &'static str = "#";
 
 impl fmt::Display for ActorPath {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &ActorPath::Named(ref np) => {
                 let path = np

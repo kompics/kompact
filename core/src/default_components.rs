@@ -53,9 +53,9 @@ impl DefaultTimer {
             inner: timer::TimerWithThread::new().unwrap(),
         }
     }
-    pub(crate) fn new_timer_component() -> Box<TimerComponent> {
+    pub(crate) fn new_timer_component() -> Box<dyn TimerComponent> {
         let t = DefaultTimer::new();
-        let bt = Box::new(t) as Box<TimerComponent>;
+        let bt = Box::new(t) as Box<dyn TimerComponent>;
         bt
     }
 }
@@ -118,7 +118,7 @@ impl DeadletterBox {
 }
 
 impl Actor for DeadletterBox {
-    fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
+    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
         info!(
             self.ctx.log(),
             "DeadletterBox received {:?} (type_id={:?}) from {}",
@@ -127,7 +127,7 @@ impl Actor for DeadletterBox {
             sender
         );
     }
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) -> () {
+    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
         info!(
             self.ctx.log(),
             "DeadletterBox received buffer with id {:?} from {}", ser_id, sender
@@ -166,7 +166,7 @@ impl LocalDispatcher {
 }
 
 impl Actor for LocalDispatcher {
-    fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
+    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
         info!(
             self.ctx.log(),
             "LocalDispatcher received {:?} (type_id={:?}) from {}",
@@ -175,7 +175,7 @@ impl Actor for LocalDispatcher {
             sender
         );
     }
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) -> () {
+    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
         info!(
             self.ctx.log(),
             "LocalDispatcher received buffer with id {:?} from {:?}", ser_id, sender

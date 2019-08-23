@@ -14,11 +14,11 @@ impl Serialisable for &'static str {
     fn size_hint(&self) -> Option<usize> {
         Some(self.as_bytes().len())
     }
-    fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         buf.put_slice(self.as_bytes());
         Ok(())
     }
-    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         Ok(self)
     }
 }
@@ -30,11 +30,11 @@ impl Serialisable for u64 {
     fn size_hint(&self) -> Option<usize> {
         Some(8)
     }
-    fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         buf.put_u64_be(*self);
         Ok(())
     }
-    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         Ok(self)
     }
 }

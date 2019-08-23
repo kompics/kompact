@@ -82,19 +82,19 @@ impl<A> Provide<ControlPort> for GenericComp<A>
 where
     A: 'static + Sync + Send + Clone,
 {
-    fn handle(&mut self, event: ControlEvent) -> () {}
+    fn handle(&mut self, _event: ControlEvent) -> () {}
 }
 
 impl<A> Actor for GenericComp<A>
 where
     A: 'static + Sync + Send + Clone,
 {
-    fn receive_local(&mut self, _sender: ActorRef, msg: &Any) {
+    fn receive_local(&mut self, _sender: ActorRef, msg: &dyn Any) {
         if let Some(event) = msg.downcast_ref::<A>() {
             self.test = Some(event.clone());
         }
     }
-    fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut Buf) {}
+    fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) {}
 }
 
 fn main() {

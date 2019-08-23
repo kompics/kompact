@@ -14,7 +14,7 @@ use uuid::Uuid;
 pub fn serialise_to_recv_envelope(
     src: ActorPath,
     dst: ActorPath,
-    msg: Box<Serialisable>,
+    msg: Box<dyn Serialisable>,
 ) -> Result<MsgEnvelope, SerError> {
     if let Some(size) = msg.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -49,7 +49,7 @@ pub fn serialise_to_recv_envelope(
 pub fn serialise_msg(
     src: &ActorPath,
     dst: &ActorPath,
-    msg: Box<Serialisable>,
+    msg: Box<dyn Serialisable>,
 ) -> Result<Bytes, SerError> {
     let mut size: usize = 0;
     size += src.size_hint().unwrap_or(0);
@@ -92,7 +92,7 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<ReceiveEnvelope, SerErro
 }
 
 /// Deserializes data in the buffer according to the ActorPath strucutre in the [framing] module.
-fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError> {
+pub fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError> {
     use crate::messaging::framing::{AddressType, PathType, SystemPathHeader};
     use std::convert::TryFrom;
     use std::net::IpAddr;

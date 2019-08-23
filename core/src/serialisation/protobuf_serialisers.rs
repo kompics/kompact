@@ -11,7 +11,7 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
     fn size_hint(&self) -> Option<usize> {
         None // no idea
     }
-    fn serialise(&self, v: &M, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, v: &M, buf: &mut dyn BufMut) -> Result<(), SerError> {
         let mut w = buf.writer();
         v.write_to_writer(&mut w).map_err(|e| match e {
             ProtobufError::IoError(_) => {

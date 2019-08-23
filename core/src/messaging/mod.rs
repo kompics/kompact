@@ -15,12 +15,12 @@ pub mod framing;
 
 /// Abstracts over the exact memory allocation of dynamic messages being sent.
 pub enum Message {
-    StaticRef(&'static (Any + Sync)),
-    Owned(Box<Any + Send>),
-    Shared(Arc<Any + Sync + Send>),
+    StaticRef(&'static (dyn Any + Sync)),
+    Owned(Box<dyn Any + Send>),
+    Shared(Arc<dyn Any + Sync + Send>),
 }
 impl fmt::Debug for Message {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Message::StaticRef(_) => write!(f, "Message(&'static Any)"),
             Message::Owned(_) => write!(f, "Message(Box<Any>)"),
@@ -37,24 +37,24 @@ impl<T: Sync> From<&'static T> for Message {
 
 impl<T: Send + 'static> From<Box<T>> for Message {
     fn from(v: Box<T>) -> Self {
-        Message::Owned(v as Box<Any + Send>)
+        Message::Owned(v as Box<dyn Any + Send>)
     }
 }
 
-impl From<Box<Any + Send>> for Message {
-    fn from(v: Box<Any + Send>) -> Self {
+impl From<Box<dyn Any + Send>> for Message {
+    fn from(v: Box<dyn Any + Send>) -> Self {
         Message::Owned(v)
     }
 }
 
 impl<T: Send + Sync + 'static> From<Arc<T>> for Message {
     fn from(v: Arc<T>) -> Self {
-        Message::Shared(v as Arc<Any + Sync + Send>)
+        Message::Shared(v as Arc<dyn Any + Sync + Send>)
     }
 }
 
-impl From<Arc<Any + Sync + Send>> for Message {
-    fn from(v: Arc<Any + Sync + Send>) -> Self {
+impl From<Arc<dyn Any + Sync + Send>> for Message {
+    fn from(v: Arc<dyn Any + Sync + Send>) -> Self {
         Message::Shared(v)
     }
 }
@@ -96,7 +96,7 @@ pub enum DispatchEnvelope {
     Msg {
         src: PathResolvable,
         dst: ActorPath,
-        msg: Box<Serialisable>,
+        msg: Box<dyn Serialisable>,
     },
     Registration(RegistrationEnvelope),
     Event(EventEnvelope),

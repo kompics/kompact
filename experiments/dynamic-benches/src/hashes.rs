@@ -1,12 +1,9 @@
-use fnv::FnvHashMap;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use uuid::Uuid;
 
 const DATA_SIZE: usize = 10000;
 
-fn load_uuid_data() -> Vec<Uuid> {
+pub fn load_uuid_data() -> Vec<Uuid> {
     let mut v: Vec<Uuid> = Vec::with_capacity(DATA_SIZE);
     for _i in 0..DATA_SIZE {
         v.push(Uuid::new_v4());
@@ -14,7 +11,7 @@ fn load_uuid_data() -> Vec<Uuid> {
     v
 }
 
-fn load_addr_data() -> Vec<SocketAddr> {
+pub fn load_addr_data() -> Vec<SocketAddr> {
     let mut v: Vec<SocketAddr> = Vec::with_capacity(DATA_SIZE);
     for i in 0..DATA_SIZE {
         let bytes: [u8; 4] = unsafe { std::mem::transmute(i as u32) };
@@ -28,10 +25,13 @@ fn load_addr_data() -> Vec<SocketAddr> {
     v
 }
 
-const VAL: &'static str = "Test me!";
+pub const VAL: &'static str = "Test me!";
 
 #[cfg(test)]
 mod tests {
+    use fnv::FnvHashMap;
+    use std::collections::BTreeMap;
+    use std::collections::HashMap;
     use super::*;
     use test::Bencher;
 

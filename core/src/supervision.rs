@@ -31,7 +31,7 @@ impl ListenEvent {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum SupervisorMsg {
-    Started(Arc<CoreContainer>),
+    Started(Arc<dyn CoreContainer>),
     Stopped(Uuid),
     Killed(Uuid),
     Faulty(Uuid), // TODO implement fault handling!
@@ -42,7 +42,7 @@ pub(crate) enum SupervisorMsg {
 pub(crate) struct ComponentSupervisor {
     ctx: ComponentContext<ComponentSupervisor>,
     pub(crate) supervision: ProvidedPort<SupervisionPort, ComponentSupervisor>,
-    children: HashMap<Uuid, Arc<CoreContainer>>,
+    children: HashMap<Uuid, Arc<dyn CoreContainer>>,
     listeners: HashMap<Uuid, Vec<(ListenEvent, Promise<()>)>>,
 }
 

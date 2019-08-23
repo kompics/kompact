@@ -240,7 +240,7 @@ impl NetworkDispatcher {
     ///
     /// # Errors
     /// TODO handle unknown destination actor
-    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<dyn Serialisable>) {
         use crate::dispatch::lookup::ActorLookup;
         let lookup = self.lookup.lease();
         let actor = lookup.get_by_actor_path(&dst);
@@ -269,7 +269,7 @@ impl NetworkDispatcher {
 
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
-    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<Serialisable>) {
+    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<dyn Serialisable>) {
         use spaniel::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
@@ -339,7 +339,7 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<Serialisable>) {
+    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<dyn Serialisable>) {
         let src_path = match src {
             PathResolvable::Path(actor_path) => actor_path.clone(),
             PathResolvable::Alias(alias) => {
@@ -375,7 +375,7 @@ impl NetworkDispatcher {
 }
 
 impl Actor for NetworkDispatcher {
-    fn receive_local(&mut self, sender: ActorRef, msg: &Any) {
+    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) {
         debug!(
             self.ctx.log(),
             "Received LOCAL {:?} (type_id={:?}) from {:?}",
@@ -384,7 +384,7 @@ impl Actor for NetworkDispatcher {
             sender
         );
     }
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut Buf) {
+    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) {
         debug!(
             self.ctx.log(),
             "Received buffer with id {:?} from {:?}", ser_id, sender
@@ -754,7 +754,7 @@ mod dispatch_tests {
         fn size_hint(&self) -> Option<usize> {
             Some(9)
         }
-        fn serialise(&self, v: &PingMsg, buf: &mut BufMut) -> Result<(), SerError> {
+        fn serialise(&self, v: &PingMsg, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PING_ID);
             buf.put_u64_be(v.i);
             Result::Ok(())
@@ -768,14 +768,14 @@ mod dispatch_tests {
         fn size_hint(&self) -> Option<usize> {
             Some(9)
         }
-        fn serialise(&self, v: &PongMsg, buf: &mut BufMut) -> Result<(), SerError> {
+        fn serialise(&self, v: &PongMsg, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PONG_ID);
             buf.put_u64_be(v.i);
             Result::Ok(())
         }
     }
     impl Deserialiser<PingMsg> for PingPongSer {
-        fn deserialise(buf: &mut Buf) -> Result<PingMsg, SerError> {
+        fn deserialise(buf: &mut dyn Buf) -> Result<PingMsg, SerError> {
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",
@@ -797,7 +797,7 @@ mod dispatch_tests {
         }
     }
     impl Deserialiser<PongMsg> for PingPongSer {
-        fn deserialise(buf: &mut Buf) -> Result<PongMsg, SerError> {
+        fn deserialise(buf: &mut dyn Buf) -> Result<PongMsg, SerError> {
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",
@@ -855,7 +855,7 @@ mod dispatch_tests {
     }
 
     impl Actor for PingerAct {
-        fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
+        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
             match msg.downcast_ref::<PongMsg>() {
                 Some(ref pong) => {
                     info!(self.ctx.log(), "Got local Pong({})", pong.i);
@@ -868,7 +868,7 @@ mod dispatch_tests {
                 None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
             }
         }
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
+        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
             if ser_id == Serialiser::<PongMsg>::serid(&PING_PONG_SER) {
                 let r: Result<PongMsg, SerError> = PingPongSer::deserialise(buf);
                 match r {
@@ -916,7 +916,7 @@ mod dispatch_tests {
     }
 
     impl Actor for PongerAct {
-        fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
+        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
             match msg.downcast_ref::<PingMsg>() {
                 Some(ref ping) => {
                     info!(self.ctx.log(), "Got local Ping({})", ping.i);
@@ -925,7 +925,7 @@ mod dispatch_tests {
                 None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
             }
         }
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut Buf) -> () {
+        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
             if ser_id == Serialiser::<PingMsg>::serid(&PING_PONG_SER) {
                 let r: Result<PingMsg, SerError> = PingPongSer::deserialise(buf);
                 match r {

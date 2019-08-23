@@ -38,16 +38,16 @@ impl Provide<TestPort> for TestActor {
 }
 
 impl Actor for TestActor {
-    fn receive_local(&mut self, _sender: ActorRef, _msg: &Any) -> () {
+    fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
         // discard
     }
-    fn receive_message(&mut self, _sender: ActorPath, _sid: u64, _buf: &mut Buf) -> () {
+    fn receive_message(&mut self, _sender: ActorPath, _sid: u64, _buf: &mut dyn Buf) -> () {
         // discard
     }
 }
 
-struct PingSer;
-const PING_SER: PingSer = PingSer {};
+pub struct PingSer;
+pub const PING_SER: PingSer = PingSer {};
 impl Serialiser<Ping> for PingSer {
     fn serid(&self) -> u64 {
         42 // because why not^^
@@ -55,7 +55,7 @@ impl Serialiser<Ping> for PingSer {
     fn size_hint(&self) -> Option<usize> {
         Some(0)
     }
-    fn serialise(&self, v: &Ping, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, _v: &Ping, _buf: &mut dyn BufMut) -> Result<(), SerError> {
         Result::Ok(())
     }
 }

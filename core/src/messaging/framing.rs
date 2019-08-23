@@ -204,13 +204,13 @@ impl Serialisable for SystemPathHeader {
         Some(1)
     }
 
-    fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         // Grab the underlying Big-Endian 8-bit storage from named fields
         buf.put_u8(self.storage[0]);
         Ok(())
     }
 
-    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         unimplemented!()
     }
 }
@@ -259,7 +259,7 @@ impl Serialisable for SystemPath {
         Some(size)
     }
 
-    fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         if buf.remaining_mut() < self.size_hint().unwrap_or(0) {
             return Err(SerError::InvalidData(format!(
                 "Provided buffer has {:?} bytes, SystemPath requries {:?}.",
@@ -271,7 +271,7 @@ impl Serialisable for SystemPath {
         Ok(())
     }
 
-    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         unimplemented!()
     }
 }
@@ -318,7 +318,7 @@ impl Serialisable for ActorPath {
     /// Serializes a Unique or Named actor path.
     ///
     /// See `deserialise_msg` in kompact::serialisation for matching deserialisation.
-    fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+    fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         use crate::actors::SystemField;
 
         // System Path
@@ -350,7 +350,7 @@ impl Serialisable for ActorPath {
         Ok(())
     }
 
-    fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         Ok(self)
     }
 }

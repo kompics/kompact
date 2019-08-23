@@ -9,7 +9,7 @@ use std::clone::Clone;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Once, ONCE_INIT};
+use std::sync::{Arc, Mutex, Once};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -19,7 +19,7 @@ fn default_runtime_label() -> String {
 }
 
 static mut DEFAULT_ROOT_LOGGER: Option<KompactLogger> = None;
-static DEFAULT_ROOT_LOGGER_INIT: Once = ONCE_INIT;
+static DEFAULT_ROOT_LOGGER_INIT: Once = Once::new();
 
 fn default_logger() -> &'static KompactLogger {
     unsafe {
@@ -30,7 +30,7 @@ fn default_logger() -> &'static KompactLogger {
             DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(
                 Arc::new(drain),
                 o!(
-                "location" => slog::PushFnValue(|r: &slog::Record, ser: slog::PushFnValueSerializer| {
+                "location" => slog::PushFnValue(|r: &slog::Record<'_>, ser: slog::PushFnValueSerializer<'_>| {
                     ser.emit(format_args!("{}:{}", r.file(), r.line()))
                 })
                         ),
@@ -43,7 +43,7 @@ fn default_logger() -> &'static KompactLogger {
     }
 }
 
-type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
+type SchedulerBuilder = dyn Fn(usize) -> Box<dyn Scheduler>;
 
 // impl Debug for SchedulerBuilder {
 //     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -51,7 +51,7 @@ type SchedulerBuilder = Fn(usize) -> Box<Scheduler>;
 //     }
 // }
 
-type SCBuilder = Fn(&KompactSystem, Promise<()>, Promise<()>) -> Box<SystemComponents>;
+type SCBuilder = dyn Fn(&KompactSystem, Promise<()>, Promise<()>) -> Box<dyn SystemComponents>;
 
 // impl Debug for SCBuilder {
 //     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -59,7 +59,7 @@ type SCBuilder = Fn(&KompactSystem, Promise<()>, Promise<()>) -> Box<SystemCompo
 //     }
 // }
 
-type TimerBuilder = Fn() -> Box<TimerComponent>;
+type TimerBuilder = dyn Fn() -> Box<dyn TimerComponent>;
 
 // impl Debug for TimerBuilder {
 //     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -85,7 +85,7 @@ pub struct KompactConfig {
 }
 
 impl Debug for KompactConfig {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
             f,
             "KompactConfig{{
@@ -154,7 +154,7 @@ impl KompactConfig {
     pub fn timer<T, F>(&mut self, f: F) -> &mut Self
     where
         T: TimerComponent + 'static,
-        F: Fn() -> Box<TimerComponent> + 'static,
+        F: Fn() -> Box<dyn TimerComponent> + 'static,
     {
         self.timer_builder = Rc::new(f);
         self
@@ -179,7 +179,7 @@ impl KompactConfig {
                 deadletter_box,
                 dispatcher,
             };
-            Box::new(cc) as Box<SystemComponents>
+            Box::new(cc) as Box<dyn SystemComponents>
         };
         self.sc_builder = Rc::new(sb);
         self
@@ -225,7 +225,7 @@ impl Default for KompactConfig {
 #[derive(Clone)]
 pub struct KompactSystem {
     inner: Arc<KompactRuntime>,
-    scheduler: Box<Scheduler>,
+    scheduler: Box<dyn Scheduler>,
 }
 
 // This can fail!
@@ -291,7 +291,7 @@ impl KompactSystem {
         Ok(sys)
     }
 
-    pub fn schedule(&self, c: Arc<CoreContainer>) -> () {
+    pub fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
         self.scheduler.schedule(c);
     }
 
@@ -316,7 +316,7 @@ impl KompactSystem {
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
         {
             let mut cd = c.definition().lock().unwrap();
-            let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
+            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
         }
@@ -336,7 +336,7 @@ impl KompactSystem {
         {
             let mut cd = c.definition().lock().unwrap();
             cd.setup(c.clone());
-            let cc: Arc<CoreContainer> = c.clone() as Arc<CoreContainer>;
+            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
         return c;
@@ -554,13 +554,13 @@ pub trait TimerComponent: TimerRefFactory + Send + Sync {
 struct InternalComponents {
     supervisor: Arc<Component<ComponentSupervisor>>,
     supervision_port: ProvidedRef<SupervisionPort>,
-    system_components: Box<SystemComponents>,
+    system_components: Box<dyn SystemComponents>,
 }
 
 impl InternalComponents {
     fn new(
         supervisor: Arc<Component<ComponentSupervisor>>,
-        system_components: Box<SystemComponents>,
+        system_components: Box<dyn SystemComponents>,
     ) -> InternalComponents {
         let supervision_port = supervisor.on_definition(|s| s.supervision.share());
         InternalComponents {
@@ -594,7 +594,7 @@ struct KompactRuntime {
     label: String,
     throughput: usize,
     max_messages: usize,
-    timer: Box<TimerComponent>,
+    timer: Box<dyn TimerComponent>,
     internal_components: OnceMutex<Option<InternalComponents>>,
     logger: KompactLogger,
     state: AtomicUsize,
@@ -635,7 +635,7 @@ impl KompactRuntime {
     }
 
     fn set_internal_components(&self, internal_components: InternalComponents) -> () {
-        let guard_opt: Option<OnceMutexGuard<Option<InternalComponents>>> =
+        let guard_opt: Option<OnceMutexGuard<'_, Option<InternalComponents>>> =
             self.internal_components.lock();
         if let Some(mut guard) = guard_opt {
             *guard = Some(internal_components);
@@ -746,20 +746,20 @@ impl KompactRuntime {
 }
 
 impl Debug for KompactRuntime {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "KompactRuntime({})", self.label)
     }
 }
 
 pub trait Scheduler: Send + Sync {
-    fn schedule(&self, c: Arc<CoreContainer>) -> ();
+    fn schedule(&self, c: Arc<dyn CoreContainer>) -> ();
     fn shutdown_async(&self) -> ();
     fn shutdown(&self) -> Result<(), String>;
-    fn box_clone(&self) -> Box<Scheduler>;
+    fn box_clone(&self) -> Box<dyn Scheduler>;
     fn poison(&self) -> ();
 }
 
-impl Clone for Box<Scheduler> {
+impl Clone for Box<dyn Scheduler> {
     fn clone(&self) -> Self {
         (*self).box_clone()
     }
@@ -777,13 +777,13 @@ impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
     fn with(exec: E) -> ExecutorScheduler<E> {
         ExecutorScheduler { exec }
     }
-    fn from(exec: E) -> Box<Scheduler> {
+    fn from(exec: E) -> Box<dyn Scheduler> {
         Box::new(ExecutorScheduler::with(exec))
     }
 }
 
 impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
-    fn schedule(&self, c: Arc<CoreContainer>) -> () {
+    fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
         self.exec.execute(move || {
             c.execute();
         });
@@ -794,7 +794,7 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     fn shutdown(&self) -> Result<(), String> {
         self.exec.shutdown_borrowed()
     }
-    fn box_clone(&self) -> Box<Scheduler> {
+    fn box_clone(&self) -> Box<dyn Scheduler> {
         Box::new(self.clone())
     }
     fn poison(&self) -> () {

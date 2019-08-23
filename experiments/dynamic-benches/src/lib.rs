@@ -1,5 +1,4 @@
 #![feature(test)]
-
 extern crate test;
 
 pub mod actorrefs;
@@ -9,14 +8,14 @@ use std::any::*;
 use std::sync::Arc;
 
 pub enum Message {
-    StaticRef(&'static Any),
-    Owned(Box<Any>),
-    Shared(Arc<Any>),
+    StaticRef(&'static dyn Any),
+    Owned(Box<dyn Any>),
+    Shared(Arc<dyn Any>),
 }
 
 pub fn do_with_message<F>(f: F, m: Message) -> u64
 where
-    F: Fn(&Any) -> u64 + 'static,
+    F: Fn(&dyn Any) -> u64 + 'static,
 {
     match m {
         Message::StaticRef(r) => f(r),
@@ -27,7 +26,7 @@ where
 
 pub struct IntBox(u64);
 
-pub fn do_with_any_box(a: Box<Any>) -> u64 {
+pub fn do_with_any_box(a: Box<dyn Any>) -> u64 {
     if let Some(ref ib) = a.downcast_ref::<IntBox>() {
         ib.0
     } else {
@@ -35,7 +34,7 @@ pub fn do_with_any_box(a: Box<Any>) -> u64 {
     }
 }
 
-pub fn do_with_any_box_ref(a: &Box<Any>) -> u64 {
+pub fn do_with_any_box_ref(a: &Box<dyn Any>) -> u64 {
     if let Some(ref ib) = a.downcast_ref::<IntBox>() {
         ib.0
     } else {
@@ -43,7 +42,7 @@ pub fn do_with_any_box_ref(a: &Box<Any>) -> u64 {
     }
 }
 
-pub fn do_with_any_ref(a: &Any) -> u64 {
+pub fn do_with_any_ref(a: &dyn Any) -> u64 {
     if let Some(ref ib) = a.downcast_ref::<IntBox>() {
         ib.0
     } else {
@@ -59,14 +58,14 @@ mod tests {
     #[bench]
     fn bench_any_box(b: &mut Bencher) {
         b.iter(|| {
-            let a: Box<Any> = Box::new(IntBox(12345678)) as Box<Any>;
+            let a: Box<dyn Any> = Box::new(IntBox(12345678)) as Box<dyn Any>;
             do_with_any_box(a);
         });
     }
 
     #[bench]
     fn bench_any_box_ref(b: &mut Bencher) {
-        let a: Box<Any> = Box::new(IntBox(12345678)) as Box<Any>;
+        let a: Box<dyn Any> = Box::new(IntBox(12345678)) as Box<dyn Any>;
         b.iter(|| {
             do_with_any_box_ref(&a);
         });
@@ -74,7 +73,7 @@ mod tests {
 
     #[bench]
     fn bench_any_ref_from_box(b: &mut Bencher) {
-        let a: Box<Any> = Box::new(IntBox(12345678)) as Box<Any>;
+        let a: Box<dyn Any> = Box::new(IntBox(12345678)) as Box<dyn Any>;
         b.iter(|| {
             do_with_any_ref(a.as_ref());
         });
@@ -84,7 +83,7 @@ mod tests {
     fn bench_any_ref(b: &mut Bencher) {
         b.iter(|| {
             let a = IntBox(12345678);
-            do_with_any_ref(&a as &Any);
+            do_with_any_ref(&a as &dyn Any);
         });
     }
 

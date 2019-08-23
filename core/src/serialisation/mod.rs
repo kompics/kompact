@@ -18,18 +18,18 @@ pub mod ser_test_helpers {
     use super::*;
 
     /// Directly serialise something into the given buf. Mostly for testing.
-    pub fn just_serialise<S>(si: S, buf: &mut BufMut) -> ()
+    pub fn just_serialise<S>(si: S, buf: &mut dyn BufMut) -> ()
     where
-        S: Into<Box<Serialisable>>,
+        S: Into<Box<dyn Serialisable>>,
     {
-        let s: Box<Serialisable> = si.into();
+        let s: Box<dyn Serialisable> = si.into();
         s.serialise(buf).expect("Did not serialise correctly");
     }
 
     /// Directly serialise something into some buf and throw it away. Only for testing.
     pub fn test_serialise<S>(si: S) -> ()
     where
-        S: Into<Box<Serialisable>>,
+        S: Into<Box<dyn Serialisable>>,
     {
         let mut buf: Vec<u8> = Vec::new();
         just_serialise(si, &mut buf);
@@ -55,7 +55,7 @@ mod tests {
         fn size_hint(&self) -> Option<usize> {
             Some(88)
         }
-        fn serialise(&self, v: &Test1, buf: &mut BufMut) -> Result<(), SerError> {
+        fn serialise(&self, v: &Test1, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_u64_be(v.i);
             for i in 0..10 {
                 buf.put_u64_be(i);
@@ -64,7 +64,7 @@ mod tests {
         }
     }
     impl Deserialiser<Test1> for T1Ser {
-        fn deserialise(buf: &mut Buf) -> Result<Test1, SerError> {
+        fn deserialise(buf: &mut dyn Buf) -> Result<Test1, SerError> {
             let i = buf.get_u64_be();
             Result::Ok(Test1 { i })
         }

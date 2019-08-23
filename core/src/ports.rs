@@ -50,7 +50,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
     pub fn share(&mut self) -> ProvidedRef<P> {
         match self.parent {
             Some(ref p) => {
-                let core_container = p.clone() as Weak<CoreContainer>;
+                let core_container = p.clone() as Weak<dyn CoreContainer>;
                 ProvidedRef {
                     msg_queue: Arc::downgrade(&self.msg_queue),
                     component: core_container,
@@ -98,7 +98,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     pub fn share(&mut self) -> RequiredRef<P> {
         match self.parent {
             Some(ref p) => {
-                let core_container = p.clone() as Weak<CoreContainer>;
+                let core_container = p.clone() as Weak<dyn CoreContainer>;
                 RequiredRef {
                     msg_queue: Arc::downgrade(&self.msg_queue),
                     component: core_container,
@@ -125,7 +125,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
 }
 
 pub struct ProvidedRef<P: Port + 'static> {
-    component: Weak<CoreContainer>,
+    component: Weak<dyn CoreContainer>,
     msg_queue: Weak<ConcurrentQueue<P::Request>>,
 }
 
@@ -140,7 +140,7 @@ impl<P: Port + 'static> Clone for ProvidedRef<P> {
 
 impl<P: Port + 'static> ProvidedRef<P> {
     pub(crate) fn new(
-        component: Weak<CoreContainer>,
+        component: Weak<dyn CoreContainer>,
         msg_queue: Weak<ConcurrentQueue<P::Request>>,
     ) -> ProvidedRef<P> {
         ProvidedRef {
@@ -173,7 +173,7 @@ impl<P: Port + 'static> ProvidedRef<P> {
 }
 
 pub struct RequiredRef<P: Port + 'static> {
-    component: Weak<CoreContainer>,
+    component: Weak<dyn CoreContainer>,
     msg_queue: Weak<ConcurrentQueue<P::Indication>>,
 }
 

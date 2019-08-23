@@ -135,7 +135,7 @@ mod tests {
     //const RECV: &str = "Msg Received";
 
     impl Actor for RecvComponent {
-        fn receive_local(&mut self, sender: ActorRef, msg: &Any) -> () {
+        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
             info!(self.ctx.log(), "RecvComponent received {:?}", msg);
             if let Some(s) = msg.downcast_ref::<&str>() {
                 self.last_string = s.to_string();
@@ -143,7 +143,7 @@ mod tests {
             sender.tell(&"Msg Received", self);
             //sender.actor_path().tell("Msg Received", self);
         }
-        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
             error!(self.ctx.log(), "Got unexpected message from {}", sender);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -306,11 +306,11 @@ mod tests {
     }
 
     impl Actor for CounterComponent {
-        fn receive_local(&mut self, _sender: ActorRef, _msg: &Any) -> () {
+        fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
             info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
         }
-        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
             crit!(self.ctx.log(), "Got unexpected message from {}", sender);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -423,11 +423,11 @@ mod tests {
     }
 
     impl Actor for CrasherComponent {
-        fn receive_local(&mut self, _sender: ActorRef, _msg: &Any) -> () {
+        fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }
-        fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut Buf) -> () {
+        fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }

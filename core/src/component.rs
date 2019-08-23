@@ -23,8 +23,8 @@ pub trait CoreContainer: Send + Sync {
     }
 }
 
-impl fmt::Debug for CoreContainer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl fmt::Debug for dyn CoreContainer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CoreContainer({})", self.id())
     }
 }
@@ -455,7 +455,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         &mut self.inner_mut().timer_manager
     }
 
-    pub fn component(&self) -> Arc<CoreContainer> {
+    pub fn component(&self) -> Arc<dyn CoreContainer> {
         match self.inner_ref().component.upgrade() {
             Some(ac) => ac,
             None => panic!("Component already deallocated!"),
@@ -510,7 +510,7 @@ pub struct ComponentCore {
     id: Uuid,
     system: KompactSystem,
     work_count: AtomicUsize,
-    component: RefCell<Option<Weak<CoreContainer>>>,
+    component: RefCell<Option<Weak<dyn CoreContainer>>>,
 }
 
 impl ComponentCore {
@@ -531,11 +531,11 @@ impl ComponentCore {
         &self.id
     }
 
-    pub(crate) fn set_component(&self, c: Arc<CoreContainer>) -> () {
+    pub(crate) fn set_component(&self, c: Arc<dyn CoreContainer>) -> () {
         *self.component.borrow_mut() = Some(Arc::downgrade(&c));
     }
 
-    pub fn component(&self) -> Arc<CoreContainer> {
+    pub fn component(&self) -> Arc<dyn CoreContainer> {
         match *self.component.borrow() {
             Some(ref c) => match c.upgrade() {
                 Some(ac) => ac,

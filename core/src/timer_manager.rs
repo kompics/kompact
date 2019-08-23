@@ -42,7 +42,7 @@ pub(crate) struct Timeout(Uuid);
 
 pub(crate) enum ExecuteAction<C: ComponentDefinition> {
     None,
-    Periodic(Uuid, Rc<Fn(&mut C, Uuid)>),
+    Periodic(Uuid, Rc<dyn Fn(&mut C, Uuid)>),
     Once(Uuid, Box<dyn FnOnce(&mut C, Uuid)>),
 }
 
@@ -61,7 +61,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
         }
     }
 
-    fn new_ref(&self, component: Weak<CoreContainer>) -> TimerActorRef {
+    fn new_ref(&self, component: Weak<dyn CoreContainer>) -> TimerActorRef {
         TimerActorRef::new(component, Arc::downgrade(&self.timer_queue))
     }
 
@@ -90,7 +90,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
 
     pub(crate) fn schedule_once<F>(
         &mut self,
-        component: Weak<CoreContainer>,
+        component: Weak<dyn CoreContainer>,
         timeout: Duration,
         action: F,
     ) -> ScheduledTimer
@@ -112,7 +112,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
 
     pub(crate) fn schedule_periodic<F>(
         &mut self,
-        component: Weak<CoreContainer>,
+        component: Weak<dyn CoreContainer>,
         delay: Duration,
         period: Duration,
         action: F,
@@ -146,7 +146,7 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
     },
     Periodic {
         _id: Uuid, // not used atm
-        action: Rc<Fn(&mut C, Uuid) + Send + 'static>,
+        action: Rc<dyn Fn(&mut C, Uuid) + Send + 'static>,
     },
 }
 
@@ -154,13 +154,13 @@ unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} // this isn't tec
 
 #[derive(Clone)]
 struct TimerActorRef {
-    component: Weak<CoreContainer>,
+    component: Weak<dyn CoreContainer>,
     msg_queue: Weak<ConcurrentQueue<Timeout>>,
 }
 
 impl TimerActorRef {
     fn new(
-        component: Weak<CoreContainer>,
+        component: Weak<dyn CoreContainer>,
         msg_queue: Weak<ConcurrentQueue<Timeout>>,
     ) -> TimerActorRef {
         TimerActorRef {
