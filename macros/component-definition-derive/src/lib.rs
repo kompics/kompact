@@ -207,7 +207,7 @@ fn identify_field(f: &syn::Field) -> ComponentField {
 fn extract_port_type(seg: &syn::PathSegment) -> syn::Type {
     match seg.arguments {
         syn::PathArguments::AngleBracketed(ref abppd) => {
-            match abppd.args.first().expect("Invalid type argument!").value() {
+            match abppd.args.first().expect("Invalid type argument!") {
                 syn::GenericArgument::Type(ty) => ty.clone(),
                 _ => panic!("Wrong generic argument type in {:?}", seg),
             }

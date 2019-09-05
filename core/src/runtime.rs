@@ -112,7 +112,7 @@ impl KompactConfig {
             threads: 1,
             timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
             scheduler_builder: Rc::new(|t| {
-                ExecutorScheduler::from(crossbeam_channel_pool::ThreadPool::new(t))
+                ExecutorScheduler::from(crossbeam_workstealing_pool::small_pool(t))
             }),
             sc_builder: Rc::new(|sys, dead_prom, disp_prom| {
                 Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))
@@ -205,15 +205,21 @@ impl KompactConfig {
 
 impl Default for KompactConfig {
     fn default() -> Self {
+        let threads = num_cpus::get();
+        let scheduler_builder: Rc<SchedulerBuilder> = if threads <= 32 {
+            Rc::new(|t| ExecutorScheduler::from(crossbeam_workstealing_pool::small_pool(t)))
+        } else if threads <= 64 {
+            Rc::new(|t| ExecutorScheduler::from(crossbeam_workstealing_pool::large_pool(t)))
+        } else {
+            Rc::new(|t| ExecutorScheduler::from(crossbeam_workstealing_pool::dyn_pool(t)))
+        };
         KompactConfig {
             label: default_runtime_label(),
             throughput: 50,
             msg_priority: 0.5,
-            threads: num_cpus::get(),
+            threads,
             timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
-            scheduler_builder: Rc::new(|t| {
-                ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(t))
-            }),
+            scheduler_builder,
             sc_builder: Rc::new(|sys, dead_prom, disp_prom| {
                 Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))
             }),

@@ -29,10 +29,10 @@ pub const VAL: &'static str = "Test me!";
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use fnv::FnvHashMap;
     use std::collections::BTreeMap;
     use std::collections::HashMap;
-    use super::*;
     use test::Bencher;
 
     #[bench]

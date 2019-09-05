@@ -113,7 +113,9 @@ fn main() {
         g
     });
     thread::sleep(time::Duration::from_millis(100));
-    generic_comp.actor_ref().tell(Box::new(String::from("Test")), &generic_comp);
+    generic_comp
+        .actor_ref()
+        .tell(Box::new(String::from("Test")), &generic_comp);
     thread::sleep(time::Duration::from_millis(100));
     let comp_inspect = &generic_comp.definition().lock().unwrap();
     assert_eq!(comp_inspect.test.as_ref().unwrap(), &String::from("Test"));
