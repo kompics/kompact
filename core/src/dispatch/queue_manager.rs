@@ -19,6 +19,10 @@ impl QueueManager {
         }
     }
 
+    pub fn stop(self) -> () {
+        drop(self); // doesn't need any cleanup, yet
+    }
+
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_frame(&mut self, frame: Frame, dst: SocketAddr) {
         self.inner

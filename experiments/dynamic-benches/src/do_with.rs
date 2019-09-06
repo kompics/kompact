@@ -1,8 +1,8 @@
-use std::any::*;
-use std::sync::Arc;
 use criterion::criterion_group;
 use criterion::criterion_main;
 use criterion::{black_box, Criterion};
+use std::any::*;
+use std::sync::Arc;
 
 pub enum Message {
     StaticRef(&'static dyn Any),
@@ -47,16 +47,23 @@ pub fn do_with_any_ref(a: &dyn Any) -> u64 {
     }
 }
 
-
 pub fn do_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Do_With Benches");
     g.bench_function("bench Box<dyn Any>", |b| tests::bench_any_box(b));
     g.bench_function("bench &Box<dyn Any>", |b| tests::bench_any_box_ref(b));
-    g.bench_function("bench Box<dyn Any>.as_ref()", |b| tests::bench_any_ref_from_box(b));
+    g.bench_function("bench Box<dyn Any>.as_ref()", |b| {
+        tests::bench_any_ref_from_box(b)
+    });
     g.bench_function("bench &dyn Any", |b| tests::bench_any_ref(b));
-    g.bench_function("bench Message &'static Any", |b| tests::bench_msg_with_any_ref(b));
-    g.bench_function("bench Message Box<dyn Any>", |b| tests::bench_msg_with_any_box(b));
-    g.bench_function("bench Message Arc<dyn Any>", |b| tests::bench_msg_with_shared_any(b));
+    g.bench_function("bench Message &'static Any", |b| {
+        tests::bench_msg_with_any_ref(b)
+    });
+    g.bench_function("bench Message Box<dyn Any>", |b| {
+        tests::bench_msg_with_any_box(b)
+    });
+    g.bench_function("bench Message Arc<dyn Any>", |b| {
+        tests::bench_msg_with_shared_any(b)
+    });
     g.finish();
 }
 
@@ -64,7 +71,6 @@ mod tests {
     use super::*;
     use criterion::Bencher;
 
-    
     pub fn bench_any_box(b: &mut Bencher) {
         b.iter(|| {
             let a: Box<dyn Any> = Box::new(IntBox(12345678)) as Box<dyn Any>;
@@ -72,7 +78,6 @@ mod tests {
         });
     }
 
-    
     pub fn bench_any_box_ref(b: &mut Bencher) {
         let a: Box<dyn Any> = Box::new(IntBox(12345678)) as Box<dyn Any>;
         b.iter(|| {
@@ -80,7 +85,6 @@ mod tests {
         });
     }
 
-    
     pub fn bench_any_ref_from_box(b: &mut Bencher) {
         let a: Box<dyn Any> = Box::new(IntBox(12345678)) as Box<dyn Any>;
         b.iter(|| {
@@ -88,7 +92,6 @@ mod tests {
         });
     }
 
-    
     pub fn bench_any_ref(b: &mut Bencher) {
         b.iter(|| {
             let a = IntBox(12345678);
@@ -98,7 +101,6 @@ mod tests {
 
     const TEST_BOX: IntBox = IntBox(12345678);
 
-    
     pub fn bench_msg_with_any_ref(b: &mut Bencher) {
         b.iter(|| {
             let msg = Message::StaticRef(&TEST_BOX);
@@ -106,7 +108,6 @@ mod tests {
         });
     }
 
-    
     pub fn bench_msg_with_any_box(b: &mut Bencher) {
         b.iter(|| {
             let msg = Message::Owned(Box::new(TEST_BOX));
@@ -114,7 +115,6 @@ mod tests {
         });
     }
 
-    
     pub fn bench_msg_with_shared_any(b: &mut Bencher) {
         let test = Arc::new(TEST_BOX);
         b.iter(|| {

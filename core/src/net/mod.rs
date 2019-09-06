@@ -99,8 +99,8 @@ pub struct Bridge {
     log: KompactLogger,
     /// Shared actor reference lookup table
     lookup: Arc<ArcSwap<ActorStore>>,
-    /// Thread blocking on the Tokio runtime
-    net_thread: Option<JoinHandle<()>>,
+    /// Tokio Runtime
+    tokio_runtime: Option<Runtime>,
     /// Reference back to the Kompact dispatcher
     dispatcher: Option<ActorRef>,
     /// Socket the network actually bound on
@@ -125,7 +125,7 @@ impl Bridge {
             events: sender,
             log,
             lookup,
-            net_thread: None,
+            tokio_runtime: None,
             dispatcher: None,
             bound_addr: None,
         };
@@ -148,9 +148,22 @@ impl Bridge {
             self.events.clone(),
             self.lookup.clone(),
         )?;
-        self.executor = Some(nthread.executor);
-        self.net_thread = Some(nthread.handle);
+        let executor = nthread.tokio_runtime.executor();
+        self.tokio_runtime = Some(nthread.tokio_runtime);
+        self.executor = Some(executor);
         self.bound_addr = Some(nthread.bound_addr);
+        Ok(())
+    }
+
+    pub fn stop(mut self) -> Result<(), NetworkBridgeErr> {
+        debug!(self.log, "Stopping NetworkBridge...");
+        if let Some(runtime) = self.tokio_runtime.take() {
+            let _ = self.executor.take();
+            runtime.shutdown_now().wait().map_err(|_| {
+                NetworkBridgeErr::Other("Tokio runtime failed to shut down!".to_string())
+            })?;
+        }
+        debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }
 
@@ -313,47 +326,61 @@ fn start_network_thread(
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
 ) -> Result<NetworkThread, NetworkBridgeErr> {
-    use std::thread::Builder;
-
-    let (tx, rx) = sync::oneshot::channel();
     let (addr_tx, addr_rx) = sync::oneshot::channel();
-    let th = Builder::new()
-        .name(name)
-        .spawn(move || {
-            let mut runtime = Runtime::new().expect("Could not create Tokio Runtime!");
-            let executor = runtime.executor();
+    let mut runtime = Runtime::new().map_err(|e| NetworkBridgeErr::Tokio(e))?;
+    runtime.spawn(start_tcp_server(
+        runtime.executor(),
+        log.clone(),
+        addr,
+        addr_tx,
+        events,
+        lookup,
+    ));
 
-            runtime.spawn(start_tcp_server(
-                executor.clone(),
-                log.clone(),
-                addr,
-                addr_tx,
-                events,
-                lookup,
-            ));
-            tx.send(executor).expect("Onceshot channel died!");
-            runtime.shutdown_on_idle().wait().unwrap();
-        })
-        .map_err(|_| NetworkBridgeErr::Thread("TCP serve thread spawning failed!".to_string()))?;
+    //let (shutdown_tx, shutdown_rx) = sync::oneshot::channel::<()>();
+    // let th = Builder::new()
+    //     .name(name)
+    //     .spawn(move || {
+    //         let mut runtime = Runtime::new().expect("Could not create Tokio Runtime!");
+    //         let executor = runtime.executor();
+
+    //         runtime.spawn(start_tcp_server(
+    //             executor.clone(),
+    //             log.clone(),
+    //             addr,
+    //             addr_tx,
+    //             events,
+    //             lookup,
+    //         ));
+    //         tx.send(executor).expect("Onceshot channel died!");
+    //         //runtime.shutdown_on_idle().wait().unwrap();
+    //         // shutdown_rx.wait().expect("Unable to wait for receiver");
+    //         // runtime
+    //         //     .shutdown_now()
+    //         //     .wait()
+    //         //     .expect("Unable to wait for shutdown");
+    //         runtime
+    //             .block_on(shutdown_rx)
+    //             .expect("Unable to shutdown tokio runtime!");
+    //     })
+    //     .map_err(|_| NetworkBridgeErr::Thread("TCP server thread spawning failed!".to_string()))?;
 
     let bound_addr = addr_rx.wait().map_err(|_| {
         NetworkBridgeErr::Binding(format!("Could not get true bind address for {}", addr))
     })?;
-    let executor = rx.wait().map_err(|_| {
-        NetworkBridgeErr::Thread(
-            "Could not receive executor; network thread may have panicked!".to_string(),
-        )
-    })?;
+    // let executor = rx.wait().map_err(|_| {
+    //     NetworkBridgeErr::Thread(
+    //         "Could not receive executor; network thread may have panicked!".to_string(),
+    //     )
+    // })?;
     Ok(NetworkThread {
-        executor,
-        handle: th,
+        tokio_runtime: runtime,
         bound_addr,
     })
 }
 
 struct NetworkThread {
-    executor: TaskExecutor,
-    handle: JoinHandle<()>,
+    tokio_runtime: Runtime,
     bound_addr: SocketAddr,
 }
 

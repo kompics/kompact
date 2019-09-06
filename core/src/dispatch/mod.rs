@@ -151,6 +151,28 @@ impl NetworkDispatcher {
         Ok(())
     }
 
+    fn stop(&mut self) -> () {
+        self.do_stop(false)
+    }
+
+    fn kill(&mut self) -> () {
+        self.do_stop(true)
+    }
+
+    fn do_stop(&mut self, _cleanup: bool) -> () {
+        if let Some(manager) = self.queue_manager.take() {
+            manager.stop();
+        }
+        if let Some(bridge) = self.net_bridge.take() {
+            if let Err(e) = bridge.stop() {
+                error!(
+                    self.ctx().log(),
+                    "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
+                );
+            }
+        }
+    }
+
     fn schedule_reaper(&mut self) {
         if !self.reaper.is_scheduled() {
             // First time running; mark as scheduled and jump straight to scheduling
@@ -475,8 +497,16 @@ impl Provide<ControlPort> for NetworkDispatcher {
                     }
                 }
             }
-            ControlEvent::Stop => info!(self.ctx.log(), "Stopping"),
-            ControlEvent::Kill => info!(self.ctx.log(), "Killed"),
+            ControlEvent::Stop => {
+                info!(self.ctx.log(), "Stopping network...");
+                self.stop();
+                info!(self.ctx.log(), "Stopped network.");
+            }
+            ControlEvent::Kill => {
+                info!(self.ctx.log(), "Killing network...");
+                self.kill();
+                info!(self.ctx.log(), "Killed network.");
+            }
         }
     }
 }
