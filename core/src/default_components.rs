@@ -41,6 +41,13 @@ impl SystemComponents for DefaultComponents {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
     }
+
+    fn stop(&self, system: &KompactSystem) -> () {
+        system.kill(self.dispatcher.clone());
+        system.kill(self.deadletter_box.clone());
+        self.dispatcher.wait_ended();
+        self.deadletter_box.wait_ended();
+    }
 }
 
 pub(crate) struct DefaultTimer {
@@ -99,6 +106,12 @@ where
     fn start(&self, system: &KompactSystem) -> () {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
+    }
+    fn stop(&self, system: &KompactSystem) -> () {
+        system.kill(self.dispatcher.clone());
+        system.kill(self.deadletter_box.clone());
+        self.dispatcher.wait_ended();
+        self.deadletter_box.wait_ended();
     }
 }
 

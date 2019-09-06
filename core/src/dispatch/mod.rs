@@ -572,6 +572,70 @@ mod dispatch_tests {
     }
 
     #[test]
+    fn tokio_cleanup() {
+        use tokio::net::TcpListener;
+
+        let addr = "127.0.0.1:0"
+            .parse::<SocketAddr>()
+            .expect("Could not parse address!");
+        let listener = TcpListener::bind(&addr).expect("Could not bind socket!");
+        let actual_addr = listener.local_addr().expect("Could not get real address!");
+        println!("Bound on {}", actual_addr);
+        drop(listener);
+        let listener2 = TcpListener::bind(&actual_addr).expect("Could not re-bind socket!");
+        let actual_addr2 = listener2.local_addr().expect("Could not get real address!");
+        println!("Bound again on {}", actual_addr2);
+        assert_eq!(actual_addr, actual_addr2);
+    }
+
+    #[test]
+    fn network_cleanup() {
+        let mut cfg = KompactConfig::new();
+        println!("Configuring network");
+        cfg.system_components(DeadletterBox::new, {
+            // shouldn't be able to bind on port 80 without root rights
+            let net_config =
+                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+            net_config.build()
+        });
+        println!("Starting KompactSystem");
+        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        println!("KompactSystem started just fine.");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        let port = system.system_path().port();
+        println!("Got port: {}", port);
+        println!("Shutting down first system...");
+        system
+            .shutdown()
+            .expect("KompicsSystem failed to shut down!");
+        println!("System shut down.");
+        let mut cfg2 = KompactConfig::new();
+        println!("Configuring network");
+        cfg2.system_components(DeadletterBox::new, {
+            // shouldn't be able to bind on port 80 without root rights
+            let net_config =
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port));
+            net_config.build()
+        });
+        println!("Starting 2nd KompactSystem");
+        let system2 = KompactSystem::new(cfg2).expect("KompactSystem");
+        println!("2nd KompactSystem started just fine.");
+        let named_path2 = ActorPath::Named(NamedPath::with_system(
+            system2.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        assert_eq!(named_path, named_path2);
+        system2
+            .shutdown()
+            .expect("2nd KompicsSystem failed to shut down!");
+    }
+
+    #[test]
     fn test_system_path_timing() {
         let mut cfg = KompactConfig::new();
         println!("Configuring network");

@@ -124,6 +124,19 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         lifecycle::is_active(&self.state)
     }
 
+    pub fn is_destroyed(&self) -> bool {
+        lifecycle::is_destroyed(&self.state)
+    }
+
+    /// Wait synchronously for this component be either destroyed or faulty.
+    pub fn wait_ended(&self) -> () {
+        loop {
+            if self.is_faulty() || self.is_destroyed() {
+                return;
+            }
+        }
+    }
+
     fn inner_execute(&self) {
         let max_events = self.core.system.throughput();
         let max_messages = self.core.system.max_messages();

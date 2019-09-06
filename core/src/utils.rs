@@ -84,7 +84,7 @@ pub trait Fulfillable<T> {
 }
 
 /// Until the futures crate stabilises
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Promise<T: Send + Sized> {
     result_channel: mpsc::Sender<T>,
 }

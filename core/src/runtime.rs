@@ -504,8 +504,8 @@ impl KompactSystem {
 
     pub fn shutdown(self) -> Result<(), String> {
         self.inner.assert_active();
+        self.inner.shutdown(&self)?;
         self.scheduler.shutdown()?;
-        self.inner.shutdown()?;
         Ok(())
     }
 
@@ -551,6 +551,7 @@ pub trait SystemComponents: Send + Sync {
     fn dispatcher_ref(&self) -> ActorRef;
     fn system_path(&self) -> SystemPath;
     fn start(&self, _system: &KompactSystem) -> ();
+    fn stop(&self, _system: &KompactSystem) -> ();
 }
 
 pub trait TimerComponent: TimerRefFactory + Send + Sync {
@@ -592,6 +593,12 @@ impl InternalComponents {
     }
     fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
         self.supervision_port.clone()
+    }
+    fn stop(&self, system: &KompactSystem) -> () {
+        let (p, f) = utils::promise();
+        self.supervision_port.enqueue(SupervisorMsg::Shutdown(p));
+        f.wait();
+        self.system_components.stop(system);
     }
 }
 
@@ -724,7 +731,13 @@ impl KompactRuntime {
         self.timer.timer_ref()
     }
 
-    pub fn shutdown(&self) -> Result<(), String> {
+    pub fn shutdown(&self, system: &KompactSystem) -> Result<(), String> {
+        match *self.internal_components {
+            Some(ref ic) => {
+                ic.stop(system);
+            }
+            None => panic!("KompactRuntime was not initialised at shutdown!"),
+        }
         let res = self.timer.shutdown();
         lifecycle::set_destroyed(self.state());
         res

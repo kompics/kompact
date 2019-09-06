@@ -15,11 +15,10 @@ use spaniel::codec::FrameCodec;
 use spaniel::frames::Frame;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::thread::JoinHandle;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
-use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
+use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
 use tokio_retry;
 use tokio_retry::strategy::ExponentialBackoff;
 
@@ -327,7 +326,13 @@ fn start_network_thread(
     lookup: Arc<ArcSwap<ActorStore>>,
 ) -> Result<NetworkThread, NetworkBridgeErr> {
     let (addr_tx, addr_rx) = sync::oneshot::channel();
-    let mut runtime = Runtime::new().map_err(|e| NetworkBridgeErr::Tokio(e))?;
+    let mut runtime = RuntimeBuilder::new()
+        .name_prefix(&name)
+        .core_threads(1)
+        .build()
+        .map_err(|e| NetworkBridgeErr::Tokio(e))?;
+
+    //Runtime::new().map_err(|e| NetworkBridgeErr::Tokio(e))?;
     runtime.spawn(start_tcp_server(
         runtime.executor(),
         log.clone(),

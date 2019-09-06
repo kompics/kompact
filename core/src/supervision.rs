@@ -36,6 +36,7 @@ pub(crate) enum SupervisorMsg {
     Killed(Uuid),
     Faulty(Uuid), // TODO implement fault handling!
     Listen(Arc<Mutex<Promise<()>>>, ListenEvent),
+    Shutdown(Promise<()>),
 }
 
 #[derive(ComponentDefinition, Actor)]
@@ -44,6 +45,7 @@ pub(crate) struct ComponentSupervisor {
     pub(crate) supervision: ProvidedPort<SupervisionPort, ComponentSupervisor>,
     children: HashMap<Uuid, Arc<dyn CoreContainer>>,
     listeners: HashMap<Uuid, Vec<(ListenEvent, Promise<()>)>>,
+    shutdown: Option<Promise<()>>,
 }
 
 impl ComponentSupervisor {
@@ -53,6 +55,7 @@ impl ComponentSupervisor {
             supervision: ProvidedPort::new(),
             children: HashMap::new(),
             listeners: HashMap::new(),
+            shutdown: None,
         }
     }
 
@@ -80,13 +83,18 @@ impl Provide<ControlPort> for ComponentSupervisor {
     fn handle(&mut self, event: ControlEvent) -> () {
         match event {
             ControlEvent::Start => {
-                debug!(self.ctx.log(), "Starting.");
+                debug!(self.ctx.log(), "Started.");
             }
             ControlEvent::Stop => {
-                debug!(self.ctx.log(), "Stopping.");
+                error!(self.ctx.log(), "Do not stop the supervisor!");
+                panic!("Invalid supervisor handling!");
             }
             ControlEvent::Kill => {
-                debug!(self.ctx.log(), "Killed.");
+                error!(
+                    self.ctx.log(),
+                    "Use SupervisorMsg::Shutdown to kill the supervisor!"
+                );
+                panic!("Invalid supervisor handling!");
             }
         }
     }
@@ -97,6 +105,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
         match event {
             SupervisorMsg::Started(c) => {
                 let id = c.id().clone();
+                let ctrl = c.control_port();
                 self.children.insert(id, c);
                 debug!(self.ctx.log(), "Component({}) was started.", id);
                 self.notify_listeners(&id, |l| {
@@ -106,6 +115,13 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         false
                     }
                 });
+                if self.shutdown.is_some() {
+                    warn!(
+                        self.ctx.log(),
+                        "Child {} just started during shutdown. Killing it immediately!", id
+                    );
+                    ctrl.enqueue(ControlEvent::Kill);
+                }
             }
             SupervisorMsg::Stopped(id) => {
                 debug!(self.ctx.log(), "Component({}) was stopped.", id);
@@ -138,12 +154,24 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                             }
                         });
                         self.drop_listeners(&id);
-                        // match Arc::try_unwrap(carc) {
-                        // 	Ok(_) =>
-                        // 	Err(_) => println!("Component({}) was killed but there are still outstanding references preventing deallocation.", id),
-                        // }
                     }
                     None => warn!(self.ctx.log(), "An untracked Component({}) was killed.", id),
+                }
+                if self.shutdown.is_some() {
+                    if self.children.is_empty() {
+                        debug!(self.ctx.log(), "Last child of the Supervisor is dead!");
+                        let promise = self.shutdown.take().unwrap();
+                        promise
+                            .fulfill(())
+                            .expect("Could not fulfill shutdown promise!");
+                        self.listeners.clear(); // we won't be fulfilling these anyway
+                    } else {
+                        trace!(
+                            self.ctx.log(),
+                            "Supervisor is still dying with {} children outstanding...",
+                            self.children.len()
+                        );
+                    }
                 }
             }
             SupervisorMsg::Faulty(id) => {
@@ -175,6 +203,22 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     event.id()
                 ),
             },
+            SupervisorMsg::Shutdown(promise) => {
+                debug!(self.ctx.log(), "Supervisor got shutdown request.");
+                if self.children.is_empty() {
+                    trace!(self.ctx.log(), "Supervisor has no children!");
+                    promise
+                        .fulfill(())
+                        .expect("Could not fulfill shutdown promise!");
+                    self.listeners.clear(); // we won't be fulfilling these anyway
+                } else {
+                    trace!(self.ctx.log(), "Killing {} children.", self.children.len());
+                    self.shutdown = Some(promise);
+                    for child in self.children.values() {
+                        child.control_port().enqueue(ControlEvent::Kill);
+                    }
+                }
+            }
         }
     }
 }
