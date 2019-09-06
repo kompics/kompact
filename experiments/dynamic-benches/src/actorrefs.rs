@@ -1,5 +1,8 @@
 use kompact::prelude::*;
 use kompact::*;
+use criterion::criterion_group;
+use criterion::criterion_main;
+use criterion::{black_box, Criterion};
 
 #[derive(Debug, Clone)]
 pub struct Ping;
@@ -60,14 +63,30 @@ impl Serialiser<Ping> for PingSer {
     }
 }
 
-#[cfg(test)]
+pub fn clone_benches(c: &mut Criterion) {
+    let mut g = c.benchmark_group("Clone Benches");
+    g.bench_function("bench clone ActorRef", |b| tests::bench_clone_actor_ref(b));
+    g.bench_function("bench clone ActorPath", |b| tests::bench_clone_actor_path(b));
+    g.finish();
+}
+
+pub fn tell_benches(c: &mut Criterion) {
+    let mut g = c.benchmark_group("Tell/Trigger Benches");
+    g.bench_function("bench tell ActorRef", |b| tests::bench_tell_actor_ref(b));
+    g.bench_function("bench tell System ActorRef", |b| tests::bench_tell_actor_ref_sys(b));
+    g.bench_function("bench tell System ActorRef (Strong)", |b| tests::bench_tell_actor_ref_strong_sys(b));
+    g.bench_function("bench trigger Port", |b| tests::bench_trigger_port(b));
+    //g.bench_function("bench tell ActorPath", |b| tests::bench_tell_actor_path(b));
+    g.finish();
+}
+
 mod tests {
     use super::*;
     use std::time::Duration;
-    use test::Bencher;
+    use criterion::Bencher;
 
-    #[bench]
-    fn bench_clone_actor_ref(b: &mut Bencher) {
+    
+    pub fn bench_clone_actor_ref(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
         let tester = sys.create_and_start(TestActor::new);
         let tester_ref = tester.actor_ref();
@@ -75,20 +94,21 @@ mod tests {
         b.iter(|| {
             cloned_ref = tester_ref.clone();
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 
-    #[bench]
-    fn bench_tell_actor_ref(b: &mut Bencher) {
+    pub fn bench_tell_actor_ref(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
         let tester = sys.create_and_start(TestActor::new);
         let tester_ref = tester.actor_ref();
         b.iter(|| {
             tester_ref.tell(&PING, &sys);
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 
-    #[bench]
-    fn bench_tell_actor_ref_sys(b: &mut Bencher) {
+    
+    pub fn bench_tell_actor_ref_sys(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
         let tester = sys.create_and_start(TestActor::new);
         let tester_ref = tester.actor_ref();
@@ -96,10 +116,11 @@ mod tests {
         b.iter(|| {
             tester_ref.tell(&PING, &sys_ref);
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 
-    #[bench]
-    fn bench_tell_actor_ref_strong_sys(b: &mut Bencher) {
+    
+    pub fn bench_tell_actor_ref_strong_sys(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
         let tester = sys.create_and_start(TestActor::new);
         let tester_ref = tester.actor_ref().hold().expect("Live Ref");
@@ -107,20 +128,22 @@ mod tests {
         b.iter(|| {
             tester_ref.tell(&PING, &sys_ref);
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 
-    #[bench]
-    fn bench_triggeer_port(b: &mut Bencher) {
+    
+    pub fn bench_trigger_port(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
         let tester = sys.create_and_start(TestActor::new);
         let test_port = tester.on_definition(|c| c.testp.share());
         b.iter(|| {
             sys.trigger_r(&PING, &test_port);
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 
-    #[bench]
-    fn bench_clone_actor_path(b: &mut Bencher) {
+    
+    pub fn bench_clone_actor_path(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::new();
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
@@ -139,10 +162,11 @@ mod tests {
         b.iter(|| {
             cloned_path = unique_path.clone();
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 
-    #[bench]
-    fn bench_tell_actor_path(b: &mut Bencher) {
+    
+    pub fn bench_tell_actor_path(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::new();
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
@@ -160,5 +184,9 @@ mod tests {
         b.iter(|| {
             unique_path.tell((PING, PING_SER), &sys);
         });
+        sys.shutdown().expect("System didn't shut down :(");
     }
 }
+
+criterion_group!(actor_benches, clone_benches, tell_benches);
+criterion_main!(actor_benches);

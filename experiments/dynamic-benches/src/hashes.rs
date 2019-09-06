@@ -1,3 +1,6 @@
+use criterion::criterion_group;
+use criterion::criterion_main;
+use criterion::{black_box, Criterion};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use uuid::Uuid;
 
@@ -27,16 +30,46 @@ pub fn load_addr_data() -> Vec<SocketAddr> {
 
 pub const VAL: &'static str = "Test me!";
 
-#[cfg(test)]
+pub fn insert_benches(c: &mut Criterion) {
+    let mut g = c.benchmark_group("Hash Inserts");
+    g.bench_function("bench UUID insert SIP", |b| tests::bench_uuid_insert_sip(b));
+    g.bench_function("bench UUID insert FNV", |b| tests::bench_uuid_insert_fnv(b));
+    g.bench_function("bench UUID insert BTree", |b| {
+        tests::bench_uuid_insert_btree(b)
+    });
+    g.bench_function("bench Socket insert SIP", |b| {
+        tests::bench_uuid_insert_sip(b)
+    });
+    g.bench_function("bench Socket insert FNV", |b| {
+        tests::bench_uuid_insert_fnv(b)
+    });
+    g.finish();
+}
+
+pub fn lookup_benches(c: &mut Criterion) {
+    let mut g = c.benchmark_group("Hash Lookups");
+    g.bench_function("bench UUID lookup SIP", |b| tests::bench_uuid_lookup_sip(b));
+    g.bench_function("bench UUID lookup FNV", |b| tests::bench_uuid_lookup_fnv(b));
+    g.bench_function("bench UUID lookup BTree", |b| {
+        tests::bench_uuid_lookup_btree(b)
+    });
+    g.bench_function("bench Socket lookup SIP", |b| {
+        tests::bench_uuid_lookup_sip(b)
+    });
+    g.bench_function("bench Socket lookup FNV", |b| {
+        tests::bench_uuid_lookup_fnv(b)
+    });
+    g.finish();
+}
+
 mod tests {
     use super::*;
+    use criterion::Bencher;
     use fnv::FnvHashMap;
     use std::collections::BTreeMap;
     use std::collections::HashMap;
-    use test::Bencher;
 
-    #[bench]
-    fn bench_uuid_insert_sip(b: &mut Bencher) {
+    pub fn bench_uuid_insert_sip(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: HashMap<Uuid, &'static str> =
             HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -51,8 +84,7 @@ mod tests {
         });
     }
 
-    #[bench]
-    fn bench_uuid_insert_fnv(b: &mut Bencher) {
+    pub fn bench_uuid_insert_fnv(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: FnvHashMap<Uuid, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -67,8 +99,7 @@ mod tests {
         });
     }
 
-    #[bench]
-    fn bench_uuid_insert_btree(b: &mut Bencher) {
+    pub fn bench_uuid_insert_btree(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: BTreeMap<Uuid, &'static str> = BTreeMap::new();
         b.iter(|| {
@@ -83,8 +114,7 @@ mod tests {
         map.clear();
     }
 
-    #[bench]
-    fn bench_socket_insert_sip(b: &mut Bencher) {
+    pub fn bench_socket_insert_sip(b: &mut Bencher) {
         let data = load_addr_data();
         let mut map: HashMap<SocketAddr, &'static str> =
             HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -99,8 +129,7 @@ mod tests {
         });
     }
 
-    #[bench]
-    fn bench_socket_insert_fnv(b: &mut Bencher) {
+    pub fn bench_socket_insert_fnv(b: &mut Bencher) {
         let data = load_addr_data();
         let mut map: FnvHashMap<SocketAddr, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -117,8 +146,7 @@ mod tests {
 
     // LOOKUPS
 
-    #[bench]
-    fn bench_uuid_lookup_sip(b: &mut Bencher) {
+    pub fn bench_uuid_lookup_sip(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: HashMap<Uuid, &'static str> =
             HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -135,8 +163,7 @@ mod tests {
         map.clear();
     }
 
-    #[bench]
-    fn bench_uuid_lookup_fnv(b: &mut Bencher) {
+    pub fn bench_uuid_lookup_fnv(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: FnvHashMap<Uuid, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -153,8 +180,7 @@ mod tests {
         map.clear();
     }
 
-    #[bench]
-    fn bench_uuid_lookup_btree(b: &mut Bencher) {
+    pub fn bench_uuid_lookup_btree(b: &mut Bencher) {
         let data = load_uuid_data();
         let mut map: BTreeMap<Uuid, &'static str> = BTreeMap::new();
         data.iter().for_each(|id| {
@@ -170,8 +196,7 @@ mod tests {
         map.clear();
     }
 
-    #[bench]
-    fn bench_socket_lookup_sip(b: &mut Bencher) {
+    pub fn bench_socket_lookup_sip(b: &mut Bencher) {
         let data = load_addr_data();
         let mut map: HashMap<SocketAddr, &'static str> =
             HashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -188,8 +213,7 @@ mod tests {
         map.clear();
     }
 
-    #[bench]
-    fn bench_socket_lookup_fnv(b: &mut Bencher) {
+    pub fn bench_socket_lookup_fnv(b: &mut Bencher) {
         let data = load_addr_data();
         let mut map: FnvHashMap<SocketAddr, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
@@ -206,3 +230,6 @@ mod tests {
         map.clear();
     }
 }
+
+criterion_group!(hash_benches, insert_benches, lookup_benches);
+criterion_main!(hash_benches);

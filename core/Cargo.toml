@@ -22,6 +22,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["serde","slog/max_level_debug", "slog/release_max_level_info"]
+silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
 
 [dependencies]
 log = "0.4"

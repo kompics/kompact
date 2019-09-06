@@ -7,6 +7,30 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kompact = {version = "0.7.0", path = "../../core/"}
 uuid = { version = "0.7", features = ["v4"] }
-fnv = "1.0.6"
+fnv = "1.0"
+criterion = {version = "0.3", features=['real_blackbox']}
+
+[dependencies.kompact]
+path = "../../core/"
+default-features = false
+features = ["silent_logging"]
+
+
+[dev-dependencies]
+criterion = {version = "0.3", features=['real_blackbox']}
+
+[[bench]]
+name = "network_latency"
+path = "src/network_latency.rs"
+harness = false
+
+[[bench]]
+name = "hashes"
+path = "src/hashes.rs"
+harness = false
+
+[[bench]]
+name = "actorrefs"
+path = "src/actorrefs.rs"
+harness = false
