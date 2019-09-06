@@ -99,6 +99,9 @@ mod tests {
         b.iter(|| {
             cloned_ref = tester_ref.clone();
         });
+        drop(tester_ref);
+        drop(cloned_ref);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
@@ -109,6 +112,8 @@ mod tests {
         b.iter(|| {
             tester_ref.tell(&PING, &sys);
         });
+        drop(tester_ref);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
@@ -120,6 +125,9 @@ mod tests {
         b.iter(|| {
             tester_ref.tell(&PING, &sys_ref);
         });
+        drop(tester_ref);
+        drop(sys_ref);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
@@ -131,6 +139,9 @@ mod tests {
         b.iter(|| {
             tester_ref.tell(&PING, &sys_ref);
         });
+        drop(tester_ref);
+        drop(sys_ref);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
@@ -141,6 +152,8 @@ mod tests {
         b.iter(|| {
             sys.trigger_r(&PING, &test_port);
         });
+        drop(test_port);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
@@ -163,6 +176,9 @@ mod tests {
         b.iter(|| {
             cloned_path = unique_path.clone();
         });
+        drop(cloned_path);
+        drop(unique_path);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
@@ -184,6 +200,8 @@ mod tests {
         b.iter(|| {
             unique_path.tell((PING, PING_SER), &sys);
         });
+        drop(unique_path);
+        drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 }
