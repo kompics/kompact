@@ -2,7 +2,6 @@ use criterion::criterion_group;
 use criterion::criterion_main;
 use criterion::{black_box, Criterion};
 use kompact::prelude::*;
-use kompact::*;
 
 #[derive(Debug, Clone)]
 pub struct Ping;

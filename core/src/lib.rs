@@ -3,24 +3,29 @@
 #![feature(unsized_locals)]
 #![feature(drain_filter)]
 
-pub use self::actors::*;
-pub use self::component::*;
+/// The Kompact message-passing framework provides a hybrid approach
+/// between the Kompics component model and the Actor model for writing distributed systems.
+///
+/// To get all kompact related things into scope import `use kompact::prelude::*` instead of `use kompact::*`.
+///
+use self::actors::*;
+use self::component::*;
 use self::default_components::*;
-pub use self::dispatch::*;
-pub use self::lifecycle::*;
-pub use self::ports::*;
-pub use self::runtime::*;
-pub use self::serialisation::*;
-pub use self::timer_manager::*;
-pub use self::utils::*;
-pub use bytes::Buf;
-pub use crossbeam_queue::SegQueue as ConcurrentQueue;
-pub use kompact_actor_derive::*;
-pub use kompact_component_derive::*;
-pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
-pub use slog_async::Async;
-pub use std::any::Any;
-pub use std::convert::{From, Into};
+use self::dispatch::*;
+use self::lifecycle::*;
+use self::ports::*;
+use self::runtime::*;
+#[cfg(feature = "protobuf")]
+pub use self::serialisation::protobuf_serialisers;
+use self::serialisation::*;
+use self::timer_manager::*;
+use self::utils::*;
+use crossbeam_queue::SegQueue as ConcurrentQueue;
+use kompact_actor_derive::*;
+use kompact_component_derive::*;
+use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
+use slog_async::Async;
+use std::convert::{From, Into};
 
 mod actors;
 mod component;
@@ -37,26 +42,47 @@ pub mod timer;
 mod timer_manager;
 mod utils;
 
+/// To get all kompact related things into scope import `use kompact::prelude::*`.
 pub mod prelude {
+    pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
+
+    pub use std::any::Any;
+    pub use std::convert::{From, Into};
+
     pub use bytes::{Buf, BufMut, IntoBuf};
 
-    pub use crate::actors::{Actor, ActorPath, ActorRef, NamedPath, UniquePath};
-    pub use crate::component::{
-        Component, ComponentContext, ComponentDefinition, CoreContainer, ExecuteResult,
+    pub use kompact_actor_derive::*;
+    pub use kompact_component_derive::*;
+
+    pub use crate::actors::{
+        Actor, ActorPath, ActorRaw, ActorRef, ActorRefFactory, ActorRefStrong, NamedPath,
+        UniquePath,
     };
-    pub use crate::component::{Provide, Require};
+    pub use crate::component::{
+        Component, ComponentContext, ComponentDefinition, CoreContainer, ExecuteResult, Provide,
+        Require,
+    };
     pub use crate::lifecycle::{ControlEvent, ControlPort};
+    pub use crate::ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef};
     pub use crate::runtime::{KompactConfig, KompactSystem};
-    pub use crate::Any;
 
     pub use crate::default_components::{CustomComponents, DeadletterBox};
     pub use crate::dispatch::{NetworkConfig, NetworkDispatcher};
     pub use crate::messaging::{
         DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope, RegistrationError,
     };
-    pub use crate::serialisation::{
-        Deserialisable, Deserialiser, SerError, Serialisable, Serialiser,
+    pub use crate::timer_manager::Timer;
+
+    pub use crate::serialisation::*;
+    pub use crate::utils::{
+        biconnect, on_dual_definition, promise as kpromise, Fulfillable, Future as KFuture,
+        Promise as KPromise,
     };
+}
+
+/// For test helpers also use `use prelude_test::*`.
+pub mod prelude_test {
+    pub use crate::serialisation::ser_test_helpers;
 }
 
 pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
@@ -67,9 +93,7 @@ mod tests {
     use std::{thread, time};
     //use futures::{Future, future};
     //use futures_cpupool::CpuPool;
-    use super::*;
-    use bytes::Buf;
-    use std::any::Any;
+    use super::prelude::*;
     use std::sync::Arc;
     use std::time::Duration;
 

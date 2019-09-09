@@ -1,6 +1,6 @@
 #![allow(unused_parens)]
 
-use kompact::*;
+use kompact::prelude::*;
 use std::{thread, time};
 
 #[derive(Clone, Debug)]

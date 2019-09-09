@@ -2,7 +2,7 @@
 
 use time;
 
-use kompact::*;
+use kompact::prelude::*;
 use std::sync::Arc;
 use synchronoise::CountdownEvent;
 

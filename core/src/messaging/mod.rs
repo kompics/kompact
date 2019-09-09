@@ -79,13 +79,13 @@ pub enum RegistrationError {
 
 /// Envelope representing an actor registration event.
 ///
-/// Used for registering an [ActorRef](actors::ActorRef) with a path.
+/// Used for registering an [ActorRef](actors::ActorRef) with an [ActorPath](actors::ActorPath).
 #[derive(Debug)]
 pub enum RegistrationEnvelope {
     Register(
         ActorRef,
         PathResolvable,
-        Option<utils::Promise<Result<(), RegistrationError>>>,
+        Option<utils::Promise<Result<ActorPath, RegistrationError>>>,
     ),
 }
 

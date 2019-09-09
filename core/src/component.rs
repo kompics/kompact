@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::fmt;
 use std::ops::DerefMut;
 use std::panic;
@@ -6,6 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use uuid::Uuid;
+//use oncemutex::OnceMutex;
+use std::cell::UnsafeCell;
 
 use super::*;
 use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope};
@@ -46,7 +47,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         definition: C,
         supervisor: ProvidedRef<SupervisionPort>,
     ) -> Component<C> {
-        let core = ComponentCore::with(system);
+        let core = ComponentCore::with::<Component<C>>(system);
         let logger = core
             .system
             .logger()
@@ -65,7 +66,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     }
 
     pub(crate) fn without_supervisor(system: KompactSystem, definition: C) -> Component<C> {
-        let core = ComponentCore::with(system);
+        let core = ComponentCore::with::<Component<C>>(system);
         let logger = core
             .system
             .logger()
@@ -523,16 +524,18 @@ pub struct ComponentCore {
     id: Uuid,
     system: KompactSystem,
     work_count: AtomicUsize,
-    component: RefCell<Option<Weak<dyn CoreContainer>>>,
+    component: UnsafeCell<Weak<dyn CoreContainer>>,
 }
 
 impl ComponentCore {
-    pub fn with(system: KompactSystem) -> ComponentCore {
+    pub fn with<CC: CoreContainer + Sized + 'static>(system: KompactSystem) -> ComponentCore {
+        let weak_sized = Weak::<CC>::new();
+        let weak = weak_sized as Weak<dyn CoreContainer>;
         ComponentCore {
             id: Uuid::new_v4(),
             system,
             work_count: AtomicUsize::new(0),
-            component: RefCell::default(),
+            component: UnsafeCell::new(weak),
         }
     }
 
@@ -544,17 +547,17 @@ impl ComponentCore {
         &self.id
     }
 
-    pub(crate) fn set_component(&self, c: Arc<dyn CoreContainer>) -> () {
-        *self.component.borrow_mut() = Some(Arc::downgrade(&c));
+    pub(crate) unsafe fn set_component(&self, c: Arc<dyn CoreContainer>) -> () {
+        let component_mut = self.component.get();
+        *component_mut = Arc::downgrade(&c);
     }
 
     pub fn component(&self) -> Arc<dyn CoreContainer> {
-        match *self.component.borrow() {
-            Some(ref c) => match c.upgrade() {
+        unsafe {
+            match (*self.component.get()).upgrade() {
                 Some(ac) => ac,
-                None => panic!("Component already deallocated!"),
-            },
-            None => panic!("Component improperly initialised!"),
+                None => panic!("Component already deallocated (or not initialised)!"),
+            }
         }
     }
 

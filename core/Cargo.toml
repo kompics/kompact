@@ -23,12 +23,12 @@ maintenance = { status = "actively-developed" }
 [features]
 default = ["serde","slog/max_level_trace", "slog/release_max_level_info"]
 silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
+low_latency = ["executors/ws-no-park"]
 
 [dependencies]
 log = "0.4"
 kompact-component-derive = { version="0.7.1", path = "../macros/component-definition-derive/" }
 kompact-actor-derive = { version="0.7.1", path = "../macros/actor-derive/" }
-executors = "0.5"
 crossbeam-channel = "0.3"
 crossbeam-queue = "0.1"
 arc-swap = "0.3"
@@ -55,6 +55,12 @@ tokio = "0.1.22"
 tokio-retry = "0.2"
 spaniel = "0.1"
 bitfields = "0.2"
+
+[dependencies.executors]
+version = "0.5"
+default_features = true
+#git = "https://github.com/Bathtor/rust-executors"
+#branch = "master"
 
 #[dependencies.spaniel]
 #git = "https://github.com/jarlopez/spaniel"

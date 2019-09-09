@@ -320,7 +320,7 @@ impl KompactSystem {
     {
         self.inner.assert_active();
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
-        {
+        unsafe {
             let mut cd = c.definition().lock().unwrap();
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
@@ -339,7 +339,7 @@ impl KompactSystem {
         C: ComponentDefinition + 'static,
     {
         let c = Arc::new(Component::without_supervisor(self.clone(), f()));
-        {
+        unsafe {
             let mut cd = c.definition().lock().unwrap();
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
@@ -351,7 +351,10 @@ impl KompactSystem {
     pub fn create_and_register<C, F>(
         &self,
         f: F,
-    ) -> (Arc<Component<C>>, Future<Result<(), RegistrationError>>)
+    ) -> (
+        Arc<Component<C>>,
+        Future<Result<ActorPath, RegistrationError>>,
+    )
     where
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
@@ -385,12 +388,12 @@ impl KompactSystem {
     ///
     /// # Returns
     /// A [Future](kompact::utils::Future) which resolves to an error if the alias is not unique,
-    /// and a unit () if successful.
+    /// and the newly created [ActorPath](kompact::actors::ActorPath) if successful.
     pub fn register_by_alias<C, A>(
         &self,
         c: &Arc<Component<C>>,
         alias: A,
-    ) -> Future<Result<(), RegistrationError>>
+    ) -> Future<Result<ActorPath, RegistrationError>>
     where
         C: ComponentDefinition + 'static,
         A: Into<String>,
@@ -512,6 +515,14 @@ impl KompactSystem {
     pub fn system_path(&self) -> SystemPath {
         self.inner.assert_active();
         self.inner.system_path()
+    }
+
+    pub fn actor_path_for<C>(&self, component: Arc<Component<C>>) -> ActorPath
+    where
+        C: ComponentDefinition + 'static,
+    {
+        let id = *component.id();
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), id))
     }
 
     pub(crate) fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
@@ -676,7 +687,7 @@ impl KompactRuntime {
         &self,
         actor_ref: ActorRef,
         path: PathResolvable,
-    ) -> Future<Result<(), RegistrationError>> {
+    ) -> Future<Result<ActorPath, RegistrationError>> {
         debug!(self.logger(), "Requesting actor registration at {:?}", path);
         let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
@@ -692,7 +703,7 @@ impl KompactRuntime {
         &self,
         actor_ref: ActorRef,
         alias: String,
-    ) -> Future<Result<(), RegistrationError>> {
+    ) -> Future<Result<ActorPath, RegistrationError>> {
         debug!(
             self.logger(),
             "Requesting actor alias registration for {:?}", alias

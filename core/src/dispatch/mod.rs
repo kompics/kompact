@@ -359,19 +359,24 @@ impl NetworkDispatcher {
         }
     }
 
-    /// Forwards `msg` to destination described by `dst`, routing it across the network
-    /// if needed.
-    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<dyn Serialisable>) {
-        let src_path = match src {
+    fn resolve_path(&mut self, resolvable: &PathResolvable) -> ActorPath {
+        match resolvable {
             PathResolvable::Path(actor_path) => actor_path.clone(),
-            PathResolvable::Alias(alias) => {
-                ActorPath::Named(NamedPath::with_system(self.system_path(), vec![alias]))
-            }
+            PathResolvable::Alias(alias) => ActorPath::Named(NamedPath::with_system(
+                self.system_path(),
+                vec![alias.clone()],
+            )),
             PathResolvable::ActorId(uuid) => {
                 ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
             }
             PathResolvable::System => self.actor_path(),
-        };
+        }
+    }
+
+    /// Forwards `msg` to destination described by `dst`, routing it across the network
+    /// if needed.
+    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<dyn Serialisable>) {
+        let src_path = self.resolve_path(&src);
 
         let proto = {
             let dst_sys = dst_path.system();
@@ -430,6 +435,7 @@ impl Dispatcher for NetworkDispatcher {
 
                 match reg {
                     RegistrationEnvelope::Register(actor, path, promise) => {
+                        let ap = self.resolve_path(&path);
                         let lease = self.lookup.lease();
                         let res = if lease.contains(&path) {
                             warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
@@ -442,7 +448,7 @@ impl Dispatcher for NetworkDispatcher {
                                 next.insert(actor.clone(), path.clone());
                                 Arc::new(next)
                             });
-                            Ok(())
+                            Ok(ap)
                         };
 
                         if res.is_ok() {

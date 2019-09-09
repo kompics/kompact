@@ -14,8 +14,9 @@ mod tests {
     use super::messages::*;
     use bytes::BytesMut;
     use kompact::prelude::*;
+    use kompact::prelude_test::*;
     use kompact::protobuf_serialisers::*;
-    use kompact::ser_test_helpers::*;
+    use ser_test_helpers::{just_serialise, test_serialise};
 
     #[test]
     fn serialisation() {
