@@ -1,42 +1,31 @@
 use super::*;
 
-use actors::Actor;
-use actors::ActorPath;
-use actors::ActorRef;
-use actors::Dispatcher;
-use actors::SystemPath;
-use actors::Transport;
+use actors::{Actor, ActorPath, ActorRef, Dispatcher, SystemPath, Transport};
 use bytes::Buf;
-use component::Component;
-use component::ComponentContext;
-use component::ExecuteResult;
-use component::Provide;
-use lifecycle::ControlEvent;
-use lifecycle::ControlPort;
-use std::any::Any;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use component::{Component, ComponentContext, ExecuteResult, Provide};
+use lifecycle::{ControlEvent, ControlPort};
+use std::{any::Any, net::SocketAddr, sync::Arc};
 
-use crate::actors::NamedPath;
-use crate::actors::UniquePath;
+use crate::actors::{NamedPath, UniquePath};
 use arc_swap::ArcSwap;
-use dispatch::lookup::ActorStore;
-use dispatch::queue_manager::QueueManager;
-use futures::Async;
-use futures::AsyncSink;
-use futures::{self, Poll, StartSend};
-use messaging::PathResolvable;
-use messaging::RegistrationError;
-use messaging::{DispatchEnvelope, EventEnvelope, MsgEnvelope, RegistrationEnvelope};
-use net::events::NetworkEvent;
-use net::ConnectionState;
-use serialisation::helpers::serialise_msg;
-use serialisation::helpers::serialise_to_recv_envelope;
-use serialisation::Serialisable;
+use dispatch::{lookup::ActorStore, queue_manager::QueueManager};
+use futures::{self, Async, AsyncSink, Poll, StartSend};
+use messaging::{
+    DispatchEnvelope,
+    EventEnvelope,
+    MsgEnvelope,
+    PathResolvable,
+    RegistrationEnvelope,
+    RegistrationError,
+};
+use net::{events::NetworkEvent, ConnectionState};
+use serialisation::{
+    helpers::{serialise_msg, serialise_to_recv_envelope},
+    Serialisable,
+};
 //use std::collections::HashMap;
 use fnv::FnvHashMap;
-use std::io::ErrorKind;
-use std::time::Duration;
+use std::{io::ErrorKind, time::Duration};
 
 pub mod lookup;
 pub mod queue_manager;
@@ -411,6 +400,7 @@ impl Actor for NetworkDispatcher {
             sender
         );
     }
+
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) {
         debug!(
             self.ctx.log(),
@@ -519,8 +509,8 @@ impl Provide<ControlPort> for NetworkDispatcher {
 
 /// Helper for forwarding [MsgEnvelope]s to actor references
 impl futures::Sink for ActorRef {
-    type SinkItem = MsgEnvelope;
     type SinkError = ();
+    type SinkItem = MsgEnvelope;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
         ActorRef::enqueue(self, item);
@@ -538,21 +528,17 @@ impl futures::Sink for ActorRef {
 
 #[cfg(test)]
 mod dispatch_tests {
-    use super::super::*;
-    use super::*;
+    use super::{super::*, *};
 
-    use crate::actors::ActorPath;
-    use crate::actors::UniquePath;
-    use crate::component::ComponentContext;
-    use crate::component::Provide;
-    use crate::default_components::DeadletterBox;
-    use crate::lifecycle::ControlEvent;
-    use crate::lifecycle::ControlPort;
-    use crate::runtime::KompactConfig;
-    use crate::runtime::KompactSystem;
+    use crate::{
+        actors::{ActorPath, UniquePath},
+        component::{ComponentContext, Provide},
+        default_components::DeadletterBox,
+        lifecycle::{ControlEvent, ControlPort},
+        runtime::{KompactConfig, KompactSystem},
+    };
     use bytes::{Buf, BufMut};
-    use std::thread;
-    use std::time::Duration;
+    use std::{thread, time::Duration};
 
     #[test]
     #[should_panic(expected = "KompactSystem: Poisoned")]
@@ -851,9 +837,11 @@ mod dispatch_tests {
         fn serid(&self) -> u64 {
             42 // because why not^^
         }
+
         fn size_hint(&self) -> Option<usize> {
             Some(9)
         }
+
         fn serialise(&self, v: &PingMsg, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PING_ID);
             buf.put_u64_be(v.i);
@@ -865,9 +853,11 @@ mod dispatch_tests {
         fn serid(&self) -> u64 {
             42 // because why not^^
         }
+
         fn size_hint(&self) -> Option<usize> {
             Some(9)
         }
+
         fn serialise(&self, v: &PongMsg, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PONG_ID);
             buf.put_u64_be(v.i);
@@ -968,6 +958,7 @@ mod dispatch_tests {
                 None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
             }
         }
+
         fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
             if ser_id == Serialiser::<PongMsg>::serid(&PING_PONG_SER) {
                 let r: Result<PongMsg, SerError> = PingPongSer::deserialise(buf);
@@ -1025,6 +1016,7 @@ mod dispatch_tests {
                 None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
             }
         }
+
         fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
             if ser_id == Serialiser::<PingMsg>::serid(&PING_PONG_SER) {
                 let r: Result<PingMsg, SerError> = PingPongSer::deserialise(buf);

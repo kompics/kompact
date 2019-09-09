@@ -1,12 +1,12 @@
 use bytes::{Buf, BufMut};
-use std::any::Any;
-use std::fmt;
-use std::fmt::Debug;
+use std::{
+    any::Any,
+    fmt::{self, Debug},
+};
 
 use super::*;
 
-pub use self::core::*;
-pub use self::default_serialisers::*;
+pub use self::{core::*, default_serialisers::*};
 
 mod core;
 mod default_serialisers;
@@ -52,9 +52,11 @@ mod tests {
         fn serid(&self) -> u64 {
             1
         }
+
         fn size_hint(&self) -> Option<usize> {
             Some(88)
         }
+
         fn serialise(&self, v: &Test1, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_u64_be(v.i);
             for i in 0..10 {

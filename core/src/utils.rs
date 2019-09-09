@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use std::ops::DerefMut;
-use std::sync::mpsc;
-use std::sync::TryLockError;
-use std::time::Duration;
+use std::{
+    ops::DerefMut,
+    sync::{mpsc, TryLockError},
+    time::Duration,
+};
 
 use super::*;
 
@@ -74,6 +75,7 @@ impl<T: Send + Sized> Future<T> {
     pub fn wait(self) -> T {
         self.result_channel.recv().unwrap()
     }
+
     pub fn wait_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
         self.result_channel.recv_timeout(timeout).map_err(|_| self)
     }

@@ -9,17 +9,19 @@
 /// To get all kompact related things into scope import `use kompact::prelude::*` instead of `use kompact::*`.
 ///
 use self::actors::*;
-use self::component::*;
-use self::default_components::*;
-use self::dispatch::*;
-use self::lifecycle::*;
-use self::ports::*;
-use self::runtime::*;
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
-use self::serialisation::*;
-use self::timer_manager::*;
-use self::utils::*;
+use self::{
+    component::*,
+    default_components::*,
+    dispatch::*,
+    lifecycle::*,
+    ports::*,
+    runtime::*,
+    serialisation::*,
+    timer_manager::*,
+    utils::*,
+};
 use crossbeam_queue::SegQueue as ConcurrentQueue;
 use kompact_actor_derive::*;
 use kompact_component_derive::*;
@@ -46,37 +48,67 @@ mod utils;
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
 
-    pub use std::any::Any;
-    pub use std::convert::{From, Into};
+    pub use std::{
+        any::Any,
+        convert::{From, Into},
+    };
 
     pub use bytes::{Buf, BufMut, IntoBuf};
 
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
-    pub use crate::actors::{
-        Actor, ActorPath, ActorRaw, ActorRef, ActorRefFactory, ActorRefStrong, NamedPath,
-        UniquePath,
+    pub use crate::{
+        actors::{
+            Actor,
+            ActorPath,
+            ActorRaw,
+            ActorRef,
+            ActorRefFactory,
+            ActorRefStrong,
+            ActorSource,
+            Dispatching,
+            NamedPath,
+            Transport,
+            UniquePath,
+        },
+        component::{
+            Component,
+            ComponentContext,
+            ComponentDefinition,
+            CoreContainer,
+            ExecuteResult,
+            Provide,
+            Require,
+        },
+        lifecycle::{ControlEvent, ControlPort},
+        ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
+        runtime::{KompactConfig, KompactSystem},
     };
-    pub use crate::component::{
-        Component, ComponentContext, ComponentDefinition, CoreContainer, ExecuteResult, Provide,
-        Require,
-    };
-    pub use crate::lifecycle::{ControlEvent, ControlPort};
-    pub use crate::ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef};
-    pub use crate::runtime::{KompactConfig, KompactSystem};
 
-    pub use crate::default_components::{CustomComponents, DeadletterBox};
-    pub use crate::dispatch::{NetworkConfig, NetworkDispatcher};
-    pub use crate::messaging::{
-        DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope, RegistrationError,
+    pub use crate::{
+        default_components::{CustomComponents, DeadletterBox},
+        dispatch::{NetworkConfig, NetworkDispatcher},
+        messaging::{
+            DispatchEnvelope,
+            MsgEnvelope,
+            PathResolvable,
+            ReceiveEnvelope,
+            RegistrationError,
+        },
+        timer_manager::Timer,
     };
-    pub use crate::timer_manager::Timer;
 
-    pub use crate::serialisation::*;
-    pub use crate::utils::{
-        biconnect, on_dual_definition, promise as kpromise, Fulfillable, Future as KFuture,
-        Promise as KPromise,
+    pub use crate::{
+        serialisation::*,
+        utils::{
+            biconnect,
+            on_dual_definition,
+            promise as kpromise,
+            Fulfillable,
+            Future as KFuture,
+            Promise as KPromise,
+        },
     };
 }
 
@@ -94,8 +126,7 @@ mod tests {
     //use futures::{Future, future};
     //use futures_cpupool::CpuPool;
     use super::prelude::*;
-    use std::sync::Arc;
-    use std::time::Duration;
+    use std::{sync::Arc, time::Duration};
 
     struct TestPort;
 
@@ -167,6 +198,7 @@ mod tests {
             sender.tell(&"Msg Received", self);
             //sender.actor_path().tell("Msg Received", self);
         }
+
         fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
             error!(self.ctx.log(), "Got unexpected message from {}", sender);
             unimplemented!(); // shouldn't happen during the test
@@ -334,6 +366,7 @@ mod tests {
             info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
         }
+
         fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
             crit!(self.ctx.log(), "Got unexpected message from {}", sender);
             unimplemented!(); // shouldn't happen during the test
@@ -451,6 +484,7 @@ mod tests {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }
+
         fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");

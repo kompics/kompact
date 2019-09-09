@@ -1,8 +1,5 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
-use criterion::{black_box, Criterion};
-use std::any::*;
-use std::sync::Arc;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::{any::*, sync::Arc};
 
 pub enum Message {
     StaticRef(&'static dyn Any),

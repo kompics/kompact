@@ -1,6 +1,4 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
-use criterion::{black_box, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use kompact::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -43,6 +41,7 @@ impl Actor for TestActor {
     fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
         // discard
     }
+
     fn receive_message(&mut self, _sender: ActorPath, _sid: u64, _buf: &mut dyn Buf) -> () {
         // discard
     }
@@ -54,9 +53,11 @@ impl Serialiser<Ping> for PingSer {
     fn serid(&self) -> u64 {
         42 // because why not^^
     }
+
     fn size_hint(&self) -> Option<usize> {
         Some(0)
     }
+
     fn serialise(&self, _v: &Ping, _buf: &mut dyn BufMut) -> Result<(), SerError> {
         Result::Ok(())
     }

@@ -1,8 +1,10 @@
 use super::*;
-use std::collections::HashMap;
-use std::mem;
-use std::rc::{Rc, Weak};
-use std::u32;
+use std::{
+    collections::HashMap,
+    mem,
+    rc::{Rc, Weak},
+    u32,
+};
 
 trait TimeWheel<IndexType> {
     fn tick(&mut self, results: &mut TimerList) -> IndexType;
@@ -397,6 +399,7 @@ impl Skip {
             Skip::Millis(ms)
         }
     }
+
     pub fn empty() -> Skip {
         Skip::Empty
     }

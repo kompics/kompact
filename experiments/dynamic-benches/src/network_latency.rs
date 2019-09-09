@@ -1,6 +1,4 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
-use criterion::{black_box, Bencher, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 use std::time::{Duration, Instant};
 //use kompact::*;
 use kompact::prelude::*;
@@ -188,6 +186,7 @@ pub mod ppstatic {
                 sender
             );
         }
+
         fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
             trace!(
                 self.ctx.log(),
@@ -246,6 +245,7 @@ pub mod ppstatic {
                 sender
             );
         }
+
         fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
             trace!(
                 self.ctx.log(),
@@ -266,8 +266,8 @@ pub mod ppstatic {
     #[derive(Debug, Clone, Copy)]
     pub struct Ping;
     impl Ping {
-        pub const SER_ID: u64 = 42;
         pub const EVENT: Ping = Ping {};
+        pub const SER_ID: u64 = 42;
     }
     impl Serialisable for Ping {
         #[inline(always)]
@@ -296,8 +296,8 @@ pub mod ppstatic {
     #[derive(Debug, Clone, Copy)]
     pub struct Pong;
     impl Pong {
-        pub const SER_ID: u64 = 43;
         pub const EVENT: Pong = Pong {};
+        pub const SER_ID: u64 = 43;
     }
     impl Serialisable for Pong {
         #[inline(always)]
@@ -387,6 +387,7 @@ pub mod ppindexed {
                 sender
             );
         }
+
         fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
             trace!(
                 self.ctx.log(),
@@ -449,6 +450,7 @@ pub mod ppindexed {
                 sender
             );
         }
+
         fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
             trace!(
                 self.ctx.log(),
@@ -513,6 +515,7 @@ pub mod ppindexed {
     }
     impl Pong {
         pub const SER_ID: u64 = 43;
+
         pub fn new(index: u64) -> Pong {
             Pong { index }
         }

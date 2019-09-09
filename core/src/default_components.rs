@@ -1,8 +1,7 @@
 use super::*;
 use crate::messaging::DispatchEnvelope;
 use bytes::Buf;
-use std::any::Any;
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -31,12 +30,15 @@ impl SystemComponents for DefaultComponents {
     fn deadletter_ref(&self) -> ActorRef {
         self.deadletter_box.actor_ref()
     }
+
     fn dispatcher_ref(&self) -> ActorRef {
         self.dispatcher.actor_ref()
     }
+
     fn system_path(&self) -> SystemPath {
         self.dispatcher.on_definition(|cd| cd.system_path())
     }
+
     fn start(&self, system: &KompactSystem) -> () {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
@@ -60,6 +62,7 @@ impl DefaultTimer {
             inner: timer::TimerWithThread::new().unwrap(),
         }
     }
+
     pub(crate) fn new_timer_component() -> Box<dyn TimerComponent> {
         let t = DefaultTimer::new();
         let bt = Box::new(t) as Box<dyn TimerComponent>;
@@ -97,16 +100,20 @@ where
     fn deadletter_ref(&self) -> ActorRef {
         self.deadletter_box.actor_ref()
     }
+
     fn dispatcher_ref(&self) -> ActorRef {
         self.dispatcher.actor_ref()
     }
+
     fn system_path(&self) -> SystemPath {
         self.dispatcher.on_definition(|cd| cd.system_path())
     }
+
     fn start(&self, system: &KompactSystem) -> () {
         system.start(&self.deadletter_box);
         system.start(&self.dispatcher);
     }
+
     fn stop(&self, system: &KompactSystem) -> () {
         system.kill(self.dispatcher.clone());
         system.kill(self.deadletter_box.clone());
@@ -140,6 +147,7 @@ impl Actor for DeadletterBox {
             sender
         );
     }
+
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
         info!(
             self.ctx.log(),
@@ -188,6 +196,7 @@ impl Actor for LocalDispatcher {
             sender
         );
     }
+
     fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
         info!(
             self.ctx.log(),
@@ -204,6 +213,7 @@ impl Dispatcher for LocalDispatcher {
             env,
         );
     }
+
     fn system_path(&mut self) -> SystemPath {
         SystemPath::new(Transport::LOCAL, "127.0.0.1".parse().unwrap(), 0)
     }

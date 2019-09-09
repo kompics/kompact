@@ -1,5 +1,7 @@
-use std::fmt::Debug;
-use std::sync::{Arc, Weak};
+use std::{
+    fmt::Debug,
+    sync::{Arc, Weak},
+};
 
 use super::*;
 
@@ -43,6 +45,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
             c.enqueue(event.clone());
         }
     }
+
     pub fn connect(&mut self, c: RequiredRef<P>) -> () {
         self.common.require_channels.push(c);
     }

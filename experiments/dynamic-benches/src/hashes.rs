@@ -1,6 +1,4 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
-use criterion::{black_box, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use uuid::Uuid;
 
@@ -66,8 +64,7 @@ mod tests {
     use super::*;
     use criterion::Bencher;
     use fnv::FnvHashMap;
-    use std::collections::BTreeMap;
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
 
     pub fn bench_uuid_insert_sip(b: &mut Bencher) {
         let data = load_uuid_data();

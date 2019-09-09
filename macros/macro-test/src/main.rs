@@ -94,6 +94,7 @@ where
             self.test = Some(event.clone());
         }
     }
+
     fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) {}
 }
 

@@ -1,15 +1,13 @@
 //! Message framing (serialization and deserialization into and from byte buffers)
 
-use crate::actors::ActorPath;
-use crate::actors::SystemPath;
-use crate::actors::Transport;
-use crate::serialisation::SerError;
-use crate::serialisation::Serialisable;
+use crate::{
+    actors::{ActorPath, NamedPath, SystemPath, Transport, UniquePath},
+    serialisation::{Deserialiser, SerError, Serialisable},
+};
 use bitfields::BitField;
-use bytes::BufMut;
-use std::any::Any;
-use std::convert::TryFrom;
-use std::net::IpAddr;
+use bytes::{Buf, BufMut};
+use std::{any::Any, convert::TryFrom, net::IpAddr};
+use uuid::Uuid;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Ord, PartialOrd, Eq)]
@@ -338,6 +336,7 @@ impl Serialisable for ActorPath {
                 buf.put_slice(uuid.as_bytes())
             }
             ActorPath::Named(np) => {
+                // TODO avoid this, as it constructs the join AGAIN (in fact avoid the join in the size_hint, too)
                 let _path_len: u16 = self.size_hint().ok_or(SerError::InvalidData(
                     "Named path overflows designated 2 bytes.".into(),
                 ))? as u16;
@@ -354,6 +353,84 @@ impl Serialisable for ActorPath {
         Ok(self)
     }
 }
+impl Deserialiser<ActorPath> for ActorPath {
+    fn deserialise(buf: &mut dyn Buf) -> Result<ActorPath, SerError> {
+        // Deserialize system path
+        let fields: u8 = buf.get_u8();
+        let header = SystemPathHeader::try_from(fields)?;
+        let address: IpAddr = match header.address_type {
+            AddressType::IPv4 => {
+                if buf.remaining() < 4 {
+                    return Err(SerError::InvalidData(
+                        "Could not parse 4 bytes for IPv4 address".into(),
+                    ));
+                } else {
+                    let mut ip_bytes = [0u8; 4];
+                    buf.copy_to_slice(&mut ip_bytes);
+                    IpAddr::from(ip_bytes)
+                }
+            }
+            AddressType::IPv6 => {
+                if buf.remaining() < 16 {
+                    return Err(SerError::InvalidData(
+                        "Could not parse 16 bytes for IPv6 address".into(),
+                    ));
+                } else {
+                    let mut ip_bytes = [0u8; 16];
+                    buf.copy_to_slice(&mut ip_bytes);
+                    IpAddr::from(ip_bytes)
+                }
+            }
+            AddressType::Domain => {
+                unimplemented!();
+            }
+        };
+        let port = buf.get_u16_be();
+        let system = SystemPath::new(header.protocol, address, port);
+
+        let path = match header.path_type {
+            PathType::Unique => {
+                if buf.remaining() < 16 {
+                    return Err(SerError::InvalidData(
+                        "Could not get 16 bytes for UUID".into(),
+                    ));
+                } else {
+                    let mut uuid_bytes = [0u8; 16];
+                    buf.copy_to_slice(&mut uuid_bytes);
+                    let uuid = Uuid::from_bytes(uuid_bytes);
+                    //    .map_err(|_err| )?;
+                    ActorPath::Unique(UniquePath::with_system(system, uuid))
+                }
+            }
+            PathType::Named => {
+                let name_len = buf.get_u16_be() as usize;
+                if buf.remaining() < name_len {
+                    return Err(SerError::InvalidData(format!(
+                        "Could not get {} bytes for path name",
+                        name_len
+                    )));
+                } else {
+                    let mut name_bytes = vec![0u8; name_len];
+                    buf.copy_to_slice(&mut name_bytes);
+                    let name = unsafe {
+                        // since we serialised it ourselves, this should be fine
+                        String::from_utf8_unchecked(name_bytes)
+                    };
+                    let parts: Vec<&str> = name.split('/').collect();
+                    if parts.len() < 1 {
+                        return Err(SerError::InvalidData(
+                            "Could not determine name for Named path type".into(),
+                        ));
+                    } else {
+                        let path = parts.into_iter().map(|s| s.to_string()).collect();
+                        ActorPath::Named(NamedPath::with_system(system.clone(), path))
+                    }
+                }
+            }
+        };
+        Ok(path)
+    }
+}
 
 #[cfg(test)]
 mod identity_tests {
@@ -367,16 +444,18 @@ mod identity_tests {
 }
 
 #[cfg(test)]
-mod serialisation {
-    use super::Serialisable;
-    use bytes::BytesMut;
+mod serialisation_tests {
+    use super::*;
+    use crate::actors::SystemField;
+    use bytes::{BytesMut, IntoBuf};
 
     #[test]
     fn system_path_header() {
         use super::{PathType, SystemPathHeader};
-        use crate::actors::Transport;
-        use crate::actors::{ActorPath, NamedPath, SystemPath};
-        use crate::messaging::framing::AddressType;
+        use crate::{
+            actors::{ActorPath, NamedPath, SystemPath, Transport},
+            messaging::framing::AddressType,
+        };
         use bytes::{Buf, IntoBuf};
         use std::convert::TryFrom;
 
@@ -407,5 +486,75 @@ mod serialisation {
             0,
             "There are remaining bytes in the buffer after serialisation."
         );
+    }
+
+    #[test]
+    fn actor_path_ser_deser_equivalence() {
+        let expected_transport: Transport = Transport::TCP;
+        let expected_addr: IpAddr = "12.0.0.1".parse().unwrap();
+        let unique_id: Uuid = Uuid::new_v4();
+        let port: u16 = 1234;
+
+        let unique_path = ActorPath::Unique(UniquePath::new(
+            expected_transport,
+            expected_addr,
+            port,
+            unique_id,
+        ));
+
+        let name: Vec<String> = vec!["test", "me", "please"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
+        let named_path = ActorPath::Named(NamedPath::new(
+            expected_transport,
+            expected_addr,
+            port,
+            name.clone(),
+        ));
+
+        // unique paths
+        {
+            let size = Serialisable::size_hint(&unique_path).unwrap();
+            let mut buf = BytesMut::with_capacity(size);
+            Serialisable::serialise(&unique_path, &mut buf)
+                .expect("UUID ActorPath Serialisation should succeed");
+
+            // Deserialise
+            let mut buf = buf.into_buf();
+            let deser_path = ActorPath::deserialise(&mut buf)
+                .expect("UUID ActorPath Deserialisation should succeed");
+            assert_eq!(buf.remaining_mut(), 0);
+            let deser_sys: &SystemPath = SystemField::system(&deser_path);
+            assert_eq!(deser_sys.address(), &expected_addr);
+            match deser_path {
+                ActorPath::Unique(ref up) => {
+                    assert_eq!(up.uuid_ref(), &unique_id);
+                }
+                ActorPath::Named(_) => panic!("expected Unique path, got Named path"),
+            }
+        }
+
+        // named paths
+        {
+            let size = Serialisable::size_hint(&named_path).unwrap();
+            let mut buf = BytesMut::with_capacity(size);
+            Serialisable::serialise(&named_path, &mut buf)
+                .expect("Named ActorPath Serialisation should succeed");
+
+            // Deserialise
+            let mut buf = buf.into_buf();
+            let deser_path = ActorPath::deserialise(&mut buf)
+                .expect("Named ActorPath Deserialisation should succeed");
+            assert_eq!(buf.remaining_mut(), 0);
+            let deser_sys: &SystemPath = SystemField::system(&deser_path);
+            assert_eq!(deser_sys.address(), &expected_addr);
+            match deser_path {
+                ActorPath::Unique(_) => panic!("expected Named path, got Unique path"),
+                ActorPath::Named(ref np) => {
+                    assert_eq!(np.path_ref(), &name);
+                }
+            }
+        }
     }
 }

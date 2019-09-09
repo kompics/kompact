@@ -64,12 +64,15 @@ where
     fn serid(&self) -> u64 {
         self.ser.serid()
     }
+
     fn size_hint(&self) -> Option<usize> {
         self.ser.size_hint()
     }
+
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         self.ser.serialise(&self.v, buf)
     }
+
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         let b: Box<dyn Any + Send> = Box::new(self.v);
         Ok(b)
@@ -110,6 +113,7 @@ impl<T> Deserialisable<T> for Box<dyn BoxDeserialisable<T>> {
     fn serid(&self) -> u64 {
         self.boxed_serid()
     }
+
     fn get_deserialised(self) -> Result<T, SerError> {
         self.boxed_get_deserialised()
     }
@@ -120,6 +124,7 @@ impl<T> Deserialisable<T> for T {
     fn serid(&self) -> u64 {
         unimplemented!();
     }
+
     fn get_deserialised(self) -> Result<T, SerError> {
         Ok(self)
     }
@@ -130,6 +135,7 @@ impl<T: Send> Deserialisable<T> for Box<T> {
     fn serid(&self) -> u64 {
         unimplemented!();
     }
+
     fn get_deserialised(self) -> Result<T, SerError> {
         Ok(*self)
     }

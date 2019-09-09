@@ -1,26 +1,18 @@
 use super::*;
-use actors::ActorRef;
-use actors::Transport;
+use actors::{ActorRef, Transport};
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
-use futures;
-use futures::stream::Stream;
-use futures::sync;
-use futures::Future;
+use futures::{self, stream::Stream, sync, Future};
 use messaging::MsgEnvelope;
-use net::events::NetworkError;
-use net::events::NetworkEvent;
+use net::events::{NetworkError, NetworkEvent};
 use serialisation::helpers::deserialise_msg;
-use spaniel::codec::FrameCodec;
-use spaniel::frames::Frame;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::net::TcpListener;
-use tokio::net::TcpStream;
-use tokio::runtime::TaskExecutor;
-use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
-use tokio_retry;
-use tokio_retry::strategy::ExponentialBackoff;
+use spaniel::{codec::FrameCodec, frames::Frame};
+use std::{net::SocketAddr, sync::Arc};
+use tokio::{
+    net::{TcpListener, TcpStream},
+    runtime::{Builder as RuntimeBuilder, Runtime, TaskExecutor},
+};
+use tokio_retry::{self, strategy::ExponentialBackoff};
 
 use tokio::net::tcp::ConnectFuture;
 use tokio_retry::Retry;
@@ -241,9 +233,9 @@ impl Bridge {
 struct TcpConnecter(SocketAddr);
 
 impl tokio_retry::Action for TcpConnecter {
+    type Error = std::io::Error;
     type Future = ConnectFuture;
     type Item = TcpStream;
-    type Error = std::io::Error;
 
     fn run(&mut self) -> Self::Future {
         TcpStream::connect(&self.0)

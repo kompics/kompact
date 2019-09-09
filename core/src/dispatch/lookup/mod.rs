@@ -6,9 +6,10 @@
 //!     3. Thread-local caching backed by a slower lookup method (like Arc<Mutex<...>>)
 //!     4. Broadcast to _all_ listeners, ensuring that the route/lookup exists in at least one of them.
 
-use crate::actors::ActorPath;
-use crate::actors::ActorRef;
-use crate::messaging::PathResolvable;
+use crate::{
+    actors::{ActorPath, ActorRef},
+    messaging::PathResolvable,
+};
 use sequence_trie::SequenceTrie;
 //use std::collections::HashMap;
 use fnv::FnvHashMap;

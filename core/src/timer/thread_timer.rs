@@ -44,6 +44,7 @@ impl Timer for TimerRef {
             .send(TimerMsg::Schedule(e))
             .unwrap_or_else(|e| eprintln!("Could not send Schedule msg: {:?}", e));
     }
+
     fn cancel(&mut self, id: Uuid) {
         self.work_queue
             .send(TimerMsg::Cancel(id))

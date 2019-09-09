@@ -1,15 +1,28 @@
 use super::*;
 
-use crate::messaging::RegistrationError;
-use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope};
-use crate::supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg};
+use crate::{
+    messaging::{
+        DispatchEnvelope,
+        MsgEnvelope,
+        PathResolvable,
+        RegistrationEnvelope,
+        RegistrationError,
+    },
+    supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
+};
 use executors::*;
 use oncemutex::{OnceMutex, OnceMutexGuard};
-use std::clone::Clone;
-use std::fmt::{Debug, Formatter, Result as FmtResult};
-use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Once};
+use std::{
+    clone::Clone,
+    fmt::{Debug, Formatter, Result as FmtResult},
+    rc::Rc,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Mutex,
+        Once,
+    },
+};
 
 static GLOBAL_RUNTIME_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -596,15 +609,19 @@ impl InternalComponents {
     fn deadletter_ref(&self) -> ActorRef {
         self.system_components.deadletter_ref()
     }
+
     fn dispatcher_ref(&self) -> ActorRef {
         self.system_components.dispatcher_ref()
     }
+
     fn system_path(&self) -> SystemPath {
         self.system_components.system_path()
     }
+
     fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
         self.supervision_port.clone()
     }
+
     fn stop(&self, system: &KompactSystem) -> () {
         let (p, f) = utils::promise();
         self.supervision_port.enqueue(SupervisorMsg::Shutdown(p));
@@ -718,12 +735,14 @@ impl KompactRuntime {
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
+
     fn dispatcher_ref(&self) -> ActorRef {
         match *self.internal_components {
             Some(ref sc) => sc.dispatcher_ref(),
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
+
     fn system_path(&self) -> SystemPath {
         match *self.internal_components {
             Some(ref sc) => sc.system_path(),
@@ -758,18 +777,23 @@ impl KompactRuntime {
         lifecycle::set_faulty(self.state());
         let _ = self.timer.shutdown();
     }
+
     fn state(&self) -> &AtomicUsize {
         &self.state
     }
+
     fn is_active(&self) -> bool {
         lifecycle::is_active(self.state())
     }
+
     fn is_poisoned(&self) -> bool {
         lifecycle::is_faulty(self.state())
     }
+
     fn assert_active(&self) {
         assert!(self.is_active(), "KompactRuntime was not in active state!");
     }
+
     fn assert_not_poisoned(&self) {
         assert!(!self.is_poisoned(), "KompactRuntime was poisoned!");
     }
@@ -807,6 +831,7 @@ impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
     fn with(exec: E) -> ExecutorScheduler<E> {
         ExecutorScheduler { exec }
     }
+
     fn from(exec: E) -> Box<dyn Scheduler> {
         Box::new(ExecutorScheduler::with(exec))
     }
@@ -818,15 +843,19 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
             c.execute();
         });
     }
+
     fn shutdown_async(&self) -> () {
         self.exec.shutdown_async()
     }
+
     fn shutdown(&self) -> Result<(), String> {
         self.exec.shutdown_borrowed()
     }
+
     fn box_clone(&self) -> Box<dyn Scheduler> {
         Box::new(self.clone())
     }
+
     fn poison(&self) -> () {
         self.exec.shutdown_async();
     }

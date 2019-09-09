@@ -1,16 +1,24 @@
-use std::fmt;
-use std::ops::DerefMut;
-use std::panic;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Weak};
-use std::time::Duration;
+use std::{
+    fmt,
+    ops::DerefMut,
+    panic,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Mutex,
+        Weak,
+    },
+    time::Duration,
+};
 use uuid::Uuid;
 //use oncemutex::OnceMutex;
 use std::cell::UnsafeCell;
 
 use super::*;
-use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope};
-use crate::supervision::*;
+use crate::{
+    messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope},
+    supervision::*,
+};
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;
@@ -101,6 +109,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     pub fn definition(&self) -> &Mutex<C> {
         &self.definition
     }
+
     pub fn definition_mut(&mut self) -> &mut C {
         self.definition.get_mut().unwrap()
     }
@@ -568,6 +577,7 @@ impl ComponentCore {
             SchedulingDecision::AlreadyScheduled
         }
     }
+
     pub fn decrement_work(&self, work_done: usize) -> SchedulingDecision {
         //        let oldv: isize = match work_done_u.checked_as_num() {
         //            Some(work_done) => self.work_count.fetch_sub(work_done, Ordering::SeqCst),

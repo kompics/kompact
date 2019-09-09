@@ -113,6 +113,7 @@ impl Timer for SimulationTimer {
             Err(f) => panic!("Could not insert timer entry! {:?}", f),
         }
     }
+
     fn cancel(&mut self, id: Uuid) {
         match self.timer.cancel(id) {
             Ok(_) => (),                                                           // great

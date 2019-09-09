@@ -1,12 +1,12 @@
-use std::fmt;
-use std::io;
-use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::{
+    fmt,
+    io,
+    thread,
+    time::{Duration, Instant, SystemTime},
+};
 use uuid::Uuid;
 
-pub use self::simulation::*;
-pub use self::thread_timer::*;
-pub use self::wheels::*;
+pub use self::{simulation::*, thread_timer::*, wheels::*};
 
 mod simulation;
 mod thread_timer;

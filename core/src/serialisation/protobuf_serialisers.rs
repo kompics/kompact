@@ -8,9 +8,11 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
     fn serid(&self) -> u64 {
         serialisation_ids::PBUF
     }
+
     fn size_hint(&self) -> Option<usize> {
         None // no idea
     }
+
     fn serialise(&self, v: &M, buf: &mut dyn BufMut) -> Result<(), SerError> {
         let mut w = buf.writer();
         v.write_to_writer(&mut w).map_err(|e| match e {
@@ -39,6 +41,7 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
     fn serid(&self) -> u64 {
         serialisation_ids::PBUF
     }
+
     fn get_deserialised(self) -> Result<M, SerError> {
         //let (mut m, b) = self;
         let ProtobufDeser { msg: mut m, buf: b } = self;

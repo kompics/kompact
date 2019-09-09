@@ -1,9 +1,10 @@
 use crate::net::ConnectionState;
 use futures::sync;
 use spaniel::frames::Frame;
-use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::net::SocketAddr;
+use std::{
+    collections::{HashMap, VecDeque},
+    net::SocketAddr,
+};
 
 /// Wrapper around a hashmap of frame queues.
 ///

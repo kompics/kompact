@@ -1,8 +1,10 @@
 use super::prelude::*;
 use crate::utils::{Fulfillable, Promise};
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use uuid::Uuid;
 
 pub(crate) struct SupervisionPort;
@@ -75,6 +77,7 @@ impl ComponentSupervisor {
             }
         }
     }
+
     fn drop_listeners(&mut self, id: &Uuid) {
         self.listeners.remove(id);
     }
