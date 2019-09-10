@@ -97,6 +97,38 @@ impl ActorRefStrong {
         });
         self.enqueue(MsgEnvelope::Dispatch(env))
     }
+
+    pub fn weak_ref(&self) -> ActorRef {
+        let c = Arc::downgrade(&self.component);
+        let q = Arc::downgrade(&self.msg_queue);
+        ActorRef {
+            component: c,
+            msg_queue: q,
+        }
+    }
+}
+impl ActorRefFactory for ActorRefStrong {
+    fn actor_ref(&self) -> ActorRef {
+        self.weak_ref()
+    }
+}
+
+impl Debug for ActorRefStrong {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "<actor-ref-strong>")
+    }
+}
+
+impl fmt::Display for ActorRefStrong {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "<actor-ref-strong>")
+    }
+}
+
+impl PartialEq for ActorRefStrong {
+    fn eq(&self, other: &ActorRefStrong) -> bool {
+        Arc::ptr_eq(&self.component, &other.component)
+    }
 }
 
 #[derive(Clone)]
