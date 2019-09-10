@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion, BenchmarkId};
 use std::time::{Duration, Instant};
 //use kompact::*;
 use kompact::prelude::*;
@@ -17,6 +17,12 @@ pub fn kompact_network_latency(c: &mut Criterion) {
         ping_pong_latency_pipeline_indexed,
     );
     g.finish();
+
+    let mut group = c.benchmark_group("Ping Pong RTT (Static) by Threadpool Size");
+    for threads in 1..8 {
+        group.bench_with_input(BenchmarkId::from_parameter(threads), &threads, ping_pong_latency_static_threads);
+    }
+    group.finish();
 }
 
 pub fn latch_overhead(c: &mut Criterion) {
@@ -84,8 +90,8 @@ where
     PortF: Fn(&std::sync::Arc<Component<Pinger>>) -> ProvidedRef<ExperimentPort>,
 {
     // Setup
-    let sys1 = setup_system("test-system-1");
-    let sys2 = setup_system("test-system-2");
+    let sys1 = setup_system("test-system-1", 1);
+    let sys2 = setup_system("test-system-2", 1);
 
     let timeout = Duration::from_millis(500);
 
@@ -123,9 +129,10 @@ where
     res
 }
 
-fn setup_system(name: &'static str) -> KompactSystem {
+fn setup_system(name: &'static str, threads: usize) -> KompactSystem {
     let mut cfg = KompactConfig::new();
     cfg.label(name.to_string());
+    cfg.threads(threads);
     cfg.system_components(DeadletterBox::new, {
         let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
         net_config.build()
@@ -137,6 +144,18 @@ pub fn ping_pong_latency_static(b: &mut Bencher) {
     use ppstatic::*;
     ping_pong_latency(
         b,
+        1,
+        |ponger| Pinger::new(ponger),
+        Ponger::new,
+        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
+    );
+}
+
+pub fn ping_pong_latency_static_threads(b: &mut Bencher, threads: &usize) {
+    use ppstatic::*;
+    ping_pong_latency(
+        b,
+        *threads,
         |ponger| Pinger::new(ponger),
         Ponger::new,
         |pinger| pinger.on_definition(|cd| cd.experiment_port()),
@@ -147,6 +166,7 @@ pub fn ping_pong_latency_indexed(b: &mut Bencher) {
     use ppindexed::*;
     ping_pong_latency(
         b,
+        1,
         |ponger| Pinger::new(ponger),
         Ponger::new,
         |pinger| pinger.on_definition(|cd| cd.experiment_port()),
@@ -157,6 +177,7 @@ pub fn ping_pong_latency_pipeline_static(b: &mut Bencher) {
     use pppipelinestatic::*;
     ping_pong_latency(
         b,
+        1,
         |ponger| Pinger::new(ponger),
         Ponger::new,
         |pinger| pinger.on_definition(|cd| cd.experiment_port()),
@@ -167,6 +188,7 @@ pub fn ping_pong_latency_pipeline_indexed(b: &mut Bencher) {
     use pppipelineindexed::*;
     ping_pong_latency(
         b,
+        1,
         |ponger| Pinger::new(ponger),
         Ponger::new,
         |pinger| pinger.on_definition(|cd| cd.experiment_port()),
@@ -175,6 +197,7 @@ pub fn ping_pong_latency_pipeline_indexed(b: &mut Bencher) {
 
 fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     b: &mut Bencher,
+    threads: usize,
     pinger_func: PingerF,
     ponger_func: PongerF,
     port_func: PortF,
@@ -186,8 +209,8 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     PortF: Fn(&std::sync::Arc<Component<Pinger>>) -> ProvidedRef<ExperimentPort>,
 {
     // Setup
-    let sys1 = setup_system("test-system-1");
-    let sys2 = setup_system("test-system-2");
+    let sys1 = setup_system("test-system-1", threads);
+    let sys2 = setup_system("test-system-2", threads);
 
     let timeout = Duration::from_millis(500);
 

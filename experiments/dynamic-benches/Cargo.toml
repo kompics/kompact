@@ -15,7 +15,8 @@ criterion = {version = "0.3", features=['real_blackbox']}
 [dependencies.kompact]
 path = "../../core/"
 # default-features = true
-features = ["silent_logging", "low_latency"]
+# features = ["silent_logging", "low_latency"]
+features = ["silent_logging"]
 
 
 [dev-dependencies]
