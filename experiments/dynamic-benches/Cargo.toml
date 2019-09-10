@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 uuid = { version = "0.7", features = ["v4"] }
 fnv = "1.0"
+synchronoise = "1.0"
 criterion = {version = "0.3", features=['real_blackbox']}
 
 [dependencies.kompact]

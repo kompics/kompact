@@ -304,6 +304,7 @@ dependencies = [
  "criterion 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "kompact 0.7.1",
+ "synchronoise 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

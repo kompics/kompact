@@ -19,6 +19,47 @@ pub fn kompact_network_latency(c: &mut Criterion) {
     g.finish();
 }
 
+pub fn latch_overhead(c: &mut Criterion) {
+    c.bench_function("Synchronoise Latch", latch_synchronoise);
+}
+
+pub fn latch_synchronoise(b: &mut Bencher) {
+    use std::sync::Arc;
+    use synchronoise::CountdownEvent;
+
+    b.iter_custom(|num_iterations| {
+        let mut outer_latches: Vec<Arc<CountdownEvent>> = vec![(); num_iterations as usize]
+            .drain(..)
+            .map(|_| Arc::new(CountdownEvent::new(1)))
+            .collect();
+        let mut inner_latches: Vec<Arc<CountdownEvent>> = vec![(); num_iterations as usize]
+            .drain(..)
+            .map(|_| Arc::new(CountdownEvent::new(1)))
+            .collect();
+        let mut outer_latches_thread = outer_latches.clone();
+        let mut inner_latches_thread = inner_latches.clone();
+        std::thread::spawn(move || {
+            loop {
+                if let Some(wait_latch) = outer_latches_thread.pop() {
+                    wait_latch.wait();
+                    let write_latch = inner_latches_thread.pop().unwrap(); // both vectors are same size
+                    write_latch.decrement().expect("Should decrement!");
+                } else {
+                    return;
+                }
+            }
+        });
+        let start = Instant::now();
+        while let Some(write_latch) = outer_latches.pop() {
+            write_latch.decrement().expect("Should decrement!");
+            let wait_latch = inner_latches.pop().unwrap();
+            wait_latch.wait();
+        }
+        let diff = start.elapsed();
+        diff
+    });
+}
+
 pub fn as_binary() {
     use ppstatic::*;
     ping_pong_latency_bin(
@@ -186,7 +227,7 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     sys2.shutdown().expect("System 2 did not shut down!");
 }
 
-criterion_group!(latency_benches, kompact_network_latency);
+criterion_group!(latency_benches, kompact_network_latency, latch_overhead);
 criterion_main!(latency_benches);
 
 #[derive(Debug)]
@@ -299,7 +340,7 @@ pub mod pppipelinestatic {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                         let promise = self.done.take().expect("No promise to reply to?");
-                        promise.fulfill(time);
+                        promise.fulfill(time).expect("Promise was dropped");;
                     }
                 }
                 _ => unimplemented!("Ponger received unexpected message!"),
@@ -506,7 +547,7 @@ pub mod pppipelineindexed {
                             let time = self.start.elapsed();
                             trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                             let promise = self.done.take().expect("No promise to reply to?");
-                            promise.fulfill(time);
+                            promise.fulfill(time).expect("Promise was dropped");;
                         }
                     } else {
                         error!(self.ctx.log(), "Could not deserialise Pong message!");
@@ -728,7 +769,7 @@ pub mod ppstatic {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                         let promise = self.done.take().expect("No promise to reply to?");
-                        promise.fulfill(time);
+                        promise.fulfill(time).expect("Promise was dropped");;
                     }
                 }
                 _ => unimplemented!("Ponger received unexpected message!"),
@@ -930,7 +971,7 @@ pub mod ppindexed {
                             let time = self.start.elapsed();
                             trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                             let promise = self.done.take().expect("No promise to reply to?");
-                            promise.fulfill(time);
+                            promise.fulfill(time).expect("Promise was dropped");
                         }
                     } else {
                         error!(self.ctx.log(), "Could not deserialise Pong message!");
