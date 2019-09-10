@@ -247,31 +247,9 @@ pub struct KompactSystem {
     scheduler: Box<dyn Scheduler>,
 }
 
-// This can fail!
-// impl Default for KompactSystem {
-//     fn default() -> Self {
-//         let scheduler =
-//             ExecutorScheduler::from(crossbeam_workstealing_pool::ThreadPool::new(num_cpus::get()));
-//         let runtime = Arc::new(KompactRuntime::default());
-//         let sys = KompactSystem {
-//             inner: runtime,
-//             scheduler,
-//         };
-//         let (dead_prom, dead_f) = utils::promise();
-//         let (disp_prom, disp_f) = utils::promise();
-//         let system_components = Box::new(DefaultComponents::new(&sys, dead_prom, disp_prom));
-//         let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
-//         let ic = InternalComponents::new(supervisor, system_components);
-//         sys.inner.set_internal_components(ic);
-//         sys.inner.start_internal_components(&sys);
-//         dead_f.wait();
-//         disp_f.wait();
-//         sys
-//     }
-// }
-
 impl KompactSystem {
-    pub fn new(conf: KompactConfig) -> Result<Self, KompactError> {
+    /// Use the [build](KompactConfig::build) method instead.
+    pub(crate) fn new(conf: KompactConfig) -> Result<Self, KompactError> {
         let scheduler = (*conf.scheduler_builder)(conf.threads);
         let sc_builder = conf.sc_builder.clone();
         let runtime = Arc::new(KompactRuntime::new(conf));
@@ -310,7 +288,7 @@ impl KompactSystem {
         Ok(sys)
     }
 
-    pub fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
+    pub(crate) fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
         self.scheduler.schedule(c);
     }
 
@@ -318,7 +296,7 @@ impl KompactSystem {
         &self.inner.logger
     }
 
-    pub fn poison(&self) {
+    pub(crate) fn poison(&self) {
         self.inner.poison();
         self.scheduler.poison();
     }

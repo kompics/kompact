@@ -1,13 +1,14 @@
+//! The Kompact message-passing framework provides a hybrid approach
+//! between the Kompics component model and the Actor model for writing distributed systems.
+//!
+//! To get all kompact related things into scope import `use kompact::prelude::*;` instead of `use kompact::*;`.
+//!
+
 #![allow(unused_parens)]
 #![feature(specialization)]
 #![feature(unsized_locals)]
 #![feature(drain_filter)]
 
-/// The Kompact message-passing framework provides a hybrid approach
-/// between the Kompics component model and the Actor model for writing distributed systems.
-///
-/// To get all kompact related things into scope import `use kompact::prelude::*` instead of `use kompact::*`.
-///
 use self::actors::*;
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
