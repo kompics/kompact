@@ -207,6 +207,7 @@ impl Bridge {
                             }
                         })
                         .and_then(move |tcp_stream| {
+                            tcp_stream.set_nodelay(true).expect("Could not set no delay!");
                             let peer_addr = tcp_stream
                                 .peer_addr()
                                 .expect("stream must have a peer address");
@@ -278,6 +279,7 @@ fn start_tcp_server(
         })
         .for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
+            tcp_stream.set_nodelay(true).expect("Could not set TCP_NODELAY!");
             let lookup = lookup.clone();
             let peer_addr = tcp_stream
                 .peer_addr()
