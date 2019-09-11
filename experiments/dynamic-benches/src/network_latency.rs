@@ -1,8 +1,18 @@
-use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion, BenchmarkId};
+use criterion::{
+    black_box,
+    criterion_group,
+    criterion_main,
+    Bencher,
+    BenchmarkId,
+    Criterion,
+    Throughput,
+};
 use std::time::{Duration, Instant};
 //use kompact::*;
 use kompact::prelude::*;
 //use kompact::default_components::DeadletterBox;
+
+const MSG_COUNT: u64 = 1000;
 
 pub fn kompact_network_latency(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Pong RTT");
@@ -20,9 +30,26 @@ pub fn kompact_network_latency(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("Ping Pong RTT (Static) by Threadpool Size");
     for threads in 1..8 {
-        group.bench_with_input(BenchmarkId::from_parameter(threads), &threads, ping_pong_latency_static_threads);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(threads),
+            &threads,
+            ping_pong_latency_static_threads,
+        );
     }
     group.finish();
+}
+
+pub fn kompact_network_throughput(c: &mut Criterion) {
+    let mut g = c.benchmark_group("Ping Pong Throughput with Pipelining");
+    g.throughput(Throughput::Elements(2 * MSG_COUNT));
+    for pipeline in [1u64, 10u64, 100u64, 1000u64].iter() {
+        g.bench_with_input(
+            BenchmarkId::from_parameter(pipeline),
+            pipeline,
+            ping_pong_throughput_static,
+        );
+    }
+    g.finish();
 }
 
 pub fn latch_overhead(c: &mut Criterion) {
@@ -137,7 +164,18 @@ fn setup_system(name: &'static str, threads: usize) -> KompactSystem {
         let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
         net_config.build()
     });
-    KompactSystem::new(cfg).expect("KompactSystem")
+    cfg.build().expect("KompactSystem")
+}
+
+pub fn ping_pong_throughput_static(b: &mut Bencher, pipeline: &u64) {
+    use ppstatic::pipelined::*;
+    ping_pong_latency(
+        b,
+        4,
+        |ponger| Pinger::with(MSG_COUNT, *pipeline, ponger),
+        Ponger::new,
+        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
+    );
 }
 
 pub fn ping_pong_latency_static(b: &mut Bencher) {
@@ -250,7 +288,7 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     sys2.shutdown().expect("System 2 did not shut down!");
 }
 
-criterion_group!(latency_benches, kompact_network_latency, latch_overhead);
+criterion_group!(latency_benches, kompact_network_latency, latch_overhead, kompact_network_throughput);
 criterion_main!(latency_benches);
 
 #[derive(Debug)]
@@ -363,7 +401,7 @@ pub mod pppipelinestatic {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                         let promise = self.done.take().expect("No promise to reply to?");
-                        promise.fulfill(time).expect("Promise was dropped");;
+                        promise.fulfill(time).expect("Promise was dropped");
                     }
                 }
                 _ => unimplemented!("Ponger received unexpected message!"),
@@ -570,7 +608,7 @@ pub mod pppipelineindexed {
                             let time = self.start.elapsed();
                             trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                             let promise = self.done.take().expect("No promise to reply to?");
-                            promise.fulfill(time).expect("Promise was dropped");;
+                            promise.fulfill(time).expect("Promise was dropped");
                         }
                     } else {
                         error!(self.ctx.log(), "Could not deserialise Pong message!");
@@ -792,7 +830,7 @@ pub mod ppstatic {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                         let promise = self.done.take().expect("No promise to reply to?");
-                        promise.fulfill(time).expect("Promise was dropped");;
+                        promise.fulfill(time).expect("Promise was dropped");
                     }
                 }
                 _ => unimplemented!("Ponger received unexpected message!"),
@@ -908,6 +946,186 @@ pub mod ppstatic {
     impl Deserialiser<Pong> for Pong {
         fn deserialise(_buf: &mut dyn Buf) -> Result<Pong, SerError> {
             Ok(Pong)
+        }
+    }
+
+    pub mod pipelined {
+        use super::{ExperimentPort, Ping, Pong, Run};
+        use kompact::prelude::*;
+        use std::time::{Duration, Instant};
+
+        #[derive(ComponentDefinition)]
+        pub struct Pinger {
+            ctx: ComponentContext<Self>,
+            experiment_port: ProvidedPort<ExperimentPort, Self>,
+            done: Option<KPromise<Duration>>,
+            ponger: ActorPath,
+            count: u64,
+            pipeline: u64,
+            sent_count: u64,
+            recv_count: u64,
+            iters: u64,
+            start: Instant,
+        }
+
+        impl Pinger {
+            pub fn with(count: u64, pipeline: u64, ponger: ActorPath) -> Pinger {
+                Pinger {
+                    ctx: ComponentContext::new(),
+                    experiment_port: ProvidedPort::new(),
+                    done: None,
+                    ponger,
+                    count,
+                    pipeline,
+                    sent_count: 0u64,
+                    recv_count: 0u64,
+                    iters: 0u64,
+                    start: Instant::now(),
+                }
+            }
+
+            pub fn experiment_port(&mut self) -> ProvidedRef<ExperimentPort> {
+                self.experiment_port.share()
+            }
+        }
+
+        impl Provide<ControlPort> for Pinger {
+            fn handle(&mut self, _event: ControlEvent) -> () {
+                // ignore
+            }
+        }
+
+        impl Provide<ExperimentPort> for Pinger {
+            fn handle(&mut self, event: Run) -> () {
+                trace!(
+                    self.ctx.log(),
+                    "Pinger starting run with {} iterations !",
+                    event.num_iterations
+                );
+                self.iters = event.num_iterations;
+                self.done = Some(event.promise);
+                self.start = Instant::now();
+                let mut pipelined: u64 = 0;
+                while (pipelined < self.pipeline) && (self.sent_count < self.count) {
+                    self.ponger.tell(Ping::EVENT, self);
+                    self.sent_count += 1;
+                    pipelined += 1;
+                }
+            }
+        }
+
+        impl Actor for Pinger {
+            fn receive_local(&mut self, _sender: ActorRef, msg: &dyn Any) -> () {
+                crit!(
+                    self.ctx.log(),
+                    "Got unexpected local msg {:?} (tid: {:?})",
+                    msg,
+                    msg.type_id(),
+                );
+                unimplemented!(); // shouldn't happen during the test
+            }
+
+            fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
+                if ser_id == Pong::SER_ID {
+                    let r: Result<Pong, SerError> = Pong::deserialise(buf);
+                    match r {
+                        Ok(_pong) => {
+                            self.recv_count += 1;
+                            if self.recv_count < self.count {
+                                if self.sent_count < self.count {
+                                    self.ponger.tell(Ping::EVENT, self);
+                                    self.sent_count += 1;
+                                }
+                            } else {
+                                self.iters -= 1;
+                                if self.iters > 0u64 {
+                                    self.sent_count = 0u64;
+                                    self.recv_count = 0u64;
+                                    let mut pipelined: u64 = 0;
+                                    while (pipelined < self.pipeline)
+                                        && (self.sent_count < self.count)
+                                    {
+                                        self.ponger.tell(Ping::EVENT, self);
+                                        self.sent_count += 1;
+                                        pipelined += 1;
+                                    }
+                                } else {
+                                    let time = self.start.elapsed();
+                                    self.done
+                                        .take()
+                                        .expect("No promise?")
+                                        .fulfill(time)
+                                        .expect("Why no fulfillment?");
+                                }
+                            }
+                        }
+                        Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
+                    }
+                } else {
+                    crit!(
+                        self.ctx.log(),
+                        "Got message with unexpected serialiser {} from {}",
+                        ser_id,
+                        sender
+                    );
+                    unimplemented!(); // shouldn't happen during the test
+                }
+            }
+        }
+
+        /*****************
+         * Static Ponger *
+         *****************/
+
+        #[derive(ComponentDefinition)]
+        pub struct Ponger {
+            ctx: ComponentContext<Self>,
+        }
+
+        impl Ponger {
+            pub fn new() -> Ponger {
+                Ponger {
+                    ctx: ComponentContext::new(),
+                }
+            }
+        }
+
+        impl Provide<ControlPort> for Ponger {
+            fn handle(&mut self, _event: ControlEvent) -> () {
+                // ignore
+            }
+        }
+
+        impl Actor for Ponger {
+            fn receive_local(&mut self, _sender: ActorRef, msg: &dyn Any) -> () {
+                crit!(
+                    self.ctx.log(),
+                    "Got unexpected local msg {:?} (tid: {:?})",
+                    msg,
+                    msg.type_id(),
+                );
+                unimplemented!(); // shouldn't happen during the test
+            }
+
+            fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
+                if ser_id == Ping::SER_ID {
+                    let r: Result<Ping, SerError> = Ping::deserialise(buf);
+                    match r {
+                        Ok(_ping) => {
+                            sender.tell(Pong::EVENT, self);
+                        }
+                        Err(e) => error!(self.ctx.log(), "Error deserialising Ping: {:?}", e),
+                    }
+                } else {
+                    crit!(
+                        self.ctx.log(),
+                        "Got message with unexpected serialiser {} from {}",
+                        ser_id,
+                        sender
+                    );
+                    unimplemented!(); // shouldn't happen during the test
+                }
+            }
         }
     }
 }

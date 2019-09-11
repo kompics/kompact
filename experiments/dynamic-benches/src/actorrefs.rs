@@ -161,7 +161,7 @@ mod tests {
         let sys = {
             let mut cfg = KompactConfig::new();
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            KompactSystem::new(cfg).expect("KompactSystem")
+            cfg.build().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf
@@ -186,7 +186,7 @@ mod tests {
         let sys = {
             let mut cfg = KompactConfig::new();
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            KompactSystem::new(cfg).expect("KompactSystem")
+            cfg.build().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf

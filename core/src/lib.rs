@@ -9,10 +9,10 @@
 #![feature(unsized_locals)]
 #![feature(drain_filter)]
 
-use self::actors::*;
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
 use self::{
+    actors::*,
     component::*,
     default_components::*,
     dispatch::*,
