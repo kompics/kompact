@@ -8,7 +8,7 @@ pub enum SerError {
 }
 
 pub trait Serialiser<T>: Send {
-    fn serid(&self) -> u64;
+    fn ser_id(&self) -> SerId;
     fn size_hint(&self) -> Option<usize> {
         None
     }
@@ -16,7 +16,7 @@ pub trait Serialiser<T>: Send {
 }
 
 pub trait Serialisable: Send + Debug {
-    fn serid(&self) -> u64;
+    fn ser_id(&self) -> SerId;
 
     /// Provides a suggested serialized size in bytes if possible, returning None otherwise.
     fn size_hint(&self) -> Option<usize>;
@@ -61,8 +61,8 @@ where
     T: Send + Debug + 'static,
     S: Serialiser<T>,
 {
-    fn serid(&self) -> u64 {
-        self.ser.serid()
+    fn ser_id(&self) -> SerId {
+        self.ser.ser_id()
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -88,7 +88,7 @@ where
         write!(
             f,
             "Serialisable(id={:?},size={:?}, value={:?})",
-            self.ser.serid(),
+            self.ser.ser_id(),
             self.ser.size_hint(),
             self.v
         )
@@ -96,22 +96,23 @@ where
 }
 
 pub trait Deserialiser<T>: Send {
+    const SER_ID: SerId;
     fn deserialise(buf: &mut dyn Buf) -> Result<T, SerError>;
 }
 
 pub trait Deserialisable<T> {
-    fn serid(&self) -> u64;
+    fn ser_id(&self) -> SerId;
     fn get_deserialised(self) -> Result<T, SerError>;
 }
 
 pub trait BoxDeserialisable<T> {
-    fn boxed_serid(&self) -> u64;
+    fn boxed_ser_id(&self) -> SerId;
     fn boxed_get_deserialised(self: Box<Self>) -> Result<T, SerError>;
 }
 
 impl<T> Deserialisable<T> for Box<dyn BoxDeserialisable<T>> {
-    fn serid(&self) -> u64 {
-        self.boxed_serid()
+    fn ser_id(&self) -> SerId {
+        self.boxed_ser_id()
     }
 
     fn get_deserialised(self) -> Result<T, SerError> {
@@ -119,24 +120,24 @@ impl<T> Deserialisable<T> for Box<dyn BoxDeserialisable<T>> {
     }
 }
 
-/// Trivial identity Deserialisable
-impl<T> Deserialisable<T> for T {
-    fn serid(&self) -> u64 {
-        unimplemented!();
-    }
+// /// Trivial identity Deserialisable
+// impl<T> Deserialisable<T> for T {
+//     fn ser_id(&self) -> SerId {
+//         serialisation_ids::UNKNOWN
+//     }
 
-    fn get_deserialised(self) -> Result<T, SerError> {
-        Ok(self)
-    }
-}
+//     fn get_deserialised(self) -> Result<T, SerError> {
+//         Ok(self)
+//     }
+// }
 
-/// Trivial heap to Stack Deserialisable
-impl<T: Send> Deserialisable<T> for Box<T> {
-    fn serid(&self) -> u64 {
-        unimplemented!();
-    }
+// /// Trivial heap to Stack Deserialisable
+// impl<T: Send> Deserialisable<T> for Box<T> {
+//     fn ser_id(&self) -> SerId {
+//         unimplemented!();
+//     }
 
-    fn get_deserialised(self) -> Result<T, SerError> {
-        Ok(*self)
-    }
-}
+//     fn get_deserialised(self) -> Result<T, SerError> {
+//         Ok(*self)
+//     }
+// }

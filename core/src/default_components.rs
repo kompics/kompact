@@ -1,7 +1,6 @@
 use super::*;
-use crate::messaging::DispatchEnvelope;
-use bytes::Buf;
-use std::{any::Any, sync::Arc};
+use crate::messaging::{DispatchEnvelope, NetMessage};
+use std::sync::Arc;
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -27,12 +26,15 @@ impl SystemComponents for DefaultComponents {
     // fn timer_ref(&self) -> timer::TimerRef {
     //     self.timer.timer_ref()
     // }
-    fn deadletter_ref(&self) -> ActorRef {
+    fn deadletter_ref(&self) -> ActorRef<Never> {
         self.deadletter_box.actor_ref()
     }
 
-    fn dispatcher_ref(&self) -> ActorRef {
-        self.dispatcher.actor_ref()
+    fn dispatcher_ref(&self) -> DispatcherRef {
+        self.dispatcher
+            .actor_ref()
+            .hold()
+            .expect("Dispatcher should not be deallocated!")
     }
 
     fn system_path(&self) -> SystemPath {
@@ -85,8 +87,8 @@ impl TimerComponent for DefaultTimer {
 
 pub struct CustomComponents<B, C>
 where
-    B: ComponentDefinition + Sized + 'static,
-    C: ComponentDefinition + Sized + 'static + Dispatcher,
+    B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
+    C: ComponentDefinition + ActorRaw<Message = DispatchEnvelope> + Sized + 'static + Dispatcher,
 {
     pub(crate) deadletter_box: Arc<Component<B>>,
     pub(crate) dispatcher: Arc<Component<C>>,
@@ -94,15 +96,18 @@ where
 
 impl<B, C> SystemComponents for CustomComponents<B, C>
 where
-    B: ComponentDefinition + Sized + 'static,
-    C: ComponentDefinition + Sized + 'static + Dispatcher,
+    B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
+    C: ComponentDefinition + ActorRaw<Message = DispatchEnvelope> + Sized + 'static + Dispatcher,
 {
-    fn deadletter_ref(&self) -> ActorRef {
+    fn deadletter_ref(&self) -> ActorRef<Never> {
         self.deadletter_box.actor_ref()
     }
 
-    fn dispatcher_ref(&self) -> ActorRef {
-        self.dispatcher.actor_ref()
+    fn dispatcher_ref(&self) -> DispatcherRef {
+        self.dispatcher
+            .actor_ref()
+            .hold()
+            .expect("Dispatcher should not be deallocated!")
     }
 
     fn system_path(&self) -> SystemPath {
@@ -138,20 +143,18 @@ impl DeadletterBox {
 }
 
 impl Actor for DeadletterBox {
-    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-        info!(
-            self.ctx.log(),
-            "DeadletterBox received {:?} (type_id={:?}) from {}",
-            msg,
-            msg.type_id(),
-            sender
-        );
+    type Message = Never;
+
+    /// Handles local messages.
+    fn receive_local(&mut self, _msg: Self::Message) -> () {
+        unimplemented!(); // this can't actually happen
     }
 
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
+    /// Handles (serialised or reflected) messages from the network.
+    fn receive_network(&mut self, msg: NetMessage) -> () {
         info!(
             self.ctx.log(),
-            "DeadletterBox received buffer with id {:?} from {}", ser_id, sender
+            "DeadletterBox received network message {:?}", msg,
         );
     }
 }
@@ -187,33 +190,25 @@ impl LocalDispatcher {
 }
 
 impl Actor for LocalDispatcher {
-    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-        info!(
+    type Message = DispatchEnvelope;
+
+    fn receive_local(&mut self, msg: Self::Message) -> () {
+        warn!(
             self.ctx.log(),
-            "LocalDispatcher received {:?} (type_id={:?}) from {}",
+            "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
             msg,
-            msg.type_id(),
-            sender
         );
     }
 
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> () {
         info!(
             self.ctx.log(),
-            "LocalDispatcher received buffer with id {:?} from {:?}", ser_id, sender
+            "LocalDispatcher received network message {:?}", msg,
         );
     }
 }
 
 impl Dispatcher for LocalDispatcher {
-    fn receive(&mut self, env: DispatchEnvelope) -> () {
-        warn!(
-            self.ctx.log(),
-            "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
-            env,
-        );
-    }
-
     fn system_path(&mut self) -> SystemPath {
         SystemPath::new(Transport::LOCAL, "127.0.0.1".parse().unwrap(), 0)
     }

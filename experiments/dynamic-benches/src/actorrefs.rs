@@ -38,11 +38,13 @@ impl Provide<TestPort> for TestActor {
 }
 
 impl Actor for TestActor {
-    fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
+    type Message = &'static Ping;
+
+    fn receive_local(&mut self, _msg: Self::Message) -> () {
         // discard
     }
 
-    fn receive_message(&mut self, _sender: ActorPath, _sid: u64, _buf: &mut dyn Buf) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> () {
         // discard
     }
 }
@@ -50,7 +52,7 @@ impl Actor for TestActor {
 pub struct PingSer;
 pub const PING_SER: PingSer = PingSer {};
 impl Serialiser<Ping> for PingSer {
-    fn serid(&self) -> u64 {
+    fn ser_id(&self) -> SerId {
         42 // because why not^^
     }
 
@@ -75,11 +77,8 @@ pub fn clone_benches(c: &mut Criterion) {
 pub fn tell_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Tell/Trigger Benches");
     g.bench_function("bench tell ActorRef", |b| tests::bench_tell_actor_ref(b));
-    g.bench_function("bench tell System ActorRef", |b| {
-        tests::bench_tell_actor_ref_sys(b)
-    });
-    g.bench_function("bench tell System ActorRef (Strong)", |b| {
-        tests::bench_tell_actor_ref_strong_sys(b)
+    g.bench_function("bench tell ActorRef (Strong)", |b| {
+        tests::bench_tell_actor_ref_strong(b)
     });
     g.bench_function("bench trigger Port", |b| tests::bench_trigger_port(b));
     //g.bench_function("bench tell ActorPath", |b| tests::bench_tell_actor_path(b));
@@ -110,37 +109,21 @@ mod tests {
         let tester = sys.create_and_start(TestActor::new);
         let tester_ref = tester.actor_ref();
         b.iter(|| {
-            tester_ref.tell(&PING, &sys);
+            tester_ref.tell(&PING);
         });
         drop(tester_ref);
         drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }
 
-    pub fn bench_tell_actor_ref_sys(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
-        let tester_ref = tester.actor_ref();
-        let sys_ref = sys.actor_ref();
-        b.iter(|| {
-            tester_ref.tell(&PING, &sys_ref);
-        });
-        drop(tester_ref);
-        drop(sys_ref);
-        drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
-    }
-
-    pub fn bench_tell_actor_ref_strong_sys(b: &mut Bencher) {
+    pub fn bench_tell_actor_ref_strong(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
         let tester = sys.create_and_start(TestActor::new);
         let tester_ref = tester.actor_ref().hold().expect("Live Ref");
-        let sys_ref = sys.actor_ref();
         b.iter(|| {
-            tester_ref.tell(&PING, &sys_ref);
+            tester_ref.tell(&PING);
         });
         drop(tester_ref);
-        drop(sys_ref);
         drop(tester);
         sys.shutdown().expect("System didn't shut down :(");
     }

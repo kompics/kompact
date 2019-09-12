@@ -8,6 +8,7 @@
 #![feature(specialization)]
 #![feature(unsized_locals)]
 #![feature(drain_filter)]
+#![feature(never_type)]
 
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
@@ -15,7 +16,6 @@ use self::{
     actors::*,
     component::*,
     default_components::*,
-    dispatch::*,
     lifecycle::*,
     ports::*,
     runtime::*,
@@ -24,8 +24,10 @@ use self::{
     utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
+#[allow(unused_imports)]
 use kompact_actor_derive::*;
 use kompact_component_derive::*;
+#[allow(unused_imports)]
 use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
 use slog_async::Async;
 use std::convert::{From, Into};
@@ -44,6 +46,11 @@ mod supervision;
 pub mod timer;
 mod timer_manager;
 mod utils;
+
+//#[derive(Debug, Clone, Copy)]
+//struct FakeNever;
+/// A more readable placeholder for a stable Never (`!`) type.
+pub type Never = !; //FakeNever;
 
 /// To get all kompact related things into scope import `use kompact::prelude::*`.
 pub mod prelude {
@@ -69,6 +76,7 @@ pub mod prelude {
             ActorRefStrong,
             ActorSource,
             Dispatching,
+            MessageBounds,
             NamedPath,
             Transport,
             UniquePath,
@@ -85,18 +93,13 @@ pub mod prelude {
         lifecycle::{ControlEvent, ControlPort},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem},
+        Never,
     };
 
     pub use crate::{
         default_components::{CustomComponents, DeadletterBox},
         dispatch::{NetworkConfig, NetworkDispatcher},
-        messaging::{
-            DispatchEnvelope,
-            MsgEnvelope,
-            PathResolvable,
-            ReceiveEnvelope,
-            RegistrationError,
-        },
+        messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, PathResolvable, RegistrationError},
         timer_manager::Timer,
     };
 
@@ -188,20 +191,16 @@ mod tests {
         }
     }
 
-    //const RECV: &str = "Msg Received";
-
     impl Actor for RecvComponent {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
+        type Message = &'static str;
+
+        fn receive_local(&mut self, msg: Self::Message) -> () {
             info!(self.ctx.log(), "RecvComponent received {:?}", msg);
-            if let Some(s) = msg.downcast_ref::<&str>() {
-                self.last_string = s.to_string();
-            }
-            sender.tell(&"Msg Received", self);
-            //sender.actor_path().tell("Msg Received", self);
+            self.last_string = msg.to_string();
         }
 
-        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
-            error!(self.ctx.log(), "Got unexpected message from {}", sender);
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            error!(self.ctx.log(), "Got unexpected network message: {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
     }
@@ -273,7 +272,7 @@ mod tests {
         });
 
         let rcref = rc.actor_ref();
-        rcref.tell(&"MsgTest", &system);
+        rcref.tell("MsgTest");
 
         thread::sleep(ten_millis);
 
@@ -363,13 +362,15 @@ mod tests {
     }
 
     impl Actor for CounterComponent {
-        fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
+        type Message = Box<dyn Any + Send>;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
             info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
         }
 
-        fn receive_message(&mut self, sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
-            crit!(self.ctx.log(), "Got unexpected message from {}", sender);
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
     }
@@ -380,7 +381,7 @@ mod tests {
         let (cc, _) = system.create_and_register(CounterComponent::new);
         let ccref = cc.actor_ref();
 
-        ccref.tell(Box::new(String::from("MsgTest")), &system);
+        ccref.tell(Box::new(String::from("MsgTest")) as Box<dyn Any + Send>);
 
         thread::sleep(Duration::from_millis(1000));
 
@@ -400,7 +401,7 @@ mod tests {
         });
 
         let f = system.stop_notify(&cc);
-        ccref.tell(Box::new(String::from("MsgTest")), &system);
+        ccref.tell(Box::new(String::from("MsgTest")) as Box<dyn Any + Send>);
 
         f.wait_timeout(Duration::from_millis(1000))
             .expect("Component never stopped!");
@@ -481,13 +482,15 @@ mod tests {
     }
 
     impl Actor for CrasherComponent {
-        fn receive_local(&mut self, _sender: ActorRef, _msg: &dyn Any) -> () {
-            info!(self.ctx.log(), "Crashing CounterComponent");
+        type Message = Box<dyn Any + Send>;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
         }
 
-        fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) -> () {
-            info!(self.ctx.log(), "Crashing CounterComponent");
+        fn receive_network(&mut self, _msg: NetMessage) -> () {
+            info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
         }
     }
@@ -535,7 +538,7 @@ mod tests {
             let res = f.wait_timeout(Duration::from_millis(1000));
             assert!(res.is_ok(), "Component should not crash on start");
 
-            ccref.tell(Box::new(()), &system);
+            ccref.tell(Box::new(()) as Box<dyn Any + Send>);
 
             thread::sleep(Duration::from_millis(1000));
 

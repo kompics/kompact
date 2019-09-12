@@ -58,18 +58,12 @@ impl Provide<PingPongPort> for Pinger {
 }
 
 #[derive(ComponentDefinition)]
-pub struct GenericComp<A>
-where
-    A: 'static + Sync + Send + Clone,
-{
+pub struct GenericComp<A: MessageBounds> {
     ctx: ComponentContext<Self>,
     test: Option<A>,
 }
 
-impl<A> GenericComp<A>
-where
-    A: 'static + Sync + Send + Clone,
-{
+impl<A: MessageBounds> GenericComp<A> {
     fn new() -> Self {
         GenericComp {
             ctx: ComponentContext::new(),
@@ -78,24 +72,18 @@ where
     }
 }
 
-impl<A> Provide<ControlPort> for GenericComp<A>
-where
-    A: 'static + Sync + Send + Clone,
-{
+impl<A: MessageBounds> Provide<ControlPort> for GenericComp<A> {
     fn handle(&mut self, _event: ControlEvent) -> () {}
 }
 
-impl<A> Actor for GenericComp<A>
-where
-    A: 'static + Sync + Send + Clone,
-{
-    fn receive_local(&mut self, _sender: ActorRef, msg: &dyn Any) {
-        if let Some(event) = msg.downcast_ref::<A>() {
-            self.test = Some(event.clone());
-        }
+impl<A: MessageBounds> Actor for GenericComp<A> {
+    type Message = A;
+
+    fn receive_local(&mut self, msg: Self::Message) {
+        self.test = Some(msg);
     }
 
-    fn receive_message(&mut self, _sender: ActorPath, _ser_id: u64, _buf: &mut dyn Buf) {}
+    fn receive_network(&mut self, _msg: NetMessage) {}
 }
 
 fn main() {
@@ -116,7 +104,7 @@ fn main() {
     thread::sleep(time::Duration::from_millis(100));
     generic_comp
         .actor_ref()
-        .tell(Box::new(String::from("Test")), &generic_comp);
+        .tell(String::from("Test"));
     thread::sleep(time::Duration::from_millis(100));
     let comp_inspect = &generic_comp.definition().lock().unwrap();
     assert_eq!(comp_inspect.test.as_ref().unwrap(), &String::from("Test"));

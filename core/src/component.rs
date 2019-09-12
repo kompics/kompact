@@ -15,10 +15,7 @@ use uuid::Uuid;
 use std::cell::UnsafeCell;
 
 use super::*;
-use crate::{
-    messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable, ReceiveEnvelope},
-    supervision::*,
-};
+use crate::{actors::TypedMsgQueue, messaging::PathResolvable, supervision::*};
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;
@@ -38,11 +35,11 @@ impl fmt::Debug for dyn CoreContainer {
     }
 }
 
-pub struct Component<C: ComponentDefinition + Sized + 'static> {
+pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     core: ComponentCore,
     definition: Mutex<C>,
     ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
-    msg_queue: Arc<ConcurrentQueue<MsgEnvelope>>,
+    msg_queue: Arc<TypedMsgQueue<C::Message>>,
     skip: AtomicUsize,
     state: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
@@ -60,7 +57,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let msg_queue = Arc::new(ConcurrentQueue::new());
+        let msg_queue = Arc::new(TypedMsgQueue::new());
         Component {
             core,
             definition: Mutex::new(definition),
@@ -83,7 +80,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             core,
             definition: Mutex::new(definition),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
-            msg_queue: Arc::new(ConcurrentQueue::new()),
+            msg_queue: Arc::new(TypedMsgQueue::new()),
             skip: AtomicUsize::new(0),
             state: lifecycle::initial_state(),
             supervisor: None,
@@ -209,17 +206,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 }
                 // then some messages
                 while count < max_messages {
-                    if let Ok(env) = self.msg_queue.pop() {
-                        match env {
-                            MsgEnvelope::Receive(renv) => guard.receive(renv),
-                            MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
-                                let renv = ReceiveEnvelope::Cast(cenv);
-                                guard.receive(renv);
-                            }
-                            MsgEnvelope::Dispatch(senv) => {
-                                guard.execute_send(senv);
-                            }
-                        }
+                    if let Some(env) = self.msg_queue.pop() {
+                        guard.receive(env);
                         count += 1;
                     } else {
                         break;
@@ -234,17 +222,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 
                     // and maybe some more messages
                     while count < max_events {
-                        if let Ok(env) = self.msg_queue.pop() {
-                            match env {
-                                MsgEnvelope::Receive(renv) => guard.receive(renv),
-                                MsgEnvelope::Dispatch(DispatchEnvelope::Cast(cenv)) => {
-                                    let renv = ReceiveEnvelope::Cast(cenv);
-                                    guard.receive(renv);
-                                }
-                                MsgEnvelope::Dispatch(senv) => {
-                                    guard.execute_send(senv);
-                                }
-                            }
+                        if let Some(env) = self.msg_queue.pop() {
+                            guard.receive(env);
                             count += 1;
                         } else {
                             break;
@@ -267,22 +246,33 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     }
 }
 
-impl<CD> ActorRefFactory for Arc<Component<CD>>
+impl<CD> ActorRefFactory<CD::Message> for Arc<Component<CD>>
 where
-    CD: ComponentDefinition + 'static,
+    CD: ComponentDefinition + ActorRaw + 'static,
 {
-    fn actor_ref(&self) -> ActorRef {
+    fn actor_ref(&self) -> ActorRef<CD::Message> {
         let comp = Arc::downgrade(self);
         let msgq = Arc::downgrade(&self.msg_queue);
         ActorRef::new(comp, msgq)
     }
 }
 
-impl<CD> ActorRefFactory for CD
+impl<CD> DynActorRefFactory for Arc<Component<CD>>
 where
-    CD: ComponentDefinition + 'static,
+    CD: ComponentDefinition + ActorRaw + 'static,
 {
-    fn actor_ref(&self) -> ActorRef {
+    fn dyn_ref(&self) -> DynActorRef {
+        let component = Arc::downgrade(self);
+        let msg_queue = Arc::downgrade(&self.msg_queue);
+        DynActorRef::from(component, msg_queue)
+    }
+}
+
+impl<CD> ActorRefFactory<CD::Message> for CD
+where
+    CD: ComponentDefinition + ActorRaw + 'static,
+{
+    fn actor_ref(&self) -> ActorRef<CD::Message> {
         self.ctx().actor_ref()
     }
 }
@@ -291,7 +281,7 @@ impl<CD> Dispatching for CD
 where
     CD: ComponentDefinition + 'static,
 {
-    fn dispatcher_ref(&self) -> ActorRef {
+    fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx().dispatcher_ref()
     }
 }
@@ -302,6 +292,15 @@ where
 {
     fn path_resolvable(&self) -> PathResolvable {
         PathResolvable::ActorId(self.ctx().id())
+    }
+}
+
+impl<CD> ActorPathFactory for CD
+where
+    CD: ComponentDefinition + 'static,
+{
+    fn actor_path(&self) -> ActorPath {
+        self.ctx().actor_path()
     }
 }
 
@@ -340,21 +339,7 @@ where
     }
 }
 
-pub trait ExecuteSend {
-    fn execute_send(&mut self, env: DispatchEnvelope) -> () {
-        panic!("Sent messages should go to the dispatcher! {:?}", env);
-    }
-}
-
-impl<A: ActorRaw> ExecuteSend for A {}
-
-impl<D: Dispatcher + ActorRaw> ExecuteSend for D {
-    fn execute_send(&mut self, env: DispatchEnvelope) -> () {
-        Dispatcher::receive(self, env)
-    }
-}
-
-impl<C: ComponentDefinition + ExecuteSend + Sized> CoreContainer for Component<C> {
+impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
     fn id(&self) -> &Uuid {
         &self.core.id
     }
@@ -429,11 +414,11 @@ pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
     inner: Option<ComponentContextInner<CD>>,
 }
 
-struct ComponentContextInner<CD: ComponentDefinition + Sized + 'static> {
+struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'static> {
     timer_manager: TimerManager<CD>,
     component: Weak<Component<CD>>,
     logger: KompactLogger,
-    actor_ref: ActorRef,
+    actor_ref: ActorRef<CD::Message>,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
@@ -489,8 +474,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         self.component().system()
     }
 
-    pub fn dispatcher_ref(&self) -> ActorRef {
+    pub fn dispatcher_ref(&self) -> DispatcherRef {
         self.system().dispatcher_ref()
+    }
+
+    pub fn deadletter_ref(&self) -> ActorRef<Never> {
+        self.system().actor_ref()
     }
 
     pub fn id(&self) -> Uuid {
@@ -498,9 +487,22 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     }
 }
 
-impl<CD: ComponentDefinition + Sized + 'static> ActorRefFactory for ComponentContext<CD> {
-    fn actor_ref(&self) -> ActorRef {
+impl<CD> ActorRefFactory<CD::Message> for ComponentContext<CD>
+where
+    CD: ComponentDefinition + ActorRaw + Sized + 'static,
+{
+    fn actor_ref(&self) -> ActorRef<CD::Message> {
         self.inner_ref().actor_ref.clone()
+    }
+}
+
+impl<CD> ActorPathFactory for ComponentContext<CD>
+where
+    CD: ComponentDefinition + ActorRaw + Sized + 'static,
+{
+    fn actor_path(&self) -> ActorPath {
+        let id = self.id();
+        ActorPath::Unique(UniquePath::with_system(self.system().system_path(), id))
     }
 }
 
@@ -604,7 +606,7 @@ unsafe impl Sync for ComponentCore {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::prelude::*;
 
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {

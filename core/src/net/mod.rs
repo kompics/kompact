@@ -1,9 +1,8 @@
 use super::*;
-use actors::{ActorRef, Transport};
+use actors::Transport;
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 use futures::{self, stream::Stream, sync, Future};
-use messaging::MsgEnvelope;
 use net::events::{NetworkError, NetworkEvent};
 use serialisation::helpers::deserialise_msg;
 use spaniel::{codec::FrameCodec, frames::Frame};
@@ -93,7 +92,7 @@ pub struct Bridge {
     /// Tokio Runtime
     tokio_runtime: Option<Runtime>,
     /// Reference back to the Kompact dispatcher
-    dispatcher: Option<ActorRef>,
+    dispatcher: Option<DispatcherRef>,
     /// Socket the network actually bound on
     bound_addr: Option<SocketAddr>,
 }
@@ -125,7 +124,7 @@ impl Bridge {
     }
 
     /// Sets the dispatcher reference, returning the previously stored one
-    pub fn set_dispatcher(&mut self, dispatcher: ActorRef) -> Option<ActorRef> {
+    pub fn set_dispatcher(&mut self, dispatcher: DispatcherRef) -> Option<DispatcherRef> {
         std::mem::replace(&mut self.dispatcher, Some(dispatcher))
     }
 
@@ -279,7 +278,9 @@ fn start_tcp_server(
         })
         .for_each(move |tcp_stream| {
             debug!(log, "connected TCP client at {:?}", tcp_stream);
-            tcp_stream.set_nodelay(true).expect("Could not set TCP_NODELAY!");
+            tcp_stream
+                .set_nodelay(true)
+                .expect("Could not set TCP_NODELAY!");
             let lookup = lookup.clone();
             let peer_addr = tcp_stream
                 .peer_addr()
@@ -426,18 +427,18 @@ fn handle_tcp(
                         let buf = fr.payload();
                         let buf = buf.into_buf();
                         let envelope = deserialise_msg(buf).expect("s11n errors");
-                        match lookup.get_by_actor_path(envelope.dst()) {
+                        match lookup.get_by_actor_path(envelope.receiver()) {
                             None => {
                                 error!(
                                     log,
                                     "Could not find actor reference for destination: {:?}",
-                                    envelope.dst()
+                                    envelope.receiver()
                                 );
                                 None
                             }
                             Some(actor) => {
-                                debug!(log, "Routing envelope {:?}", envelope);
-                                actor.enqueue(MsgEnvelope::Receive(envelope));
+                                trace!(log, "Routing envelope {:?}", envelope);
+                                actor.enqueue(envelope);
                                 None
                             }
                         }

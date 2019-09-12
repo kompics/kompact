@@ -64,9 +64,9 @@ impl QueueManager {
         None
     }
 
-    pub fn exists(&self, dst: &SocketAddr) -> bool {
-        self.inner.contains_key(dst)
-    }
+    // pub fn exists(&self, dst: &SocketAddr) -> bool {
+    //     self.inner.contains_key(dst)
+    // }
 
     pub fn has_frame(&self, dst: &SocketAddr) -> bool {
         self.inner.get(dst).map_or(false, |q| !q.is_empty())

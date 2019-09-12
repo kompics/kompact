@@ -52,6 +52,7 @@ impl Default for ActorRefReaper {
 }
 
 impl ActorRefReaper {
+    #[allow(unused)]
     pub fn new(
         initial_interval: u64,
         min: u64,

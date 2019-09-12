@@ -1,10 +1,9 @@
 use super::*;
 
-use actors::{Actor, ActorPath, ActorRef, Dispatcher, SystemPath, Transport};
-use bytes::Buf;
+use actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport};
 use component::{Component, ComponentContext, ExecuteResult, Provide};
 use lifecycle::{ControlEvent, ControlPort};
-use std::{any::Any, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 use crate::actors::{NamedPath, UniquePath};
 use arc_swap::ArcSwap;
@@ -14,13 +13,14 @@ use messaging::{
     DispatchEnvelope,
     EventEnvelope,
     MsgEnvelope,
+    NetMessage,
     PathResolvable,
     RegistrationEnvelope,
     RegistrationError,
 };
 use net::{events::NetworkEvent, ConnectionState};
 use serialisation::{
-    helpers::{serialise_msg, serialise_to_recv_envelope},
+    helpers::{serialise_msg, serialise_to_msg},
     Serialisable,
 };
 //use std::collections::HashMap;
@@ -111,7 +111,10 @@ impl NetworkDispatcher {
 
     fn start(&mut self) -> Result<(), net::NetworkBridgeErr> {
         debug!(self.ctx.log(), "Starting self and network bridge");
-        let dispatcher = self.actor_ref();
+        let dispatcher = self
+            .actor_ref()
+            .hold()
+            .expect("Self can hardly be deallocated!");
 
         let bridge_logger = self.ctx().log().new(o!("owner" => "Bridge"));
         let (mut bridge, events) = net::Bridge::new(self.lookup.clone(), bridge_logger);
@@ -122,9 +125,7 @@ impl NetworkDispatcher {
             use futures::{Future, Stream};
             ex.spawn(
                 events
-                    .map(|ev| {
-                        MsgEnvelope::Dispatch(DispatchEnvelope::Event(EventEnvelope::Network(ev)))
-                    })
+                    .map(|ev| DispatchEnvelope::Event(EventEnvelope::Network(ev)))
                     .forward(dispatcher)
                     .then(|_| Ok(())),
             );
@@ -248,33 +249,38 @@ impl NetworkDispatcher {
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
-    ///
-    /// # Errors
-    /// TODO handle unknown destination actor
     fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<dyn Serialisable>) {
         use crate::dispatch::lookup::ActorLookup;
         let lookup = self.lookup.lease();
-        let actor = lookup.get_by_actor_path(&dst);
-        if let Some(ref actor) = actor {
-            //  TODO err handling
-            match msg.local() {
-                Ok(boxed_value) => {
-                    let src_actor_opt = lookup.get_by_actor_path(&src);
-                    if let Some(src_actor) = src_actor_opt {
-                        actor.tell(boxed_value, src_actor);
-                    } else {
-                        panic!("Non-local ActorPath ended up in local dispatcher!");
+        let ser_id = Serialisable::ser_id(&*msg);
+        let actor_opt = lookup.get_by_actor_path(&dst);
+        let netmsg = match msg.local() {
+            Ok(boxed_value) => NetMessage::with_box(ser_id, src, dst, boxed_value),
+            Err(msg) => {
+                // local not implemented
+                match serialise_to_msg(src, dst, msg) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!(
+                            self.ctx.log(),
+                            "Could not serialise a local message (ser_id = {}). Dropping. Error was: {:?}",
+                            ser_id,
+                            e
+                        );
+                        return;
                     }
                 }
-                Err(msg) => {
-                    // local not implemented
-                    let envelope = serialise_to_recv_envelope(src, dst, msg).unwrap();
-                    actor.enqueue(envelope);
-                }
             }
+        };
+        if let Some(ref actor) = actor_opt {
+            actor.enqueue(netmsg);
         } else {
-            // TODO handle non-existent routes
-            error!(self.ctx.log(), "ERR no local actor found at {:?}", dst);
+            error!(
+                self.ctx.log(),
+                "No local actor found at {:?}. Forwarding to DeadletterBox",
+                netmsg.receiver(),
+            );
+            self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
         }
     }
 
@@ -391,31 +397,10 @@ impl NetworkDispatcher {
 }
 
 impl Actor for NetworkDispatcher {
-    fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) {
-        debug!(
-            self.ctx.log(),
-            "Received LOCAL {:?} (type_id={:?}) from {:?}",
-            msg,
-            msg.type_id(),
-            sender
-        );
-    }
+    type Message = DispatchEnvelope;
 
-    fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) {
-        debug!(
-            self.ctx.log(),
-            "Received buffer with id {:?} from {:?}", ser_id, sender
-        );
-    }
-}
-
-impl Dispatcher for NetworkDispatcher {
-    fn receive(&mut self, env: DispatchEnvelope) {
-        match env {
-            DispatchEnvelope::Cast(_) => {
-                // Should not be here!
-                error!(self.ctx.log(), "Received a cast envelope");
-            }
+    fn receive_local(&mut self, msg: Self::Message) -> () {
+        match msg {
             DispatchEnvelope::Msg { src, dst, msg } => {
                 // Look up destination (local or remote), then route or err
                 self.route(src, dst, msg);
@@ -459,6 +444,12 @@ impl Dispatcher for NetworkDispatcher {
         }
     }
 
+    fn receive_network(&mut self, msg: NetMessage) -> () {
+        warn!(self.ctx.log(), "Received network message: {:?}", msg,);
+    }
+}
+
+impl Dispatcher for NetworkDispatcher {
     /// Generates a [SystemPath](kompact::actors) from this dispatcher's configuration
     /// This is only possible after the socket is bound and will panic if attempted earlier!
     fn system_path(&mut self) -> SystemPath {
@@ -508,12 +499,31 @@ impl Provide<ControlPort> for NetworkDispatcher {
 }
 
 /// Helper for forwarding [MsgEnvelope]s to actor references
-impl futures::Sink for ActorRef {
+impl futures::Sink for ActorRefStrong<DispatchEnvelope> {
     type SinkError = ();
-    type SinkItem = MsgEnvelope;
+    type SinkItem = DispatchEnvelope;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
-        ActorRef::enqueue(self, item);
+        self.tell(item);
+        Ok(AsyncSink::Ready)
+    }
+
+    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(Async::Ready(()))
+    }
+
+    fn close(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(Async::Ready(()))
+    }
+}
+
+/// Helper for forwarding [MsgEnvelope]s to actor references
+impl futures::Sink for DynActorRef {
+    type SinkError = ();
+    type SinkItem = NetMessage;
+
+    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+        DynActorRef::enqueue(self, item);
         Ok(AsyncSink::Ready)
     }
 
@@ -757,12 +767,10 @@ mod dispatch_tests {
             .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
         pinger_named.on_definition(|c| {
-            assert_eq!(c.remote_count, PING_COUNT);
-            assert_eq!(c.local_count, 0);
+            assert_eq!(c.count, PING_COUNT);
         });
         pinger_unique.on_definition(|c| {
-            assert_eq!(c.remote_count, PING_COUNT);
-            assert_eq!(c.local_count, 0);
+            assert_eq!(c.count, PING_COUNT);
         });
 
         system
@@ -776,17 +784,12 @@ mod dispatch_tests {
     fn local_delivery() {
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
 
         let (ponger, pof) = system.create_and_register(PongerAct::new);
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
-        let unique_path = UniquePath::new(
-            Transport::LOCAL,
-            "127.0.0.1".parse().expect("hardcoded IP"),
-            8080,
-            ponger.id().clone(),
-        );
-        let ponger_path = ActorPath::Unique(unique_path);
+        let mut ponger_path = system.actor_path_for(&ponger);
+        ponger_path.set_transport(Transport::LOCAL);
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(ponger_path));
 
         pof.wait_timeout(Duration::from_millis(1000))
@@ -810,8 +813,7 @@ mod dispatch_tests {
             .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
         pinger.on_definition(|c| {
-            assert_eq!(c.local_count, PING_COUNT);
-            assert_eq!(c.remote_count, 0);
+            assert_eq!(c.count, PING_COUNT);
         });
 
         system
@@ -830,12 +832,15 @@ mod dispatch_tests {
     }
 
     struct PingPongSer;
+    impl PingPongSer {
+        const SID: SerId = 42;
+    }
     const PING_PONG_SER: PingPongSer = PingPongSer {};
     const PING_ID: i8 = 1;
     const PONG_ID: i8 = 2;
     impl Serialiser<PingMsg> for PingPongSer {
-        fn serid(&self) -> u64 {
-            42 // because why not^^
+        fn ser_id(&self) -> SerId {
+            Self::SID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -850,8 +855,8 @@ mod dispatch_tests {
     }
 
     impl Serialiser<PongMsg> for PingPongSer {
-        fn serid(&self) -> u64 {
-            42 // because why not^^
+        fn ser_id(&self) -> SerId {
+            Self::SID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -865,6 +870,8 @@ mod dispatch_tests {
         }
     }
     impl Deserialiser<PingMsg> for PingPongSer {
+        const SER_ID: SerId = Self::SID;
+
         fn deserialise(buf: &mut dyn Buf) -> Result<PingMsg, SerError> {
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
@@ -887,6 +894,8 @@ mod dispatch_tests {
         }
     }
     impl Deserialiser<PongMsg> for PingPongSer {
+        const SER_ID: SerId = Self::SID;
+
         fn deserialise(buf: &mut dyn Buf) -> Result<PongMsg, SerError> {
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
@@ -913,8 +922,7 @@ mod dispatch_tests {
     struct PingerAct {
         ctx: ComponentContext<PingerAct>,
         target: ActorPath,
-        local_count: u64,
-        remote_count: u64,
+        count: u64,
     }
 
     impl PingerAct {
@@ -922,13 +930,8 @@ mod dispatch_tests {
             PingerAct {
                 ctx: ComponentContext::new(),
                 target,
-                local_count: 0,
-                remote_count: 0,
+                count: 0,
             }
-        }
-
-        fn total_count(&self) -> u64 {
-            self.local_count + self.remote_count
         }
     }
 
@@ -945,39 +948,23 @@ mod dispatch_tests {
     }
 
     impl Actor for PingerAct {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            match msg.downcast_ref::<PongMsg>() {
-                Some(ref pong) => {
-                    info!(self.ctx.log(), "Got local Pong({})", pong.i);
-                    self.local_count += 1;
-                    if self.total_count() < PING_COUNT {
+        type Message = Never;
+
+        fn receive_local(&mut self, _pong: Self::Message) -> () {
+            unimplemented!();
+        }
+
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            match msg.try_deserialise::<PongMsg, PingPongSer>() {
+                Ok(pong) => {
+                    info!(self.ctx.log(), "Got msg {:?}", pong);
+                    self.count += 1;
+                    if self.count < PING_COUNT {
                         self.target
                             .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);
                     }
                 }
-                None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
-            }
-        }
-
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-            if ser_id == Serialiser::<PongMsg>::serid(&PING_PONG_SER) {
-                let r: Result<PongMsg, SerError> = PingPongSer::deserialise(buf);
-                match r {
-                    Ok(pong) => {
-                        info!(self.ctx.log(), "Got msg Pong({})", pong.i);
-                        self.remote_count += 1;
-                        if self.total_count() < PING_COUNT {
-                            self.target
-                                .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);
-                        }
-                    }
-                    Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
-                }
-            } else {
-                error!(
-                    self.ctx.log(),
-                    "Got message with unexpected serialiser {} from {}", ser_id, sender
-                );
+                Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
         }
     }
@@ -1007,31 +994,20 @@ mod dispatch_tests {
     }
 
     impl Actor for PongerAct {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            match msg.downcast_ref::<PingMsg>() {
-                Some(ref ping) => {
-                    info!(self.ctx.log(), "Got local Ping({})", ping.i);
-                    sender.tell(Box::new(PongMsg { i: ping.i }), self);
-                }
-                None => error!(self.ctx.log(), "Got unexpected local msg from {}.", sender),
-            }
+        type Message = Never;
+
+        fn receive_local(&mut self, _ping: Self::Message) -> () {
+            unimplemented!();
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-            if ser_id == Serialiser::<PingMsg>::serid(&PING_PONG_SER) {
-                let r: Result<PingMsg, SerError> = PingPongSer::deserialise(buf);
-                match r {
-                    Ok(ping) => {
-                        info!(self.ctx.log(), "Got msg Ping({})", ping.i);
-                        sender.tell((PongMsg { i: ping.i }, PING_PONG_SER), self);
-                    }
-                    Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            let sender = msg.sender().clone();
+            match msg.try_deserialise::<PingMsg, PingPongSer>() {
+                Ok(ping) => {
+                    info!(self.ctx.log(), "Got msg {:?}", ping);
+                    sender.tell((PongMsg { i: ping.i }, PING_PONG_SER), self);
                 }
-            } else {
-                error!(
-                    self.ctx.log(),
-                    "Got message with unexpected serialiser {} from {}", ser_id, sender
-                );
+                Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
             }
         }
     }

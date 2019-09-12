@@ -162,12 +162,22 @@ pub trait ActorSource: Dispatching {
     fn path_resolvable(&self) -> PathResolvable;
 }
 
+pub trait ActorPathFactory {
+    fn actor_path(&self) -> ActorPath;
+}
+
+// impl<F: ActorPathFactory + Dispatching> ActorSource for F {
+//     fn path_resolvable(&self) -> PathResolvable {
+//         PathResolvable::Ac
+//     }
+// }
+
 pub struct DispatchingPath<'a, 'b> {
     path: &'a ActorPath,
     ctx: &'b dyn Dispatching,
 }
 impl<'a, 'b> Dispatching for DispatchingPath<'a, 'b> {
-    fn dispatcher_ref(&self) -> ActorRef {
+    fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx.dispatcher_ref()
     }
 }
@@ -195,7 +205,7 @@ impl ActorPath {
         let src = from.path_resolvable();
         let dst = self.clone();
         let env = DispatchEnvelope::Msg { src, dst, msg };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Dispatch(env))
+        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
     }
 
     pub fn using_dispatcher<'a, 'b>(
@@ -206,6 +216,17 @@ impl ActorPath {
             path: self,
             ctx: disp,
         }
+    }
+
+    fn system_mut(&mut self) -> &mut SystemPath {
+        match self {
+            ActorPath::Unique(ref mut up) => up.system_mut(),
+            ActorPath::Named(ref mut np) => np.system_mut(),
+        }
+    }
+
+    pub fn set_transport(&mut self, proto: Transport) {
+        self.system_mut().protocol = proto;
     }
 }
 
@@ -300,6 +321,10 @@ impl UniquePath {
     pub fn clone_id(&self) -> Uuid {
         self.id.clone()
     }
+
+    pub fn system_mut(&mut self) -> &mut SystemPath {
+        &mut self.system
+    }
 }
 
 impl TryFrom<String> for UniquePath {
@@ -373,6 +398,10 @@ impl NamedPath {
     pub fn clone_path(&self) -> Vec<String> {
         self.path.clone()
     }
+
+    pub fn system_mut(&mut self) -> &mut SystemPath {
+        &mut self.system
+    }
 }
 
 impl SystemField for NamedPath {
@@ -415,11 +444,11 @@ impl FromStr for NamedPath {
 
 pub struct RegisteredPath {
     path: ActorPath,
-    dispatcher: ActorRef,
+    dispatcher: DispatcherRef,
 }
 
 impl Dispatching for RegisteredPath {
-    fn dispatcher_ref(&self) -> ActorRef {
+    fn dispatcher_ref(&self) -> DispatcherRef {
         self.dispatcher.clone()
     }
 }

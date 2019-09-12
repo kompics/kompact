@@ -1,27 +1,22 @@
 use crate::{
     actors::ActorPath,
-    messaging::{MsgEnvelope, ReceiveEnvelope},
-    serialisation::{Deserialiser, SerError, Serialisable},
+    messaging::NetMessage,
+    serialisation::{Deserialiser, SerError, SerIdBuf, SerIdBufMut, SerIdSize, Serialisable},
 };
 use bytes::{Buf, Bytes, BytesMut};
 
 /// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
 /// according to the message's size hint. The message's serialized data is stored in this buffer.
-pub fn serialise_to_recv_envelope(
+pub fn serialise_to_msg(
     src: ActorPath,
     dst: ActorPath,
     msg: Box<dyn Serialisable>,
-) -> Result<MsgEnvelope, SerError> {
+) -> Result<NetMessage, SerError> {
     if let Some(size) = msg.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
         match msg.serialise(&mut buf) {
             Ok(_) => {
-                let envelope = MsgEnvelope::Receive(ReceiveEnvelope::Msg {
-                    src,
-                    dst,
-                    ser_id: msg.serid(),
-                    data: buf.freeze(),
-                });
+                let envelope = NetMessage::with_bytes(msg.ser_id(), src, dst, buf.freeze());
                 Ok(envelope)
             }
             Err(ser_err) => Err(ser_err),
@@ -50,7 +45,7 @@ pub fn serialise_msg(
     let mut size: usize = 0;
     size += src.size_hint().unwrap_or(0);
     size += dst.size_hint().unwrap_or(0);
-    size += Serialisable::size_hint(&msg.serid()).unwrap_or(0);
+    size += &msg.ser_id().size();
     size += msg.size_hint().unwrap_or(0);
 
     if size == 0 {
@@ -60,14 +55,14 @@ pub fn serialise_msg(
     let mut buf = BytesMut::with_capacity(size);
     Serialisable::serialise(src, &mut buf)?;
     Serialisable::serialise(dst, &mut buf)?;
-    Serialisable::serialise(&msg.serid(), &mut buf)?;
+    buf.put_ser_id(msg.ser_id());
     Serialisable::serialise(msg.as_ref(), &mut buf)?;
 
     Ok(buf.freeze())
 }
 
 /// Extracts a [MsgEnvelope] from the provided buffer according to the format above.
-pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<ReceiveEnvelope, SerError> {
+pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
     //     return Err(SerError::InvalidData("Not enough bytes available".into()));
     // }
@@ -75,15 +70,10 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<ReceiveEnvelope, SerErro
 
     let src = ActorPath::deserialise(&mut buffer)?;
     let dst = ActorPath::deserialise(&mut buffer)?;
-    let ser_id: u64 = buffer.get_u64_be();
+    let ser_id = buffer.get_ser_id();
     let data = buffer.bytes().into();
 
-    let envelope = ReceiveEnvelope::Msg {
-        src,
-        dst,
-        ser_id,
-        data,
-    };
+    let envelope = NetMessage::with_bytes(ser_id, src, dst, data);
 
     Ok(envelope)
 }

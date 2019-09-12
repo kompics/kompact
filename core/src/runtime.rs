@@ -179,8 +179,12 @@ impl KompactConfig {
         dispatcher_fn: FC,
     ) -> &mut Self
     where
-        B: ComponentDefinition + Sized + 'static,
-        C: ComponentDefinition + Sized + 'static + Dispatcher,
+        B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
+        C: ComponentDefinition
+            + ActorRaw<Message = DispatchEnvelope>
+            + Sized
+            + 'static
+            + Dispatcher,
         FB: Fn(Promise<()>) -> B + 'static,
         FC: Fn(Promise<()>) -> C + 'static,
     {
@@ -354,8 +358,7 @@ impl KompactSystem {
         let c = self.create(f);
         let id = c.core().id().clone();
         let id_path = PathResolvable::ActorId(id);
-        let actor = c.actor_ref();
-        let r = self.inner.register_by_path(actor, id_path);
+        let r = self.inner.register_by_path(&c, id_path);
         (c, r)
     }
 
@@ -369,8 +372,7 @@ impl KompactSystem {
         self.inner.assert_active();
         let c = self.create(f);
         let path = PathResolvable::ActorId(c.core().id().clone());
-        let actor = c.actor_ref();
-        self.inner.register_by_path(actor, path);
+        self.inner.register_by_path(&c, path);
         self.start(&c);
         c
     }
@@ -390,8 +392,7 @@ impl KompactSystem {
         A: Into<String>,
     {
         self.inner.assert_active();
-        let actor = c.actor_ref();
-        self.inner.register_by_alias(actor, alias.into())
+        self.inner.register_by_alias(c, alias.into())
     }
 
     pub fn start<C>(&self, c: &Arc<Component<C>>) -> ()
@@ -508,7 +509,7 @@ impl KompactSystem {
         self.inner.system_path()
     }
 
-    pub fn actor_path_for<C>(&self, component: Arc<Component<C>>) -> ActorPath
+    pub fn actor_path_for<C>(&self, component: &Arc<Component<C>>) -> ActorPath
     where
         C: ComponentDefinition + 'static,
     {
@@ -521,15 +522,15 @@ impl KompactSystem {
     }
 }
 
-impl ActorRefFactory for KompactSystem {
-    fn actor_ref(&self) -> ActorRef {
+impl ActorRefFactory<Never> for KompactSystem {
+    fn actor_ref(&self) -> ActorRef<Never> {
         self.inner.assert_active();
         self.inner.deadletter_ref()
     }
 }
 
 impl Dispatching for KompactSystem {
-    fn dispatcher_ref(&self) -> ActorRef {
+    fn dispatcher_ref(&self) -> DispatcherRef {
         self.inner.assert_active();
         self.inner.dispatcher_ref()
     }
@@ -549,8 +550,8 @@ impl TimerRefFactory for KompactSystem {
 }
 
 pub trait SystemComponents: Send + Sync {
-    fn deadletter_ref(&self) -> ActorRef;
-    fn dispatcher_ref(&self) -> ActorRef;
+    fn deadletter_ref(&self) -> ActorRef<Never>;
+    fn dispatcher_ref(&self) -> DispatcherRef;
     fn system_path(&self) -> SystemPath;
     fn start(&self, _system: &KompactSystem) -> ();
     fn stop(&self, _system: &KompactSystem) -> ();
@@ -584,11 +585,11 @@ impl InternalComponents {
         system.start(&self.supervisor);
     }
 
-    fn deadletter_ref(&self) -> ActorRef {
+    fn deadletter_ref(&self) -> ActorRef<Never> {
         self.system_components.deadletter_ref()
     }
 
-    fn dispatcher_ref(&self) -> ActorRef {
+    fn dispatcher_ref(&self) -> DispatcherRef {
         self.system_components.dispatcher_ref()
     }
 
@@ -678,27 +679,33 @@ impl KompactRuntime {
     }
 
     /// Registers an actor with a path at the dispatcher
-    fn register_by_path(
+    fn register_by_path<D>(
         &self,
-        actor_ref: ActorRef,
+        actor_ref: &D,
         path: PathResolvable,
-    ) -> Future<Result<ActorPath, RegistrationError>> {
+    ) -> Future<Result<ActorPath, RegistrationError>>
+    where
+        D: DynActorRefFactory,
+    {
         debug!(self.logger(), "Requesting actor registration at {:?}", path);
         let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
-        let envelope = MsgEnvelope::Dispatch(DispatchEnvelope::Registration(
-            RegistrationEnvelope::Register(actor_ref, path, Some(promise)),
+        let envelope = MsgEnvelope::Typed(DispatchEnvelope::Registration(
+            RegistrationEnvelope::Register(actor_ref.dyn_ref(), path, Some(promise)),
         ));
         dispatcher.enqueue(envelope);
         future
     }
 
     /// Registers an actor with an alias at the dispatcher
-    fn register_by_alias(
+    fn register_by_alias<D>(
         &self,
-        actor_ref: ActorRef,
+        actor_ref: &D,
         alias: String,
-    ) -> Future<Result<ActorPath, RegistrationError>> {
+    ) -> Future<Result<ActorPath, RegistrationError>>
+    where
+        D: DynActorRefFactory,
+    {
         debug!(
             self.logger(),
             "Requesting actor alias registration for {:?}", alias
@@ -707,14 +714,14 @@ impl KompactRuntime {
         self.register_by_path(actor_ref, path)
     }
 
-    fn deadletter_ref(&self) -> ActorRef {
+    fn deadletter_ref(&self) -> ActorRef<Never> {
         match *self.internal_components {
             Some(ref sc) => sc.deadletter_ref(),
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
 
-    fn dispatcher_ref(&self) -> ActorRef {
+    fn dispatcher_ref(&self) -> DispatcherRef {
         match *self.internal_components {
             Some(ref sc) => sc.dispatcher_ref(),
             None => panic!("KompactRuntime was not properly initialised!"),

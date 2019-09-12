@@ -27,7 +27,10 @@ fn impl_actor(ast: &syn::DeriveInput) -> TokenStream2 {
 
         quote! {
             impl #impl_generics ActorRaw for #name #ty_generics #where_clause {
-                fn receive(&mut self, env: ReceiveEnvelope) -> () {
+
+                type Message = Never;
+
+                fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> () {
                     println!("Got msg, but component isn't handling any: {:?}", env);
                 }
             }

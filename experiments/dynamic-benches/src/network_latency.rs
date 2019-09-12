@@ -288,7 +288,12 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     sys2.shutdown().expect("System 2 did not shut down!");
 }
 
-criterion_group!(latency_benches, kompact_network_latency, latch_overhead, kompact_network_throughput);
+criterion_group!(
+    latency_benches,
+    kompact_network_latency,
+    latch_overhead,
+    kompact_network_throughput
+);
 criterion_main!(latency_benches);
 
 #[derive(Debug)]
@@ -376,25 +381,16 @@ pub mod pppipelinestatic {
         }
     }
     impl Actor for Pinger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Pinger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Pong::SER_ID => {
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            match msg.try_deserialise::<Pong, Pong>() {
+                Ok(_pong) => {
                     self.remaining_recv -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining_recv);
                     if self.remaining_recv <= 0u64 {
@@ -404,7 +400,10 @@ pub mod pppipelinestatic {
                         promise.fulfill(time).expect("Promise was dropped");
                     }
                 }
-                _ => unimplemented!("Ponger received unexpected message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Pong: {:?}", e);
+                    unimplemented!("Pinger received unexpected message!")
+                }
             }
         }
     }
@@ -433,29 +432,24 @@ pub mod pppipelinestatic {
         }
     }
     impl Actor for Ponger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Ponger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Ping::SER_ID => {
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            let sender = msg.sender().clone();
+            match msg.try_deserialise::<Ping, Ping>() {
+                Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
                     sender.tell(Pong::EVENT, self);
                 }
-                _ => unimplemented!("Ponger received unexpectd message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                    unimplemented!("Ponger received unexpected message!");
+                }
             }
         }
     }
@@ -464,12 +458,12 @@ pub mod pppipelinestatic {
     pub struct Ping;
     impl Ping {
         pub const EVENT: Ping = Ping {};
-        pub const SER_ID: u64 = 42;
+        pub const SERID: SerId = 42;
     }
     impl Serialisable for Ping {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Ping::SER_ID
+        fn ser_id(&self) -> SerId {
+            Ping::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -485,6 +479,8 @@ pub mod pppipelinestatic {
         }
     }
     impl Deserialiser<Ping> for Ping {
+        const SER_ID: SerId = Ping::SERID;
+
         fn deserialise(_buf: &mut dyn Buf) -> Result<Ping, SerError> {
             Ok(Ping)
         }
@@ -494,12 +490,12 @@ pub mod pppipelinestatic {
     pub struct Pong;
     impl Pong {
         pub const EVENT: Pong = Pong {};
-        pub const SER_ID: u64 = 43;
+        pub const SERID: SerId = 43;
     }
     impl Serialisable for Pong {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Pong::SER_ID
+        fn ser_id(&self) -> SerId {
+            Pong::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -515,6 +511,8 @@ pub mod pppipelinestatic {
         }
     }
     impl Deserialiser<Pong> for Pong {
+        const SER_ID: SerId = Pong::SERID;
+
         fn deserialise(_buf: &mut dyn Buf) -> Result<Pong, SerError> {
             Ok(Pong)
         }
@@ -582,39 +580,29 @@ pub mod pppipelineindexed {
         }
     }
     impl Actor for Pinger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Can't instantiate Never!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Pinger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Pong::SER_ID => {
-                    if let Ok(_pong) = Pong::deserialise(buf) {
-                        self.remaining_recv -= 1u64;
-                        trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining_recv);
-                        if self.remaining_recv <= 0u64 {
-                            let time = self.start.elapsed();
-                            trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
-                            let promise = self.done.take().expect("No promise to reply to?");
-                            promise.fulfill(time).expect("Promise was dropped");
-                        }
-                    } else {
-                        error!(self.ctx.log(), "Could not deserialise Pong message!");
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            match msg.try_deserialise::<Pong, Pong>() {
+                Ok(_pong) => {
+                    self.remaining_recv -= 1u64;
+                    trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining_recv);
+                    if self.remaining_recv <= 0u64 {
+                        let time = self.start.elapsed();
+                        trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
+                        let promise = self.done.take().expect("No promise to reply to?");
+                        promise.fulfill(time).expect("Promise was dropped");
                     }
                 }
-                _ => unimplemented!("Ponger received unexpected message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                    unimplemented!("Pinger received unexpected message!");
+                }
             }
         }
     }
@@ -643,33 +631,24 @@ pub mod pppipelineindexed {
         }
     }
     impl Actor for Ponger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Ponger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Ping::SER_ID => {
-                    if let Ok(ping) = Ping::deserialise(buf) {
-                        trace!(self.ctx.log(), "Ponger got Ping!");
-                        sender.tell(Pong::new(ping.index), self);
-                    } else {
-                        error!(self.ctx.log(), "Could not deserialise Ping message!");
-                    }
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            let sender = msg.sender().clone();
+            match msg.try_deserialise::<Ping, Ping>() {
+                Ok(ping) => {
+                    trace!(self.ctx.log(), "Ponger got Ping!");
+                    sender.tell(Pong::new(ping.index), self);
                 }
-                _ => unimplemented!("Ponger received unexpectd message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                    unimplemented!("Ponger received unexpected message!");
+                }
             }
         }
     }
@@ -679,7 +658,7 @@ pub mod pppipelineindexed {
         index: u64,
     }
     impl Ping {
-        pub const SER_ID: u64 = 42;
+        pub const SERID: SerId = 42;
 
         pub fn new(index: u64) -> Ping {
             Ping { index }
@@ -687,8 +666,8 @@ pub mod pppipelineindexed {
     }
     impl Serialisable for Ping {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Ping::SER_ID
+        fn ser_id(&self) -> SerId {
+            Ping::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -705,6 +684,8 @@ pub mod pppipelineindexed {
         }
     }
     impl Deserialiser<Ping> for Ping {
+        const SER_ID: SerId = Ping::SERID;
+
         fn deserialise(buf: &mut dyn Buf) -> Result<Ping, SerError> {
             let index = buf.get_u64_be();
             Ok(Ping::new(index))
@@ -716,7 +697,7 @@ pub mod pppipelineindexed {
         index: u64,
     }
     impl Pong {
-        pub const SER_ID: u64 = 43;
+        pub const SERID: SerId = 43;
 
         pub fn new(index: u64) -> Pong {
             Pong { index }
@@ -724,8 +705,8 @@ pub mod pppipelineindexed {
     }
     impl Serialisable for Pong {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Pong::SER_ID
+        fn ser_id(&self) -> SerId {
+            Pong::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -742,6 +723,8 @@ pub mod pppipelineindexed {
         }
     }
     impl Deserialiser<Pong> for Pong {
+        const SER_ID: SerId = Pong::SERID;
+
         fn deserialise(buf: &mut dyn Buf) -> Result<Pong, SerError> {
             let index = buf.get_u64_be();
             Ok(Pong::new(index))
@@ -803,25 +786,17 @@ pub mod ppstatic {
         }
     }
     impl Actor for Pinger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Pinger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Pong::SER_ID => {
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            let sender = msg.sender().clone();
+            match msg.try_deserialise::<Pong, Pong>() {
+                Ok(_pong) => {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
@@ -833,7 +808,10 @@ pub mod ppstatic {
                         promise.fulfill(time).expect("Promise was dropped");
                     }
                 }
-                _ => unimplemented!("Ponger received unexpected message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                    unimplemented!("Pinger received unexpected message!");
+                }
             }
         }
     }
@@ -862,29 +840,24 @@ pub mod ppstatic {
         }
     }
     impl Actor for Ponger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, _buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Ponger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Ping::SER_ID => {
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            let sender = msg.sender().clone();
+            match msg.try_deserialise::<Ping, Ping>() {
+                Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
                     sender.tell(Pong::EVENT, self);
                 }
-                _ => unimplemented!("Ponger received unexpectd message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                    unimplemented!("Ponger received unexpected message!");
+                }
             }
         }
     }
@@ -893,12 +866,12 @@ pub mod ppstatic {
     pub struct Ping;
     impl Ping {
         pub const EVENT: Ping = Ping {};
-        pub const SER_ID: u64 = 42;
+        pub const SERID: SerId = 42;
     }
     impl Serialisable for Ping {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Ping::SER_ID
+        fn ser_id(&self) -> SerId {
+            Ping::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -914,6 +887,8 @@ pub mod ppstatic {
         }
     }
     impl Deserialiser<Ping> for Ping {
+        const SER_ID: SerId = Ping::SERID;
+
         fn deserialise(_buf: &mut dyn Buf) -> Result<Ping, SerError> {
             Ok(Ping)
         }
@@ -923,12 +898,12 @@ pub mod ppstatic {
     pub struct Pong;
     impl Pong {
         pub const EVENT: Pong = Pong {};
-        pub const SER_ID: u64 = 43;
+        pub const SERID: SerId = 43;
     }
     impl Serialisable for Pong {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Pong::SER_ID
+        fn ser_id(&self) -> SerId {
+            Pong::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -944,6 +919,8 @@ pub mod ppstatic {
         }
     }
     impl Deserialiser<Pong> for Pong {
+        const SER_ID: SerId = Pong::SERID;
+
         fn deserialise(_buf: &mut dyn Buf) -> Result<Pong, SerError> {
             Ok(Pong)
         }
@@ -1015,60 +992,48 @@ pub mod ppstatic {
         }
 
         impl Actor for Pinger {
-            fn receive_local(&mut self, _sender: ActorRef, msg: &dyn Any) -> () {
-                crit!(
-                    self.ctx.log(),
-                    "Got unexpected local msg {:?} (tid: {:?})",
-                    msg,
-                    msg.type_id(),
-                );
-                unimplemented!(); // shouldn't happen during the test
+            type Message = Never;
+
+            fn receive_local(&mut self, _msg: Self::Message) -> () {
+                unimplemented!("Never can't be instantiated!");
             }
 
-            fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-                if ser_id == Pong::SER_ID {
-                    let r: Result<Pong, SerError> = Pong::deserialise(buf);
-                    match r {
-                        Ok(_pong) => {
-                            self.recv_count += 1;
-                            if self.recv_count < self.count {
-                                if self.sent_count < self.count {
+            fn receive_network(&mut self, msg: NetMessage) -> () {
+                trace!(self.ctx.log(), "Pinger received msg {:?}", msg);
+                match msg.try_deserialise::<Pong, Pong>() {
+                    Ok(_pong) => {
+                        self.recv_count += 1;
+                        if self.recv_count < self.count {
+                            if self.sent_count < self.count {
+                                self.ponger.tell(Ping::EVENT, self);
+                                self.sent_count += 1;
+                            }
+                        } else {
+                            self.iters -= 1;
+                            if self.iters > 0u64 {
+                                self.sent_count = 0u64;
+                                self.recv_count = 0u64;
+                                let mut pipelined: u64 = 0;
+                                while (pipelined < self.pipeline) && (self.sent_count < self.count)
+                                {
                                     self.ponger.tell(Ping::EVENT, self);
                                     self.sent_count += 1;
+                                    pipelined += 1;
                                 }
                             } else {
-                                self.iters -= 1;
-                                if self.iters > 0u64 {
-                                    self.sent_count = 0u64;
-                                    self.recv_count = 0u64;
-                                    let mut pipelined: u64 = 0;
-                                    while (pipelined < self.pipeline)
-                                        && (self.sent_count < self.count)
-                                    {
-                                        self.ponger.tell(Ping::EVENT, self);
-                                        self.sent_count += 1;
-                                        pipelined += 1;
-                                    }
-                                } else {
-                                    let time = self.start.elapsed();
-                                    self.done
-                                        .take()
-                                        .expect("No promise?")
-                                        .fulfill(time)
-                                        .expect("Why no fulfillment?");
-                                }
+                                let time = self.start.elapsed();
+                                self.done
+                                    .take()
+                                    .expect("No promise?")
+                                    .fulfill(time)
+                                    .expect("Why no fulfillment?");
                             }
                         }
-                        Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
                     }
-                } else {
-                    crit!(
-                        self.ctx.log(),
-                        "Got message with unexpected serialiser {} from {}",
-                        ser_id,
-                        sender
-                    );
-                    unimplemented!(); // shouldn't happen during the test
+                    Err(e) => {
+                        error!(self.ctx.log(), "Error deserialising Pong: {:?}", e);
+                        unimplemented!("Pinger received unexpected message!")
+                    }
                 }
             }
         }
@@ -1097,33 +1062,24 @@ pub mod ppstatic {
         }
 
         impl Actor for Ponger {
-            fn receive_local(&mut self, _sender: ActorRef, msg: &dyn Any) -> () {
-                crit!(
-                    self.ctx.log(),
-                    "Got unexpected local msg {:?} (tid: {:?})",
-                    msg,
-                    msg.type_id(),
-                );
-                unimplemented!(); // shouldn't happen during the test
+            type Message = Never;
+
+            fn receive_local(&mut self, _msg: Self::Message) -> () {
+                unimplemented!("Never can't be instantiated!");
             }
 
-            fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-                if ser_id == Ping::SER_ID {
-                    let r: Result<Ping, SerError> = Ping::deserialise(buf);
-                    match r {
-                        Ok(_ping) => {
-                            sender.tell(Pong::EVENT, self);
-                        }
-                        Err(e) => error!(self.ctx.log(), "Error deserialising Ping: {:?}", e),
+            fn receive_network(&mut self, msg: NetMessage) -> () {
+                trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+                let sender = msg.sender().clone();
+                match msg.try_deserialise::<Ping, Ping>() {
+                    Ok(ping) => {
+                        trace!(self.ctx.log(), "Ponger got Ping!");
+                        sender.tell(Pong::EVENT, self);
                     }
-                } else {
-                    crit!(
-                        self.ctx.log(),
-                        "Got message with unexpected serialiser {} from {}",
-                        ser_id,
-                        sender
-                    );
-                    unimplemented!(); // shouldn't happen during the test
+                    Err(e) => {
+                        error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                        unimplemented!("Ponger received unexpected message!");
+                    }
                 }
             }
         }
@@ -1184,41 +1140,31 @@ pub mod ppindexed {
         }
     }
     impl Actor for Pinger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Pinger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Pong::SER_ID => {
-                    if let Ok(_pong) = Pong::deserialise(buf) {
-                        self.remaining -= 1u64;
-                        trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
-                        if self.remaining > 0u64 {
-                            sender.tell(Ping::new(self.remaining), self);
-                        } else {
-                            let time = self.start.elapsed();
-                            trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
-                            let promise = self.done.take().expect("No promise to reply to?");
-                            promise.fulfill(time).expect("Promise was dropped");
-                        }
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            match msg.try_deserialise::<Pong, Pong>() {
+                Ok(_pong) => {
+                    self.remaining -= 1u64;
+                    trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
+                    if self.remaining > 0u64 {
+                        self.ponger.tell(Ping::new(self.remaining), self);
                     } else {
-                        error!(self.ctx.log(), "Could not deserialise Pong message!");
+                        let time = self.start.elapsed();
+                        trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
+                        let promise = self.done.take().expect("No promise to reply to?");
+                        promise.fulfill(time).expect("Promise was dropped");
                     }
                 }
-                _ => unimplemented!("Ponger received unexpected message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Pong: {:?}", e);
+                    unimplemented!("Pinger received unexpected message!")
+                }
             }
         }
     }
@@ -1247,33 +1193,24 @@ pub mod ppindexed {
         }
     }
     impl Actor for Ponger {
-        fn receive_local(&mut self, sender: ActorRef, msg: &dyn Any) -> () {
-            warn!(
-                self.ctx.log(),
-                "Ponger received {:?} (type_id={:?}) from {}, but doesn't handle such things!",
-                msg,
-                msg.type_id(),
-                sender
-            );
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_message(&mut self, sender: ActorPath, ser_id: u64, buf: &mut dyn Buf) -> () {
-            trace!(
-                self.ctx.log(),
-                "Ponger received buffer with id {:?} from {}",
-                ser_id,
-                sender
-            );
-            match ser_id {
-                Ping::SER_ID => {
-                    if let Ok(ping) = Ping::deserialise(buf) {
-                        trace!(self.ctx.log(), "Ponger got Ping!");
-                        sender.tell(Pong::new(ping.index), self);
-                    } else {
-                        error!(self.ctx.log(), "Could not deserialise Ping message!");
-                    }
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            let sender = msg.sender().clone();
+            match msg.try_deserialise::<Ping, Ping>() {
+                Ok(ping) => {
+                    trace!(self.ctx.log(), "Ponger got Ping!");
+                    sender.tell(Pong::new(ping.index), self);
                 }
-                _ => unimplemented!("Ponger received unexpectd message!"),
+                Err(e) => {
+                    error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
+                    unimplemented!("Ponger received unexpected message!");
+                }
             }
         }
     }
@@ -1283,7 +1220,7 @@ pub mod ppindexed {
         index: u64,
     }
     impl Ping {
-        pub const SER_ID: u64 = 42;
+        pub const SERID: SerId = 42;
 
         pub fn new(index: u64) -> Ping {
             Ping { index }
@@ -1291,8 +1228,8 @@ pub mod ppindexed {
     }
     impl Serialisable for Ping {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Ping::SER_ID
+        fn ser_id(&self) -> SerId {
+            Ping::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -1309,6 +1246,8 @@ pub mod ppindexed {
         }
     }
     impl Deserialiser<Ping> for Ping {
+        const SER_ID: SerId = Ping::SERID;
+
         fn deserialise(buf: &mut dyn Buf) -> Result<Ping, SerError> {
             let index = buf.get_u64_be();
             Ok(Ping::new(index))
@@ -1320,7 +1259,7 @@ pub mod ppindexed {
         index: u64,
     }
     impl Pong {
-        pub const SER_ID: u64 = 43;
+        pub const SERID: SerId = 43;
 
         pub fn new(index: u64) -> Pong {
             Pong { index }
@@ -1328,8 +1267,8 @@ pub mod ppindexed {
     }
     impl Serialisable for Pong {
         #[inline(always)]
-        fn serid(&self) -> u64 {
-            Pong::SER_ID
+        fn ser_id(&self) -> SerId {
+            Pong::SERID
         }
 
         fn size_hint(&self) -> Option<usize> {
@@ -1346,6 +1285,8 @@ pub mod ppindexed {
         }
     }
     impl Deserialiser<Pong> for Pong {
+        const SER_ID: SerId = Pong::SERID;
+
         fn deserialise(buf: &mut dyn Buf) -> Result<Pong, SerError> {
             let index = buf.get_u64_be();
             Ok(Pong::new(index))

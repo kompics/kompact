@@ -5,7 +5,7 @@ use protobuf::{Message, ProtobufError};
 pub struct ProtobufSer;
 
 impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
-    fn serid(&self) -> u64 {
+    fn ser_id(&self) -> SerId {
         serialisation_ids::PBUF
     }
 
@@ -38,7 +38,7 @@ pub struct ProtobufDeser<M: Message + Any + Debug, B: Buf> {
 }
 
 impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B> {
-    fn serid(&self) -> u64 {
+    fn ser_id(&self) -> SerId {
         serialisation_ids::PBUF
     }
 

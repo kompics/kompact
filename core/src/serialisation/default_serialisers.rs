@@ -2,16 +2,24 @@ use super::*;
 
 /// Currently in internal use: 0-20
 pub mod serialisation_ids {
-    // 0 ???
-    // 1-5 in messaging::framing::SerIdents
-    pub const STR: u64 = 6;
-    pub const U64: u64 = 7;
+    use super::SerId;
 
-    pub const PBUF: u64 = 20;
+    pub const UNKNOWN: SerId = 0; // this is used for trivial deserialisers
+    pub const DISPATCH_ENVELOPE: SerId = 1;
+    pub const UNIQUE_PATH: SerId = 2;
+    pub const NAMED_PATH: SerId = 3;
+    //pub const SYSTEM_PATH_HEADER: SerId = 4; // this one is freed now...reuse in th future!
+    pub const SYSTEM_PATH: SerId = 5;
+    pub const ACTOR_PATH: SerId = 6;
+
+    pub const STR: SerId = 6;
+    pub const U64: SerId = 7;
+
+    pub const PBUF: SerId = 20;
 }
 
 impl Serialisable for &'static str {
-    fn serid(&self) -> u64 {
+    fn ser_id(&self) -> SerId {
         serialisation_ids::STR
     }
 
@@ -30,7 +38,7 @@ impl Serialisable for &'static str {
 }
 
 impl Serialisable for u64 {
-    fn serid(&self) -> u64 {
+    fn ser_id(&self) -> SerId {
         serialisation_ids::U64
     }
 
