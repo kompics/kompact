@@ -66,6 +66,8 @@ pub mod prelude {
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
+    pub use crate::match_deser;
+
     pub use crate::{
         actors::{
             Actor,
@@ -87,8 +89,12 @@ pub mod prelude {
             ComponentDefinition,
             CoreContainer,
             ExecuteResult,
+            LockingProvideRef,
+            LockingRequireRef,
             Provide,
+            ProvideRef,
             Require,
+            RequireRef,
         },
         lifecycle::{ControlEvent, ControlPort},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
@@ -106,7 +112,8 @@ pub mod prelude {
     pub use crate::{
         serialisation::*,
         utils::{
-            biconnect,
+            biconnect_components,
+            biconnect_ports,
             on_dual_definition,
             promise as kpromise,
             Fulfillable,
@@ -245,10 +252,10 @@ mod tests {
     fn test_with_system(system: KompactSystem) -> () {
         let tc = system.create(TestComponent::new);
         let rc = system.create(RecvComponent::new);
-        let rctp = rc.on_definition(|c| c.test_port.share());
-        let tctp = tc.on_definition(|c| {
+        let rctp: RequiredRef<TestPort> = rc.required_ref();
+        let tctp: ProvidedRef<TestPort> = tc.on_definition(|c| {
             c.test_port.connect(rctp);
-            c.test_port.share()
+            c.provided_ref()
         });
         system.start(&tc);
         system.start(&rc);
@@ -513,7 +520,7 @@ mod tests {
             // limit scope
             let cc = system.create(|| CrasherComponent::new(false));
 
-            let crash_port = cc.on_definition(|def| def.crash_port.share());
+            let crash_port: ProvidedRef<CrashPort> = cc.provided_ref();
 
             let f = system.start_notify(&cc);
 

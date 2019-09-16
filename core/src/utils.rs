@@ -40,7 +40,24 @@ where
     Ok(f(cd1.deref_mut(), cd2.deref_mut()))
 }
 
-pub fn biconnect<P, C1, C2>(prov: &mut ProvidedPort<P, C1>, req: &mut RequiredPort<P, C2>) -> ()
+pub fn biconnect_components<P, C1, C2>(
+    provider: &Arc<Component<C1>>,
+    requirer: &Arc<Component<C2>>,
+) -> Result<(), TryDualLockError>
+where
+    P: Port + 'static,
+    C1: ComponentDefinition + Sized + 'static + Provide<P> + ProvideRef<P>,
+    C2: ComponentDefinition + Sized + 'static + Require<P> + RequireRef<P>,
+{
+    on_dual_definition(provider, requirer, |prov, req| {
+        let prov_share: ProvidedRef<P> = prov.provided_ref();
+        let req_share: RequiredRef<P> = req.required_ref();
+        ProvideRef::connect_to_required(prov, req_share);
+        RequireRef::connect_to_provided(req, prov_share);
+    })
+}
+
+pub fn biconnect_ports<P, C1, C2>(prov: &mut ProvidedPort<P, C1>, req: &mut RequiredPort<P, C2>) -> ()
 where
     P: Port,
     C1: ComponentDefinition + Sized + 'static + Provide<P>,

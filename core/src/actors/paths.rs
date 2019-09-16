@@ -1,7 +1,7 @@
 use super::*;
-use crate::messaging::{DispatchEnvelope, MsgEnvelope, PathResolvable};
+use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable, Serialised};
 use std::{
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     error::Error,
     fmt::{self, Debug},
     net::{AddrParseError, IpAddr, SocketAddr},
@@ -204,8 +204,30 @@ impl ActorPath {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
         let dst = self.clone();
-        let env = DispatchEnvelope::Msg { src, dst, msg };
+        let env = DispatchEnvelope::Msg {
+            src,
+            dst,
+            msg: DispatchData::Lazy(msg),
+        };
         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
+    }
+
+    /// Same as [tell](tell), but serialises eagerly.
+    pub fn tell_ser<S, B>(&self, m: B, from: &S) -> Result<(), SerError>
+    where
+        S: ActorSource,
+        B: TryInto<Serialised, Error = SerError>,
+    {
+        let msg: Serialised = m.try_into()?;
+        let src = from.path_resolvable();
+        let dst = self.clone();
+        let env = DispatchEnvelope::Msg {
+            src,
+            dst,
+            msg: DispatchData::Eager(msg),
+        };
+        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+        Ok(())
     }
 
     pub fn using_dispatcher<'a, 'b>(

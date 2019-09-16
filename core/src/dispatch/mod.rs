@@ -1,28 +1,29 @@
 use super::*;
 
-use actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport};
-use component::{Component, ComponentContext, ExecuteResult, Provide};
-use lifecycle::{ControlEvent, ControlPort};
+use crate::{
+    actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport},
+    component::{Component, ComponentContext, ExecuteResult, Provide},
+    lifecycle::{ControlEvent, ControlPort},
+};
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::actors::{NamedPath, UniquePath};
+use crate::{
+    actors::{NamedPath, UniquePath},
+    dispatch::{lookup::ActorStore, queue_manager::QueueManager},
+    messaging::{
+        DispatchData,
+        DispatchEnvelope,
+        EventEnvelope,
+        MsgEnvelope,
+        NetMessage,
+        PathResolvable,
+        RegistrationEnvelope,
+        RegistrationError,
+    },
+    net::{events::NetworkEvent, ConnectionState},
+};
 use arc_swap::ArcSwap;
-use dispatch::{lookup::ActorStore, queue_manager::QueueManager};
 use futures::{self, Async, AsyncSink, Poll, StartSend};
-use messaging::{
-    DispatchEnvelope,
-    EventEnvelope,
-    MsgEnvelope,
-    NetMessage,
-    PathResolvable,
-    RegistrationEnvelope,
-    RegistrationError,
-};
-use net::{events::NetworkEvent, ConnectionState};
-use serialisation::{
-    helpers::{serialise_msg, serialise_to_msg},
-    Serialisable,
-};
 //use std::collections::HashMap;
 use fnv::FnvHashMap;
 use std::{io::ErrorKind, time::Duration};
@@ -249,27 +250,21 @@ impl NetworkDispatcher {
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
-    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: Box<dyn Serialisable>) {
+    fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
         use crate::dispatch::lookup::ActorLookup;
         let lookup = self.lookup.lease();
-        let ser_id = Serialisable::ser_id(&*msg);
+        let ser_id = msg.ser_id();
         let actor_opt = lookup.get_by_actor_path(&dst);
-        let netmsg = match msg.local() {
-            Ok(boxed_value) => NetMessage::with_box(ser_id, src, dst, boxed_value),
-            Err(msg) => {
-                // local not implemented
-                match serialise_to_msg(src, dst, msg) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        error!(
-                            self.ctx.log(),
-                            "Could not serialise a local message (ser_id = {}). Dropping. Error was: {:?}",
-                            ser_id,
-                            e
-                        );
-                        return;
-                    }
-                }
+        let netmsg = match msg.to_local(src, dst) {
+            Ok(m) => m,
+            Err(e) => {
+                error!(
+                    self.ctx.log(),
+                    "Could not serialise a local message (ser_id = {}). Dropping. Error was: {:?}",
+                    ser_id,
+                    e
+                );
+                return;
             }
         };
         if let Some(ref actor) = actor_opt {
@@ -286,12 +281,24 @@ impl NetworkDispatcher {
 
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
-    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: Box<dyn Serialisable>) {
+    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
         use spaniel::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
-            let payload = serialise_msg(&src, &dst, msg).expect("s11n error");
+            let ser_id = msg.ser_id();
+            let payload = match msg.to_serialised(src, dst) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!(
+                    self.ctx.log(),
+                    "Could not serialise a remote message (ser_id = {}). Dropping. Error was: {:?}",
+                    ser_id,
+                    e
+                );
+                    return;
+                }
+            };
             Frame::Data(Data::new(0.into(), 0, payload))
         };
 
@@ -370,7 +377,7 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: Box<dyn Serialisable>) {
+    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: DispatchData) {
         let src_path = self.resolve_path(&src);
 
         let proto = {
@@ -1005,7 +1012,10 @@ mod dispatch_tests {
             match msg.try_deserialise::<PingMsg, PingPongSer>() {
                 Ok(ping) => {
                     info!(self.ctx.log(), "Got msg {:?}", ping);
-                    sender.tell((PongMsg { i: ping.i }, PING_PONG_SER), self);
+                    let pong = PongMsg { i: ping.i };
+                    sender
+                        .tell_ser((&pong, &PING_PONG_SER), self)
+                        .expect("PongMsg should serialise");
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
             }

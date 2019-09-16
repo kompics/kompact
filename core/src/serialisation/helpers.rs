@@ -1,11 +1,19 @@
 use crate::{
     actors::ActorPath,
-    messaging::NetMessage,
-    serialisation::{Deserialiser, SerError, SerIdBuf, SerIdBufMut, SerIdSize, Serialisable},
+    messaging::{NetMessage, Serialised},
+    serialisation::{
+        Deserialiser,
+        SerError,
+        SerIdBuf,
+        SerIdBufMut,
+        SerIdSize,
+        Serialisable,
+        Serialiser,
+    },
 };
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut, IntoBuf};
 
-/// Creates a new `ReceiveEnvelope` from the provided fields, allocating a new `BytesMut`
+/// Creates a new `NetMessage` from the provided fields, allocating a new `BytesMut`
 /// according to the message's size hint. The message's serialized data is stored in this buffer.
 pub fn serialise_to_msg(
     src: ActorPath,
@@ -21,6 +29,40 @@ pub fn serialise_to_msg(
             }
             Err(ser_err) => Err(ser_err),
         }
+    } else {
+        Err(SerError::Unknown("Unknown serialisation size".into()))
+    }
+}
+
+/// Creates a new `Serialised` from the provided fields, allocating a new `BytesMut`
+/// according to the message's size hint. The message's serialized data is stored in this buffer.
+pub fn serialise_to_serialised<S>(ser: &S) -> Result<Serialised, SerError>
+where
+    S: Serialisable + ?Sized,
+{
+    if let Some(size) = ser.size_hint() {
+        let mut buf = BytesMut::with_capacity(size);
+        ser.serialise(&mut buf).map(|_| Serialised {
+            ser_id: ser.ser_id(),
+            data: buf.freeze(),
+        })
+    } else {
+        Err(SerError::Unknown("Unknown serialisation size".into()))
+    }
+}
+/// Creates a new `Serialised` from the provided fields, allocating a new `BytesMut`
+/// according to the message's size hint. The message's serialized data is stored in this buffer.
+pub fn serialiser_to_serialised<T, S>(t: &T, ser: &S) -> Result<Serialised, SerError>
+where
+    T: std::fmt::Debug,
+    S: Serialiser<T> + ?Sized,
+{
+    if let Some(size) = ser.size_hint() {
+        let mut buf = BytesMut::with_capacity(size);
+        ser.serialise(t, &mut buf).map(|_| Serialised {
+            ser_id: ser.ser_id(),
+            data: buf.freeze(),
+        })
     } else {
         Err(SerError::Unknown("Unknown serialisation size".into()))
     }
@@ -59,6 +101,26 @@ pub fn serialise_msg(
     Serialisable::serialise(msg.as_ref(), &mut buf)?;
 
     Ok(buf.freeze())
+}
+pub fn embed_in_msg(src: &ActorPath, dst: &ActorPath, msg: Serialised) -> Result<Bytes, SerError> {
+    let mut size: usize = 0;
+    size += src.size_hint().unwrap_or(0);
+    size += dst.size_hint().unwrap_or(0);
+    size += msg.ser_id.size();
+
+    if size == 0 {
+        return Err(SerError::InvalidData("Encoded size is zero".into()));
+    }
+
+    let mut buf = BytesMut::with_capacity(size);
+    Serialisable::serialise(src, &mut buf)?;
+    Serialisable::serialise(dst, &mut buf)?;
+    buf.put_ser_id(msg.ser_id);
+
+    let chained = buf.into_buf().chain(msg.data);
+    let bytes: Bytes = chained.collect();
+
+    Ok(bytes)
 }
 
 /// Extracts a [MsgEnvelope] from the provided buffer according to the format above.

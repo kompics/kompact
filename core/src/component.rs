@@ -525,6 +525,51 @@ pub trait Require<P: Port + 'static> {
     fn handle(&mut self, event: P::Indication) -> ();
 }
 
+pub trait ProvideRef<P: Port + 'static> {
+    fn provided_ref(&mut self) -> ProvidedRef<P>;
+    fn connect_to_required(&mut self, req: RequiredRef<P>) -> ();
+}
+pub trait RequireRef<P: Port + 'static> {
+    fn required_ref(&mut self) -> RequiredRef<P>;
+    fn connect_to_provided(&mut self, prov: ProvidedRef<P>) -> ();
+}
+
+pub trait LockingProvideRef<P: Port + 'static> {
+    fn provided_ref(&self) -> ProvidedRef<P>;
+    fn connect_to_required(&self, req: RequiredRef<P>) -> ();
+}
+pub trait LockingRequireRef<P: Port + 'static> {
+    fn required_ref(&self) -> RequiredRef<P>;
+    fn connect_to_provided(&self, prov: ProvidedRef<P>) -> ();
+}
+
+impl<P, CD> LockingProvideRef<P> for Arc<Component<CD>>
+where
+    P: Port + 'static,
+    CD: ComponentDefinition + Provide<P> + ProvideRef<P>,
+{
+    fn provided_ref(&self) -> ProvidedRef<P> {
+        self.on_definition(|cd| ProvideRef::provided_ref(cd))
+    }
+
+    fn connect_to_required(&self, req: RequiredRef<P>) -> () {
+        self.on_definition(|cd| ProvideRef::connect_to_required(cd, req))
+    }
+}
+impl<P, CD> LockingRequireRef<P> for Arc<Component<CD>>
+where
+    P: Port + 'static,
+    CD: ComponentDefinition + Require<P> + RequireRef<P>,
+{
+    fn required_ref(&self) -> RequiredRef<P> {
+        self.on_definition(|cd| RequireRef::required_ref(cd))
+    }
+
+    fn connect_to_provided(&self, prov: ProvidedRef<P>) -> () {
+        self.on_definition(|cd| RequireRef::connect_to_provided(cd, prov))
+    }
+}
+
 pub enum SchedulingDecision {
     Schedule,
     AlreadyScheduled,

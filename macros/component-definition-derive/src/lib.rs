@@ -117,6 +117,38 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 }
             }
         };
+        let port_ref_impls = ports
+            .iter()
+            .map(|p| {
+                let (field, port_field) = p;
+                let ref id = field.ident;
+                match port_field {
+                    PortField::Required(ty) => quote! {
+                        impl #impl_generics RequireRef< #ty > for #name #ty_generics #where_clause {
+                            fn required_ref(&mut self) -> RequiredRef< #ty > {
+                                self.#id.share()
+                            }
+                            fn connect_to_provided(&mut self, prov: ProvidedRef< #ty >) -> () {
+                                self.#id.connect(prov)
+                            }
+                        }
+                    },
+                    PortField::Provided(ty) => quote! {
+                        impl #impl_generics ProvideRef< #ty > for #name #ty_generics #where_clause {
+                            fn provided_ref(&mut self) -> ProvidedRef< #ty > {
+                                self.#id.share()
+                            }
+                            fn connect_to_required(&mut self, req: RequiredRef< #ty >) -> () {
+                                self.#id.connect(req)
+                            }
+                        }
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        // if !port_ref_impls.is_empty() {
+        // println!("PortRefImpls: {}",port_ref_impls[0]);
+        // }
         quote! {
             impl #impl_generics ComponentDefinition for #name #ty_generics #where_clause {
                 fn setup(&mut self, self_component: ::std::sync::Arc<Component<Self>>) -> () {
@@ -135,6 +167,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                     #name_str
                 }
             }
+            #(#port_ref_impls)*
         }
     } else {
         //Nope. This is an Enum. We cannot handle these!
