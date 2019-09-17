@@ -379,6 +379,16 @@ mod deser_macro_tests {
                 }
             }
         });
+        // alternative design
+        //  simple_macro_test_impl(|msg| {
+        //     match_deser! { msg; {
+        //             Msg(res: MsgA [MsgA]) => EitherAOrB::A(res),
+        //             Msg(res: MsgB [BSer]) => EitherAOrB::B(res),
+        //             Err(_e) => panic!("test panic please ignore"),
+        //             _ => unimplemented!("Should be either MsgA or MsgB!"),
+        //         }
+        //     }
+        // });
         simple_macro_test_err_impl(|msg| {
             match_deser! { msg; {
                     res: MsgA [MsgA] => EitherAOrB::A(res),

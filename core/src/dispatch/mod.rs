@@ -1009,16 +1009,16 @@ mod dispatch_tests {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             let sender = msg.sender().clone();
-            match msg.try_deserialise::<PingMsg, PingPongSer>() {
-                Ok(ping) => {
+            match_deser! {msg; {
+                ping: PingMsg [PingPongSer] => {
                     info!(self.ctx.log(), "Got msg {:?}", ping);
                     let pong = PongMsg { i: ping.i };
                     sender
                         .tell_ser((&pong, &PING_PONG_SER), self)
                         .expect("PongMsg should serialise");
-                }
-                Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
-            }
+                },
+                !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
+            }}
         }
     }
 }

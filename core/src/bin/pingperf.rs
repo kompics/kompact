@@ -127,7 +127,8 @@ fn main() {
     for _ in 0..PROC_PAIRS {
         let pingerc = sys.create(move || Pinger::with(MSGS, l2.clone()));
         let pongerc = sys.create(move || Ponger::new());
-        biconnect_components::<PingPongPort,_,_>(&pongerc, &pingerc);
+        biconnect_components::<PingPongPort, _, _>(&pongerc, &pingerc)
+            .expect("Could not connect two pingers!");
         // on_dual_definition(&pingerc, &pongerc, |pingercd, pongercd| {
         //     biconnect(&mut pongercd.ppp, &mut pingercd.ppp);
         // })

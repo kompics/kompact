@@ -4,6 +4,11 @@ use kompact::prelude::*;
 #[derive(Debug, Clone)]
 pub struct Ping;
 pub const PING: Ping = Ping;
+impl From<Ping> for &'static Ping {
+    fn from(_p: Ping) -> Self {
+        &PING
+    }
+}
 
 struct TestPort;
 impl Port for TestPort {
@@ -68,6 +73,7 @@ impl Serialiser<Ping> for PingSer {
 pub fn clone_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Clone Benches");
     g.bench_function("bench clone ActorRef", |b| tests::bench_clone_actor_ref(b));
+    g.bench_function("bench clone Recipient", |b| tests::bench_clone_recipient(b));
     g.bench_function("bench clone ActorPath", |b| {
         tests::bench_clone_actor_path(b)
     });
@@ -77,6 +83,7 @@ pub fn clone_benches(c: &mut Criterion) {
 pub fn tell_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Tell/Trigger Benches");
     g.bench_function("bench tell ActorRef", |b| tests::bench_tell_actor_ref(b));
+    g.bench_function("bench tell Recipient", |b| tests::bench_tell_recipient(b));
     g.bench_function("bench tell ActorRef (Strong)", |b| {
         tests::bench_tell_actor_ref_strong(b)
     });
@@ -89,6 +96,35 @@ mod tests {
     use super::*;
     use criterion::Bencher;
     use std::time::Duration;
+
+    pub fn bench_clone_recipient(b: &mut Bencher) {
+        let sys = KompactConfig::default().build().expect("System");
+        let tester = sys.create_and_start(TestActor::new);
+        let tester_ref = tester.actor_ref();
+        let tester_recipient: Recipient<Ping> = tester_ref.recipient();
+        let mut cloned_recipient = tester_recipient.clone();
+        b.iter(|| {
+            cloned_recipient = tester_recipient.clone();
+        });
+        drop(cloned_recipient);
+        drop(tester_recipient);
+        drop(tester_ref);
+        drop(tester);
+        sys.shutdown().expect("System didn't shut down :(");
+    }
+
+    pub fn bench_tell_recipient(b: &mut Bencher) {
+        let sys = KompactConfig::default().build().expect("System");
+        let tester = sys.create_and_start(TestActor::new);
+        let tester_ref = tester.actor_ref();
+        let tester_recipient: Recipient<Ping> = tester_ref.recipient();
+        b.iter(|| {
+            tester_recipient.tell(PING);
+        });
+        drop(tester_ref);
+        drop(tester);
+        sys.shutdown().expect("System didn't shut down :(");
+    }
 
     pub fn bench_clone_actor_ref(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");

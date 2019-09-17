@@ -57,7 +57,10 @@ where
     })
 }
 
-pub fn biconnect_ports<P, C1, C2>(prov: &mut ProvidedPort<P, C1>, req: &mut RequiredPort<P, C2>) -> ()
+pub fn biconnect_ports<P, C1, C2>(
+    prov: &mut ProvidedPort<P, C1>,
+    req: &mut RequiredPort<P, C2>,
+) -> ()
 where
     P: Port,
     C1: ComponentDefinition + Sized + 'static + Provide<P>,

@@ -80,6 +80,7 @@ pub mod prelude {
             Dispatching,
             MessageBounds,
             NamedPath,
+            Recipient,
             Transport,
             UniquePath,
         },
