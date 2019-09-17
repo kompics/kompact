@@ -123,16 +123,10 @@ where
     let timeout = Duration::from_millis(500);
 
     let (ponger, ponger_f) = sys2.create_and_register(ponger_func);
-    let ponger_path = ponger_f
-        .wait_timeout(timeout)
-        .expect("Ponger never registered")
-        .expect("Ponger failed to register!");
+    let ponger_path = ponger_f.wait_expect(timeout, "Ponger failed to register!");
 
     let (pinger, pinger_f) = sys1.create_and_register(move || pinger_func(ponger_path));
-    let _pinger_path = pinger_f
-        .wait_timeout(timeout)
-        .expect("Pinger never registered")
-        .expect("Pinger failed to register!");
+    let _pinger_path = pinger_f.wait_expect(timeout, "Pinger failed to register!");
 
     let experiment_port = port_func(&pinger);
 
@@ -253,16 +247,10 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     let timeout = Duration::from_millis(500);
 
     let (ponger, ponger_f) = sys2.create_and_register(ponger_func);
-    let ponger_path = ponger_f
-        .wait_timeout(timeout)
-        .expect("Ponger never registered")
-        .expect("Ponger failed to register!");
+    let ponger_path = ponger_f.wait_expect(timeout, "Ponger failed to register!");
 
     let (pinger, pinger_f) = sys1.create_and_register(move || pinger_func(ponger_path));
-    let _pinger_path = pinger_f
-        .wait_timeout(timeout)
-        .expect("Pinger never registered")
-        .expect("Pinger failed to register!");
+    let _pinger_path = pinger_f.wait_expect(timeout, "Pinger failed to register!");
 
     let experiment_port = port_func(&pinger);
 

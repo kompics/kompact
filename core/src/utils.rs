@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use std::{
+    fmt,
     ops::DerefMut,
     sync::{mpsc, TryLockError},
     time::Duration,
@@ -98,6 +99,13 @@ impl<T: Send + Sized> Future<T> {
 
     pub fn wait_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
         self.result_channel.recv_timeout(timeout).map_err(|_| self)
+    }
+}
+impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T, E>> {
+    pub fn wait_expect(self, timeout: Duration, error_msg: &'static str) -> T {
+        self.wait_timeout(timeout)
+            .expect(&format!("{} (caused by timeout)", error_msg))
+            .expect(&format!("{} (caused by result)", error_msg))
     }
 }
 

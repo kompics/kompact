@@ -183,10 +183,7 @@ mod tests {
             cfg.build().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
-        testerf
-            .wait_timeout(Duration::from_millis(1000))
-            .expect("Tester never registered!")
-            .expect("Tester failed to register!");
+        testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
         let unique_path = ActorPath::Unique(UniquePath::with_system(
             sys.system_path(),
             tester.id().clone(),
@@ -208,10 +205,7 @@ mod tests {
             cfg.build().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
-        testerf
-            .wait_timeout(Duration::from_millis(1000))
-            .expect("Tester never registered!")
-            .expect("Tester failed to register!");
+        testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
         let unique_path = ActorPath::Unique(UniquePath::with_system(
             sys.system_path(),
             tester.id().clone(),

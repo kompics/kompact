@@ -670,13 +670,9 @@ mod dispatch_tests {
         let ponger = system.create(PongerAct::new);
         system.start(&ponger);
 
-        let res = system
-            .register_by_alias(&ponger, ACTOR_NAME)
-            .wait_timeout(Duration::from_millis(1000))
-            .expect("Registration never completed.");
-        assert!(
-            res.is_ok(),
-            "Single registration with unique alias should succeed."
+        let _res = system.register_by_alias(&ponger, ACTOR_NAME).wait_expect(
+            Duration::from_millis(1000),
+            "Single registration with unique alias should succeed.",
         );
 
         let res = system
@@ -719,15 +715,9 @@ mod dispatch_tests {
         let (ponger_named, ponf) = remote.create_and_register(PongerAct::new);
         let poaf = remote.register_by_alias(&ponger_named, "custom_name");
 
-        pouf.wait_timeout(Duration::from_millis(1000))
-            .expect("Ponger never registered!")
-            .expect("Ponger failed to register!");
-        ponf.wait_timeout(Duration::from_millis(1000))
-            .expect("Ponger never registered!")
-            .expect("Ponger failed to register!");
-        poaf.wait_timeout(Duration::from_millis(1000))
-            .expect("Ponger never registered!")
-            .expect("Ponger failed to register!");
+        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
         let named_path = ActorPath::Named(NamedPath::with_system(
             remote.system_path(),
@@ -742,12 +732,8 @@ mod dispatch_tests {
         let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new(unique_path));
         let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new(named_path));
 
-        piuf.wait_timeout(Duration::from_millis(1000))
-            .expect("Pinger never registered!")
-            .expect("Ponger failed to register!");
-        pinf.wait_timeout(Duration::from_millis(1000))
-            .expect("Pinger never registered!")
-            .expect("Ponger failed to register!");
+        piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
         remote.start(&ponger_unique);
         remote.start(&ponger_named);
@@ -799,12 +785,8 @@ mod dispatch_tests {
         ponger_path.set_transport(Transport::LOCAL);
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(ponger_path));
 
-        pof.wait_timeout(Duration::from_millis(1000))
-            .expect("Ponger never registered!")
-            .expect("Ponger failed to register!");
-        pif.wait_timeout(Duration::from_millis(1000))
-            .expect("Pinger never registered!")
-            .expect("Ponger failed to register!");
+        pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
         system.start(&ponger);
         system.start(&pinger);
