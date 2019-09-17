@@ -276,7 +276,7 @@ pub enum PathResolvable {
 macro_rules! match_deser {
     ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , }) => {
         match $msg.ser_id() {
-            $( &<$deser as $crate::serialisation::Deserialiser<$target_ty>>::SER_ID => {
+            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
             let $id = $msg.try_deserialise_unchecked::<$target_ty, $deser>().unwrap();
             $rhs
         } )*,
@@ -285,7 +285,7 @@ macro_rules! match_deser {
     };
     ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , !Err($e:pat) => $err_handler:expr, }) => {
         match $msg.ser_id() {
-            $( &<$deser as $crate::serialisation::Deserialiser<$target_ty>>::SER_ID => {
+            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
             match $msg.try_deserialise_unchecked::<$target_ty, $deser>() {
                 Ok($id) => $rhs,
                 Err($e) => $err_handler,
@@ -296,7 +296,7 @@ macro_rules! match_deser {
     };
     ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , _ => $other:expr, }) => {
         match $msg.ser_id() {
-            $( &<$deser as $crate::serialisation::Deserialiser<$target_ty>>::SER_ID => {
+            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
             let $id = $msg.try_deserialise_unchecked::<$target_ty, $deser>().unwrap();
             $rhs
         } )*,
@@ -305,7 +305,7 @@ macro_rules! match_deser {
     };
     ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , !Err($e:pat) => $err_handler:expr , _ => $other:expr, }) => {
         match $msg.ser_id() {
-            $( &<$deser as $crate::serialisation::Deserialiser<$target_ty>>::SER_ID => {
+            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
             match $msg.try_deserialise_unchecked::<$target_ty, $deser>() {
                 Ok($id) => $rhs,
                 Err($e) => $err_handler,

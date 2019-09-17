@@ -72,6 +72,7 @@ pub mod prelude {
         actors::{
             Actor,
             ActorPath,
+            ActorPathFactory,
             ActorRaw,
             ActorRef,
             ActorRefFactory,
@@ -81,8 +82,12 @@ pub mod prelude {
             MessageBounds,
             NamedPath,
             Recipient,
+            Request,
             Transport,
             UniquePath,
+            WithRecipient,
+            WithSender,
+            WithSenderStrong,
         },
         component::{
             Component,

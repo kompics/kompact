@@ -1,6 +1,6 @@
 use super::*;
 
-use std::fmt;
+use std::{fmt, ops::Deref};
 
 pub type DispatcherRef = ActorRefStrong<DispatchEnvelope>;
 
@@ -486,6 +486,159 @@ impl<M> PartialEq for Recipient<M> {
             (Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
             _ => false,
         }
+    }
+}
+
+pub trait Request: MessageBounds {
+    type Response;
+
+    fn reply(&self, resp: Self::Response);
+}
+
+#[derive(Debug)]
+pub struct WithSender<Req: MessageBounds, Resp: MessageBounds> {
+    sender: ActorRef<Resp>,
+    content: Req,
+}
+impl<Req: MessageBounds, Resp: MessageBounds> WithSender<Req, Resp> {
+    pub fn new(content: Req, sender: ActorRef<Resp>) -> WithSender<Req, Resp> {
+        WithSender { sender, content }
+    }
+
+    pub fn from(content: Req, sender: &dyn ActorRefFactory<Resp>) -> WithSender<Req, Resp> {
+        WithSender::new(content, sender.actor_ref())
+    }
+
+    pub fn sender(&self) -> &ActorRef<Resp> {
+        &self.sender
+    }
+
+    pub fn content(&self) -> &Req {
+        &self.content
+    }
+
+    pub fn take_content(self) -> Req {
+        self.content
+    }
+}
+impl<Req: MessageBounds, Resp: MessageBounds> Request for WithSender<Req, Resp> {
+    type Response = Resp;
+
+    fn reply(&self, resp: Self::Response) {
+        self.sender.tell(resp)
+    }
+}
+impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSender<Req, Resp> {
+    type Target = Req;
+
+    fn deref(&self) -> &Self::Target {
+        &self.content
+    }
+}
+
+#[derive(Debug)]
+pub struct WithSenderStrong<Req: MessageBounds, Resp: MessageBounds> {
+    sender: ActorRefStrong<Resp>,
+    content: Req,
+}
+impl<Req: MessageBounds, Resp: MessageBounds> WithSenderStrong<Req, Resp> {
+    pub fn new(content: Req, sender: ActorRefStrong<Resp>) -> WithSenderStrong<Req, Resp> {
+        WithSenderStrong { sender, content }
+    }
+
+    pub fn from(content: Req, sender: &dyn ActorRefFactory<Resp>) -> WithSenderStrong<Req, Resp> {
+        WithSenderStrong::new(content, sender.actor_ref().hold().expect("Live ref"))
+    }
+
+    pub fn sender(&self) -> &ActorRefStrong<Resp> {
+        &self.sender
+    }
+
+    pub fn content(&self) -> &Req {
+        &self.content
+    }
+
+    pub fn take_content(self) -> Req {
+        self.content
+    }
+}
+impl<Req: MessageBounds, Resp: MessageBounds> Request for WithSenderStrong<Req, Resp> {
+    type Response = Resp;
+
+    fn reply(&self, resp: Self::Response) {
+        self.sender.tell(resp)
+    }
+}
+impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSenderStrong<Req, Resp> {
+    type Target = Req;
+
+    fn deref(&self) -> &Self::Target {
+        &self.content
+    }
+}
+
+#[derive(Debug)]
+pub struct WithRecipient<Req: MessageBounds, Resp: fmt::Debug + 'static> {
+    sender: Recipient<Resp>,
+    content: Req,
+}
+impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
+    pub fn new(content: Req, sender: Recipient<Resp>) -> WithRecipient<Req, Resp> {
+        WithRecipient { sender, content }
+    }
+
+    pub fn from<M>(content: Req, sender: &dyn ActorRefFactory<M>) -> WithRecipient<Req, Resp>
+    where
+        M: MessageBounds + From<Resp>,
+    {
+        WithRecipient::new(content, sender.actor_ref().recipient())
+    }
+
+    pub fn from_convert<M: MessageBounds>(
+        content: Req,
+        sender: &dyn ActorRefFactory<M>,
+        convert: fn(Resp) -> M,
+    ) -> WithRecipient<Req, Resp> {
+        WithRecipient::new(content, sender.actor_ref().recipient_with(convert))
+    }
+
+    pub fn sender(&self) -> &Recipient<Resp> {
+        &self.sender
+    }
+
+    pub fn content(&self) -> &Req {
+        &self.content
+    }
+
+    pub fn take_content(self) -> Req {
+        self.content
+    }
+}
+impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Request for WithRecipient<Req, Resp> {
+    type Response = Resp;
+
+    fn reply(&self, resp: Self::Response) {
+        self.sender.tell(resp)
+    }
+}
+impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Deref for WithRecipient<Req, Resp> {
+    type Target = Req;
+
+    fn deref(&self) -> &Self::Target {
+        &self.content
+    }
+}
+
+pub trait Receiver<T> {
+    fn recipient(&self) -> Recipient<T>;
+}
+impl<M, T> Receiver<T> for dyn ActorRefFactory<M>
+where
+    T: fmt::Debug + 'static,
+    M: From<T> + MessageBounds,
+{
+    fn recipient(&self) -> Recipient<T> {
+        self.actor_ref().recipient()
     }
 }
 
