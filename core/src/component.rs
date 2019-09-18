@@ -27,6 +27,7 @@ pub trait CoreContainer: Send + Sync {
     fn system(&self) -> KompactSystem {
         self.core().system().clone()
     }
+    fn schedule(&self) -> ();
 }
 
 impl fmt::Debug for dyn CoreContainer {
@@ -37,6 +38,7 @@ impl fmt::Debug for dyn CoreContainer {
 
 pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     core: ComponentCore,
+    custom_scheduler: Option<dedicated_scheduler::DedicatedThreadScheduler>,
     definition: Mutex<C>,
     ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
     msg_queue: Arc<TypedMsgQueue<C::Message>>,
@@ -60,6 +62,32 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         let msg_queue = Arc::new(TypedMsgQueue::new());
         Component {
             core,
+            custom_scheduler: None,
+            definition: Mutex::new(definition),
+            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            msg_queue,
+            skip: AtomicUsize::new(0),
+            state: lifecycle::initial_state(),
+            supervisor: Some(supervisor),
+            logger,
+        }
+    }
+
+    pub(crate) fn with_dedicated_scheduler(
+        system: KompactSystem,
+        definition: C,
+        supervisor: ProvidedRef<SupervisionPort>,
+        custom_scheduler: dedicated_scheduler::DedicatedThreadScheduler,
+    ) -> Component<C> {
+        let core = ComponentCore::with::<Component<C>>(system);
+        let logger = core
+            .system
+            .logger()
+            .new(o!("cid" => format!("{}", core.id)));
+        let msg_queue = Arc::new(TypedMsgQueue::new());
+        Component {
+            core,
+            custom_scheduler: Some(custom_scheduler),
             definition: Mutex::new(definition),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
@@ -78,6 +106,30 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .new(o!("cid" => format!("{}", core.id)));
         Component {
             core,
+            custom_scheduler: None,
+            definition: Mutex::new(definition),
+            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            msg_queue: Arc::new(TypedMsgQueue::new()),
+            skip: AtomicUsize::new(0),
+            state: lifecycle::initial_state(),
+            supervisor: None,
+            logger,
+        }
+    }
+
+    pub(crate) fn without_supervisor_with_dedicated_scheduler(
+        system: KompactSystem,
+        definition: C,
+        custom_scheduler: dedicated_scheduler::DedicatedThreadScheduler,
+    ) -> Component<C> {
+        let core = ComponentCore::with::<Component<C>>(system);
+        let logger = core
+            .system
+            .logger()
+            .new(o!("cid" => format!("{}", core.id)));
+        Component {
+            core,
+            custom_scheduler: Some(custom_scheduler),
             definition: Mutex::new(definition),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue: Arc::new(TypedMsgQueue::new()),
@@ -96,8 +148,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         self.ctrl_queue.push(event);
         match self.core.increment_work() {
             SchedulingDecision::Schedule => {
-                let system = self.core.system();
-                system.schedule(self.core.component());
+                self.schedule();
             }
             _ => (), // nothing
         }
@@ -180,11 +231,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 if (!lifecycle::is_active(&self.state)) {
                     trace!(self.logger, "Not running inactive scheduled.");
                     match self.core.decrement_work(count) {
-                        SchedulingDecision::Schedule => {
-                            let system = self.core.system();
-                            let cc = self.core.component();
-                            system.schedule(cc);
-                        }
+                        SchedulingDecision::Schedule => self.schedule(),
                         _ => (), // ignore
                     }
                     return;
@@ -231,11 +278,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                     }
                 }
                 match self.core.decrement_work(count) {
-                    SchedulingDecision::Schedule => {
-                        let system = self.core.system();
-                        let cc = self.core.component();
-                        system.schedule(cc);
-                    }
+                    SchedulingDecision::Schedule => self.schedule(),
                     _ => (), // ignore
                 }
             }
@@ -387,11 +430,15 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
         ProvidedRef::new(cc, cq)
     }
 
-    // fn actor_ref(&self) -> ActorRef {
-    //     let msgq = Arc::downgrade(&self.msg_queue);
-    //     let cc = Arc::downgrade(&self.core.component());
-    //     ActorRef::new(cc, msgq)
-    // }
+    fn schedule(&self) -> () {
+        match self.custom_scheduler {
+            Some(ref scheduler) => scheduler.schedule_custom(),
+            None => {
+                let core = self.core();
+                core.system().schedule(core.component())
+            }
+        }
+    }
 }
 
 //

@@ -161,8 +161,7 @@ impl DynActorRef {
                 q.push_net(msg);
                 match sd {
                     SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
+                        c.schedule();
                     }
                     _ => (), // nothing
                 }
@@ -232,8 +231,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         q.push(env);
         match sd {
             SchedulingDecision::Schedule => {
-                let system = c.core().system();
-                system.schedule(c.clone());
+                c.schedule();
             }
             _ => (), // nothing
         }
@@ -319,8 +317,7 @@ impl<M: MessageBounds> ActorRef<M> {
                 q.push(env);
                 match sd {
                     SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
+                        c.schedule();
                     }
                     _ => (), // nothing
                 }
@@ -441,8 +438,7 @@ impl<M: fmt::Debug> Recipient<M> {
                 self.msg_queue.push_into(env);
                 match sd {
                     SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
+                        c.schedule();
                     }
                     _ => (), // nothing
                 }

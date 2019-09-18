@@ -34,6 +34,7 @@ use std::convert::{From, Into};
 
 mod actors;
 mod component;
+pub mod dedicated_scheduler;
 pub mod default_components;
 mod dispatch;
 mod lifecycle;
@@ -265,6 +266,53 @@ mod tests {
     fn test_with_system(system: KompactSystem) -> () {
         let tc = system.create(TestComponent::new);
         let rc = system.create(RecvComponent::new);
+        let rctp: RequiredRef<TestPort> = rc.required_ref();
+        let tctp: ProvidedRef<TestPort> = tc.on_definition(|c| {
+            c.test_port.connect(rctp);
+            c.provided_ref()
+        });
+        system.start(&tc);
+        system.start(&rc);
+        let msg = Arc::new(1234);
+        system.trigger_r(msg, &tctp);
+
+        let ten_millis = time::Duration::from_millis(1000);
+
+        thread::sleep(ten_millis);
+
+        tc.on_definition(|c| {
+            //println!("Counter is {}", c.counter);
+            assert_eq!(c.counter, 1234);
+        });
+
+        thread::sleep(ten_millis);
+
+        rc.on_definition(|c| {
+            //println!("Last string was {}", c.last_string);
+            assert_eq!(c.last_string, String::from("Test"));
+        });
+
+        let rcref = rc.actor_ref();
+        rcref.tell("MsgTest");
+
+        thread::sleep(ten_millis);
+
+        rc.on_definition(|c| {
+            //println!("Last string was {}", c.last_string);
+            assert_eq!(c.last_string, String::from("MsgTest"));
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    fn test_dedicated() -> () {
+        let system = KompactConfig::default().build().expect("System");
+
+        let tc = system.create_dedicated(TestComponent::new);
+        let rc = system.create_dedicated(RecvComponent::new);
         let rctp: RequiredRef<TestPort> = rc.required_ref();
         let tctp: ProvidedRef<TestPort> = tc.on_definition(|c| {
             c.test_port.connect(rctp);

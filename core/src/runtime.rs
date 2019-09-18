@@ -202,6 +202,35 @@ impl KompactConfig {
         self
     }
 
+    pub fn system_components_with_dedicated_dispatcher<B, C, FB, FC>(
+        &mut self,
+        deadletter_fn: FB,
+        dispatcher_fn: FC,
+    ) -> &mut Self
+    where
+        B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
+        C: ComponentDefinition
+            + ActorRaw<Message = DispatchEnvelope>
+            + Sized
+            + 'static
+            + Dispatcher,
+        FB: Fn(Promise<()>) -> B + 'static,
+        FC: Fn(Promise<()>) -> C + 'static,
+    {
+        let sb = move |system: &KompactSystem, dead_prom: Promise<()>, disp_prom: Promise<()>| {
+            let deadletter_box = system.create_unsupervised(|| deadletter_fn(dead_prom));
+            let dispatcher = system.create_dedicated_unsupervised(|| dispatcher_fn(disp_prom));
+
+            let cc = CustomComponents {
+                deadletter_box,
+                dispatcher,
+            };
+            Box::new(cc) as Box<dyn SystemComponents>
+        };
+        self.sc_builder = Rc::new(sb);
+        self
+    }
+
     pub fn logger(&mut self, logger: KompactLogger) -> &mut Self {
         self.root_logger = Some(logger);
         self
@@ -340,6 +369,59 @@ impl KompactSystem {
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
+        return c;
+    }
+
+    /// Create a new component, which runs on its own dedicated thread.
+    ///
+    /// New components are not started automatically.
+    pub fn create_dedicated<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        self.inner.assert_active();
+        let (scheduler, promise) =
+            dedicated_scheduler::DedicatedThreadScheduler::new().expect("Scheduler");
+        let c = Arc::new(Component::with_dedicated_scheduler(
+            self.clone(),
+            f(),
+            self.supervision_port(),
+            scheduler,
+        ));
+        unsafe {
+            let mut cd = c.definition().lock().unwrap();
+            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
+            cd.setup(c.clone());
+            c.core().set_component(cc);
+        }
+        promise.fulfill(c.clone()).expect("Should accept component");
+        return c;
+    }
+
+    /// Use this to create system components, which runs on their own dedicated thread.
+    ///
+    /// During system initialisation the supervisor is not available, yet,
+    /// so normal create calls will panic!
+    pub fn create_dedicated_unsupervised<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        let (scheduler, promise) =
+            dedicated_scheduler::DedicatedThreadScheduler::new().expect("Scheduler");
+        let c = Arc::new(Component::without_supervisor_with_dedicated_scheduler(
+            self.clone(),
+            f(),
+            scheduler,
+        ));
+        unsafe {
+            let mut cd = c.definition().lock().unwrap();
+            cd.setup(c.clone());
+            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
+            c.core().set_component(cc);
+        }
+        promise.fulfill(c.clone()).expect("Should accept component");
         return c;
     }
 
