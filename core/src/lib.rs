@@ -111,7 +111,14 @@ pub mod prelude {
     pub use crate::{
         default_components::{CustomComponents, DeadletterBox},
         dispatch::{NetworkConfig, NetworkDispatcher},
-        messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, PathResolvable, RegistrationError},
+        messaging::{
+            DispatchEnvelope,
+            MsgEnvelope,
+            NetMessage,
+            PathResolvable,
+            RegistrationError,
+            Serialised,
+        },
         timer_manager::Timer,
     };
 

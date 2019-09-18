@@ -25,6 +25,10 @@ pub trait Serialisable: Send + Debug {
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError>;
 
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>>;
+
+    fn serialised(&self) -> Result<crate::messaging::Serialised, SerError> {
+        crate::serialisation::helpers::serialise_to_serialised(self)
+    }
 }
 
 impl<T, S> From<(T, S)> for Box<dyn Serialisable>

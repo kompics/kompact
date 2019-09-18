@@ -213,10 +213,10 @@ impl ActorPath {
     }
 
     /// Same as [tell](tell), but serialises eagerly.
-    pub fn tell_ser<S, B>(&self, m: B, from: &S) -> Result<(), SerError>
+    pub fn tell_ser<S, B, E>(&self, m: B, from: &S) -> Result<(), E>
     where
         S: ActorSource,
-        B: TryInto<Serialised, Error = SerError>,
+        B: TryInto<Serialised, Error = E>,
     {
         let msg: Serialised = m.try_into()?;
         let src = from.path_resolvable();

@@ -188,6 +188,14 @@ impl TryFrom<&dyn Serialisable> for Serialised {
     }
 }
 
+impl<E> TryFrom<Result<Serialised, E>> for Serialised {
+    type Error = E;
+
+    fn try_from(res: Result<Serialised, E>) -> Result<Self, Self::Error> {
+        res
+    }
+}
+
 #[derive(Debug)]
 pub enum DispatchData {
     Lazy(Box<dyn Serialisable>),
