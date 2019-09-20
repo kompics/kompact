@@ -10,6 +10,9 @@
 #![feature(drain_filter)]
 #![feature(never_type)]
 
+#[cfg(feature = "thread_pinning")]
+pub use core_affinity::{CoreId, get_core_ids};
+
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
 use self::{
@@ -300,6 +303,105 @@ mod tests {
         rc.on_definition(|c| {
             //println!("Last string was {}", c.last_string);
             assert_eq!(c.last_string, String::from("MsgTest"));
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+    #[derive(ComponentDefinition)]
+    struct DedicatedComponent {
+        ctx: ComponentContext<Self>,
+        target: ActorRef<Box<dyn Any + Send>>,
+    }
+
+    impl DedicatedComponent {
+        fn new(target: ActorRef<Box<dyn Any + Send>>) -> Self {
+            DedicatedComponent {
+                ctx: ComponentContext::new(),
+                target,
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for DedicatedComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    info!(self.ctx.log(), "Starting DedicatedComponent");
+                }
+                ControlEvent::Stop => {
+                    info!(self.ctx.log(), "Stopping DedicatedComponent");
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    impl Actor for DedicatedComponent {
+        type Message = String;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> () {
+            self.target.tell(Box::new(String::from("hello")) as Box<dyn Any + Send>);
+        }
+
+        fn receive_network(&mut self, msg: NetMessage) -> () {
+            crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
+            unimplemented!(); // shouldn't happen during the test
+        }
+    }
+
+    #[test]
+    fn test_dedicated_ref() -> () {
+        let system = KompactConfig::default().build().expect("System");
+        let cc = system.create_dedicated(CounterComponent::new);
+        system.start(&cc);
+        let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
+        let dc = system.create_dedicated(move || DedicatedComponent::new(cc_ref));
+        system.start(&dc);
+
+        let thousand_millis = time::Duration::from_millis(1000);
+        thread::sleep(thousand_millis);
+
+        let dc_ref: ActorRef<String> = dc.actor_ref();
+        dc_ref.tell(String::from("go"));
+
+        thread::sleep(thousand_millis);
+
+        cc.on_definition(|c| {
+            assert_eq!(c.msg_count, 1);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    #[cfg(feature = "thread_pinning")]
+    fn test_dedicated_pinning() -> () {
+        let core_ids = core_affinity::get_core_ids().expect("Failed to fetch core ids");
+        if core_ids.len() < 2 {
+            panic!("this test requires at least two cores");
+        }
+
+        let system = KompactConfig::default().build().expect("System");
+        let cc = system.create_dedicated_pinned(CounterComponent::new, core_ids[0]);
+        system.start(&cc);
+        let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
+        let dc = system.create_dedicated_pinned(move || DedicatedComponent::new(cc_ref), core_ids[1]);
+        system.start(&dc);
+
+        let thousand_millis = time::Duration::from_millis(1000);
+        thread::sleep(thousand_millis);
+
+        let dc_ref: ActorRef<String> = dc.actor_ref();
+        dc_ref.tell(String::from("go"));
+
+        thread::sleep(thousand_millis);
+
+        cc.on_definition(|c| {
+            assert_eq!(c.msg_count, 1);
         });
 
         system
