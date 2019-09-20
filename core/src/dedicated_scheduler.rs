@@ -20,6 +20,7 @@ impl ThreadLocalInfo {
     fn reset(&mut self) {
         self.reschedule = false;
     }
+
     fn set(&mut self) {
         self.reschedule = true;
     }
@@ -52,18 +53,20 @@ impl DedicatedThreadScheduler {
             .spawn(move || DedicatedThreadScheduler::pre_run(comp_f, stop2, stopped2))
             .map(|handle| {
                 let id = handle.thread().id();
-                 DedicatedThreadScheduler {
+                DedicatedThreadScheduler {
                     handle: Arc::new(handle),
                     id,
                     stop,
                     stopped,
-                 }
+                }
             })
             .map(|scheduler| (scheduler, comp_p))
     }
 
     #[cfg(feature = "thread_pinning")]
-    pub(crate) fn pinned<CD>(core_id: core_affinity::CoreId) -> std::io::Result<(DedicatedThreadScheduler, utils::Promise<Arc<Component<CD>>>)>
+    pub(crate) fn pinned<CD>(
+        core_id: core_affinity::CoreId,
+    ) -> std::io::Result<(DedicatedThreadScheduler, utils::Promise<Arc<Component<CD>>>)>
     where
         CD: ComponentDefinition + 'static,
     {
@@ -80,12 +83,12 @@ impl DedicatedThreadScheduler {
             })
             .map(|handle| {
                 let id = handle.thread().id();
-                 DedicatedThreadScheduler {
+                DedicatedThreadScheduler {
                     handle: Arc::new(handle),
                     id,
                     stop,
                     stopped,
-                 }
+                }
             })
             .map(|scheduler| (scheduler, comp_p))
     }
@@ -141,7 +144,7 @@ impl DedicatedThreadScheduler {
             match *info.get() {
                 Some(ref mut i) if self.id == thread::current().id() => {
                     i.set();
-                },
+                }
                 _ => {
                     self.handle.thread().unpark();
                 }

@@ -11,7 +11,7 @@
 #![feature(never_type)]
 
 #[cfg(feature = "thread_pinning")]
-pub use core_affinity::{CoreId, get_core_ids};
+pub use core_affinity::{get_core_ids, CoreId};
 
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
@@ -342,7 +342,8 @@ mod tests {
         type Message = String;
 
         fn receive_local(&mut self, _msg: Self::Message) -> () {
-            self.target.tell(Box::new(String::from("hello")) as Box<dyn Any + Send>);
+            self.target
+                .tell(Box::new(String::from("hello")) as Box<dyn Any + Send>);
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
@@ -389,7 +390,8 @@ mod tests {
         let cc = system.create_dedicated_pinned(CounterComponent::new, core_ids[0]);
         system.start(&cc);
         let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
-        let dc = system.create_dedicated_pinned(move || DedicatedComponent::new(cc_ref), core_ids[1]);
+        let dc =
+            system.create_dedicated_pinned(move || DedicatedComponent::new(cc_ref), core_ids[1]);
         system.start(&dc);
 
         let thousand_millis = time::Duration::from_millis(1000);
