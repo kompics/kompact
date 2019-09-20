@@ -12,13 +12,27 @@ use std::{
     thread,
 };
 
+struct ThreadLocalInfo {
+    reschedule: bool,
+}
+
+impl ThreadLocalInfo {
+    fn reset(&mut self) {
+        self.reschedule = false;
+    }
+    fn set(&mut self) {
+        self.reschedule = true;
+    }
+}
+
 thread_local!(
-    static LOCAL_RESCHEDULE: UnsafeCell<Option<bool>> = UnsafeCell::new(Option::None);
+    static LOCAL_RESCHEDULE: UnsafeCell<Option<ThreadLocalInfo>> = UnsafeCell::new(Option::None);
 );
 
 #[derive(Clone)]
 pub(crate) struct DedicatedThreadScheduler {
     handle: Arc<thread::JoinHandle<()>>,
+    id: thread::ThreadId,
     stop: Arc<AtomicBool>,
     stopped: Arc<AtomicBool>,
 }
@@ -38,6 +52,7 @@ impl DedicatedThreadScheduler {
             .spawn(move || DedicatedThreadScheduler::pre_run(comp_f, stop2, stopped2))
             .map(|handle| DedicatedThreadScheduler {
                 handle: Arc::new(handle),
+                id: thread::current().id(),
                 stop,
                 stopped,
             })
@@ -51,8 +66,9 @@ impl DedicatedThreadScheduler {
     ) where
         CD: ComponentDefinition + 'static,
     {
-        LOCAL_RESCHEDULE.with(|flag| unsafe {
-            *flag.get() = Some(false);
+        LOCAL_RESCHEDULE.with(|info| unsafe {
+            let s = ThreadLocalInfo { reschedule: false };
+            *info.get() = Some(s);
         });
         let c = f.wait(); //.expect("Should have gotten a component");
         DedicatedThreadScheduler::run(c, stop, stopped)
@@ -63,16 +79,19 @@ impl DedicatedThreadScheduler {
         CD: ComponentDefinition + 'static,
     {
         'main: loop {
-            LOCAL_RESCHEDULE.with(|flag| unsafe {
-                *flag.get() = Some(false);
+            LOCAL_RESCHEDULE.with(|info| unsafe {
+                match *info.get() {
+                    Some(ref mut i) => i.reset(),
+                    None => unreachable!(),
+                }
             });
             c.execute();
             if c.is_destroyed() || stop.load(Ordering::Relaxed) {
                 break 'main;
             }
-            let park = LOCAL_RESCHEDULE.with(|flag| unsafe {
-                match *flag.get() {
-                    Some(flag) => !flag,
+            let park = LOCAL_RESCHEDULE.with(|info| unsafe {
+                match *info.get() {
+                    Some(ref mut info) => !info.reschedule,
                     None => unreachable!("Did set this up there!"),
                 }
             });
@@ -80,17 +99,21 @@ impl DedicatedThreadScheduler {
                 thread::park();
             }
         }
-        LOCAL_RESCHEDULE.with(|flag| unsafe {
-            *flag.get() = None;
+        LOCAL_RESCHEDULE.with(|info| unsafe {
+            *info.get() = None;
         });
         stopped.store(true, Ordering::Relaxed);
     }
 
     pub(crate) fn schedule_custom(&self) -> () {
-        LOCAL_RESCHEDULE.with(|flag| unsafe {
-            match *flag.get() {
-                Some(_) => *flag.get() = Some(true),
-                None => self.handle.thread().unpark(),
+        LOCAL_RESCHEDULE.with(|info| unsafe {
+            match *info.get() {
+                Some(ref mut i) if self.id == thread::current().id() => {
+                    i.set();
+                },
+                _ => {
+                    self.handle.thread().unpark();
+                }
             }
         });
     }
