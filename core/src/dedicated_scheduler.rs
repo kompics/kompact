@@ -50,11 +50,14 @@ impl DedicatedThreadScheduler {
         thread::Builder::new()
             .name("dedicated-component".to_string())
             .spawn(move || DedicatedThreadScheduler::pre_run(comp_f, stop2, stopped2))
-            .map(|handle| DedicatedThreadScheduler {
-                handle: Arc::new(handle),
-                id: thread::current().id(),
-                stop,
-                stopped,
+            .map(|handle| {
+                let id = handle.thread().id();
+                 DedicatedThreadScheduler {
+                    handle: Arc::new(handle),
+                    id,
+                    stop,
+                    stopped,
+                 }
             })
             .map(|scheduler| (scheduler, comp_p))
     }
@@ -75,11 +78,14 @@ impl DedicatedThreadScheduler {
                 core_affinity::set_for_current(core_id);
                 DedicatedThreadScheduler::pre_run(comp_f, stop2, stopped2)
             })
-            .map(|handle| DedicatedThreadScheduler {
-                handle: Arc::new(handle),
-                id: thread::current().id(),
-                stop,
-                stopped,
+            .map(|handle| {
+                let id = handle.thread().id();
+                 DedicatedThreadScheduler {
+                    handle: Arc::new(handle),
+                    id,
+                    stop,
+                    stopped,
+                 }
             })
             .map(|scheduler| (scheduler, comp_p))
     }
