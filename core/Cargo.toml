@@ -25,6 +25,7 @@ default = ["serde","slog/max_level_trace", "slog/release_max_level_info", "ser_i
 silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
 low_latency = ["executors/ws-no-park"]
 ser_id_64 = []
+thread_pinning = ["core_affinity"]
 
 [dependencies]
 log = "0.4"
@@ -48,6 +49,8 @@ fnv = "1.0"
 # Optional
 protobuf = {version = "2", optional = true, features = ["with-bytes"]}
 serde = {version = "1.0", optional = true}
+core_affinity = {version = "0.5.9", optional = true}
+
 
 # Network-specific
 bytes = "0.4"

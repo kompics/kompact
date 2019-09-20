@@ -399,6 +399,34 @@ impl KompactSystem {
         return c;
     }
 
+    /// Create a new component, which runs on its own dedicated thread and is pinned to certain CPU core.
+    ///
+    /// New components are not started automatically.
+    #[cfg(feature = "thread_pinning")]
+    pub fn create_dedicated_pinned<C, F>(&self, f: F, core_id: CoreId) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        self.inner.assert_active();
+        let (scheduler, promise) =
+            dedicated_scheduler::DedicatedThreadScheduler::pinned(core_id).expect("Scheduler");
+        let c = Arc::new(Component::with_dedicated_scheduler(
+            self.clone(),
+            f(),
+            self.supervision_port(),
+            scheduler,
+        ));
+        unsafe {
+            let mut cd = c.definition().lock().unwrap();
+            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
+            cd.setup(c.clone());
+            c.core().set_component(cc);
+        }
+        promise.fulfill(c.clone()).expect("Should accept component");
+        return c;
+    }
+
     /// Use this to create system components, which runs on their own dedicated thread.
     ///
     /// During system initialisation the supervisor is not available, yet,

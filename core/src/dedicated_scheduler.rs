@@ -59,6 +59,31 @@ impl DedicatedThreadScheduler {
             .map(|scheduler| (scheduler, comp_p))
     }
 
+    #[cfg(feature = "thread_pinning")]
+    pub(crate) fn pinned<CD>(core_id: core_affinity::CoreId) -> std::io::Result<(DedicatedThreadScheduler, utils::Promise<Arc<Component<CD>>>)>
+    where
+        CD: ComponentDefinition + 'static,
+    {
+        let (comp_p, comp_f) = utils::promise();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop2 = stop.clone();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let stopped2 = stopped.clone();
+        thread::Builder::new()
+            .name("dedicated-pinned-component".to_string())
+            .spawn(move || {
+                core_affinity::set_for_current(core_id);
+                DedicatedThreadScheduler::pre_run(comp_f, stop2, stopped2)
+            })
+            .map(|handle| DedicatedThreadScheduler {
+                handle: Arc::new(handle),
+                id: thread::current().id(),
+                stop,
+                stopped,
+            })
+            .map(|scheduler| (scheduler, comp_p))
+    }
+
     fn pre_run<CD>(
         f: utils::Future<Arc<Component<CD>>>,
         stop: Arc<AtomicBool>,
