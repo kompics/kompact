@@ -237,6 +237,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         }
     }
 
+    /// Send message `v` to the actor instance referenced by this `ActorRefStrong`.
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<M>,
@@ -244,6 +245,19 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         let msg: M = v.into();
         let env = MsgEnvelope::Typed(msg);
         self.enqueue(env)
+    }
+
+    /// Helper to create messages that expect a response via a future instead of a message.
+    pub fn ask<R, F>(&self, f: F) -> Future<R>
+    where
+        R: Send + Sized,
+        F: FnOnce(Promise<R>) -> M,
+    {
+        let (promise, future) = promise::<R>();
+        let msg = f(promise);
+        let env = MsgEnvelope::Typed(msg);
+        self.enqueue(env);
+        future
     }
 
     pub fn weak_ref(&self) -> ActorRef<M> {
@@ -344,6 +358,7 @@ impl<M: MessageBounds> ActorRef<M> {
         }
     }
 
+    /// Send message `v` to the actor instance referenced by this `ActorRef`.
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<M>,
@@ -353,11 +368,18 @@ impl<M: MessageBounds> ActorRef<M> {
         self.enqueue(env)
     }
 
-    // not used anymore
-    // /// Attempts to upgrade the contained component, returning `true` if possible.
-    // pub(crate) fn can_upgrade_component(&self) -> bool {
-    //     self.component.upgrade().is_some()
-    // }
+    /// Helper to create messages that expect a response via a future instead of a message.
+    pub fn ask<R, F>(&self, f: F) -> Future<R>
+    where
+        R: Send + Sized,
+        F: FnOnce(Promise<R>) -> M,
+    {
+        let (promise, future) = promise::<R>();
+        let msg = f(promise);
+        let env = MsgEnvelope::Typed(msg);
+        self.enqueue(env);
+        future
+    }
 
     /// Returns a version of this actor ref that can only be used for `NetworkMessage`, but not `M`.
     pub fn dyn_ref(&self) -> DynActorRef {
@@ -367,6 +389,13 @@ impl<M: MessageBounds> ActorRef<M> {
         }
     }
 
+    /// Returns a version of this actor ref that can only be used to send `T`, which is then autowrapped into `M`.
+    ///
+    /// Use this expose a narrower interface to another actor.
+    ///
+    /// *Note* that the indirection provided by `Recipient` has some performance impact.
+    /// Use benchmarking to establish whether or not the better encapsulation is worth
+    /// the performance loss in your scenario.
     pub fn recipient<T>(&self) -> Recipient<T>
     where
         T: Into<M> + fmt::Debug + 'static,

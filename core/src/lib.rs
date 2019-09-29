@@ -70,7 +70,7 @@ pub mod prelude {
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
-    pub use crate::match_deser;
+    pub use crate::{ignore_control, match_deser};
 
     pub use crate::{
         actors::{
@@ -133,6 +133,7 @@ pub mod prelude {
             biconnect_ports,
             on_dual_definition,
             promise as kpromise,
+            Ask,
             Fulfillable,
             Future as KFuture,
             Promise as KPromise,

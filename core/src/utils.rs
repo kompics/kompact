@@ -126,3 +126,137 @@ impl<T: Send + Sized> Fulfillable<T> for Promise<T> {
             .map_err(|_| PromiseErr::ChannelBroken)
     }
 }
+
+#[derive(Debug)]
+pub struct Ask<Request, Response>
+where
+    Request: MessageBounds,
+    Response: Send + Sized,
+{
+    promise: Promise<Response>,
+    content: Request,
+}
+impl<Request, Response> Ask<Request, Response>
+where
+    Request: MessageBounds,
+    Response: Send + Sized,
+{
+    pub fn new(promise: Promise<Response>, content: Request) -> Ask<Request, Response> {
+        Ask { promise, content }
+    }
+
+    pub fn of(content: Request) -> impl FnOnce(Promise<Response>) -> Ask<Request, Response> {
+        |promise| Ask::new(promise, content)
+    }
+
+    pub fn request(&self) -> &Request {
+        &self.content
+    }
+
+    pub fn request_mut(&mut self) -> &mut Request {
+        &mut self.content
+    }
+
+    pub fn take(self) -> (Promise<Response>, Request) {
+        (self.promise, self.content)
+    }
+
+    pub fn reply(self, response: Response) -> Result<(), PromiseErr> {
+        self.promise.fulfill(response)
+    }
+
+    pub fn complete<F>(self, f: F) -> Result<(), PromiseErr>
+    where
+        F: FnOnce(Request) -> Response,
+    {
+        let response = f(self.content);
+        self.promise.fulfill(response)
+    }
+}
+
+#[macro_export]
+macro_rules! ignore_control {
+    ($component:ty) => {
+        impl Provide<ControlPort> for $component {
+            fn handle(&mut self, _event: ControlEvent) -> () {
+                () // ignore all
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::messaging::NetMessage;
+
+    #[derive(ComponentDefinition)]
+    struct TestComponent {
+        ctx: ComponentContext<Self>,
+        counter: u64,
+    }
+
+    impl TestComponent {
+        fn new() -> TestComponent {
+            TestComponent {
+                ctx: ComponentContext::new(),
+                counter: 0u64,
+            }
+        }
+    }
+
+    ignore_control!(TestComponent);
+
+    impl Actor for TestComponent {
+        type Message = Ask<u64, ()>;
+
+        fn receive_local(&mut self, msg: Self::Message) -> () {
+            msg.complete(|num| {
+                self.counter += num;
+            })
+            .expect("Should work!");
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> () {
+            unimplemented!();
+        }
+    }
+
+    #[test]
+    fn test_ask_complete() -> () {
+        let system = KompactConfig::default().build().expect("System");
+        let tc = system.create(TestComponent::new);
+        let tc_ref = tc.actor_ref();
+        let tc_sref = tc_ref.hold().expect("Live ref!");
+
+        let start_f = system.start_notify(&tc);
+        start_f
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Component start");
+
+        let ask_f = tc_ref.ask(|promise| Ask::new(promise, 42u64));
+        ask_f
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Response");
+
+        tc.on_definition(|c| {
+            assert_eq!(c.counter, 42u64);
+        });
+
+        let ask_f2 = tc_sref.ask(Ask::of(1u64));
+        ask_f2
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Response2");
+
+        tc.on_definition(|c| {
+            assert_eq!(c.counter, 43u64);
+        });
+
+        drop(tc_ref);
+        drop(tc_sref);
+        drop(tc);
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+}
