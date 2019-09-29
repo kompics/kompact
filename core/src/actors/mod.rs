@@ -87,7 +87,9 @@ pub trait NetworkActor: ComponentLogging {
     type Deserialiser: Deserialiser<Self::Message>;
 
     /// Handles all messages, after deserialisation.
-    fn receive(&mut self, msg: Self::Message) -> ();
+    ///
+    /// `sender` will only be supplied if the original message was a [NetMessage](crate::messaging::NetMessage).
+    fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> ();
 
     fn on_error(&mut self, error: UnpackError<NetMessage>) -> () {
         warn!(
@@ -109,13 +111,14 @@ where
 
     #[inline(always)]
     fn receive_local(&mut self, msg: Self::Message) -> () {
-        self.receive(msg)
+        self.receive(None, msg)
     }
 
     #[inline(always)]
     fn receive_network(&mut self, msg: NetMessage) -> () {
+        let sender = msg.sender().clone();
         match msg.try_deserialise::<_, <Self as NetworkActor>::Deserialiser>() {
-            Ok(m) => self.receive(m),
+            Ok(m) => self.receive(Some(sender), m),
             Err(e) => self.on_error(e),
         }
     }
