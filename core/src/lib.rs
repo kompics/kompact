@@ -85,6 +85,7 @@ pub mod prelude {
             Dispatching,
             MessageBounds,
             NamedPath,
+            NetworkActor,
             Recipient,
             Request,
             Transport,
