@@ -564,6 +564,18 @@ where
     fn type_name() -> &'static str;
 }
 
+pub trait ComponentLogging {
+    fn log(&self) -> &KompactLogger;
+}
+impl<CD> ComponentLogging for CD
+where
+    CD: ComponentDefinition + 'static,
+{
+    fn log(&self) -> &KompactLogger {
+        self.ctx().log()
+    }
+}
+
 pub trait Provide<P: Port + 'static> {
     fn handle(&mut self, event: P::Request) -> ();
 }

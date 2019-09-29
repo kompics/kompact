@@ -1,5 +1,5 @@
 use super::*;
-use crate::messaging::{DispatchEnvelope, MsgEnvelope, NetMessage};
+use crate::messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, UnpackError};
 use std::{
     fmt,
     sync::{Arc, Weak},
@@ -48,12 +48,13 @@ pub trait Dispatcher: ActorRaw<Message = DispatchEnvelope> {
     fn system_path(&mut self) -> SystemPath;
 }
 
-impl<CD, M: MessageBounds> ActorRaw for CD
+impl<A, M: MessageBounds> ActorRaw for A
 where
-    CD: Actor<Message = M>,
+    A: Actor<Message = M>,
 {
     type Message = M;
 
+    #[inline(always)]
     fn receive(&mut self, env: MsgEnvelope<M>) -> () {
         match env {
             MsgEnvelope::Typed(m) => self.receive_local(m),
@@ -79,4 +80,43 @@ pub trait DynActorRefFactory {
 
 pub trait Dispatching {
     fn dispatcher_ref(&self) -> DispatcherRef;
+}
+
+pub trait NetworkActor: ComponentLogging {
+    type Message: MessageBounds;
+    type Deserialiser: Deserialiser<Self::Message>;
+
+    /// Handles all messages, after deserialisation.
+    fn receive(&mut self, msg: Self::Message) -> ();
+
+    fn on_error(&mut self, error: UnpackError<NetMessage>) -> () {
+        warn!(
+            self.log(),
+            "Could not deserialise a message with Deserialiser with id={}. Error was: {:?}",
+            Self::Deserialiser::SER_ID,
+            error
+        );
+    }
+}
+
+impl<A, M, D> Actor for A
+where
+    M: MessageBounds,
+    D: Deserialiser<M>,
+    A: NetworkActor<Message = M, Deserialiser = D>,
+{
+    type Message = M;
+
+    #[inline(always)]
+    fn receive_local(&mut self, msg: Self::Message) -> () {
+        self.receive(msg)
+    }
+
+    #[inline(always)]
+    fn receive_network(&mut self, msg: NetMessage) -> () {
+        match msg.try_deserialise::<_, <Self as NetworkActor>::Deserialiser>() {
+            Ok(m) => self.receive(m),
+            Err(e) => self.on_error(e),
+        }
+    }
 }
