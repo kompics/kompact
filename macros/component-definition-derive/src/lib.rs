@@ -69,10 +69,13 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                         if count >= max_events {
                             return ExecuteResult::new(count, #i);
                         }
-                        if let Some(event) = self.#id.dequeue() {
-                            #handle
-                            count += 1;
-                            done_work = true;
+                        #[allow(unreachable_code)]
+                        { // can be Never type, which is ok, so just suppress this warning
+                            if let Some(event) = self.#id.dequeue() {
+                                #handle
+                                count += 1;
+                                done_work = true;
+                            }
                         }
                     }
                 }
@@ -89,10 +92,13 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                     if count >= max_events {
                         return ExecuteResult::new(count, #i);
                     }
-                    if let Some(event) = self.#id.dequeue() {
-                        #handle
-                        count += 1;
-                        done_work = true;
+                    #[allow(unreachable_code)]
+                    { // can be Never type, which is ok, so just suppress this warning
+                        if let Some(event) = self.#id.dequeue() {
+                            #handle
+                            count += 1;
+                            done_work = true;
+                        }
                     }
                 }
             })

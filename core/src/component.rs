@@ -23,7 +23,6 @@ pub trait CoreContainer: Send + Sync {
     fn execute(&self) -> ();
 
     fn control_port(&self) -> ProvidedRef<ControlPort>;
-    //fn actor_ref(&self) -> ActorRef;
     fn system(&self) -> KompactSystem {
         self.core().system().clone()
     }
@@ -531,6 +530,10 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
 
     pub fn id(&self) -> Uuid {
         self.component().id().clone()
+    }
+
+    pub fn suicide(&self) -> () {
+        self.component().control_port().enqueue(ControlEvent::Kill);
     }
 }
 
