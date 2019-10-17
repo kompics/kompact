@@ -15,6 +15,7 @@ pub use core_affinity::{get_core_ids, CoreId};
 
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
+pub use executors;
 use self::{
     actors::*,
     component::*,

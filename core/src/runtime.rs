@@ -915,7 +915,7 @@ impl Clone for Box<dyn Scheduler> {
 }
 
 #[derive(Clone)]
-struct ExecutorScheduler<E>
+pub struct ExecutorScheduler<E>
 where
     E: Executor + Sync,
 {
