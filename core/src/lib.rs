@@ -15,7 +15,6 @@ pub use core_affinity::{get_core_ids, CoreId};
 
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
-pub use executors;
 use self::{
     actors::*,
     component::*,
@@ -28,6 +27,7 @@ use self::{
     utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
+pub use executors;
 #[allow(unused_imports)]
 use kompact_actor_derive::*;
 use kompact_component_derive::*;

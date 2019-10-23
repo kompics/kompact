@@ -101,7 +101,11 @@ where
         let msg = MsgEnvelope::Typed(out);
         match self.inner.upgrade() {
             Some(q) => q.push(msg),
-            None => println!("Dropping msg as target queueis unavailable: {:?}", msg),
+            None =>
+            {
+                #[cfg(test)]
+                println!("Dropping msg as target queueis unavailable: {:?}", msg)
+            }
         }
     }
 }
@@ -166,12 +170,16 @@ impl DynActorRef {
                     _ => (), // nothing
                 }
             }
-            (q, c) => println!(
-                "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                q.is_some(),
-                c.is_some(),
-                msg
-            ),
+            (_q, _c) =>
+            {
+                #[cfg(test)]
+                println!(
+                    "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                    _q.is_some(),
+                    _c.is_some(),
+                    msg
+                )
+            }
         }
     }
 
@@ -336,12 +344,16 @@ impl<M: MessageBounds> ActorRef<M> {
                     _ => (), // nothing
                 }
             }
-            (q, c) => println!(
-                "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                q.is_some(),
-                c.is_some(),
-                env
-            ),
+            (_q, _c) =>
+            {
+                #[cfg(test)]
+                println!(
+                    "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                    _q.is_some(),
+                    _c.is_some(),
+                    env
+                )
+            }
         }
     }
 
@@ -472,7 +484,11 @@ impl<M: fmt::Debug> Recipient<M> {
                     _ => (), // nothing
                 }
             }
-            None => println!("Dropping msg as target component is unavailable: {:?}", env),
+            None =>
+            {
+                #[cfg(test)]
+                println!("Dropping msg as target component is unavailable: {:?}", env)
+            }
         }
     }
 

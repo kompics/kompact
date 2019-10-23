@@ -165,12 +165,16 @@ impl<P: Port + 'static> ProvidedRef<P> {
                     _ => (), // nothing
                 }
             }
-            (q, c) => println!(
-                "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                q.is_some(),
-                c.is_some(),
-                event
-            ),
+            (_q, _c) =>
+            {
+                #[cfg(test)]
+                println!(
+                    "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                    _q.is_some(),
+                    _c.is_some(),
+                    event
+                )
+            }
         }
     }
 }
@@ -203,12 +207,16 @@ impl<P: Port + 'static> RequiredRef<P> {
                     _ => (), // nothing
                 }
             }
-            (q, c) => println!(
-                "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                q.is_some(),
-                c.is_some(),
-                event
-            ),
+            (_q, _c) =>
+            {
+                #[cfg(test)]
+                println!(
+                    "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                    _q.is_some(),
+                    _c.is_some(),
+                    event
+                )
+            }
         }
     }
 }

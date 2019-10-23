@@ -143,12 +143,13 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         let count = Arc::strong_count(&carc);
                         drop(carc);
                         if (count == 1) {
-                            debug!(
+                            trace!(
                                 self.ctx.log(),
-                                "Component({}) was killed and deallocated.", id
+                                "Component({}) was killed and deallocated.",
+                                id
                             ); // probably^^
                         } else {
-                            warn!(self.ctx.log(), "Component({}) was killed but there are still outstanding references preventing deallocation.", id);
+                            debug!(self.ctx.log(), "Component({}) was killed but there are still outstanding references preventing deallocation.", id);
                         }
                         self.notify_listeners(&id, |l| {
                             if let ListenEvent::Destroyed(_) = l {
