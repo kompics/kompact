@@ -35,7 +35,7 @@ crossbeam-channel = "0.3"
 crossbeam-queue = "0.1"
 arc-swap = "0.3"
 synchronoise = "1.0"
-uuid = { version = "0.7", features = ["v4"] }
+uuid = { version = "0.8", features = ["v4"] }
 time = "0.1"
 as_num = "0.2"
 num_cpus = "1.10"
