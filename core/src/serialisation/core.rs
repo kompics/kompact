@@ -7,7 +7,7 @@ pub enum SerError {
     Unknown(String),
 }
 
-pub trait Serialiser<T>: Send {
+pub trait Serialiser<T>: Send + Sync + Clone {
     fn ser_id(&self) -> SerId;
     fn size_hint(&self) -> Option<usize> {
         None
