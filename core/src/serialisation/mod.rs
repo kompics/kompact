@@ -35,12 +35,12 @@ mod ser_id {
     }
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
-            self.get_u64_be()
+            self.get_u64()
         }
     }
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
-            self.put_u64_be(ser_id)
+            self.put_u64(ser_id)
         }
     }
 }
@@ -72,7 +72,7 @@ pub mod ser_test_helpers {
 mod tests {
 
     use super::*;
-    use bytes::{BytesMut, IntoBuf};
+    use bytes::{BytesMut}; //IntoBuf
 
     #[derive(PartialEq, Debug, Clone)]
     struct Test1 {
@@ -90,9 +90,9 @@ mod tests {
         }
 
         fn serialise(&self, v: &Test1, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(v.i);
+            buf.put_u64(v.i);
             for i in 0..10 {
-                buf.put_u64_be(i);
+                buf.put_u64(i);
             }
             Result::Ok(())
         }
@@ -101,7 +101,7 @@ mod tests {
         const SER_ID: SerId = 1;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Test1, SerError> {
-            let i = buf.get_u64_be();
+            let i = buf.get_u64();
             Result::Ok(Test1 { i })
         }
     }
@@ -138,7 +138,7 @@ mod tests {
             .serialise(&t1, &mut mbuf)
             .expect("should have serialised!");
         //println!("Serialised bytes: {:?}", mbuf);
-        let mut buf = mbuf.into_buf();
+        let mut buf = mbuf.freeze();
         let t1_res = T1Ser::deserialise(&mut buf);
         match t1_res {
             Ok(t2) => assert_eq!(t1c, t2),

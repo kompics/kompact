@@ -1,6 +1,6 @@
 use crate::net::ConnectionState;
 use futures::sync;
-use spaniel::frames::Frame;
+use crate::net::frames::*;
 use std::{
     collections::{HashMap, VecDeque},
     net::SocketAddr,

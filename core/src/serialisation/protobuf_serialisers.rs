@@ -1,6 +1,7 @@
 use super::*;
 
 use protobuf::{Message, ProtobufError};
+use bytes::buf::BufMutExt;
 
 pub struct ProtobufSer;
 

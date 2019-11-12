@@ -116,12 +116,14 @@ impl NetworkDispatcher {
             .actor_ref()
             .hold()
             .expect("Self can hardly be deallocated!");
+        let bridge_logger = self.ctx.log().new(o!("owner" => "Bridge"));
+        let network_thread_logger = self.ctx.log().new(o!("owner" => "NetworkThread"));
+        let (mut bridge, addr) = net::Bridge::new(self.lookup.clone(), network_thread_logger, bridge_logger, self.cfg.addr.clone());
 
-        let bridge_logger = self.ctx().log().new(o!("owner" => "Bridge"));
-        let (mut bridge, events) = net::Bridge::new(self.lookup.clone(), bridge_logger);
         bridge.set_dispatcher(dispatcher.clone());
-        bridge.start(self.cfg.addr.clone())?;
-
+        bridge.start()?;
+        self.net_bridge = Some(bridge);
+        /*
         if let Some(ref ex) = bridge.executor.as_ref() {
             use futures::{Future, Stream};
             ex.spawn(
@@ -135,10 +137,9 @@ impl NetworkDispatcher {
                 "No executor found in network bridge; network events can not be handled"
                     .to_string(),
             ));
-        }
-        let queue_manager = QueueManager::new();
-        self.net_bridge = Some(bridge);
-        self.queue_manager = Some(queue_manager);
+        } */
+        //let queue_manager = QueueManager::new();
+        //self.queue_manager = Some(queue_manager);
         Ok(())
     }
 
@@ -151,9 +152,11 @@ impl NetworkDispatcher {
     }
 
     fn do_stop(&mut self, _cleanup: bool) -> () {
+        /*
         if let Some(manager) = self.queue_manager.take() {
             manager.stop();
         }
+        */
         if let Some(bridge) = self.net_bridge.take() {
             if let Err(e) = bridge.stop() {
                 error!(
@@ -192,15 +195,21 @@ impl NetworkDispatcher {
     fn on_event(&mut self, ev: EventEnvelope) {
         match ev {
             EventEnvelope::Network(ev) => match ev {
+                _ => {
+                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
+                    debug!(self.ctx().log(), "Received important data!");
+                }
+                /*
                 NetworkEvent::Connection(addr, conn_state) => self.on_conn_state(addr, conn_state),
                 NetworkEvent::Data(_) => {
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
                 }
+                */
             },
         }
     }
-
+    /*
     fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
         use self::ConnectionState::*;
 
@@ -248,7 +257,7 @@ impl NetworkDispatcher {
         }
         self.connections.insert(addr, state);
     }
-
+    */
     /// Forwards `msg` up to a local `dst` actor, if it exists.
     fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
         use crate::dispatch::lookup::ActorLookup;
@@ -282,7 +291,7 @@ impl NetworkDispatcher {
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
     fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
-        use spaniel::frames::*;
+        use crate::net::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let frame = {
@@ -299,9 +308,12 @@ impl NetworkDispatcher {
                     return;
                 }
             };
-            Frame::Data(Data::new(0.into(), 0, payload))
+            Frame::Data(Data::new(payload))
         };
-
+        if let Some(bridge) = &self.net_bridge {
+            bridge.route(addr, frame);
+        }
+        /*
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
@@ -359,6 +371,7 @@ impl NetworkDispatcher {
         if let Some(next) = next {
             *state = next;
         }
+        */
     }
 
     fn resolve_path(&mut self, resolvable: &PathResolvable) -> ActorPath {
@@ -579,7 +592,7 @@ mod dispatch_tests {
         ));
         println!("Got path: {}", named_path);
     }
-
+    /*
     #[test]
     fn tokio_cleanup() {
         use tokio::net::TcpListener;
@@ -595,7 +608,7 @@ mod dispatch_tests {
         let actual_addr2 = listener2.local_addr().expect("Could not get real address!");
         println!("Bound again on {}", actual_addr2);
         assert_eq!(actual_addr, actual_addr2);
-    }
+    } */
 
     #[test]
     fn network_cleanup() {
@@ -759,10 +772,12 @@ mod dispatch_tests {
         pongfn
             .wait_timeout(Duration::from_millis(1000))
             .expect("Ponger never died!");
-        pinger_named.on_definition(|c| {
+        pinger_unique.on_definition(|c| {
+            println!("pinger uniq count: {}", c.count);
             assert_eq!(c.count, PING_COUNT);
         });
-        pinger_unique.on_definition(|c| {
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
             assert_eq!(c.count, PING_COUNT);
         });
 
@@ -838,7 +853,7 @@ mod dispatch_tests {
 
         fn serialise(&self, v: &PingMsg, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PING_ID);
-            buf.put_u64_be(v.i);
+            buf.put_u64(v.i);
             Result::Ok(())
         }
     }
@@ -854,7 +869,7 @@ mod dispatch_tests {
 
         fn serialise(&self, v: &PongMsg, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PONG_ID);
-            buf.put_u64_be(v.i);
+            buf.put_u64(v.i);
             Result::Ok(())
         }
     }
@@ -870,7 +885,7 @@ mod dispatch_tests {
             }
             match buf.get_i8() {
                 PING_ID => {
-                    let i = buf.get_u64_be();
+                    let i = buf.get_u64();
                     Ok(PingMsg { i })
                 }
                 PONG_ID => Err(SerError::InvalidType(
@@ -894,7 +909,7 @@ mod dispatch_tests {
             }
             match buf.get_i8() {
                 PONG_ID => {
-                    let i = buf.get_u64_be();
+                    let i = buf.get_u64();
                     Ok(PongMsg { i })
                 }
                 PING_ID => Err(SerError::InvalidType(

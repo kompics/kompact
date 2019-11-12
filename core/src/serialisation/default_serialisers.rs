@@ -47,7 +47,7 @@ impl Serialisable for u64 {
     }
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-        buf.put_u64_be(*self);
+        buf.put_u64(*self);
         Ok(())
     }
 

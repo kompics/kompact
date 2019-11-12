@@ -310,7 +310,7 @@ fn system_path_put_into_buf(path: &SystemPath, buf: &mut dyn BufMut) -> Result<(
         IpAddr::V6(ref ip) => buf.put_slice(&ip.octets()),
         // TODO support named Domain
     }
-    buf.put_u16_be(path.port());
+    buf.put_u16(path.port());
     Ok(())
 }
 #[inline(always)]
@@ -345,7 +345,7 @@ fn system_path_from_buf(buf: &mut dyn Buf) -> Result<(SystemPathHeader, SystemPa
             unimplemented!();
         }
     };
-    let port = buf.get_u16_be();
+    let port = buf.get_u16();
     let system_path = SystemPath::new(header.protocol, address, port);
     Ok((header, system_path))
 }
@@ -410,7 +410,7 @@ impl Serialisable for ActorPath {
                 let name_len: u16 = u16::try_from(data.len()).map_err(|_| {
                     SerError::InvalidData("Named path overflows designated 2 bytes length.".into())
                 })?;
-                buf.put_u16_be(name_len);
+                buf.put_u16(name_len);
                 buf.put_slice(data);
             }
         }
@@ -441,7 +441,7 @@ impl Deserialiser<ActorPath> for ActorPath {
                 }
             }
             PathType::Named => {
-                let name_len = buf.get_u16_be() as usize;
+                let name_len = buf.get_u16() as usize;
                 if buf.remaining() < name_len {
                     return Err(SerError::InvalidData(format!(
                         "Could not get {} bytes for path name",
@@ -474,7 +474,7 @@ impl Deserialiser<ActorPath> for ActorPath {
 mod serialisation_tests {
     use super::*;
     use crate::actors::SystemField;
-    use bytes::{BytesMut, IntoBuf};
+    use bytes::{BytesMut}; //IntoBuf
 
     #[test]
     fn system_path_serequiv() {
@@ -509,7 +509,7 @@ mod serialisation_tests {
             .serialise(&mut buf)
             .expect("SystemPath should serialise!");
 
-        let mut buf = buf.freeze().into_buf();
+        //let mut buf = buf.into();
         let deserialised =
             SystemPath::deserialise(&mut buf).expect("SystemPath should deserialise!");
 
@@ -549,10 +549,10 @@ mod serialisation_tests {
                 .expect("UUID ActorPath Serialisation should succeed");
 
             // Deserialise
-            let mut buf = buf.into_buf();
+            //let mut buf: Buf = buf.into();
             let deser_path = ActorPath::deserialise(&mut buf)
                 .expect("UUID ActorPath Deserialisation should succeed");
-            assert_eq!(buf.remaining_mut(), 0);
+            assert_eq!(buf.len(), 0);
             let deser_sys: &SystemPath = SystemField::system(&deser_path);
             assert_eq!(deser_sys.address(), &expected_addr);
             match deser_path {
@@ -571,10 +571,10 @@ mod serialisation_tests {
                 .expect("Named ActorPath Serialisation should succeed");
 
             // Deserialise
-            let mut buf = buf.into_buf();
+            let mut buf = buf.to_bytes();
             let deser_path = ActorPath::deserialise(&mut buf)
                 .expect("Named ActorPath Deserialisation should succeed");
-            assert_eq!(buf.remaining_mut(), 0);
+            assert_eq!(buf.len(), 0);
             let deser_sys: &SystemPath = SystemField::system(&deser_path);
             assert_eq!(deser_sys.address(), &expected_addr);
             match deser_path {

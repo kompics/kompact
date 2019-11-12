@@ -11,7 +11,9 @@ use crate::{
         Serialiser,
     },
 };
-use bytes::{Buf, Bytes, BytesMut, IntoBuf};
+use bytes::{Buf, Bytes, BytesMut};
+use bytes::buf::BufExt; //IntoBuf
+//use bytes::buf::ext::BufExt;
 
 /// Creates a new `NetMessage` from the provided fields, allocating a new `BytesMut`
 /// according to the message's size hint. The message's serialized data is stored in this buffer.
@@ -117,8 +119,8 @@ pub fn embed_in_msg(src: &ActorPath, dst: &ActorPath, msg: Serialised) -> Result
     Serialisable::serialise(dst, &mut buf)?;
     buf.put_ser_id(msg.ser_id);
 
-    let chained = buf.into_buf().chain(msg.data);
-    let bytes: Bytes = chained.collect();
+    let chained = buf.chain(msg.data);
+    let bytes: Bytes = chained.into_iter().collect();
 
     Ok(bytes)
 }
@@ -133,7 +135,7 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
     let src = ActorPath::deserialise(&mut buffer)?;
     let dst = ActorPath::deserialise(&mut buffer)?;
     let ser_id = buffer.get_ser_id();
-    let data = buffer.bytes().into();
+    let data = buffer.to_bytes();
 
     let envelope = NetMessage::with_bytes(ser_id, src, dst, data);
 

@@ -42,7 +42,7 @@ pub fn kompact_network_latency(c: &mut Criterion) {
 pub fn kompact_network_throughput(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Pong Throughput with Pipelining");
     g.throughput(Throughput::Elements(2 * MSG_COUNT));
-    for pipeline in [1u64, 10u64, 100u64, 1000u64].iter() {
+    for pipeline in [1u64, 10u64, 100u64, 1000u64].iter() { //...[1u64, ...
         g.bench_with_input(
             BenchmarkId::from_parameter(pipeline),
             pipeline,
@@ -663,7 +663,7 @@ pub mod pppipelineindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -675,7 +675,7 @@ pub mod pppipelineindexed {
         const SER_ID: SerId = Ping::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Ping, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Ping::new(index))
         }
     }
@@ -702,7 +702,7 @@ pub mod pppipelineindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -714,7 +714,7 @@ pub mod pppipelineindexed {
         const SER_ID: SerId = Pong::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Pong, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Pong::new(index))
         }
     }
@@ -1225,7 +1225,7 @@ pub mod ppindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -1237,7 +1237,7 @@ pub mod ppindexed {
         const SER_ID: SerId = Ping::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Ping, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Ping::new(index))
         }
     }
@@ -1264,7 +1264,7 @@ pub mod ppindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -1276,7 +1276,7 @@ pub mod ppindexed {
         const SER_ID: SerId = Pong::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Pong, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Pong::new(index))
         }
     }

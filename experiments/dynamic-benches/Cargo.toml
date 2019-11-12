@@ -36,3 +36,5 @@ harness = false
 name = "actorrefs"
 path = "src/actorrefs.rs"
 harness = false
+
+# RUN BENCH MARKS AGAIN WITH ALL TURNED ON!!!

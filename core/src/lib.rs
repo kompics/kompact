@@ -66,7 +66,7 @@ pub mod prelude {
         convert::{From, Into},
     };
 
-    pub use bytes::{Buf, BufMut, IntoBuf};
+    pub use bytes::{Buf, BufMut}; // IntoBuf
 
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;

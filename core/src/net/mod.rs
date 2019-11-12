@@ -5,38 +5,60 @@ use dispatch::lookup::ActorStore;
 use futures::{self, stream::Stream, sync, Future};
 use net::events::{NetworkError, NetworkEvent};
 use serialisation::helpers::deserialise_msg;
-use spaniel::{codec::FrameCodec, frames::Frame};
 use std::{net::SocketAddr, sync::Arc};
-use tokio::{
+/* use tokio::{
     net::{TcpListener, TcpStream},
     runtime::{Builder as RuntimeBuilder, Runtime, TaskExecutor},
 };
 use tokio_retry::{self, strategy::ExponentialBackoff};
 
 use tokio::net::tcp::ConnectFuture;
-use tokio_retry::Retry;
+use tokio_retry::Retry; */
+
+use std::thread;
+use iovec::IoVec;
+use crossbeam_queue::SegQueue;
+use mio::{SetReadiness, Registration, Ready};
+use bytes::BytesMut;
+use std::sync::mpsc::{channel, Sender, Receiver as Recv};
+use crate::net::network_thread::NetworkThread;
+use crate::net::frames::*;
+use crate::net::events::DispatchEvent;
+
+pub mod network_thread;
+pub mod frames;
+pub mod buffer;
 
 #[derive(Debug)]
 pub enum ConnectionState {
     New,
     Initializing,
-    Connected(sync::mpsc::UnboundedSender<Frame>),
+    Connected(SocketAddr),
     Closed,
     Error(std::io::Error),
 }
+
 
 pub mod events {
     use std;
 
     use super::ConnectionState;
-    use spaniel::frames::Frame;
+    use crate::net::frames::*;
     use std::net::SocketAddr;
+    use bytes::BytesMut;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkEvent {
         Connection(SocketAddr, ConnectionState),
         Data(Frame),
+    }
+
+    /// BridgeEvents emitted to the network `Bridge`
+    #[derive(Debug)]
+    pub enum DispatchEvent {
+        Send(SocketAddr, Box<BytesMut>),
+        Stop(),
     }
 
     #[derive(Debug)]
@@ -82,19 +104,25 @@ pub struct Bridge {
     /// Network-specific configuration
     cfg: BridgeConfig,
     /// Executor belonging to the Tokio runtime
-    pub(crate) executor: Option<TaskExecutor>,
+    // pub(crate) executor: Option<TaskExecutor>,
     /// Queue of network events emitted by the network layer
-    events: sync::mpsc::UnboundedSender<NetworkEvent>,
+    // events: sync::mpsc::UnboundedSender<NetworkEvent>,
     /// Core logger; shared with network thread
     log: KompactLogger,
     /// Shared actor reference lookup table
     lookup: Arc<ArcSwap<ActorStore>>,
+    /// Network Thread stuff:
+    // network_thread: Box<NetworkThread>,
+    // ^ Can we avoid storing this by moving it into itself?
+    network_input_queue: Sender<events::DispatchEvent>,
+    network_thread_registration: SetReadiness,
     /// Tokio Runtime
-    tokio_runtime: Option<Runtime>,
+    // tokio_runtime: Option<Runtime>,
     /// Reference back to the Kompact dispatcher
     dispatcher: Option<DispatcherRef>,
     /// Socket the network actually bound on
     bound_addr: Option<SocketAddr>,
+    network_thread_receiver: Box<Recv<bool>>,
 }
 
 // impl bridge
@@ -106,21 +134,37 @@ impl Bridge {
     /// The receiver will allow responding to [NetworkEvent]s for external state management.
     pub fn new(
         lookup: Arc<ArcSwap<ActorStore>>,
-        log: KompactLogger,
-    ) -> (Self, sync::mpsc::UnboundedReceiver<NetworkEvent>) {
-        let (sender, receiver) = sync::mpsc::unbounded();
+        network_thread_log: KompactLogger,
+        bridge_log: KompactLogger,
+        addr: SocketAddr,
+    ) -> (Self, SocketAddr) {
+        let (registration, network_thread_registration) = Registration::new2();
+        let (sender, receiver ) = channel();
+        let (network_thread_sender, network_thread_receiver ) = channel();
+        let mut network_thread = NetworkThread::new(
+            addr,
+            lookup.clone(),
+            registration,
+            network_thread_registration.clone(),
+            receiver,
+            network_thread_sender
+        );
+        let bound_addr = network_thread.addr.clone();
         let bridge = Bridge {
             cfg: BridgeConfig::default(),
-            executor: None,
-            events: sender,
-            log,
+            log: bridge_log,
             lookup,
-            tokio_runtime: None,
+            //network_thread: Box::new(network_thread),
+            network_input_queue:sender,
+            network_thread_registration,
             dispatcher: None,
-            bound_addr: None,
+            bound_addr: Some(bound_addr.clone()),
+            network_thread_receiver: Box::new(network_thread_receiver),
         };
-
-        (bridge, receiver)
+        thread::spawn(move || {
+            network_thread.run();
+        });
+        (bridge, bound_addr)
     }
 
     /// Sets the dispatcher reference, returning the previously stored one
@@ -129,10 +173,11 @@ impl Bridge {
     }
 
     /// Starts the Tokio runtime and binds a [TcpListener] to the provided `addr`
-    pub fn start(&mut self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+    pub fn start(&mut self) -> Result<(), NetworkBridgeErr> {
+        /*
         let network_log = self.log.new(o!("thread" => "tokio-runtime"));
         let nthread = start_network_thread(
-            "tokio-runtime".into(),
+            "spaniel-runtime".into(),
             network_log,
             addr,
             self.events.clone(),
@@ -142,17 +187,24 @@ impl Bridge {
         self.tokio_runtime = Some(nthread.tokio_runtime);
         self.executor = Some(executor);
         self.bound_addr = Some(nthread.bound_addr);
+        */
         Ok(())
     }
 
     pub fn stop(mut self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
+        self.network_input_queue.send(DispatchEvent::Stop());
+        self.network_thread_registration.set_readiness(Ready::readable());
+        /*
         if let Some(runtime) = self.tokio_runtime.take() {
             let _ = self.executor.take();
             runtime.shutdown_now().wait().map_err(|_| {
                 NetworkBridgeErr::Other("Tokio runtime failed to shut down!".to_string())
             })?;
         }
+        */
+        // Wait for network thread to receive the "stopped" event
+        self.network_thread_receiver.recv(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }
@@ -161,6 +213,14 @@ impl Bridge {
         &self.bound_addr
     }
 
+    pub fn route(&self, addr: SocketAddr, frame: Frame) -> () {
+        let size = FrameHead::encoded_len() + frame.encoded_len();
+        let mut buf = Box::new(BytesMut::with_capacity(size));
+        frame.encode_into(&mut buf).expect("serialization");
+        self.network_input_queue.send(events::DispatchEvent::Send(addr, buf));
+        self.network_thread_registration.set_readiness(Ready::readable());
+    }
+}
     /// Attempts to establish a TCP connection to the provided `addr`.
     ///
     /// # Side effects
@@ -171,6 +231,7 @@ impl Bridge {
     /// # Errors
     /// If the provided protocol is not supported or if the Tokio runtime's executor has not been
     /// set.
+    /*
     pub fn connect(&mut self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkError> {
         match proto {
             Transport::TCP => {
@@ -241,10 +302,11 @@ impl tokio_retry::Action for TcpConnecter {
         TcpStream::connect(&self.0)
     }
 }
-
+*/
 /// Spawns a TCP server on the provided `TaskExecutor` and `addr`.
 ///
 /// Connection result and errors are propagated on the provided `events`.
+/*
 fn start_tcp_server(
     executor: TaskExecutor,
     log: KompactLogger,
@@ -319,8 +381,19 @@ fn start_network_thread(
     addr: SocketAddr,
     events: sync::mpsc::UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
-) -> Result<NetworkThread, NetworkBridgeErr> {
+) -> Result<(), NetworkBridgeErr> {
+    /*
     let (addr_tx, addr_rx) = sync::oneshot::channel();
+    let mut nlookup = lookup.clone();
+    let network_thread = thread::spawn(move || {
+        network_thread::NetworkThread::run(
+            log.clone(),
+            addr,
+            addr_tx,
+            events,
+            nlookup);
+    });
+
     let mut runtime = RuntimeBuilder::new()
         .name_prefix(&name)
         .core_threads(1)
@@ -336,6 +409,7 @@ fn start_network_thread(
         events,
         lookup,
     ));
+    */
 
     //let (shutdown_tx, shutdown_rx) = sync::oneshot::channel::<()>();
     // let th = Builder::new()
@@ -364,7 +438,7 @@ fn start_network_thread(
     //             .expect("Unable to shutdown tokio runtime!");
     //     })
     //     .map_err(|_| NetworkBridgeErr::Thread("TCP server thread spawning failed!".to_string()))?;
-
+    /*
     let bound_addr = addr_rx.wait().map_err(|_| {
         NetworkBridgeErr::Binding(format!("Could not get true bind address for {}", addr))
     })?;
@@ -377,21 +451,24 @@ fn start_network_thread(
         tokio_runtime: runtime,
         bound_addr,
     })
+    */
+    Ok(())
 }
 
 struct NetworkThread {
     tokio_runtime: Runtime,
     bound_addr: SocketAddr,
 }
-
+*/
 #[derive(Debug)]
 pub enum NetworkBridgeErr {
-    Tokio(tokio::io::Error),
+    //Tokio(tokio::io::Error),
     Binding(String),
     Thread(String),
     Other(String),
 }
 
+/*
 /// Returns a future which drives TCP I/O over the [FrameCodec].
 ///
 /// `tx` can be used to relay network events back into the [Bridge]
@@ -468,3 +545,4 @@ fn handle_tcp(
             Ok(())
         })
 }
+*/

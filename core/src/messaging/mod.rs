@@ -6,9 +6,10 @@ use crate::{
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
     utils,
 };
-use bytes::{Bytes, IntoBuf};
+use bytes::{Bytes, Buf};
 use std::{any::Any, convert::TryFrom};
 use uuid::Uuid;
+use std::borrow::BorrowMut;
 
 pub mod framing;
 
@@ -86,8 +87,8 @@ impl NetMessage {
                 .downcast::<T>()
                 .map(|b| *b)
                 .map_err(|b| UnpackError::NoCast(Self::with_box(ser_id, sender, receiver, b))),
-            HeapOrSer::Serialised(buf) => {
-                D::deserialise(&mut buf.into_buf()).map_err(|e| UnpackError::DeserError(e))
+            HeapOrSer::Serialised(mut bytes) => {
+                D::deserialise(bytes.borrow_mut()).map_err(|e| UnpackError::DeserError(e))
             }
         }
     }
@@ -502,7 +503,7 @@ mod deser_macro_tests {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -519,7 +520,7 @@ mod deser_macro_tests {
                     "Less than 8bytes remaining in buffer!".to_string(),
                 ));
             }
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             let msg = MsgA { index };
             Ok(msg)
         }
