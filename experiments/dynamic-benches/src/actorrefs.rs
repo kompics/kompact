@@ -54,6 +54,7 @@ impl Actor for TestActor {
     }
 }
 
+#[derive(Clone)]
 pub struct PingSer;
 pub const PING_SER: PingSer = PingSer {};
 impl Serialiser<Ping> for PingSer {

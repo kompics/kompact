@@ -79,6 +79,7 @@ mod tests {
         i: u64,
     }
 
+    #[derive(Clone)]
     struct T1Ser;
     impl Serialiser<Test1> for T1Ser {
         fn ser_id(&self) -> SerId {

@@ -536,6 +536,7 @@ mod deser_macro_tests {
             MsgB { flag }
         }
     }
+    #[derive(Clone)]
     struct BSer;
     impl Serialiser<MsgB> for BSer {
         fn ser_id(&self) -> SerId {

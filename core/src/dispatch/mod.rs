@@ -820,6 +820,7 @@ mod dispatch_tests {
         i: u64,
     }
 
+    #[derive(Clone)]
     struct PingPongSer;
     impl PingPongSer {
         const SID: SerId = 42;

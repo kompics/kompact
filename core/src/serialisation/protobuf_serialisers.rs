@@ -2,6 +2,7 @@ use super::*;
 
 use protobuf::{Message, ProtobufError};
 
+#[derive(Clone)]
 pub struct ProtobufSer;
 
 impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
