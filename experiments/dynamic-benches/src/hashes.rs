@@ -32,14 +32,18 @@ pub fn insert_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Hash Inserts");
     g.bench_function("bench UUID insert SIP", |b| tests::bench_uuid_insert_sip(b));
     g.bench_function("bench UUID insert FNV", |b| tests::bench_uuid_insert_fnv(b));
+    g.bench_function("bench UUID insert FX", |b| tests::bench_uuid_insert_fx(b));
     g.bench_function("bench UUID insert BTree", |b| {
         tests::bench_uuid_insert_btree(b)
     });
     g.bench_function("bench Socket insert SIP", |b| {
-        tests::bench_uuid_insert_sip(b)
+        tests::bench_socket_insert_sip(b)
     });
     g.bench_function("bench Socket insert FNV", |b| {
-        tests::bench_uuid_insert_fnv(b)
+        tests::bench_socket_insert_fnv(b)
+    });
+    g.bench_function("bench Socket insert FX", |b| {
+        tests::bench_socket_insert_fx(b)
     });
     g.finish();
 }
@@ -48,14 +52,18 @@ pub fn lookup_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Hash Lookups");
     g.bench_function("bench UUID lookup SIP", |b| tests::bench_uuid_lookup_sip(b));
     g.bench_function("bench UUID lookup FNV", |b| tests::bench_uuid_lookup_fnv(b));
+    g.bench_function("bench UUID lookup FX", |b| tests::bench_uuid_lookup_fx(b));
     g.bench_function("bench UUID lookup BTree", |b| {
         tests::bench_uuid_lookup_btree(b)
     });
     g.bench_function("bench Socket lookup SIP", |b| {
-        tests::bench_uuid_lookup_sip(b)
+        tests::bench_socket_lookup_sip(b)
     });
     g.bench_function("bench Socket lookup FNV", |b| {
-        tests::bench_uuid_lookup_fnv(b)
+        tests::bench_socket_lookup_fnv(b)
+    });
+    g.bench_function("bench Socket lookup FX", |b| {
+        tests::bench_socket_lookup_fx(b)
     });
     g.finish();
 }
@@ -64,6 +72,7 @@ mod tests {
     use super::*;
     use criterion::Bencher;
     use fnv::FnvHashMap;
+    use fxhash::FxHashMap;
     use std::collections::{BTreeMap, HashMap};
 
     pub fn bench_uuid_insert_sip(b: &mut Bencher) {
@@ -85,6 +94,21 @@ mod tests {
         let data = load_uuid_data();
         let mut map: FnvHashMap<Uuid, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(id.clone(), VAL);
+            });
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        map.drain().for_each(|v| {
+            assert_eq!(v.1, VAL);
+        });
+    }
+
+    pub fn bench_uuid_insert_fx(b: &mut Bencher) {
+        let data = load_uuid_data();
+        let mut map: FxHashMap<Uuid, &'static str> =
+            FxHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
         b.iter(|| {
             data.iter().for_each(|id| {
                 let _ = map.insert(id.clone(), VAL);
@@ -141,6 +165,20 @@ mod tests {
         });
     }
 
+    pub fn bench_socket_insert_fx(b: &mut Bencher) {
+        let data = load_addr_data();
+        let mut map: FxHashMap<SocketAddr, &'static str> =
+            FxHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(id.clone(), VAL);
+            });
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        map.drain().for_each(|v| {
+            assert_eq!(v.1, VAL);
+        });
+    }
     // LOOKUPS
 
     pub fn bench_uuid_lookup_sip(b: &mut Bencher) {
@@ -164,6 +202,23 @@ mod tests {
         let data = load_uuid_data();
         let mut map: FnvHashMap<Uuid, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    pub fn bench_uuid_lookup_fx(b: &mut Bencher) {
+        let data = load_uuid_data();
+        let mut map: FxHashMap<Uuid, &'static str> =
+            FxHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
         data.iter().for_each(|id| {
             let _ = map.insert(id.clone(), VAL);
         });
@@ -214,6 +269,23 @@ mod tests {
         let data = load_addr_data();
         let mut map: FnvHashMap<SocketAddr, &'static str> =
             FnvHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), DATA_SIZE);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    pub fn bench_socket_lookup_fx(b: &mut Bencher) {
+        let data = load_addr_data();
+        let mut map: FxHashMap<SocketAddr, &'static str> =
+            FxHashMap::with_capacity_and_hasher(DATA_SIZE, Default::default());
         data.iter().for_each(|id| {
             let _ = map.insert(id.clone(), VAL);
         });
