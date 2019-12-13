@@ -7,6 +7,8 @@ use bytes::Bytes;
 //use bytes::IntoBuf;
 use std;
 use std::fmt::Debug;
+use std::sync::Arc;
+use crate::net::buffer::ChunkLease;
 //use stream::StreamId;
 
 pub const MAGIC_NUM: u32 = 0xC0A1BA11;
@@ -44,8 +46,8 @@ impl Frame {
             Frame::Data(_) => FrameType::Data,
         }
     }
-
-    pub fn decode_from<B: Buf + Debug>(buf: &mut B) -> Result<Self, FramingError> {
+    /*
+    pub fn decode_from(buf: &mut ChunkLease<Bytes>) -> Result<Self, FramingError> {
         //let mut buf = buf.into_buf();
         let head = FrameHead::decode_from( buf)?;
         match head.frame_type {
@@ -54,7 +56,7 @@ impl Frame {
             FrameType::CreditUpdate => CreditUpdate::decode_from( buf),
             _ => unimplemented!(),
         }
-    }
+    }*/
 
     pub fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         let head = FrameHead::new(self.frame_type(), self.encoded_len());
@@ -79,7 +81,7 @@ impl Frame {
 }
 
 pub trait FrameExt {
-    fn decode_from<B: Buf>(src: &mut B) -> Result<Frame, FramingError>;
+    fn decode_from(src: ChunkLease<Bytes>) -> Result<Frame, FramingError>;
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()>;
     fn encoded_len(&self) -> usize;
 }
@@ -97,10 +99,10 @@ pub struct CreditUpdate {
 }
 
 #[derive(Debug)]
-pub struct Data<B = Bytes> {
+pub struct Data {
     //pub stream_id: StreamId,
     //pub seq_num: u32,
-    pub payload: B,
+    pub payload: ChunkLease<Bytes>,
 }
 
 /// Byte-mappings for frame types
@@ -184,11 +186,12 @@ impl StreamRequest {
 }
 
 impl Data {
-    pub fn new(payload: Bytes) -> Self {
+    pub fn new(payload: ChunkLease<Bytes>) -> Self {
         Data {
             payload,
         }
     }
+
     /*
     pub fn with_raw_payload(raw_bytes: &[u8]) -> Self {
         Data::new(Bytes::from(raw_bytes))
@@ -196,25 +199,25 @@ impl Data {
     */
 
     pub fn encoded_len(&self) -> usize {
-        Bytes::len(&self.payload)
+        self.payload.bytes().len()
     }
-
+/*
     pub fn payload_ref(&self) -> &Bytes {
         &self.payload
-    }
+    }*/
 
     /// Consumes this frame and returns the raw payload buffer
-    pub fn payload(self) -> Bytes {
+    pub fn payload(self) -> ChunkLease<Bytes> {
         self.payload
     }
 }
 
 impl FrameExt for Data {
-    fn decode_from<B: Buf>(src: &mut B) -> Result<Frame, FramingError> {
+    fn decode_from(payload: ChunkLease<Bytes>) -> Result<Frame, FramingError> {
         /*if src.remaining() < 12 {
             return Err(FramingError::InvalidFrame);
         } */
-        let payload: Bytes = src.to_bytes();
+        //let payload: Bytes = src.to_bytes();
         let data_frame = Data {
             payload,
         };
@@ -235,7 +238,7 @@ impl FrameExt for Data {
 }
 
 impl FrameExt for StreamRequest {
-    fn decode_from<B: Buf>(src: &mut B) -> Result<Frame, FramingError> {
+    fn decode_from(mut src: ChunkLease<Bytes>) -> Result<Frame, FramingError> {
         if src.remaining() < 8 {
             return Err(FramingError::InvalidFrame);
         }
@@ -260,7 +263,7 @@ impl FrameExt for StreamRequest {
 }
 
 impl FrameExt for CreditUpdate {
-    fn decode_from<B: Buf>(src: &mut B) -> Result<Frame, FramingError> {
+    fn decode_from(mut src: ChunkLease<Bytes>) -> Result<Frame, FramingError> {
         unimplemented!()
     }
 

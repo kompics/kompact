@@ -12,7 +12,9 @@ use crate::{
     },
 };
 use bytes::{Buf, Bytes, BytesMut};
-use bytes::buf::BufExt; //IntoBuf
+use bytes::buf::BufExt;
+use crate::net::buffer::ChunkLease;
+use std::sync::Arc; //IntoBuf
 //use bytes::buf::ext::BufExt;
 
 /// Creates a new `NetMessage` from the provided fields, allocating a new `BytesMut`
@@ -26,7 +28,7 @@ pub fn serialise_to_msg(
         let mut buf = BytesMut::with_capacity(size);
         match msg.serialise(&mut buf) {
             Ok(_) => {
-                let envelope = NetMessage::with_bytes(msg.ser_id(), src, dst, buf.freeze());
+                let envelope = NetMessage::with_bytes(msg.ser_id(), src, dst, ChunkLease::new(buf.freeze(), Arc::new(0)));
                 Ok(envelope)
             }
             Err(ser_err) => Err(ser_err),
@@ -126,7 +128,7 @@ pub fn embed_in_msg(src: &ActorPath, dst: &ActorPath, msg: Serialised) -> Result
 }
 
 /// Extracts a [MsgEnvelope] from the provided buffer according to the format above.
-pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
+pub fn deserialise_msg(mut buffer: ChunkLease<Bytes>) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
     //     return Err(SerError::InvalidData("Not enough bytes available".into()));
     // }
@@ -135,9 +137,9 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
     let src = ActorPath::deserialise(&mut buffer)?;
     let dst = ActorPath::deserialise(&mut buffer)?;
     let ser_id = buffer.get_ser_id();
-    let data = buffer.to_bytes();
+    //let data = buffer.to_bytes();
 
-    let envelope = NetMessage::with_bytes(ser_id, src, dst, data);
+    let envelope = NetMessage::with_bytes(ser_id, src, dst, buffer);
 
     Ok(envelope)
 }

@@ -10,6 +10,8 @@ use bytes::{Bytes, Buf};
 use std::{any::Any, convert::TryFrom};
 use uuid::Uuid;
 use std::borrow::BorrowMut;
+use std::sync::Arc;
+use crate::net::buffer::ChunkLease;
 
 pub mod framing;
 
@@ -23,7 +25,7 @@ pub struct NetMessage {
 #[derive(Debug)]
 pub enum HeapOrSer {
     Boxed(Box<dyn Any + Send + 'static>),
-    Serialised(bytes::Bytes),
+    Serialised(ChunkLease<Bytes>),
 }
 impl NetMessage {
     pub fn with_box(
@@ -44,7 +46,7 @@ impl NetMessage {
         ser_id: SerId,
         sender: ActorPath,
         receiver: ActorPath,
-        data: Bytes,
+        data: ChunkLease<Bytes>,
     ) -> NetMessage {
         NetMessage {
             ser_id,
@@ -88,7 +90,7 @@ impl NetMessage {
                 .map(|b| *b)
                 .map_err(|b| UnpackError::NoCast(Self::with_box(ser_id, sender, receiver, b))),
             HeapOrSer::Serialised(mut bytes) => {
-                D::deserialise(bytes.borrow_mut()).map_err(|e| UnpackError::DeserError(e))
+                D::deserialise(&mut bytes).map_err(|e| UnpackError::DeserError(e))
             }
         }
     }
@@ -219,7 +221,7 @@ impl DispatchData {
                     Err(ser) => crate::serialisation::helpers::serialise_to_msg(src, dst, ser),
                 }
             }
-            DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ser.data)),
+            DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ChunkLease::new(ser.data, Arc::new(0)))),
         }
     }
 
@@ -460,7 +462,7 @@ mod deser_macro_tests {
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
-        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap.clone(), Bytes::default());
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap.clone(), ChunkLease::new(Bytes::default(), Arc::new(0)));
 
         f(msg);
     }

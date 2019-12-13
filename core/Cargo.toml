@@ -60,6 +60,7 @@ futures = "0.1.2"
 bitfields = "0.2"
 mio = "0.6.20"
 iovec = "0.1.1" # Match MIOs Version
+parking_lot = "0.10.0"
 
 
 

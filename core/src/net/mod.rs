@@ -27,6 +27,7 @@ use crate::net::events::DispatchEvent;
 
 pub mod network_thread;
 pub mod frames;
+pub mod buffer_pool;
 pub mod buffer;
 
 #[derive(Debug)]

@@ -27,14 +27,12 @@ name = "network_latency"
 path = "src/network_latency.rs"
 harness = false
 
-[[bench]]
-name = "hashes"
-path = "src/hashes.rs"
-harness = false
+#[[bench]]
+#name = "hashes"
+#path = "src/hashes.rs"
+#harness = false
 
-[[bench]]
-name = "actorrefs"
-path = "src/actorrefs.rs"
-harness = false
-
-# RUN BENCH MARKS AGAIN WITH ALL TURNED ON!!!
+#[[bench]]
+#name = "actorrefs"
+#path = "src/actorrefs.rs"
+#harness = false

@@ -27,6 +27,7 @@ use futures::{self, Async, AsyncSink, Poll, StartSend};
 //use std::collections::HashMap;
 use fnv::FnvHashMap;
 use std::{io::ErrorKind, time::Duration};
+use crate::net::buffer::ChunkLease;
 
 pub mod lookup;
 pub mod queue_manager;
@@ -308,7 +309,7 @@ impl NetworkDispatcher {
                     return;
                 }
             };
-            Frame::Data(Data::new(payload))
+            Frame::Data(Data::new(ChunkLease::new(payload, Arc::new(0))))
         };
         if let Some(bridge) = &self.net_bridge {
             bridge.route(addr, frame);

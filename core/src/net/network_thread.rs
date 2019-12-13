@@ -5,6 +5,7 @@ use std::{collections::{HashMap, VecDeque, LinkedList}, net::SocketAddr, usize, 
 use mio::{{Events, Poll, Ready, PollOpt, Token, Registration}, event::Event, net::{TcpListener, TcpStream}, Evented};
 use crate::net::{
     frames::*,
+    buffer_pool::BufferPool,
     buffer::DecodeBuffer,
     events::*,
     ConnectionState,
@@ -16,6 +17,7 @@ use bytes::{BytesMut, BufMut, Buf};
 use std::ops::Deref;
 use std::borrow::BorrowMut;
 use std::net::Shutdown::Both;
+use std::time::Duration;
 
 
 /*
@@ -33,6 +35,7 @@ const START_TOKEN: Token = Token(1);
 const DISPATCHER: Token = Token(usize::MAX-1);
 const READ_BUFFER_SIZE: usize = 655355;
 const MAX_POLL_EVENTS: usize = 1024;
+const MAX_INTERRUPTS: i32 = 9;
 
 pub struct NetworkThread {
     //log: KompactLogger,
@@ -42,12 +45,13 @@ pub struct NetworkThread {
     listener: Box<TcpListener>,
     poll: Poll,
     // Contains K,V=Remote SocketAddr, Output buffer; Token for polling; Input-buffer,
-    stream_map: HashMap<SocketAddr, (TcpStream, VecDeque<Box<BytesMut>>, Token, Box<BytesMut>, Box<DecodeBuffer>)>,
+    stream_map: HashMap<SocketAddr, (TcpStream, VecDeque<Box<BytesMut>>, Token, DecodeBuffer)>,
     token_map: HashMap<Token, SocketAddr>,
     token: Token,
     input_queue: Box<Recv<DispatchEvent>>,
     dispatcher_registration: Registration,
     dispatcher_set_readiness: SetReadiness,
+    buffer_pool: BufferPool,
     sent_bytes: u64,
     received_bytes: u64,
     sent_msgs: u64,
@@ -97,6 +101,7 @@ impl NetworkThread {
                 input_queue: Box::new(input_queue),
                 dispatcher_registration,
                 dispatcher_set_readiness,
+                buffer_pool: BufferPool::new(),
                 sent_bytes: 0,
                 received_bytes: 0,
                 sent_msgs: 0,
@@ -113,68 +118,57 @@ impl NetworkThread {
     // Event loop
     pub fn run(&mut self) -> () {
         let mut events = Events::with_capacity(MAX_POLL_EVENTS);
-        //println!("network thread running");
         loop {
-            //println!("network thread {} polling with current received msgs {} and sent msgs {}", self.addr, self.received_msgs, self.sent_msgs);
             self.poll.poll(&mut events, None)
                 .expect("Error when calling Poll");
-            // time-out can be used for work stealing
+
             for event in events.iter() {
-                //println!("network thread {} handling event {}, readable {} writable {}", self.addr, event.token().0, event.readiness().is_readable(), event.readiness().is_writable());
                 self.handle_event(event);
                 if self.stopped {
                     self.network_thread_sender.send(true);
                     return
                 };
-                //println!("network thread {} finished handling poll event", &self.addr);
             }
-            //println!("network thread {} finished handling ALL poll events", &self.addr);
         }
     }
 
     fn handle_event(&mut self, event: Event) -> () {
+        let mut retry = false;
         match event.token() {
             SERVER => {
                 // Received an event for the TCP server socket.Accept the connection.
                 if let Err(e) = self.accept_stream() {
-                    // TODO: Handle Error
-                    // println!("error accepting stream:\n {:?}", e);
-                };
+                    //println!("error accepting stream:\n {:?}", e);
+                }
                 // Listen for more
                 self.poll.register(&self.listener, SERVER, Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
             }
             DISPATCHER => {
-                // Message available from Dispatcher
+                // Message available from Dispatcher, clear the poll readiness before receiving
                 self.dispatcher_set_readiness.set_readiness(Ready::empty());
                 if let Err(e) = self.receive_dispatch() {
-                    // TODO: Handle Error
-                    // println!("error receiving from dispatch");
+                    println!("error receiving from dispatch");
                 };
-                // We've drained the input_queue, clear the readiness and wait for new notification
+                // Reregister polling
                 self.poll.register(&self.dispatcher_registration, DISPATCHER, Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
-                //println!("network thread {} dispatcher events complete", &self.addr);
             }
             token => {
-                //println!("network thread {} handling connection event", &self.addr);
                 // lookup token state in kv map <token, state> (it's corresponding addr for now)
                 let addr = {
                     if let Some(addr) = self.token_map.get(&token) {addr }
                     else {panic!("does not recognize connection token");}
                 };
 
-                if let Some((stream, out_buffer, _, read_buffer, decode_buffer)) = self.stream_map.get_mut(&addr) {
+                if let Some((stream, out_buffer, _, in_buffer)) = self.stream_map.get_mut(&addr) {
                     if event.readiness().is_writable() {
-                        // Connection is writable, try to send the buffer
-                        match send_buffer(stream, out_buffer) {
+                        match Self::send_buffer(stream, out_buffer) {
                             Err(ref err) if broken_pipe(err) => {
                                 println!("BROKEN PIPE WRITE");
-                            },
+                            }
                             Ok(n) => {
                                 self.sent_bytes = self.sent_bytes + n as u64;
                                 if !out_buffer.is_empty() {
-                                    // Wait for writable again
                                     self.poll.register(stream, token.clone(), Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
-                                    //println!("network thread {} buffer is not empty but unable to write any more", &self.addr);
                                 }
                             }
                             Err(e) => {
@@ -184,128 +178,91 @@ impl NetworkThread {
 
                     }
                     if event.readiness().is_readable() {
-                        // Try to fill the decode buffer
-                        match Self::receive(stream, read_buffer.as_mut(), decode_buffer) {
+                        match Self::receive(stream, in_buffer) {
                             Ok(0) => {
-                                //println!("receive read 0 bytes", read_buffer.capacity(), read_buffer.len());
-                                //self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::level() | PollOpt::oneshot());
-                                //println!("network thread {} received nothing", stream.local_addr().unwrap());
-                            },
+                                // Eof?
+                            }
                             Ok(n) => {
                                 self.received_bytes += n as u64;
                                 self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
-                                //println!("network thread {} received {} bytes", stream.local_addr().unwrap(), n);
-                                // Try to get frames from the decode buffer
-                                self.received_msgs = self.received_msgs + Self::decode(decode_buffer, &mut self.lookup);
-                            },
-                            Err(ref err) if no_buffer_space(err) => {
-                                /*println!("network thread {} no_buffer_space, received bytes: {}\
-                                    \n {:?}\
-                                    \n read_buffer cap {}, len {}\
-                                    \n decode_buffer cap {}, len {}",
-                                         self.addr, self.received_bytes, err,
-                                         read_buffer.as_mut().capacity(), read_buffer.as_mut().len(),
-                                         decode_buffer.as_mut().inner().capacity(), decode_buffer.as_mut().inner().len()
-                                );*/
-                                let mut new_buffer = BytesMut::new();
-                                let mut slice = ([0u8; READ_BUFFER_SIZE]);
-                                new_buffer.extend_from_slice(&slice);
-                                let mut new_box = Box::new(new_buffer);
-                                mem::swap(read_buffer, &mut new_box);
-
-                                // read_buffer replaced, need to make sure the decode_buffer is contiguous:
-                                if !(decode_buffer.inner().is_empty()) {
-                                    // Take a slice from the head of the new read_buffer
-                                    let mut new_decode = read_buffer.split_to(decode_buffer.inner().len());
-                                    // Insert the contents of the current decode_buffer into the new one
-                                    {
-                                        let borrow: &mut [u8] = new_decode.borrow_mut();
-                                        borrow.clone_from_slice(decode_buffer.inner().as_mut());
-                                    }
-                                    decode_buffer.replace_buffer(new_decode);
-                                }
-                                /*
-                                println!("network thread {} shuffled buffers... received bytes: {}\
-                                    \n {:?}\
-                                    \n read_buffer cap {}, len {}\
-                                    \n decode_buffer cap {}, len {}",
-                                    self.addr, self.received_bytes, err,
-                                    read_buffer.as_mut().capacity(), read_buffer.as_mut().len(),
-                                    decode_buffer.as_mut().inner().capacity(), decode_buffer.as_mut().inner().len()
-                                );
-                                */
-                                //self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
-                                self.handle_event(event);
+                                self.received_msgs = self.received_msgs + Self::decode(in_buffer, &mut self.lookup);
                             }
-                            Err(ref err) if broken_pipe(err) => {
-                                println!("BROKEN PIPE READ");
-                            },
+                            Err(ref err) if no_buffer_space(err) => {
+                                // Buffer full, we swap it and register for poll again
+                                self.received_msgs = self.received_msgs + Self::decode(in_buffer, &mut self.lookup);
+                                if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
+                                    in_buffer.swap_buffer(&mut new_buffer);
+                                    self.buffer_pool.return_buffer(new_buffer);
+                                }
+                                self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
+                            }
+                            Err(err) if interrupted(&err) || would_block(&err) => {
+                                // Just retry later
+                                self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
+                            }
                             Err(err) => {
-                                println!("network thread Error while reading, received bytes: {}\n {:?}", self.received_bytes, err);
+                                // Fatal error don't try to read again
+                                println!("network thread {} Error while reading, write_offset {} received msgs: {}\n {:?}", self.addr, in_buffer.get_write_offset(), self.received_msgs, err);
                             }
                         }
-
                     }
                 }
-
             }
         }
-
     }
 
-    fn store_stream(&mut self, stream: TcpStream, addr: &SocketAddr) -> () {
-        self.poll.register(&stream, self.token.clone(), Ready::readable() | Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
-        // Store the connection
-        stream.set_nodelay(true);
-        self.token_map.insert(self.token.clone(), addr.clone());
-        let mut read_buffer = BytesMut::new();
-        let mut slice = ([0u8; READ_BUFFER_SIZE]);
-        //println!("extending read_buffer with slice len {}", slice.len());
-        read_buffer.extend_from_slice(&slice);
-        self.stream_map.insert(
-            addr.clone(),
-            (
-                stream,
-                VecDeque::<Box<BytesMut>>::new(),
-                self.token.clone(),
-                Box::new(read_buffer),  // "Read buffer
-                Box::new(DecodeBuffer::new())
-            )
-        );
-        self.next_token();
+    fn request_stream(&mut self, addr: SocketAddr) -> io::Result<bool> {
+        let stream = TcpStream::connect(&addr)?;
+        self.store_stream(stream, &addr);
+        Ok(true)
     }
 
     fn accept_stream(&mut self) -> io::Result<bool> {
-        // Get the details
         while let (stream, addr) = self.listener.accept()? {
-            //println!("network thread {} accepted connection from {}", self.addr, addr);
             self.store_stream(stream, &addr);
         }
         Ok(true)
+    }
+
+    fn store_stream(&mut self, stream: TcpStream, addr: &SocketAddr) -> () {
+        if let Some(buffer) = self.buffer_pool.get_buffer() {
+            let mut in_buffer = DecodeBuffer::new(buffer);
+            self.poll.register(&stream, self.token.clone(), Ready::readable() | Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
+            stream.set_nodelay(true);
+            self.token_map.insert(self.token.clone(), addr.clone());
+            self.stream_map.insert(
+                addr.clone(),
+                (
+                    stream,
+                    VecDeque::<Box<BytesMut>>::new(),
+                    self.token.clone(),
+                    in_buffer,
+                )
+            );
+            self.next_token();
+        } else {
+            // TODO: Handle gracefully
+            panic!("Unable to store a stream, no buffers available!");
+        }
     }
 
     fn receive_dispatch(&mut self) -> io::Result<bool> {
         while let Ok(event) = self.input_queue.try_recv() {
             match event {
                 DispatchEvent::Send(addr, packet) => {
-                    self.sent_msgs = self.sent_msgs + 1;
-                    //println!("network thread {} handling outgoing packet", &self.addr);
+                    self.sent_msgs += 1;
                     // Get the token corresponding to the connection
-                    if let Some((stream, buffer, token, _, _)) = self.stream_map.get_mut(&addr) {
-                        // The stream is already set-up, buffer the package and try to send the buffer
-                        //println!("network thread {} calling send_buffer after receiving message from dispatcher", &self.addr);
+                    if let Some((stream, buffer, token, _)) = self.stream_map.get_mut(&addr) {
+                        // The stream is already set-up, buffer the package and wait for writable event
                         buffer.push_back(packet);
+                        Self::send_buffer(stream, buffer);
                         self.poll.register(stream, token.clone(), Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
-                        /*send_buffer(stream, buffer);
-                        if !buffer.is_empty() {
-                        }*/
                     } else {
                         // The stream isn't set-up, request connection, set-it up and try to send the message
                         self.request_stream(addr.clone());
-                        if let Some((stream, buffer, _, _, _)) = self.stream_map.get_mut(&addr) {
+                        if let Some((stream, buffer, _, _)) = self.stream_map.get_mut(&addr) {
                             buffer.push_back(packet);
-                            //println!("network thread {} calling send_buffer after setting up a stream", &self.addr);
-                            send_buffer(stream, buffer);
+                            Self::send_buffer(stream, buffer);
                         } else {
                             //println!("network thread {} failed to set-up stream to {}", &self.addr, addr);
                         }
@@ -319,90 +276,62 @@ impl NetworkThread {
         Ok(true)
     }
 
-    fn request_stream(&mut self, addr: SocketAddr) -> io::Result<bool> {
-        //println!("network thread {} requesting connection to {}", self.addr, addr);
-        let stream = TcpStream::connect(&addr)?;
-        self.store_stream(stream, &addr);
-        Ok(true)
-    }
-
     /// Returns `true` if the connection is done.
     fn receive(
         stream: &mut TcpStream,
-        read_buffer: &mut BytesMut,
-        decode_buffer: &mut DecodeBuffer,
+        in_buffer: &mut DecodeBuffer,
     ) -> io::Result<usize> {
-        //println!("network thread {} filling read buffer", stream.local_addr().unwrap());
-        // Reserve space in buffer
-        //println!("network thread {} init buffer len {}", &self.addr, buf.len());
-        let mut read_bytes = 0usize;
-        let mut sum_read_bytes = 0usize;
+        let mut read_bytes = 0;
+        let mut sum_read_bytes = 0;
+        let mut interrupts = 0;
         loop {
             // Keep all the read bytes in the buffer without overwriting
             if read_bytes > 0 {
-                //println!("moving {} bytes into received_buffer {}", read_bytes, decode_buffer.inner().len());
-                decode_buffer.insert(read_buffer.split_to(read_bytes));
+                in_buffer.advance_writeable(read_bytes);
             }
-            //read_buffer.reserve(256);
-            {
-                let borrow: &mut [u8] = read_buffer.borrow_mut();
-                //println!("borrow len {}", borrow.len());
-                let io_buf = IoVec::from_bytes_mut(borrow);
-                if let Some(io_vec) = io_buf {
-                    //println!("io_buf len {}", io_vec.len());
-                    match stream.read_bufs(&mut [io_vec]) {
-                        //match stream.read(read_buffer) {
-                        Ok(0) => {
-                            //println!("network thread {} reached eof with {} received", stream.local_addr().unwrap(), sum_read_bytes);
-                            return Ok(sum_read_bytes) // means caller will listen for more
-                            // We reached an end-of-file, time to decode
-                        },
-                        Ok(n) => {
-                            //println!("network thread {} got {} bytes", stream.local_addr().unwrap(), &n);
-                            sum_read_bytes = sum_read_bytes + n;
-                            read_bytes = n;
-                            // continue reading...
-                        },
-                        // Would block "errors" are the OS's way of saying that the
-                        // connection is not actually ready to perform this I/O operation.
-                        Err(ref err) if would_block(err) => {
-                            //println!("network thread {} would block err", stream.local_addr().unwrap());
-                            //###self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
-                            return Ok(sum_read_bytes)
-                        },
-                        Err(ref err) if interrupted(err) => {
-                            //println!("network thread {} interrupted during read", stream.local_addr().unwrap());
-                            // We should continue trying until no interruption
-                        },
-                        // Other errors we'll consider fatal.
-                        Err(err) => {
-                            //println!("network thread {} got error during read {:?}", stream.local_addr().unwrap(), &err);
+            if let Some(mut io_vec) = in_buffer.get_writeable() {
+                match stream.read_bufs(&mut [&mut io_vec]) {
+                    Ok(0) => {
+                        return Ok(sum_read_bytes)
+                    },
+                    Ok(n) => {
+                        sum_read_bytes = sum_read_bytes + n;
+                        read_bytes = n;
+                        // continue looping and reading
+                    },
+                    Err(err) if would_block(&err) => {
+                        return Ok(sum_read_bytes)
+                    },
+                    Err(err) if interrupted(&err) => {
+                        // We should continue trying until no interruption
+                        interrupts += 1;
+                        if interrupts >= MAX_INTERRUPTS {
                             return Err(err)
                         }
+                    },
+                    Err(err) => {
+                        println!("network thread {} got uncaught error during read from remote {}", stream.local_addr().unwrap(), stream.peer_addr().unwrap());
+                        return Err(err)
                     }
-                } else {
-                    return Err(Error::new(ErrorKind::InvalidData, "No space in Buffer"));
                 }
+            } else {
+                return Err(Error::new(ErrorKind::InvalidData, "No space in Buffer"));
             }
         }
     }
 
-    fn decode(decode_buffer: &mut DecodeBuffer, lookup: &mut Arc<ArcSwap<ActorStore>>) -> u64 {
+    fn decode(in_buffer: &mut DecodeBuffer, lookup: &mut Arc<ArcSwap<ActorStore>>) -> u64 {
         let mut msgs = 0;
-        while let Some(mut frame) = decode_buffer.get_frame() {
+        while let Some(mut frame) = in_buffer.get_frame() {
             match frame {
                 Frame::Data(fr) => {
                     // Forward the data frame to the correct actor
                     let lease_lookup = lookup.lease();
                     {
-                        //use bytes::IntoBuf;
                         use dispatch::lookup::ActorLookup;
                         use serialisation::helpers::deserialise_msg;
-
-                        // Consume payload
                         let buf = fr.payload();
-                        //let buf = buf.into_buf();
-                        let envelope = deserialise_msg(buf).expect("s11n errors");
+                        let mut envelope = deserialise_msg(buf).expect("s11n errors");
                         match lease_lookup.get_by_actor_path(envelope.receiver()) {
                             None => {
                                 println!(
@@ -410,8 +339,8 @@ impl NetworkThread {
                                     envelope.receiver());
                             }
                             Some(actor) => {
+                                //println!("sending msg to actor");
                                 msgs = msgs +1;
-                                //println!("Routing envelope {:?}", envelope);
                                 actor.enqueue(envelope);
                             }
                         }
@@ -426,9 +355,10 @@ impl NetworkThread {
     }
 
     fn stop(&mut self) -> () {
-        //println!("Stopping {}", self.addr);
-        for (_, (mut stream, mut out_buffer, _, _, _)) in self.stream_map.drain() {
-            send_buffer(&mut stream, &mut out_buffer);
+        for (_, (mut stream, mut out_buffer, _, mut in_buffer)) in self.stream_map.drain() {
+            Self::receive(&mut stream, &mut in_buffer);
+            Self::decode(&mut in_buffer, &mut self.lookup);
+            Self::send_buffer(&mut stream, &mut out_buffer);
             stream.shutdown(Both);
         }
         self.stopped = true;
@@ -437,6 +367,43 @@ impl NetworkThread {
     fn next_token(&mut self) -> () {
         let next = self.token.0 + 1;
         self.token = Token(next);
+    }
+
+    fn send_buffer(stream: &mut TcpStream, buffer: &mut VecDeque<Box<BytesMut>>) -> io::Result<usize> {
+        let mut sent_bytes = 0;
+        let mut interrupts = 0;
+        while let Some(mut buf) = buffer.pop_front() {
+            match stream.write(buf.as_ref()) {
+                Ok(n) => {
+                    sent_bytes = sent_bytes + n;
+                    if n < buf.as_ref().len() {
+                        // Split the data and continue sending the rest later
+                        buf.split_to(n);
+                        buffer.push_front(buf);
+                    }
+                    // Continue looping for the next message
+                }
+                // Would block "errors" are the OS's way of saying that the
+                // connection is not actually ready to perform this I/O operation.
+                Err(ref err) if would_block(err) => {
+                    // re-insert the data at the front of the buffer and return
+                    buffer.push_front(buf);
+                    return Ok(sent_bytes);
+                }
+                Err(err) if interrupted(&err) => {
+                    // re-insert the data at the front of the buffer
+                    buffer.push_front(buf);
+                    interrupts += 1;
+                    if interrupts >= MAX_INTERRUPTS {return Err(err)}
+                }
+                // Other errors we'll consider fatal.
+                Err(err) => {
+                    buffer.push_front(buf);
+                    return Err(err);
+                },
+            }
+        }
+        return Ok(sent_bytes);
     }
 }
 
@@ -455,45 +422,6 @@ fn no_buffer_space(err: &io::Error) -> bool {
 
 fn broken_pipe(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::BrokenPipe
-}
-
-fn send_buffer(stream: &mut TcpStream, buffer: &mut VecDeque<Box<BytesMut>>) -> io::Result<usize> {
-    let mut sent_bytes = 0;
-    while let Some(mut buf) = buffer.pop_front() {
-        match stream.write(buf.as_ref()) {
-            Ok(n) => {
-                sent_bytes = sent_bytes + n;
-                //println!("network thread {} sent {} bytes", stream.local_addr().unwrap(), &n);
-                if n < buf.as_ref().len() {
-                    // Split the data and continue sending the rest later
-                    buf.split_to(n);
-                    buffer.push_front(buf);
-                }
-                // Continue looping for the next message
-            }
-            // Would block "errors" are the OS's way of saying that the
-            // connection is not actually ready to perform this I/O operation.
-            Err(ref err) if would_block(err) => {
-                //println!("network thread would block while sending");
-                // re-insert the data at the front of the buffer
-                buffer.push_front(buf);
-                return Ok(sent_bytes);
-            }
-            // Got interrupted (how rude!), we'll try again.
-            Err(ref err) if interrupted(err) => {
-                //println!("network thread interrupted while sending buffer, trying again");
-                // re-insert the data at the front of the buffer
-                buffer.push_front(buf);
-            }
-            // Other errors we'll consider fatal.
-            Err(err) => {
-                //println!("network thread error while sending buffer: {:?}", &err);
-                buffer.push_front(buf);
-                return Err(err);
-            },
-        }
-    }
-    return Ok(sent_bytes);
 }
 
 #[cfg(test)]

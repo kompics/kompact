@@ -1,162 +1,244 @@
-use bytes::{BytesMut, BufMut, Buf};
+use bytes::{BytesMut, BufMut, Buf, Bytes};
 use iovec::IoVec;
-// use bytes::IntoBuf;
 use crate::net::frames::*;
 use crate::net::frames;
 use std::collections::VecDeque;
+use std::pin::Pin;
+use std::ops::{DerefMut, Deref};
+use parking_lot::{Mutex, MutexGuard};
+use std::sync::Arc;
 
 pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
-const INITIAL_BUFFER_LEN: usize = 10;
-const MAX_POOL_SIZE: usize = 100;
-const BUFFER_SIZE: usize = 655355;
+const BUFFER_SIZE: usize = 655355; // Idk what's a good number here: To be determined later
 
-pub struct BufferPool {
-    pool: VecDeque<DecodeBuffer>,
-    returned: VecDeque<DecodeBuffer>,
-    pool_size: usize,
+
+
+pub struct BufferChunk {
+    chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
+    ref_count: Arc<u8>,
+    locked: bool,
 }
 
-impl BufferPool {
+impl BufferChunk {
     pub fn new() -> Self {
-        let mut pool = VecDeque::<DecodeBuffer>::new();
-        let mut returned= VecDeque::<DecodeBuffer>::new();
-        for i in 0..INITIAL_BUFFER_LEN {
-            // initialize 10 buffers
-            pool.push_front(Self::new_buffer())
-        }
-        BufferPool{
-            pool,
-            returned,
-            pool_size: INITIAL_BUFFER_LEN,
+        let mut slice = ([0u8; BUFFER_SIZE]);
+        BufferChunk {
+            chunk: Pin::new(Box::new(slice)),
+            ref_count: Arc::new(0),
+            locked: false,
         }
     }
 
-    fn new_buffer() -> DecodeBuffer {
-        DecodeBuffer::new()
+    pub fn len(&self) -> usize {
+        self.chunk.len()
     }
 
-    pub fn get_buffer(&mut self) -> Option<DecodeBuffer> {
-        if let Some(new_buffer) = self.pool.pop_front() {
-            return Some(new_buffer)
-        }
-        self.reclaim()
+    /// Private function returning a pointer to a subslice of the chunk
+    pub unsafe fn get_slice(&mut self, from: usize, to: usize) -> &mut [u8] {
+        assert!(from < to && to <= self.len() && !self.locked);
+        let ptr = self.chunk.as_mut_ptr();
+        let offset_ptr = ptr.offset(from as isize);
+        std::slice::from_raw_parts_mut(offset_ptr, to-from)
     }
 
-    pub fn return_buffer(&mut self, buffer: DecodeBuffer) -> () {
-        self.returned.push_back(buffer);
-    }
-
-    pub fn swap_buffer(&mut self, buffer: DecodeBuffer) -> Option<DecodeBuffer> {
-        self.returned.push_back(buffer);
-        if let Some(new_buffer) = self.pool.pop_front() {
-            return Some(new_buffer)
-        }
-        self.reclaim()
-    }
-
-    fn reclaim(&mut self) -> Option<DecodeBuffer> {
-        let len = self.returned.len();
-        for i in 0..len {
-            if let Some(mut returned_buffer) = self.returned.pop_front() {
-                if returned_buffer.free() {
-                    return Some(returned_buffer)
-                } else {
-                    self.returned.push_back(returned_buffer);
-                }
-            }
-        }
-        self.increase_pool()
-    }
-
-    fn increase_pool(&mut self) -> Option<DecodeBuffer> {
-        if self.pool_size >= MAX_POOL_SIZE {
-            return None
+    pub fn get_bytes(&mut self, from: usize, to: usize) -> Bytes {
+        let slice = unsafe {
+            self.get_slice(from, to)
         };
-        self.pool_size += 1;
-        Some(Self::new_buffer())
+        let mut bytes_mut = BytesMut::with_capacity(to-from);
+        bytes_mut.extend_from_slice(slice);
+        return bytes_mut.freeze();
+        //return bytes::Bytes::from(slice.to_vec())
+    }
+
+    pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease<Bytes> {
+        ChunkLease::new(self.get_bytes(from, to), self.get_lock())
+    }
+
+    pub fn get_lock(&self) -> Arc<u8> {
+        self.ref_count.clone()
+    }
+
+    pub fn get_chunk_mut(&mut self) -> &mut Pin<Box<[u8; BUFFER_SIZE]>> {
+        &mut self.chunk
+    }
+
+    pub fn get_lock_mut(&mut self) -> &mut Arc<u8> {
+        &mut self.ref_count
+    }
+
+    /// Returns true if this smart_buffer is available again
+    pub fn free(&mut self) -> bool {
+        if self.locked {
+            if Arc::strong_count(&self.ref_count) < 2 {
+                self.locked = false;
+                true
+            } else {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    pub fn lock(&mut self) -> () {
+        self.locked = true;
     }
 }
 
-// Used to allow extraction of data frames in between inserting data
+/// Used to allow extraction of data frames in between inserting data
+/// And can replace the underlying BufferChunk with new ones
 pub struct DecodeBuffer {
-    buffer: BytesMut,
+    buffer: BufferChunk,
+    write_offset: usize,
+    read_offset: usize,
     next_frame_head: Option<FrameHead>,
 }
 
 impl DecodeBuffer{
-
-    pub fn new() -> Self {
+    pub fn new(buffer: BufferChunk) -> Self {
         DecodeBuffer{
-            buffer: BytesMut::new(),
+            buffer,
+            write_offset: 0,
+            read_offset: 0,
             next_frame_head: None,
         }
     }
 
-    pub fn insert(&mut self, buffer: BytesMut) -> () {
-        self.buffer.unsplit(buffer);
+    /// Returns an IoVec of the writeable end of the buffer
+    /// If something is written to the slice the advance writeable must be called after
+    pub fn get_writeable(&mut self) -> Option<&mut IoVec> {
+        if self.buffer.len() - self.write_offset < 128 {
+            return None
+        }
+        unsafe {
+            Some(self.buffer.get_slice(self.write_offset, self.buffer.len()).into())
+        }
     }
 
-    pub fn free(&mut self) -> bool {
-        true
+    /// Advances the write pointer by num_bytes
+    pub fn advance_writeable(&mut self, num_bytes: usize) -> () {
+        self.write_offset += num_bytes;
     }
 
-    pub fn replace_buffer(&mut self, buffer: BytesMut) -> () {
-        self.buffer = buffer;
+    pub fn get_write_offset(&self) -> usize {
+        self.write_offset
     }
 
+    pub fn get_buffer_head(&mut self) -> &mut [u8] {
+        unsafe {
+            return self.buffer.get_slice(0,24);
+        }
+    }
+
+    /// Safely swaps self.buffer with other
+    pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
+        //println!("Swapping buffer");
+        // Check if there's overflow in the buffer currently which needs to be copied
+        if self.write_offset > self.read_offset {
+            // We need to copy the bits from self.inner to other.inner before swapping
+            let overflow_len = self.write_offset - self.read_offset;
+            unsafe {
+                other.get_slice(0, overflow_len).clone_from_slice(self.buffer.get_slice(self.read_offset, self.write_offset));
+            }
+            self.write_offset = overflow_len;
+            self.read_offset = 0;
+        } else {
+            self.write_offset = 0;
+            self.read_offset = 0;
+        }
+        // Swap the buffer chunks
+        std::mem::swap(self.buffer.get_chunk_mut(),  other.get_chunk_mut());
+        std::mem::swap(self.buffer.get_lock_mut(), other.get_lock_mut());
+        other.lock();
+    }
+
+
+    /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Option<Frame> {
-        // Check if we have head.
-        //println!("Getting frame, current len {}", self.buffer.len());
+        let readable_len = (self.write_offset-self.read_offset) as usize;
         if let Some(head) = &self.next_frame_head {
-            if self.buffer.len() >= head.content_length() {
-                //println!("Decoding contents...");
-                let mut data_buffer = self.buffer.split_to(head.content_length());
-                let mut buf = data_buffer.freeze();
-                match head.frame_type() {
-                    FrameType::Data => {
-                        if let Ok(data) = Data::decode_from(&mut buf) {
-                            self.next_frame_head = None;
-                            return Some(data);
-                        } else {
-                            //println!("Failied to decode data");
+            if readable_len >= head.content_length() {
+                unsafe {
+                    let mut lease = self.buffer.get_lease(self.read_offset, self.read_offset+head.content_length());
+                    self.read_offset += head.content_length();
+                    match head.frame_type() {
+                        FrameType::Data => {
+                            if let Ok(data) = Data::decode_from(lease) {
+                                self.next_frame_head = None;
+                                return Some(data);
+                            } else {
+                                println!("Failed to decode data");
+                            }
+                        },
+                        FrameType::StreamRequest => {
+                            if let Ok(data) = StreamRequest::decode_from(lease) {
+                                self.next_frame_head = None;
+                                return Some(data);
+                            }
+                        },
+                        _ => {
+                            println!("Weird head");
                         }
-                    },
-                    FrameType::StreamRequest => {
-                        if let Ok(data) = StreamRequest::decode_from(&mut buf) {
-                            self.next_frame_head = None;
-                            return Some(data);
-                        }
-                    },
-                    _ => {
-                        println!("Weird head");
-                        return None;
                     }
                 }
-            } else {
-                //println!("unable to decode contents, buffer len: {}", self.buffer.len());
-                return None;
             }
-        } else {
-            if self.buffer.len() >= FRAME_HEAD_LEN {
-                let mut head_buffer = self.buffer.split_to(FRAME_HEAD_LEN);
-                if let Ok(head) = FrameHead::decode_from(&mut head_buffer.freeze()) {
-                    //println!("FrameHead decoded");
-                    self.next_frame_head = Some(head);
-                    return self.get_frame();
-                } else {
-                    // We are lost in the buffer, this is very bad
-                    println!("Buffer split-off but not starting at a FrameHead");
-                    return None;
+        }
+        else {
+            if readable_len >= FRAME_HEAD_LEN {
+                unsafe {
+                    let mut bytes = self.buffer.get_bytes(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
+                    self.read_offset += FRAME_HEAD_LEN;
+                    if let Ok(head) = FrameHead::decode_from(&mut bytes) {
+                        self.next_frame_head = Some(head);
+                        return self.get_frame();
+                    } else {
+                        // We are lost in the buffer, this is very bad
+                        println!("Buffer split-off but not starting at a FrameHead");
+                    }
                 }
-            } else {
-                //println!("unable to decode head, buffer len: {}", self.buffer.len());
-                return None;
             }
         }
         return None;
     }
+}
 
-    pub fn inner(&mut self) -> &mut BytesMut {
-        return &mut self.buffer
+#[derive(Debug)]
+pub struct ChunkLease<B: Buf + Sized> {
+    content: B,
+    lock: Arc<u8>,
+}
+
+impl<B: Buf + Sized> ChunkLease<B> {
+    pub fn new(content: B, lock: Arc<u8>) -> ChunkLease<B> {
+        ChunkLease{
+            content,
+            lock,
+        }
     }
 }
+
+impl<B: Buf> Deref for ChunkLease<B> {
+    type Target = B;
+
+    fn deref(&self) -> &B {
+        &self.content
+    }
+}
+
+impl<B: Buf> Buf for ChunkLease<B> {
+    fn remaining(&self) -> usize {
+        self.content.remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.content.bytes()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        self.content.advance(cnt)
+    }
+}
+
+unsafe impl<B: Buf> Send for ChunkLease<B> {}
+// Drop automatically implemented
