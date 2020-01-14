@@ -19,11 +19,12 @@ use std::thread;
 use iovec::IoVec;
 use crossbeam_queue::SegQueue;
 use mio::{SetReadiness, Registration, Ready};
-use bytes::BytesMut;
+use bytes::{BytesMut, Bytes, BufMut, Buf};
 use std::sync::mpsc::{channel, Sender, Receiver as Recv};
 use crate::net::network_thread::NetworkThread;
 use crate::net::frames::*;
 use crate::net::events::DispatchEvent;
+use crate::messaging::Serialized;
 
 pub mod network_thread;
 pub mod frames;
@@ -47,6 +48,7 @@ pub mod events {
     use crate::net::frames::*;
     use std::net::SocketAddr;
     use bytes::BytesMut;
+    use crate::messaging::Serialized;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
@@ -58,7 +60,7 @@ pub mod events {
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
-        Send(SocketAddr, Box<BytesMut>),
+        Send(SocketAddr, Serialized),
         Stop(),
     }
 
@@ -214,12 +216,23 @@ impl Bridge {
         &self.bound_addr
     }
 
-    pub fn route(&self, addr: SocketAddr, frame: Frame) -> () {
-        let size = FrameHead::encoded_len() + frame.encoded_len();
-        let mut buf = Box::new(BytesMut::with_capacity(size));
-        frame.encode_into(&mut buf).expect("serialization");
-        self.network_input_queue.send(events::DispatchEvent::Send(addr, buf));
+    pub fn route(&self, addr: SocketAddr, serialized: Serialized) -> () {
+        match serialized {
+            Serialized::Bytes(bytes) => {
+                let size = FrameHead::encoded_len() + bytes.len();
+                let mut buf = BytesMut::with_capacity(size);
+                let head = FrameHead::new(FrameType::Data, bytes.len());
+                head.encode_into(&mut buf, bytes.len() as u32);
+                buf.put_slice(bytes.bytes());
+                self.network_input_queue.send(events::DispatchEvent::Send(addr, Serialized::Bytes(buf.freeze())));
+            }
+            Serialized::Chunk(chunk) => {
+                self.network_input_queue.send(events::DispatchEvent::Send(addr, Serialized::Chunk(chunk)));
+            }
+        }
         self.network_thread_registration.set_readiness(Ready::readable());
+        //let mut buf = Box::new(BytesMut::with_capacity(bytes.len()));
+        //buf.as_mut().put(bytes);
     }
 }
     /// Attempts to establish a TCP connection to the provided `addr`.

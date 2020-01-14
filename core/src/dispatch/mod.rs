@@ -295,9 +295,17 @@ impl NetworkDispatcher {
         use crate::net::frames::*;
 
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
-        let frame = {
+        /*
+        match msg {
+            DispatchData::Eager(serialized) => {
+
+            }
+            DispatchData::Lazy(serializable) => {}
+        }
+        */
+        let bytes = {
             let ser_id = msg.ser_id();
-            let payload = match msg.to_serialised(src, dst) {
+            let mut payload = match msg.to_serialised(src, dst) {
                 Ok(p) => p,
                 Err(e) => {
                     error!(
@@ -309,10 +317,12 @@ impl NetworkDispatcher {
                     return;
                 }
             };
-            Frame::Data(Data::new(ChunkLease::new(payload, Arc::new(0))))
+            payload
+            //Frame::Data(Data::new(ChunkLease::new(&mut payload, Arc::new(0))))
         };
+
         if let Some(bridge) = &self.net_bridge {
-            bridge.route(addr, frame);
+            bridge.route(addr, bytes);
         }
         /*
         let state: &mut ConnectionState =
@@ -570,6 +580,7 @@ mod dispatch_tests {
     };
     use bytes::{Buf, BufMut};
     use std::{thread, time::Duration};
+    use crate::prelude::Any;
 
     #[test]
     #[should_panic(expected = "KompactSystem: Poisoned")]
@@ -859,6 +870,46 @@ mod dispatch_tests {
         }
     }
 
+    impl Serialisable for PingMsg {
+        fn ser_id(&self) -> u64 {
+            42
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(9)
+        }
+
+        fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+            buf.put_i8(PING_ID);
+            buf.put_u64(self.i);
+            Result::Ok(())
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+            Ok(self)
+        }
+    }
+
+    impl Serialisable for PongMsg {
+        fn ser_id(&self) -> u64 {
+            42
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(9)
+        }
+
+        fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+            buf.put_i8(PONG_ID);
+            buf.put_u64(self.i);
+            Result::Ok(())
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+            Ok(self)
+        }
+    }
+
     impl Serialiser<PongMsg> for PingPongSer {
         fn ser_id(&self) -> SerId {
             Self::SID
@@ -945,7 +996,9 @@ mod dispatch_tests {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
-                    self.target.tell((PingMsg { i: 0 }, PING_PONG_SER), self);
+                    self.ctx_mut().initialize_pool();
+                    let target = self.target.clone();
+                    target.tell_pooled(PingMsg { i: 0 }, self);
                 }
                 _ => (),
             }
@@ -965,8 +1018,8 @@ mod dispatch_tests {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
-                        self.target
-                            .tell((PingMsg { i: pong.i + 1 }, PING_PONG_SER), self);
+                        let target = self.target.clone();
+                        target.tell_pooled((PingMsg { i: pong.i + 1 }), self);
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
@@ -992,6 +1045,7 @@ mod dispatch_tests {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
+                    self.ctx_mut().initialize_pool();
                 }
                 _ => (),
             }

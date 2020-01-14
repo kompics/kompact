@@ -16,6 +16,9 @@ use std::cell::UnsafeCell;
 
 use super::*;
 use crate::{actors::TypedMsgQueue, messaging::PathResolvable, supervision::*};
+use bytes::{BufMut, BytesMut};
+use crate::net::buffer::{ChunkLease, BufferChunk, DecodeBuffer, EncodeBuffer};
+use crate::net::buffer_pool::BufferPool;
 
 pub trait CoreContainer: Send + Sync {
     fn id(&self) -> &Uuid;
@@ -465,6 +468,11 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
+    buffer: Option<EncodeBuffer>,
+}
+
+impl<CD: ComponentDefinition + ActorRaw + Sized + 'static> ComponentContextInner<CD> {
+
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
@@ -482,6 +490,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             component: Arc::downgrade(&c),
             logger: c.logger().new(o!("ctype" => CD::type_name())),
             actor_ref: c.actor_ref(),
+            buffer: None,
         };
         self.inner = Some(inner);
         trace!(self.log(), "Initialised.");
@@ -534,6 +543,19 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
 
     pub fn suicide(&self) -> () {
         self.component().control_port().enqueue(ControlEvent::Kill);
+    }
+
+    pub fn initialize_pool(&mut self) -> () {
+        self.inner_mut().buffer = Some(EncodeBuffer::new());
+    }
+
+    pub fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
+        //self.inner_mut().get_buffer(size)
+        if let Some(buffer) = &mut self.inner_mut().buffer {
+            buffer.get_buffer(size)
+        } else {
+            panic!("Buffer not initialized!")
+        }
     }
 }
 

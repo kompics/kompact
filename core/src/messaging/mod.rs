@@ -25,7 +25,8 @@ pub struct NetMessage {
 #[derive(Debug)]
 pub enum HeapOrSer {
     Boxed(Box<dyn Any + Send + 'static>),
-    Serialised(ChunkLease<Bytes>),
+    Serialised(bytes::Bytes),
+    Pooled(ChunkLease),
 }
 impl NetMessage {
     pub fn with_box(
@@ -46,13 +47,27 @@ impl NetMessage {
         ser_id: SerId,
         sender: ActorPath,
         receiver: ActorPath,
-        data: ChunkLease<Bytes>,
+        data: Bytes,
     ) -> NetMessage {
         NetMessage {
             ser_id,
             sender,
             receiver,
             data: HeapOrSer::Serialised(data),
+        }
+    }
+
+    pub fn with_chunk(
+        ser_id: SerId,
+        sender: ActorPath,
+        receiver: ActorPath,
+        data: ChunkLease,
+    ) -> NetMessage {
+        NetMessage {
+            ser_id,
+            sender,
+            receiver,
+            data: HeapOrSer::Pooled(data),
         }
     }
 
@@ -91,6 +106,9 @@ impl NetMessage {
                 .map_err(|b| UnpackError::NoCast(Self::with_box(ser_id, sender, receiver, b))),
             HeapOrSer::Serialised(mut bytes) => {
                 D::deserialise(&mut bytes).map_err(|e| UnpackError::DeserError(e))
+            }
+            HeapOrSer::Pooled(mut chunk) => {
+                D::deserialise(&mut chunk).map_err(|e| UnpackError::DeserError(e))
             }
         }
     }
@@ -203,12 +221,20 @@ impl<E> TryFrom<Result<Serialised, E>> for Serialised {
 pub enum DispatchData {
     Lazy(Box<dyn Serialisable>),
     Eager(Serialised),
+    Pooled((ChunkLease, SerId)), // The ChunkLease should already be endoded as a frame ready for transfer
+}
+
+#[derive(Debug)]
+pub enum Serialized {
+    Bytes(Bytes),
+    Chunk(ChunkLease),
 }
 impl DispatchData {
     pub fn ser_id(&self) -> SerId {
         match self {
             DispatchData::Lazy(ser) => ser.ser_id(),
             DispatchData::Eager(ser) => ser.ser_id,
+            DispatchData::Pooled((chunk, ser_id)) => *ser_id,
         }
     }
 
@@ -218,20 +244,25 @@ impl DispatchData {
                 let ser_id = ser.ser_id();
                 match ser.local() {
                     Ok(s) => Ok(NetMessage::with_box(ser_id, src, dst, s)),
-                    Err(ser) => crate::serialisation::helpers::serialise_to_msg(src, dst, ser),
+                    Err(ser) => crate::serialisation::helpers::serialise_to_msg(src, dst, ser, ChunkLease::empty()), // TODO: ?
                 }
             }
-            DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ChunkLease::new(ser.data, Arc::new(0)))),
+            DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ser.data)),
+            //DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ChunkLease::new(ser.data.as_mut(), Arc::new(0)))),
+            DispatchData::Pooled((chunk, ser_id)) => Ok(NetMessage::with_chunk(ser_id, src, dst, chunk)),
         }
     }
 
-    pub fn to_serialised(self, src: ActorPath, dst: ActorPath) -> Result<Bytes, SerError> {
+    pub fn to_serialised(self, src: ActorPath, dst: ActorPath) -> Result<Serialized, SerError> {
         match self {
             DispatchData::Lazy(ser) => {
-                crate::serialisation::helpers::serialise_msg(&src, &dst, ser)
+                Ok(Serialized::Bytes(crate::serialisation::helpers::serialise_msg(&src, &dst, ser)?))
             }
             DispatchData::Eager(ser) => {
-                crate::serialisation::helpers::embed_in_msg(&src, &dst, ser)
+                Ok(Serialized::Bytes(crate::serialisation::helpers::embed_in_msg(&src, &dst, ser)?))
+            }
+            DispatchData::Pooled((chunk, ser_id)) => {
+                Ok(Serialized::Chunk(chunk))
             }
         }
     }
@@ -333,6 +364,7 @@ mod deser_macro_tests {
     use crate::serialisation::Serialiser;
     use bytes::{Buf, BufMut};
     use std::str::FromStr;
+    use crate::net::buffer::BufferChunk;
 
     #[test]
     fn simple_macro_test() {
@@ -438,17 +470,21 @@ mod deser_macro_tests {
 
         let msg_a = MsgA::new(54);
         let msg_b = MsgB::new(true);
-
+        let mut chunk = BufferChunk::new();
+        let mut lease_a = unsafe {ChunkLease::new(chunk.get_slice(0,10), Arc::new(0))};
+        let mut lease_b = unsafe {ChunkLease::new(chunk.get_slice(10,20), Arc::new(0))};
         let msg_a_ser = crate::serialisation::helpers::serialise_to_msg(
             ap.clone(),
             ap.clone(),
             Box::new(msg_a),
+            lease_a,
         )
         .expect("MsgA should serialise!");
         let msg_b_ser = crate::serialisation::helpers::serialise_to_msg(
             ap.clone(),
             ap.clone(),
             (msg_b, BSer).into(),
+            lease_b,
         )
         .expect("MsgB should serialise!");
 
@@ -462,7 +498,7 @@ mod deser_macro_tests {
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
-        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap.clone(), ChunkLease::new(Bytes::default(), Arc::new(0)));
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap.clone(), Bytes::default());
 
         f(msg);
     }

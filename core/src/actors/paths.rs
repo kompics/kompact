@@ -8,6 +8,11 @@ use std::{
     str::FromStr,
 };
 use uuid::Uuid;
+use crate::net::buffer::ChunkLease;
+use bytes::{BufMut, BytesMut};
+use crate::net::frames::FrameHead;
+use crate::net::frames;
+use std::borrow::Borrow;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -228,6 +233,56 @@ impl ActorPath {
         };
         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
         Ok(())
+    }
+
+    /// Same as [tell](tell), but serialises eagerly.
+    pub fn tell_pooled<B, CD>(&self, m: B, from: &mut CD) -> ()
+        where
+            B: Serialisable + Sized,
+            //S: ActorSource,
+            CD: ComponentDefinition + Sized + 'static,
+    {
+        //println!("TELL POOLED");
+        let src = from.path_resolvable();
+        let ser_id = &m.ser_id();
+        let src_path = match src {
+            PathResolvable::Path(actor_path) => {
+                actor_path
+            }
+            PathResolvable::ActorId(uuid) => {
+                //println!("actor path unique");
+                ActorPath::Unique(UniquePath::with_system(from.ctx().system().system_path(), uuid.clone()))
+            }
+            _ => {
+                panic!("tell_pooled sent from non-actor");
+            }
+        };
+        let dst = self.clone();
+        //println!("checking size hint");
+        if let Some(mut size) = m.size_hint() {
+
+            size += FrameHead::encoded_len();
+            size += src_path.size_hint().unwrap_or(0);
+            size += dst.size_hint().unwrap_or(0);
+            size += ser_id.size();
+            //println!("getting buffer");
+            if let Some(mut buf) = from.ctx_mut().get_buffer(size) {
+                //println!("serializing into chunk");
+                crate::serialisation::helpers::serialise_into_framed_chunk(&src_path, &dst, m, &mut buf);
+                let env = DispatchEnvelope::Msg {
+                    src: from.path_resolvable(),
+                    dst,
+                    msg: DispatchData::Pooled((buf, *ser_id)),
+                };
+                //println!("enqueing: {:?}", env);
+                from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+            } else {
+                panic!("failed to get buffer!");
+                // TODO: No buffer we should do exponential back-off right here and recursively call the function again
+            }
+        } else {
+            panic!("no size hint");
+        }
     }
 
     pub fn using_dispatcher<'a, 'b>(

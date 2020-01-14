@@ -81,7 +81,7 @@ impl Frame {
 }
 
 pub trait FrameExt {
-    fn decode_from(src: ChunkLease<Bytes>) -> Result<Frame, FramingError>;
+    fn decode_from(src: ChunkLease) -> Result<Frame, FramingError>;
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()>;
     fn encoded_len(&self) -> usize;
 }
@@ -102,7 +102,7 @@ pub struct CreditUpdate {
 pub struct Data {
     //pub stream_id: StreamId,
     //pub seq_num: u32,
-    pub payload: ChunkLease<Bytes>,
+    pub payload: ChunkLease,
 }
 
 /// Byte-mappings for frame types
@@ -186,7 +186,7 @@ impl StreamRequest {
 }
 
 impl Data {
-    pub fn new(payload: ChunkLease<Bytes>) -> Self {
+    pub fn new(payload: ChunkLease) -> Self {
         Data {
             payload,
         }
@@ -207,13 +207,13 @@ impl Data {
     }*/
 
     /// Consumes this frame and returns the raw payload buffer
-    pub fn payload(self) -> ChunkLease<Bytes> {
+    pub fn payload(self) -> ChunkLease {
         self.payload
     }
 }
 
 impl FrameExt for Data {
-    fn decode_from(payload: ChunkLease<Bytes>) -> Result<Frame, FramingError> {
+    fn decode_from(payload: ChunkLease) -> Result<Frame, FramingError> {
         /*if src.remaining() < 12 {
             return Err(FramingError::InvalidFrame);
         } */
@@ -226,19 +226,19 @@ impl FrameExt for Data {
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         // NOTE: This method _COPIES_ the owned bytes into `dst` rather than extending with the owned bytes
-        let payload_len = Bytes::len(&self.payload);
+        let payload_len = self.payload.bytes().len();
         assert!(dst.remaining_mut() >= (self.encoded_len()));
-        dst.put_slice(&self.payload);
+        dst.put_slice(&self.payload.bytes());
         Ok(())
     }
 
     fn encoded_len(&self) -> usize {
-        Bytes::len(&self.payload)
+        self.payload.bytes().len()
     }
 }
 
 impl FrameExt for StreamRequest {
-    fn decode_from(mut src: ChunkLease<Bytes>) -> Result<Frame, FramingError> {
+    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
         if src.remaining() < 8 {
             return Err(FramingError::InvalidFrame);
         }
@@ -263,7 +263,7 @@ impl FrameExt for StreamRequest {
 }
 
 impl FrameExt for CreditUpdate {
-    fn decode_from(mut src: ChunkLease<Bytes>) -> Result<Frame, FramingError> {
+    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
         unimplemented!()
     }
 

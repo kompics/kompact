@@ -45,7 +45,7 @@ pub struct NetworkThread {
     listener: Box<TcpListener>,
     poll: Poll,
     // Contains K,V=Remote SocketAddr, Output buffer; Token for polling; Input-buffer,
-    stream_map: HashMap<SocketAddr, (TcpStream, VecDeque<Box<BytesMut>>, Token, DecodeBuffer)>,
+    stream_map: HashMap<SocketAddr, (TcpStream, VecDeque<Serialized>, Token, DecodeBuffer)>,
     token_map: HashMap<Token, SocketAddr>,
     token: Token,
     input_queue: Box<Recv<DispatchEvent>>,
@@ -161,6 +161,7 @@ impl NetworkThread {
 
                 if let Some((stream, out_buffer, _, in_buffer)) = self.stream_map.get_mut(&addr) {
                     if event.readiness().is_writable() {
+                        //println!("sending buffer");
                         match Self::send_buffer(stream, out_buffer) {
                             Err(ref err) if broken_pipe(err) => {
                                 println!("BROKEN PIPE WRITE");
@@ -183,6 +184,7 @@ impl NetworkThread {
                                 // Eof?
                             }
                             Ok(n) => {
+                                //println!("read {} bytes", n);
                                 self.received_bytes += n as u64;
                                 self.poll.register(stream, token.clone(), Ready::readable(), PollOpt::edge() | PollOpt::oneshot());
                                 self.received_msgs = self.received_msgs + Self::decode(in_buffer, &mut self.lookup);
@@ -234,7 +236,7 @@ impl NetworkThread {
                 addr.clone(),
                 (
                     stream,
-                    VecDeque::<Box<BytesMut>>::new(),
+                    VecDeque::<Serialized>::new(),
                     self.token.clone(),
                     in_buffer,
                 )
@@ -339,7 +341,6 @@ impl NetworkThread {
                                     envelope.receiver());
                             }
                             Some(actor) => {
-                                //println!("sending msg to actor");
                                 msgs = msgs +1;
                                 actor.enqueue(envelope);
                             }
@@ -369,17 +370,28 @@ impl NetworkThread {
         self.token = Token(next);
     }
 
-    fn send_buffer(stream: &mut TcpStream, buffer: &mut VecDeque<Box<BytesMut>>) -> io::Result<usize> {
+    fn send_buffer(stream: &mut TcpStream, buffer: &mut VecDeque<Serialized>) -> io::Result<usize> {
         let mut sent_bytes = 0;
         let mut interrupts = 0;
         while let Some(mut buf) = buffer.pop_front() {
-            match stream.write(buf.as_ref()) {
+            match Self::write_serialized(stream, &mut buf) {
                 Ok(n) => {
                     sent_bytes = sent_bytes + n;
-                    if n < buf.as_ref().len() {
+                    match &mut buf {
                         // Split the data and continue sending the rest later
-                        buf.split_to(n);
-                        buffer.push_front(buf);
+                        Serialized::Bytes(bytes) => {
+                            if n < bytes.len() {
+                                bytes.split_to(n);
+                                buffer.push_front(buf);
+                            }
+                        }
+                        Serialized::Chunk(chunk) => {
+                            if n < chunk.bytes().len() {
+                                chunk.advance(n);
+                                buffer.push_front(buf);
+                            }
+                        }
+                        _ => {}
                     }
                     // Continue looping for the next message
                 }
@@ -404,6 +416,19 @@ impl NetworkThread {
             }
         }
         return Ok(sent_bytes);
+    }
+
+    fn write_serialized(stream: &mut TcpStream, serialized: &mut Serialized) -> io::Result<usize> {
+        match serialized {
+            Serialized::Chunk(chunk) => {
+                //println!("writing chunk");
+                stream.write(chunk.bytes())
+            }
+            Serialized::Bytes(bytes) => {
+                //println!("writing bytes");
+                stream.write(bytes.bytes())
+            }
+        }
     }
 }
 

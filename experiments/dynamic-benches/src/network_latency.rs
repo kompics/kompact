@@ -343,6 +343,7 @@ pub mod pppipelinestatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -364,7 +365,8 @@ pub mod pppipelinestatic {
             self.start = Instant::now();
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
-                self.ponger.tell(Ping::EVENT, self);
+                let ponger = self.ponger.clone();
+                ponger.tell_pooled(Ping::EVENT, self);
             }
         }
     }
@@ -411,6 +413,7 @@ pub mod pppipelinestatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -432,7 +435,7 @@ pub mod pppipelinestatic {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::EVENT, self);
+                    sender.tell_pooled(Pong::EVENT, self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -541,6 +544,7 @@ pub mod pppipelineindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -563,7 +567,8 @@ pub mod pppipelineindexed {
 
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
-                self.ponger.tell(Ping::new(self.remaining_send), self);
+                let ponger = self.ponger.clone();
+                ponger.tell_pooled(Ping::new(self.remaining_send), self);
             }
         }
     }
@@ -610,6 +615,7 @@ pub mod pppipelineindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -631,7 +637,7 @@ pub mod pppipelineindexed {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::new(ping.index), self);
+                    sender.tell_pooled(Pong::new(ping.index), self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -752,6 +758,7 @@ pub mod ppstatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -770,7 +777,8 @@ pub mod ppstatic {
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
-            self.ponger.tell(Ping::EVENT, self);
+            let ponger = self.ponger.clone();
+            ponger.tell_pooled(Ping::EVENT, self);
         }
     }
     impl Actor for Pinger {
@@ -788,7 +796,7 @@ pub mod ppstatic {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
-                        sender.tell(Ping::EVENT, self);
+                        sender.tell_pooled(Ping::EVENT, self);
                     } else {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
@@ -819,6 +827,7 @@ pub mod ppstatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -840,7 +849,7 @@ pub mod ppstatic {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::EVENT, self);
+                    sender.tell_pooled(Pong::EVENT, self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -957,6 +966,7 @@ pub mod ppstatic {
         impl Provide<ControlPort> for Pinger {
             fn handle(&mut self, _event: ControlEvent) -> () {
                 // ignore
+                self.ctx.initialize_pool();
             }
         }
 
@@ -972,7 +982,8 @@ pub mod ppstatic {
                 self.start = Instant::now();
                 let mut pipelined: u64 = 0;
                 while (pipelined < self.pipeline) && (self.sent_count < self.count) {
-                    self.ponger.tell(Ping::EVENT, self);
+                    let ponger = self.ponger.clone();
+                    ponger.tell_pooled(Ping::EVENT, self);
                     self.sent_count += 1;
                     pipelined += 1;
                 }
@@ -993,7 +1004,8 @@ pub mod ppstatic {
                         self.recv_count += 1;
                         if self.recv_count < self.count {
                             if self.sent_count < self.count {
-                                self.ponger.tell(Ping::EVENT, self);
+                                let ponger = self.ponger.clone();
+                                ponger.tell_pooled(Ping::EVENT, self);
                                 self.sent_count += 1;
                             }
                         } else {
@@ -1004,7 +1016,8 @@ pub mod ppstatic {
                                 let mut pipelined: u64 = 0;
                                 while (pipelined < self.pipeline) && (self.sent_count < self.count)
                                 {
-                                    self.ponger.tell(Ping::EVENT, self);
+                                    let ponger = self.ponger.clone();
+                                    ponger.tell_pooled(Ping::EVENT, self);
                                     self.sent_count += 1;
                                     pipelined += 1;
                                 }
@@ -1046,6 +1059,7 @@ pub mod ppstatic {
         impl Provide<ControlPort> for Ponger {
             fn handle(&mut self, _event: ControlEvent) -> () {
                 // ignore
+                self.ctx.initialize_pool();
             }
         }
 
@@ -1062,7 +1076,7 @@ pub mod ppstatic {
                 match msg.try_deserialise::<Ping, Ping>() {
                     Ok(ping) => {
                         trace!(self.ctx.log(), "Ponger got Ping!");
-                        sender.tell(Pong::EVENT, self);
+                        sender.tell_pooled(Pong::EVENT, self);
                     }
                     Err(e) => {
                         error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -1106,6 +1120,7 @@ pub mod ppindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -1124,7 +1139,8 @@ pub mod ppindexed {
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
-            self.ponger.tell(Ping::new(self.remaining), self);
+            let ponger = self.ponger.clone();
+            ponger.tell_pooled(Ping::new(self.remaining), self);
         }
     }
     impl Actor for Pinger {
@@ -1141,7 +1157,8 @@ pub mod ppindexed {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
-                        self.ponger.tell(Ping::new(self.remaining), self);
+                        let ponger = self.ponger.clone();
+                        ponger.tell_pooled(Ping::new(self.remaining), self);
                     } else {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
@@ -1172,6 +1189,7 @@ pub mod ppindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -1193,7 +1211,7 @@ pub mod ppindexed {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::new(ping.index), self);
+                    sender.tell_pooled(Pong::new(ping.index), self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
