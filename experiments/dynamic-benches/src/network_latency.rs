@@ -363,9 +363,9 @@ pub mod pppipelinestatic {
             self.remaining_recv = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
+            let ponger = self.ponger.clone();
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
-                let ponger = self.ponger.clone();
                 ponger.tell_pooled(Ping::EVENT, self);
             }
         }

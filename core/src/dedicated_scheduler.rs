@@ -12,6 +12,8 @@ use std::{
     thread,
 };
 
+use crossbeam_utils::Backoff;
+
 struct ThreadLocalInfo {
     reschedule: bool,
 }
@@ -112,6 +114,7 @@ impl DedicatedThreadScheduler {
     where
         CD: ComponentDefinition + 'static,
     {
+        let backoff = Backoff::new();
         'main: loop {
             LOCAL_RESCHEDULE.with(|info| unsafe {
                 match *info.get() {
@@ -129,8 +132,15 @@ impl DedicatedThreadScheduler {
                     None => unreachable!("Did set this up there!"),
                 }
             });
+
             if park {
-                thread::park();
+                if backoff.is_completed() {
+                    thread::park();
+                } else {
+                    backoff.snooze();
+                }
+            } else {
+                backoff.reset();
             }
         }
         LOCAL_RESCHEDULE.with(|info| unsafe {

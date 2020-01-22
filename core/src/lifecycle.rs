@@ -2,7 +2,7 @@ use super::*;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ControlEvent {
     Start,
     Stop,
