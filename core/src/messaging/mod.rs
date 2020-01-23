@@ -12,6 +12,7 @@ use uuid::Uuid;
 use std::borrow::BorrowMut;
 use std::sync::Arc;
 use crate::net::buffer::ChunkLease;
+use crate::net::frames::FrameHead;
 
 pub mod framing;
 
@@ -238,7 +239,7 @@ impl DispatchData {
         }
     }
 
-    pub fn to_local(self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
+    pub fn to_local(mut self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
         match self {
             DispatchData::Lazy(ser) => {
                 let ser_id = ser.ser_id();
@@ -249,7 +250,11 @@ impl DispatchData {
             }
             DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ser.data)),
             //DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ChunkLease::new(ser.data.as_mut(), Arc::new(0)))),
-            DispatchData::Pooled((chunk, ser_id)) => Ok(NetMessage::with_chunk(ser_id, src, dst, chunk)),
+            DispatchData::Pooled((mut chunk, ser_id)) => {
+                chunk.advance(9);
+                // TODO: Fix this hack. Advancing the framhead len when converting remote outgoing message to a remote incoming message
+                crate::serialisation::helpers::deserialise_msg(chunk)
+            }
         }
     }
 
@@ -471,8 +476,8 @@ mod deser_macro_tests {
         let msg_a = MsgA::new(54);
         let msg_b = MsgB::new(true);
         let mut chunk = BufferChunk::new();
-        let mut lease_a = unsafe {ChunkLease::new(chunk.get_slice(0,10), Arc::new(0))};
-        let mut lease_b = unsafe {ChunkLease::new(chunk.get_slice(10,20), Arc::new(0))};
+        let mut lease_a = unsafe {ChunkLease::new_unused(chunk.get_slice(0,10), Arc::new(0))};
+        let mut lease_b = unsafe {ChunkLease::new_unused(chunk.get_slice(10,20), Arc::new(0))};
         let msg_a_ser = crate::serialisation::helpers::serialise_to_msg(
             ap.clone(),
             ap.clone(),
@@ -487,7 +492,6 @@ mod deser_macro_tests {
             lease_b,
         )
         .expect("MsgB should serialise!");
-
         assert!(f(msg_a_ser).is_a());
         assert!(f(msg_b_ser).is_b());
     }

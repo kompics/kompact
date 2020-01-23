@@ -929,6 +929,7 @@ mod dispatch_tests {
         const SER_ID: SerId = Self::SID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<PingMsg, SerError> {
+            println!("deserializing buf with remaining {} bytes", buf.remaining());
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",
@@ -943,8 +944,8 @@ mod dispatch_tests {
                 PONG_ID => Err(SerError::InvalidType(
                     "Found PongMsg, but expected PingMsg.".into(),
                 )),
-                _ => Err(SerError::InvalidType(
-                    "Found unkown id, but expected PingMsg.".into(),
+                id => Err(SerError::InvalidType(
+                    format!("Found unknown id {}, but expected PingMsg.", id).into(),
                 )),
             }
         }
@@ -967,8 +968,8 @@ mod dispatch_tests {
                 PING_ID => Err(SerError::InvalidType(
                     "Found PingMsg, but expected PongMsg.".into(),
                 )),
-                _ => Err(SerError::InvalidType(
-                    "Found unkown id, but expected PongMsg.".into(),
+                id => Err(SerError::InvalidType(
+                    format!("Found unknown id {}, but expected PingMsg.", id).into(),
                 )),
             }
         }
@@ -1066,7 +1067,7 @@ mod dispatch_tests {
                     info!(self.ctx.log(), "Got msg {:?}", ping);
                     let pong = PongMsg { i: ping.i };
                     sender
-                        .tell_ser((&pong, &PING_PONG_SER), self)
+                        .tell_pooled(pong, self)
                         .expect("PongMsg should serialise");
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),

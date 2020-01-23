@@ -51,13 +51,13 @@ where
     }
 }
 
-struct SerialisableValue<T, S>
+pub struct SerialisableValue<T, S>
 where
     T: Send + Debug,
     S: Serialiser<T>,
 {
-    v: T,
-    ser: S,
+    pub v: T,
+    pub ser: S,
 }
 
 impl<T, S> Serialisable for SerialisableValue<T, S>

@@ -236,7 +236,7 @@ impl ActorPath {
     }
 
     /// Same as [tell](tell), but serialises eagerly.
-    pub fn tell_pooled<B, CD>(&self, m: B, from: &mut CD) -> ()
+    pub fn tell_pooled<B, CD>(&self, m: B, from: &mut CD) -> Result<(), SerError>
         where
             B: Serialisable + Sized,
             //S: ActorSource,
@@ -276,6 +276,7 @@ impl ActorPath {
                 };
                 //println!("enqueing: {:?}", env);
                 from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+                Ok(())
             } else {
                 panic!("failed to get buffer!");
                 // TODO: No buffer we should do exponential back-off right here and recursively call the function again
