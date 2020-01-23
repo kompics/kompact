@@ -11,6 +11,7 @@ uuid = { version = "0.7", features = ["v4"] }
 fnv = "1.0"
 fxhash = "0.2.1"
 synchronoise = "1.0"
+panoradix = "0.6"
 criterion = {version = "0.3", features=['real_blackbox']}
 
 [dependencies.kompact]
