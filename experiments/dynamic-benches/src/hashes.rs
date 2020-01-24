@@ -85,6 +85,11 @@ pub fn insert_benches_uuid(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_uuid_insert_radix(b, size),
         );
+        g.bench_with_input(
+            BenchmarkId::new("Byte Radix", data_size),
+            data_size,
+            |b, &size| tests::bench_uuid_insert_byteradix(b, size),
+        );
     }
     g.finish();
 }
@@ -105,6 +110,11 @@ pub fn insert_benches_socket(c: &mut Criterion) {
             BenchmarkId::new("Radix", data_size),
             data_size,
             |b, &size| tests::bench_socket_insert_radix(b, size),
+        );
+        g.bench_with_input(
+            BenchmarkId::new("Byte Radix", data_size),
+            data_size,
+            |b, &size| tests::bench_socket_insert_byteradix(b, size),
         );
     }
     g.finish();
@@ -131,6 +141,11 @@ pub fn insert_benches_usize(c: &mut Criterion) {
             BenchmarkId::new("Radix", data_size),
             data_size,
             |b, &size| tests::bench_usize_insert_radix(b, size),
+        );
+        g.bench_with_input(
+            BenchmarkId::new("Byte Radix", data_size),
+            data_size,
+            |b, &size| tests::bench_usize_insert_byteradix(b, size),
         );
     }
     g.finish();
@@ -164,6 +179,11 @@ pub fn lookup_benches_uuid(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_uuid_lookup_radix(b, size),
         );
+        g.bench_with_input(
+            BenchmarkId::new("Byte Radix", data_size),
+            data_size,
+            |b, &size| tests::bench_uuid_lookup_byteradix(b, size),
+        );
     }
     g.finish();
 }
@@ -184,6 +204,11 @@ pub fn lookup_benches_socket(c: &mut Criterion) {
             BenchmarkId::new("Radix", data_size),
             data_size,
             |b, &size| tests::bench_socket_lookup_radix(b, size),
+        );
+        g.bench_with_input(
+            BenchmarkId::new("ByteRadix", data_size),
+            data_size,
+            |b, &size| tests::bench_socket_lookup_byteradix(b, size),
         );
     }
     g.finish();
@@ -211,6 +236,11 @@ pub fn lookup_benches_usize(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_usize_lookup_radix(b, size),
         );
+        g.bench_with_input(
+            BenchmarkId::new("Byte Radix", data_size),
+            data_size,
+            |b, &size| tests::bench_usize_lookup_byteradix(b, size),
+        );
     }
     g.finish();
 }
@@ -221,6 +251,7 @@ mod tests {
     use fnv::FnvHashMap;
     use fxhash::FxHashMap;
     use panoradix::RadixMap;
+    use datastructures::ByteSliceMap;
     use std::collections::{BTreeMap, HashMap};
 
     pub fn bench_uuid_insert_sip(b: &mut Bencher, data_size: usize) {
@@ -298,6 +329,21 @@ mod tests {
         map.clear();
     }
 
+    pub fn bench_uuid_insert_byteradix(b: &mut Bencher, data_size: usize) {
+        let data = load_uuid_data(data_size);
+        let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(id.as_bytes(), VAL);
+            });
+        });
+        //assert_eq!(map.len(), data_size);
+        // map.iter().for_each(|v| {
+        //     assert_eq!(*v.1, VAL);
+        // });
+        map.clear();
+    }
+
     pub fn bench_socket_insert_sip(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: HashMap<SocketAddr, &'static str> =
@@ -356,6 +402,22 @@ mod tests {
         map.iter().for_each(|v| {
             assert_eq!(*v.1, VAL);
         });
+        map.clear();
+    }
+
+    pub fn bench_socket_insert_byteradix(b: &mut Bencher, data_size: usize) {
+        let data = load_addr_data(data_size);
+        let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let key = socket_to_bytes(id);
+                let _ = map.insert(&key, VAL);
+            });
+        });
+        //assert_eq!(map.len(), data_size);
+        // map.iter().for_each(|v| {
+        //     assert_eq!(*v.1, VAL);
+        // });
         map.clear();
     }
 
@@ -432,6 +494,22 @@ mod tests {
         map.iter().for_each(|v| {
             assert_eq!(*v.1, VAL);
         });
+        map.clear();
+    }
+
+    pub fn bench_usize_insert_byteradix(b: &mut Bencher, data_size: usize) {
+        let data = load_usize_data(data_size);
+        let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+                let _ = map.insert(&key, VAL);
+            });
+        });
+        //assert_eq!(map.len(), data_size);
+        // map.iter().for_each(|v| {
+        //     assert_eq!(*v.1, VAL);
+        // });
         map.clear();
     }
 
@@ -520,6 +598,22 @@ mod tests {
         map.clear();
     }
 
+    pub fn bench_uuid_lookup_byteradix(b: &mut Bencher, data_size: usize) {
+        let data = load_uuid_data(data_size);
+        let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.as_bytes(), VAL);
+        });
+        //assert_eq!(map.len(), data_size);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id.as_bytes());
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
     pub fn bench_socket_lookup_sip(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: HashMap<SocketAddr, &'static str> =
@@ -574,6 +668,23 @@ mod tests {
     pub fn bench_socket_lookup_radix(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: RadixMap<[u8], &'static str> = RadixMap::new();
+        data.iter().for_each(|id| {
+            let key = socket_to_bytes(id);
+            let _ = map.insert(&key, VAL);
+        });
+        //assert_eq!(map.len(), data_size);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let key = socket_to_bytes(id);
+                let r = map.get(&key);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+    pub fn bench_socket_lookup_byteradix(b: &mut Bencher, data_size: usize) {
+        let data = load_addr_data(data_size);
+        let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
         data.iter().for_each(|id| {
             let key = socket_to_bytes(id);
             let _ = map.insert(&key, VAL);
@@ -659,6 +770,24 @@ mod tests {
     pub fn bench_usize_lookup_radix(b: &mut Bencher, data_size: usize) {
         let data = load_usize_data(data_size);
         let mut map: RadixMap<[u8], &'static str> = RadixMap::new();
+        data.iter().for_each(|id| {
+            let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+            let _ = map.insert(&key, VAL);
+        });
+        //assert_eq!(map.len(), data_size);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+                let r = map.get(&key);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    pub fn bench_usize_lookup_byteradix(b: &mut Bencher, data_size: usize) {
+        let data = load_usize_data(data_size);
+        let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
         data.iter().for_each(|id| {
             let key: [u8; 8] = unsafe { std::mem::transmute(id) };
             let _ = map.insert(&key, VAL);

@@ -20,6 +20,9 @@ path = "../../core/"
 # features = ["silent_logging", "low_latency"]
 features = ["silent_logging"]
 
+[dependencies.datastructures]
+path = "../datastructures"
+
 
 [dev-dependencies]
 criterion = {version = "0.3", features=['real_blackbox']}

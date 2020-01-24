@@ -299,6 +299,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "datastructures"
+version = "0.1.0"
+
+[[package]]
 name = "dirs"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -323,6 +327,7 @@ name = "dynamic-benches"
 version = "0.1.0"
 dependencies = [
  "criterion 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "datastructures 0.1.0",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxhash 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kompact 0.8.1",
