@@ -494,6 +494,7 @@ dependencies = [
  "executors",
  "fnv",
  "futures",
+ "fxhash",
  "iovec",
  "kompact-actor-derive",
  "kompact-component-derive",

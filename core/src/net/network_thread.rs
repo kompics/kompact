@@ -18,7 +18,8 @@ use std::ops::Deref;
 use std::borrow::BorrowMut;
 use std::net::Shutdown::Both;
 use std::time::Duration;
-
+use fxhash::{FxHashMap, FxHasher};
+use std::hash::BuildHasherDefault;
 
 /*
     Using https://github.com/tokio-rs/mio/blob/master/examples/tcp_server.rs as template.
@@ -45,8 +46,8 @@ pub struct NetworkThread {
     listener: Box<TcpListener>,
     poll: Poll,
     // Contains K,V=Remote SocketAddr, Output buffer; Token for polling; Input-buffer,
-    stream_map: HashMap<SocketAddr, (TcpStream, VecDeque<Serialized>, Token, DecodeBuffer)>,
-    token_map: HashMap<Token, SocketAddr>,
+    stream_map: FxHashMap<SocketAddr, (TcpStream, VecDeque<Serialized>, Token, DecodeBuffer)>,
+    token_map: FxHashMap<Token, SocketAddr>,
     token: Token,
     input_queue: Box<Recv<DispatchEvent>>,
     dispatcher_registration: Registration,
@@ -85,8 +86,10 @@ impl NetworkThread {
                 .expect("failed to register dispatcher Poll");
             // Connections and buffers
             // There's probably a better way to handle the token/addr maps
-            let mut stream_map = HashMap::new();
-            let mut token_map = HashMap::new();
+            pub type FxBuildHasher = BuildHasherDefault<FxHasher>;
+            let mut stream_map: FxHashMap<SocketAddr, (TcpStream, VecDeque<Serialized>, Token, DecodeBuffer)> =
+                HashMap::<SocketAddr, (TcpStream, VecDeque<Serialized>, Token, DecodeBuffer), FxBuildHasher>::default();
+            let mut token_map: FxHashMap<Token, SocketAddr> = HashMap::<Token, SocketAddr, FxBuildHasher>::default();
 
             NetworkThread {
                 //log,
