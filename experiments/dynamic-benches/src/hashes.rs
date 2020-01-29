@@ -248,10 +248,10 @@ pub fn lookup_benches_usize(c: &mut Criterion) {
 mod tests {
     use super::*;
     use criterion::Bencher;
+    use datastructures::ByteSliceMap;
     use fnv::FnvHashMap;
     use fxhash::FxHashMap;
     use panoradix::RadixMap;
-    use datastructures::ByteSliceMap;
     use std::collections::{BTreeMap, HashMap};
 
     pub fn bench_uuid_insert_sip(b: &mut Bencher, data_size: usize) {

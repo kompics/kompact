@@ -7,25 +7,63 @@ pub enum SerError {
     Unknown(String),
 }
 
+/// A trait for types that can serialise data of type `T`.
 pub trait Serialiser<T>: Send {
+    /// The serialisation id for this serialiser.
+    ///
+    /// Serialisation ids are used to determine the deserialiser to use with a particular byte buffer.
+    /// They are prepended to the actual serialised data and read first during deserialisation.
+    /// Serialisation ids must be globally unique within a distributed Kompact system.
     fn ser_id(&self) -> SerId;
+
+    /// An indicator how many bytes must be reserved in a buffer for a value to be serialsed into it with this serialiser.
+    ///
+    /// If the total size is unknown, `None` should be returned.
+    ///
+    /// Generally, size hints should be cheap to calculate, compared to the actual serialisation,
+    /// since they are simply optimisations to avoid many small memory allocations during the serialisation process.
     fn size_hint(&self) -> Option<usize> {
         None
     }
+
+    /// Serialise `v` into `buf`.
+    ///
+    /// Serialisation should produce a copy, and not consume the original value.
+    ///
+    /// Returns a [SerError](SerError) if unsuccessful.
     fn serialise(&self, v: &T, buf: &mut dyn BufMut) -> Result<(), SerError>;
 }
 
+/// A trait for items that can serialise themselves into a buffer.
 pub trait Serialisable: Send + Debug {
+    /// The serialisation id for this serialisabl.
+    ///
+    /// Serialisation ids are used to determine the deserialiser to use with a particular byte buffer.
+    /// They are prepended to the actual serialised data and read first during deserialisation.
+    /// Serialisation ids must be globally unique within a distributed Kompact system.
     fn ser_id(&self) -> SerId;
 
-    /// Provides a suggested serialized size in bytes if possible, returning None otherwise.
+    /// An indicator how many bytes must be reserved in a buffer for a value to be serialsed into it with this serialiser.
+    ///
+    /// If the total size is unknown, `None` should be returned.
+    ///
+    /// Generally, size hints should be cheap to calculate, compared to the actual serialisation,
+    /// since they are simply optimisations to avoid many small memory allocations during the serialisation process.
     fn size_hint(&self) -> Option<usize>;
 
-    /// Serialises this object into `buf`, returning a `SerError` if unsuccessful.
+    /// Serialises this object (`self`) into `buf`.
+    ///
+    /// Serialisation should produce a copy, and not consume the original value.
+    ///
+    /// Returns a [SerError](SerError) if unsuccessful.
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError>;
 
+    /// Try move this object onto the heap for reflection, instead of serialising.
+    ///
+    /// Return the original object if the move fails, so that it can still be serialised.
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>>;
 
+    /// Serialise with a one-off buffer.
     fn serialised(&self) -> Result<crate::messaging::Serialised, SerError> {
         crate::serialisation::helpers::serialise_to_serialised(self)
     }
@@ -99,8 +137,13 @@ where
     }
 }
 
+/// A trait to deserialise values of type `T` from buffers.
 pub trait Deserialiser<T>: Send {
+    /// The serialisation id for which this deserialiser is to be invoked.
     const SER_ID: SerId;
+    /// Try to deserialise a `T` from `buf`.
+    ///
+    /// Returns a [SerError](SerError) if unsuccessful.
     fn deserialise(buf: &mut dyn Buf) -> Result<T, SerError>;
 }
 

@@ -2,6 +2,7 @@ use super::*;
 
 use protobuf::{Message, ProtobufError};
 
+/// Kompact serialisation marker for protobuf messages.
 pub struct ProtobufSer;
 
 impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {

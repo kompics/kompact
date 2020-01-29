@@ -3,6 +3,38 @@
 //!
 //! To get all kompact related things into scope import `use kompact::prelude::*;` instead of `use kompact::*;`.
 //!
+//! # Hello World Example
+//! ```
+//! use kompact::prelude::*;
+//!
+//! #[derive(ComponentDefinition, Actor)]
+//! struct HelloWorldComponent {
+//!     ctx: ComponentContext<Self>
+//! }
+//! impl HelloWorldComponent {
+//!     pub fn new() -> HelloWorldComponent {
+//!         HelloWorldComponent {
+//!             ctx: ComponentContext::new()
+//!         }
+//!     }
+//! }
+//! impl Provide<ControlPort> for HelloWorldComponent {
+//!     fn handle(&mut self, event: ControlEvent) -> () {
+//!            match event {
+//!                ControlEvent::Start => {
+//!                    info!(self.ctx.log(), "Hello World!");
+//!                }
+//!                _ => (), // ignore other control events
+//!            }
+//!       }
+//! }
+//!
+//! let system = KompactConfig::default().build().expect("system");
+//! let component = system.create(HelloWorldComponent::new);
+//! let start_future = system.start_notify(&component);
+//! start_future.wait();
+//! system.shutdown().expect("shutdown");
+//! ```
 
 #![allow(unused_parens)]
 #![feature(specialization)]
@@ -52,10 +84,11 @@ pub mod timer;
 mod timer_manager;
 mod utils;
 
-//#[derive(Debug, Clone, Copy)]
-//struct FakeNever;
 /// A more readable placeholder for a stable Never (`!`) type.
-pub type Never = !; //FakeNever;
+///
+/// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
+/// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
+pub type Never = !;
 
 /// To get all kompact related things into scope import `use kompact::prelude::*`.
 pub mod prelude {
@@ -138,7 +171,10 @@ pub mod prelude {
             Ask,
             Fulfillable,
             Future as KFuture,
+            IterExtras,
             Promise as KPromise,
+            PromiseErr,
+            TryDualLockError,
         },
     };
 }
@@ -148,6 +184,61 @@ pub mod prelude_test {
     pub use crate::serialisation::ser_test_helpers;
 }
 
+/// Helper structs and functions for doctests.
+///
+/// Please simply ignore this module, which should be gated by `#[cfg(doctest)]`,
+/// which doesn't seem to [work properly](https://github.com/rust-lang/rust/issues/67295).
+pub mod doctest_helpers {
+    use crate::prelude::*;
+
+    pub struct TestPort;
+    impl Port for TestPort {
+        type Indication = Never;
+        type Request = Never;
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    pub struct TestComponent1 {
+        ctx: ComponentContext<Self>,
+        test_port: ProvidedPort<TestPort, Self>,
+    }
+    impl TestComponent1 {
+        pub fn new() -> TestComponent1 {
+            TestComponent1 {
+                ctx: ComponentContext::new(),
+                test_port: ProvidedPort::new(),
+            }
+        }
+    }
+    ignore_control!(TestComponent1);
+    impl Provide<TestPort> for TestComponent1 {
+        fn handle(&mut self, _event: Never) -> () {
+            unreachable!();
+        }
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    pub struct TestComponent2 {
+        ctx: ComponentContext<Self>,
+        test_port: RequiredPort<TestPort, Self>,
+    }
+    impl TestComponent2 {
+        pub fn new() -> TestComponent2 {
+            TestComponent2 {
+                ctx: ComponentContext::new(),
+                test_port: RequiredPort::new(),
+            }
+        }
+    }
+    ignore_control!(TestComponent2);
+    impl Require<TestPort> for TestComponent2 {
+        fn handle(&mut self, _event: Never) -> () {
+            unreachable!();
+        }
+    }
+}
+
+/// A simple type alias Kompact's slog `Logger` type signature.
 pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]

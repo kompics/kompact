@@ -16,22 +16,28 @@ pub use self::{core::*, default_serialisers::*};
 
 #[cfg(feature = "ser_id_64")]
 mod ser_id {
+    use super::SerIdSize;
     use bytes::{Buf, BufMut};
 
+    /// Type alias for the concrete implementation of serialisation ids.
+    ///
+    /// This version is activated by the `ser_id_64` feature flag, and uses a `u64` as the underlying size.
     pub type SerId = u64;
-    pub trait SerIdSize {
-        fn size(&self) -> usize;
-    }
-    pub trait SerIdBuf {
-        fn get_ser_id(&mut self) -> SerId;
-    }
-    pub trait SerIdBufMut {
-        fn put_ser_id(&mut self, ser_id: SerId) -> ();
-    }
+
     impl SerIdSize for SerId {
         fn size(&self) -> usize {
             8
         }
+    }
+    /// A trait to retrieve a `SerId` from a buffer.
+    pub trait SerIdBuf {
+        /// Deserialises a `SerId` from this buffer.
+        fn get_ser_id(&mut self) -> SerId;
+    }
+    /// A trait to put a `SerId` into a mutable buffer.
+    pub trait SerIdBufMut {
+        /// Serialises a `SerId` into this buffer.
+        fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
@@ -43,6 +49,12 @@ mod ser_id {
             self.put_u64_be(ser_id)
         }
     }
+}
+
+/// A trait that allows to determine the number of bytes in a `SerId`.
+pub trait SerIdSize {
+    /// The number of bytes in a concrete implementation of `SerId`.
+    fn size(&self) -> usize;
 }
 pub use ser_id::*;
 

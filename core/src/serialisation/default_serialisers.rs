@@ -1,20 +1,37 @@
 use super::*;
 
-/// Currently in internal use: 0-20
+/// Contains constants with internal serialisation ids.
+///
+/// Currently ids between 0 and 20 are in internal use in Kompact.
 pub mod serialisation_ids {
     use super::SerId;
 
+    /// Id for a trivial deserialiser.
     pub const UNKNOWN: SerId = 0; // this is used for trivial deserialisers
+
+    /// Id for a `DispatchEnvelope`.
     pub const DISPATCH_ENVELOPE: SerId = 1;
+
+    /// Id for a `UniquePath`
     pub const UNIQUE_PATH: SerId = 2;
+
+    /// Id for a `NamedPath`.
     pub const NAMED_PATH: SerId = 3;
     //pub const SYSTEM_PATH_HEADER: SerId = 4; // this one is freed now...reuse in th future!
+
+    /// Id for a `SystemPath`.
     pub const SYSTEM_PATH: SerId = 5;
+
+    /// Id for an [ActorPath](crate::prelude::ActorPath).
     pub const ACTOR_PATH: SerId = 6;
 
+    /// Id for a `String` serialiser.
     pub const STR: SerId = 6;
+
+    /// Id for a `u64` serialiser.
     pub const U64: SerId = 7;
 
+    /// Id for the protobuf serialiser
     pub const PBUF: SerId = 20;
 }
 
