@@ -29,8 +29,8 @@ thread_pinning = ["core_affinity"]
 
 [dependencies]
 log = "0.4"
-kompact-component-derive = { version="0.8.0", path = "../macros/component-definition-derive/" }
-kompact-actor-derive = { version="0.8.0", path = "../macros/actor-derive/" }
+kompact-component-derive = { version="0.9.0", path = "../macros/component-definition-derive/" }
+kompact-actor-derive = { version="0.9.0", path = "../macros/actor-derive/" }
 crossbeam-channel = "0.3"
 crossbeam-queue = "0.1"
 crossbeam-utils = "0.6"
