@@ -692,10 +692,11 @@ mod tests {
 
     #[test]
     fn test_recipient_explicit() {
-        let sys = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let latch = Arc::new(CountdownEvent::new(1));
         let latch2 = latch.clone();
-        let ldactor = sys.create_and_start(move || LatchDropActor::new(latch2));
+        let ldactor = system.create(move || LatchDropActor::new(latch2));
+        system.start(&ldactor);
         let ldref = ldactor.actor_ref();
         let ldrecipient: Recipient<Countdown> = ldref.recipient_with(|c| CountdownWrapper(c));
         ldrecipient.tell(Countdown);
@@ -705,10 +706,11 @@ mod tests {
 
     #[test]
     fn test_recipient_into() {
-        let sys = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let latch = Arc::new(CountdownEvent::new(1));
         let latch2 = latch.clone();
-        let ldactor = sys.create_and_start(move || LatchDropActor::new(latch2));
+        let ldactor = system.create(move || LatchDropActor::new(latch2));
+        system.start(&ldactor);
         let ldref = ldactor.actor_ref();
         let ldrecipient: Recipient<Countdown> = ldref.recipient();
         ldrecipient.tell(Countdown);

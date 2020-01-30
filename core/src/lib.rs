@@ -1,7 +1,7 @@
 //! The Kompact message-passing framework provides a hybrid approach
 //! between the Kompics component model and the Actor model for writing distributed systems.
 //!
-//! To get all kompact related things into scope import `use kompact::prelude::*;` instead of `use kompact::*;`.
+//! To get all Kompact related things into scope import `use kompact::prelude::*;` instead of `use kompact::*;`.
 //!
 //! # Hello World Example
 //! ```
@@ -77,7 +77,7 @@ mod lifecycle;
 pub mod messaging;
 pub mod net;
 mod ports;
-mod runtime;
+pub mod runtime;
 mod serialisation;
 mod supervision;
 pub mod timer;
@@ -90,7 +90,7 @@ mod utils;
 /// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
 pub type Never = !;
 
-/// To get all kompact related things into scope import `use kompact::prelude::*`.
+/// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
 
@@ -356,7 +356,7 @@ mod tests {
         settings
             .threads(4)
             .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
-        let system = KompactSystem::new(settings).expect("KompactSystem");
+        let system = settings.build().expect("KompactSystem");
         test_with_system(system);
     }
 
@@ -584,7 +584,8 @@ mod tests {
     #[test]
     fn test_timer() -> () {
         let system = KompactConfig::default().build().expect("KompactSystem");
-        let trc = system.create_and_start(TimerRecvComponent::new);
+        let trc = system.create(TimerRecvComponent::new);
+        system.start(&trc);
 
         thread::sleep(Duration::from_millis(1000));
 

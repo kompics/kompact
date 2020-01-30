@@ -569,7 +569,7 @@ mod dispatch_tests {
             net_config.build()
         });
         println!("Starting KompactSystem");
-        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
         thread::sleep(Duration::from_secs(1));
         assert!(false, "System should not start correctly!");
         println!("KompactSystem started just fine.");
@@ -608,7 +608,7 @@ mod dispatch_tests {
             net_config.build()
         });
         println!("Starting KompactSystem");
-        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -631,7 +631,7 @@ mod dispatch_tests {
             net_config.build()
         });
         println!("Starting 2nd KompactSystem");
-        let system2 = KompactSystem::new(cfg2).expect("KompactSystem");
+        let system2 = cfg2.build().expect("KompactSystem");
         println!("2nd KompactSystem started just fine.");
         let named_path2 = ActorPath::Named(NamedPath::with_system(
             system2.system_path(),
@@ -650,7 +650,7 @@ mod dispatch_tests {
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         println!("Starting KompactSystem");
-        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -666,7 +666,7 @@ mod dispatch_tests {
 
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = KompactSystem::new(cfg).expect("KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
         let ponger = system.create(PongerAct::new);
         system.start(&ponger);
 
@@ -707,7 +707,7 @@ mod dispatch_tests {
             let system = || {
                 let mut cfg = KompactConfig::new();
                 cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-                KompactSystem::new(cfg).expect("KompactSystem")
+                cfg.build().expect("KompactSystem")
             };
             (system(), system())
         };
