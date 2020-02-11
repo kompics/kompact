@@ -158,7 +158,7 @@ pub mod prelude {
             RegistrationError,
             Serialised,
         },
-        timer_manager::{Timer, ScheduledTimer, TimerRefFactory},
+        timer_manager::{ScheduledTimer, Timer, TimerRefFactory},
     };
 
     pub use crate::{
@@ -815,5 +815,35 @@ mod tests {
         system
             .shutdown()
             .expect("Kompact didn't shut down properly");
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    struct Stopper {
+        ctx: ComponentContext<Self>,
+    }
+    impl Stopper {
+        fn new() -> Stopper {
+            Stopper {
+                ctx: ComponentContext::new(),
+            }
+        }
+    }
+    impl Provide<ControlPort> for Stopper {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    self.ctx().system().shutdown_async();
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    #[test]
+    fn test_async_shutdown() -> () {
+        let system = KompactConfig::default().build().expect("system");
+        let stopper = system.create(Stopper::new);
+        system.start(&stopper);
+        system.await_termination();
     }
 }

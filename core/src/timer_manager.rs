@@ -31,7 +31,6 @@ impl ScheduledTimer {
 
 /// API exposed by a timer implementation
 pub trait Timer<C: ComponentDefinition> {
-
     /// Schedule the `action` to be run once after `timeout` expires
     ///
     /// # Note
@@ -72,7 +71,7 @@ pub trait Timer<C: ComponentDefinition> {
     /// than an already scheduled timeout is not going to fire before it
     /// is actually cancelled.
     ///
-    /// However, calling this method will definitely prevent *periodic* timeouts 
+    /// However, calling this method will definitely prevent *periodic* timeouts
     /// from being rescheduled.
     fn cancel_timer(&mut self, handle: ScheduledTimer);
 }
@@ -191,10 +190,10 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
     },
 }
 
-// This isn't technically true, but I know I'm never actually sending 
+// This isn't technically true, but I know I'm never actually sending
 // individual Rc instances to different threads. Only the whole component
 // with all its Rc instances crosses threads sometimes.
-unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} 
+unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {}
 
 #[derive(Clone)]
 struct TimerActorRef {

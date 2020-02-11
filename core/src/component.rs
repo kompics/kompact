@@ -12,6 +12,7 @@ use std::{
 };
 use uuid::Uuid;
 //use oncemutex::OnceMutex;
+use hocon::Hocon;
 use std::cell::UnsafeCell;
 
 use super::*;
@@ -456,6 +457,10 @@ impl ExecuteResult {
     }
 }
 
+/// The contextual object for a Kompact component
+///
+/// Gives access compact internal features like
+/// timers, logging, confguration, an the self reference.
 pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
     inner: Option<ComponentContextInner<CD>>,
 }
@@ -465,6 +470,7 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
+    config: Arc<Hocon>,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
@@ -482,6 +488,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             component: Arc::downgrade(&c),
             logger: c.logger().new(o!("ctype" => CD::type_name())),
             actor_ref: c.actor_ref(),
+            config: system.config_owned(),
         };
         self.inner = Some(inner);
         trace!(self.log(), "Initialised.");
@@ -501,8 +508,81 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
+    /// The components logger instance
+    ///
+    /// This instance will already be preloaded
+    /// with component specific information in the MDC.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct HelloLogging {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl HelloLogging {
+    ///     fn new() -> HelloLogging {
+    ///         HelloLogging {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for HelloLogging {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         info!(self.ctx().log(), "Hello control event: {:?}", event);
+    ///         self.ctx().system().shutdown_async();
+    ///     }    
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(HelloLogging::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
     pub fn log(&self) -> &KompactLogger {
         &self.inner_ref().logger
+    }
+
+    /// Get a reference to the system configuration
+    ///
+    /// Use [load_config_str](KompactConfig::load_config_str) or
+    /// or [load_config_file](KompactConfig::load_config_file)
+    /// to load values into the config object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct ConfigComponent {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl ConfigComponent {
+    ///     fn new() -> ConfigComponent {
+    ///         ConfigComponent {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for ConfigComponent {
+    ///     fn handle(&mut self, _event: ControlEvent) -> () {
+    ///         assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
+    ///         self.ctx().system().shutdown_async();
+    ///     }    
+    /// }
+    /// let default_values = r#"{ a = 7 }"#;
+    /// let mut conf = KompactConfig::default();
+    /// conf.load_config_str(default_values);
+    /// let system = conf.build().expect("system");
+    /// let c = system.create(ConfigComponent::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
+    pub fn config(&self) -> &Hocon {
+        self.inner_ref().config.as_ref()
     }
 
     pub(crate) fn timer_manager_mut(&mut self) -> &mut TimerManager<CD> {

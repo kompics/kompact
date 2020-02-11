@@ -11,10 +11,12 @@ use crate::{
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
 };
 use executors::*;
+use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{
     clone::Clone,
     fmt::{Debug, Formatter, Result as FmtResult},
+    path::{Path, PathBuf},
     rc::Rc,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -67,6 +69,20 @@ type TimerBuilder = dyn Fn() -> Box<dyn TimerComponent>;
 pub enum KompactError {
     /// A mutex in the system has been poisoned
     Poisoned,
+    /// An error occurred loading the HOCON config
+    ConfigError(hocon::Error),
+}
+
+impl From<hocon::Error> for KompactError {
+    fn from(e: hocon::Error) -> Self {
+        KompactError::ConfigError(e)
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ConfigSource {
+    File(PathBuf),
+    Str(String),
 }
 
 /// A configuration builder for Kompact systems
@@ -96,6 +112,7 @@ pub struct KompactConfig {
     scheduler_builder: Rc<SchedulerBuilder>,
     sc_builder: Rc<SCBuilder>,
     root_logger: Option<KompactLogger>,
+    config_sources: Vec<ConfigSource>,
 }
 
 impl Debug for KompactConfig {
@@ -110,9 +127,15 @@ impl Debug for KompactConfig {
             timer_builder=<function>,
             scheduler_builder=<function>,
             sc_builder=<function>,
-            root_logger={:?}
+            root_logger={:?},
+            config_sources={:?}
         }}",
-            self.label, self.throughput, self.msg_priority, self.threads, self.root_logger
+            self.label,
+            self.throughput,
+            self.msg_priority,
+            self.threads,
+            self.root_logger,
+            self.config_sources
         )
     }
 }
@@ -138,6 +161,7 @@ impl KompactConfig {
                 Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))
             }),
             root_logger: None,
+            config_sources: Vec::new(),
         }
     }
 
@@ -297,6 +321,38 @@ impl KompactConfig {
         self
     }
 
+    /// Load a HOCON config from a file at `path`
+    ///
+    /// This method can be called multiple times, and the resulting configurations will be merged.
+    /// See [HoconLoader](hocon::HoconLoader) for more information.
+    ///
+    /// The loaded config can be accessed via [`system.config()`](KompactSystem::config
+    /// or from within a component via [`self.ctx().config()`](ComponentContext::config.
+    pub fn load_config_file<P>(&mut self, path: P) -> &mut Self
+    where
+        P: Into<PathBuf>,
+    {
+        let p: PathBuf = path.into();
+        self.config_sources.push(ConfigSource::File(p));
+        self
+    }
+
+    /// Load a HOCON config from a string
+    ///
+    /// This method can be called multiple times, and the resulting configurations will be merged.
+    /// See [HoconLoader](hocon::HoconLoader) for more information.
+    ///
+    /// The loaded config can be accessed via [`system.config()`](KompactSystem::config
+    /// or from within a component via [`self.ctx().config()`](ComponentContext::config.
+    pub fn load_config_str<S>(&mut self, config: S) -> &mut Self
+    where
+        S: Into<String>,
+    {
+        let s: String = config.into();
+        self.config_sources.push(ConfigSource::Str(s));
+        self
+    }
+
     /// Finalise the config and use it create a [KompactSystem](KompactSystem)
     ///
     /// This function can fail, if the configuration sets up invalid schedulers
@@ -352,6 +408,7 @@ impl Default for KompactConfig {
                 Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))
             }),
             root_logger: None,
+            config_sources: Vec::new(),
         }
     }
 }
@@ -390,6 +447,7 @@ impl Default for KompactConfig {
 #[derive(Clone)]
 pub struct KompactSystem {
     inner: Arc<KompactRuntime>,
+    config: Arc<Hocon>,
     scheduler: Box<dyn Scheduler>,
 }
 
@@ -398,14 +456,27 @@ impl KompactSystem {
     pub(crate) fn try_new(conf: KompactConfig) -> Result<Self, KompactError> {
         let scheduler = (*conf.scheduler_builder)(conf.threads);
         let sc_builder = conf.sc_builder.clone();
+        let config_loader_initial: Result<HoconLoader, hocon::Error> =
+            Result::Ok(HoconLoader::new());
+        let config = conf
+            .config_sources
+            .iter()
+            .fold(config_loader_initial, |config_loader, source| {
+                config_loader.and_then(|cl| match source {
+                    ConfigSource::File(path) => cl.load_file(path),
+                    ConfigSource::Str(s) => cl.load_str(s),
+                })
+            })?
+            .hocon()?;
         let runtime = Arc::new(KompactRuntime::new(conf));
         let sys = KompactSystem {
             inner: runtime,
+            config: Arc::new(config),
             scheduler,
         };
         let (dead_prom, dead_f) = utils::promise();
         let (disp_prom, disp_f) = utils::promise();
-        let system_components = (*sc_builder)(&sys, dead_prom, disp_prom); //(*conf.sc_builder)(&sys);
+        let system_components = (*sc_builder)(&sys, dead_prom, disp_prom);
         let supervisor = sys.create_unsupervised(ComponentSupervisor::new);
         let ic = InternalComponents::new(supervisor, system_components);
         sys.inner.set_internal_components(ic);
@@ -450,6 +521,31 @@ impl KompactSystem {
     /// ```
     pub fn logger(&self) -> &KompactLogger {
         &self.inner.logger
+    }
+
+    /// Get a reference to the system configuration
+    ///
+    /// Use [load_config_str](KompactConfig::load_config_str) or
+    /// or [load_config_file](KompactConfig::load_config_file)
+    /// to load values into the config object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// let default_values = r#"{ a = 7 }"#;
+    /// let mut conf = KompactConfig::default();
+    /// conf.load_config_str(default_values);
+    /// let system = conf.build().expect("system");
+    /// assert_eq!(Some(7i64), system.config()["a"].as_i64());
+    /// ```
+    pub fn config(&self) -> &Hocon {
+        self.config.as_ref()
+    }
+
+    /// Get a owned reference to the system configuration
+    pub fn config_owned(&self) -> Arc<Hocon> {
+        self.config.clone()
     }
 
     pub(crate) fn poison(&self) {
@@ -1100,6 +1196,51 @@ impl KompactSystem {
         Ok(())
     }
 
+    /// Shutdown the Kompact system from within a component
+    ///
+    /// Stops all components and then stops the scheduler.
+    ///
+    /// This function may fail to stop in time (or at all),
+    /// if components hang on to scheduler threads indefinitely.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct Stopper {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl Stopper {
+    ///     fn new() -> Stopper {
+    ///         Stopper {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for Stopper {
+    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///            ControlEvent::Start => {
+    ///                self.ctx().system().shutdown_async();
+    ///            }
+    ///            _ => (), // ignore
+    ///        }
+    ///     }
+    /// }
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(Stopper::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
+    pub fn shutdown_async(&self) -> () {
+        let sys = self.clone();
+        std::thread::spawn(move || {
+            sys.shutdown().expect("shutdown");
+        });
+    }
+
     /// Return the system path of this Kompact system
     ///
     /// The system path forms a prefix for every [ActorPath](prelude::ActorPath).
@@ -1360,6 +1501,7 @@ impl KompactRuntime {
         }
         let res = self.timer.shutdown();
         lifecycle::set_destroyed(self.state());
+        println!("System is destroyed!");
         res
     }
 
