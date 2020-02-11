@@ -29,7 +29,9 @@ impl ScheduledTimer {
     }
 }
 
-/// API exposed by a timer implementation
+/// API exposed within a component by a timer implementation
+///
+/// This allows behaviours to be scheduled for later execution.
 pub trait Timer<C: ComponentDefinition> {
     /// Schedule the `action` to be run once after `timeout` expires
     ///
@@ -40,6 +42,40 @@ pub trait Timer<C: ComponentDefinition> {
     /// and the `timeout` expiring on the system's clock.
     /// Thus it is only guaranteed that the `action` is not run *before*
     /// the `timeout` expires, but no bounds on the lag are given.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct TimerComponent {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl TimerComponent {
+    ///     fn new() -> TimerComponent {
+    ///         TimerComponent {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for TimerComponent {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         if event == ControlEvent::Start {
+    ///             self.schedule_once(Duration::from_millis(10), move |new_self, _id| {
+    ///                 info!(new_self.log(), "Timeout was triggered!");
+    ///                 new_self.ctx().system().shutdown_async();
+    ///             });
+    ///         }
+    ///     }    
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TimerComponent::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
         F: FnOnce(&mut C, Uuid) + Send + 'static;
@@ -56,6 +92,53 @@ pub trait Timer<C: ComponentDefinition> {
     /// and the `timeout` expiring on the system's clock.
     /// Thus it is only guaranteed that the `action` is not run *before*
     /// the `timeout` expires, but no bounds on the lag are given.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct TimerComponent {
+    ///    ctx: ComponentContext<Self>,
+    ///    counter: usize,
+    ///    timeout: Option<ScheduledTimer>,
+    /// }
+    /// impl TimerComponent {
+    ///     fn new() -> TimerComponent {
+    ///         TimerComponent {
+    ///             ctx: ComponentContext::new(),
+    ///             counter: 0usize,
+    ///             timeout: None,
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for TimerComponent {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         if event == ControlEvent::Start {
+    ///             let timeout = self.schedule_periodic(
+    ///                     Duration::from_millis(10), 
+    ///                     Duration::from_millis(100), 
+    ///                     move |new_self, _id| {
+    ///                 info!(new_self.log(), "Timeout was triggered!");
+    ///                 new_self.counter += 1usize;
+    ///                 if new_self.counter > 10usize {
+    ///                     let timeout = new_self.timeout.take().expect("timeout");
+    ///                     new_self.cancel_timer(timeout);
+    ///                     new_self.ctx().system().shutdown_async();
+    ///                 }
+    ///             });
+    ///             self.timeout = Some(timeout);
+    ///         }
+    ///     }    
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TimerComponent::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
     fn schedule_periodic<F>(
         &mut self,
         delay: Duration,

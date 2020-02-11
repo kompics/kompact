@@ -10,6 +10,11 @@ enum TimerMsg {
     Stop,
 }
 
+/// A reference to a thread timer
+///
+/// This is used to schedule events on the timer from other threads.
+///
+/// You can get an instance via [timer_ref](TimerWithThread::timer_ref).
 #[derive(Clone)]
 pub struct TimerRef {
     work_queue: channel::Sender<TimerMsg>,
@@ -52,12 +57,18 @@ impl Timer for TimerRef {
     }
 }
 
+/// A timer implementation that uses its own thread
+///
+/// This struct acts as a main handle for the timer and its thread.
 pub struct TimerWithThread {
     timer_thread: thread::JoinHandle<()>,
     work_queue: channel::Sender<TimerMsg>,
 }
 
 impl TimerWithThread {
+    /// Create a new timer with its own thread.
+    ///
+    /// The thread will be called `"timer-thread"`.
     pub fn new() -> io::Result<TimerWithThread> {
         let (s, r) = channel::unbounded();
         let handle = thread::Builder::new()
@@ -73,12 +84,20 @@ impl TimerWithThread {
         Ok(twt)
     }
 
+    /// Returns a shareable reference to this timer
+    ///
+    /// The reference contains the timer's work queue
+    /// and can be used to schedule timeouts on this timer.
     pub fn timer_ref(&self) -> TimerRef {
         TimerRef {
             work_queue: self.work_queue.clone(),
         }
     }
 
+    /// Shut this timer down
+    ///
+    /// In particular, this method waits for the timer's thread to be
+    /// joined, or returns an error.
     pub fn shutdown(self) -> Result<(), ThreadTimerError> {
         self.work_queue
             .send(TimerMsg::Stop)
@@ -92,6 +111,7 @@ impl TimerWithThread {
         }
     }
 
+    /// Same as [shutdown](TimerWithThread::shutdown), but doesn't wait for the thread to join
     pub fn shutdown_async(&self) -> Result<(), ThreadTimerError> {
         self.work_queue
             .send(TimerMsg::Stop)
@@ -106,14 +126,20 @@ impl fmt::Debug for TimerWithThread {
     }
 }
 
+/// Errors that can occur when stopping the timer thread
 #[derive(Debug)]
 pub enum ThreadTimerError {
+    /// Sending of the `Stop` message failed
     CouldNotSendStopAsync,
+    /// Sending of the `Stop` message failed in the waiting case
+    ///
+    /// This variant returns the original timer instance.
     CouldNotSendStop(TimerWithThread),
+    /// Joining of the timer thread failed
     CouldNotJoinThread,
 }
 
-pub struct TimerThread {
+struct TimerThread {
     timer: QuadWheelWithOverflow,
     work_queue: channel::Receiver<TimerMsg>,
     running: bool,
@@ -132,7 +158,7 @@ impl TimerThread {
         }
     }
 
-    pub fn run(mut self) {
+    fn run(mut self) {
         while self.running {
             let elap = self.elapsed();
             if elap > 0 {

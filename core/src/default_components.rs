@@ -186,7 +186,7 @@ impl Provide<ControlPort> for DeadletterBox {
     }
 }
 
-/// The default non-networked dispatcher 
+/// The default non-networked dispatcher
 ///
 /// Logs network messages at the `info` level and local messages at the `warn` level,
 /// then discards either.

@@ -878,7 +878,9 @@ pub struct ComponentCore {
 }
 
 impl ComponentCore {
-    pub(crate) fn with<CC: CoreContainer + Sized + 'static>(system: KompactSystem) -> ComponentCore {
+    pub(crate) fn with<CC: CoreContainer + Sized + 'static>(
+        system: KompactSystem,
+    ) -> ComponentCore {
         let weak_sized = Weak::<CC>::new();
         let weak = weak_sized as Weak<dyn CoreContainer>;
         ComponentCore {

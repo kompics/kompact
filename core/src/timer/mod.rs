@@ -12,10 +12,35 @@ mod simulation;
 mod thread_timer;
 mod wheels;
 
+/// The API for Kompact's timer module
+///
+/// This allows behaviours to be scheduled for later execution.
 pub trait Timer {
+    /// Schedule the `action` to be executed once after the `timeout` expires
+    ///
+    /// # Note
+    ///
+    /// Depending on your system and the implementation used,
+    /// there is always a certain lag between the execution of the `action`
+    /// and the `timeout` expiring on the system's clock.
+    /// Thus it is only guaranteed that the `action` is not run *before*
+    /// the `timeout` expires, but no bounds on the lag are given.
     fn schedule_once<F>(&mut self, id: Uuid, timeout: Duration, action: F) -> ()
     where
         F: FnOnce(Uuid) + Send + 'static;
+
+    /// Schedule the `action` to be run every `timeout` time units
+    ///
+    /// The first time, the `action` will be run after `delay` expires,
+    /// and then again every `timeout` time units after.
+    ///
+    /// # Note
+    ///
+    /// Depending on your system and the implementation used,
+    /// there is always a certain lag between the execution of the `action`
+    /// and the `timeout` expiring on the system's clock.
+    /// Thus it is only guaranteed that the `action` is not run *before*
+    /// the `timeout` expires, but no bounds on the lag are given.
     fn schedule_periodic<F>(
         &mut self,
         id: Uuid,
@@ -25,15 +50,27 @@ pub trait Timer {
     ) -> ()
     where
         F: Fn(Uuid) + Send + 'static;
+
+    /// Cancel the timer indicated by the `id`
+    ///
+    /// This method is asynchronous, and calling it is no guarantee
+    /// than an already scheduled timeout is not going to fire before it
+    /// is actually cancelled.
+    ///
+    /// However, calling this method will definitely prevent *periodic* timeouts
+    /// from being rescheduled.
     fn cancel(&mut self, id: Uuid);
 }
 
+/// A concrete entry for an outstanding timout
 pub enum TimerEntry {
+    /// A one-off timer
     OneShot {
         id: Uuid,
         timeout: Duration,
         action: Box<dyn FnOnce(Uuid) + Send + 'static>,
     },
+    /// A recurring timer
     Periodic {
         id: Uuid,
         delay: Duration,
@@ -43,6 +80,7 @@ pub enum TimerEntry {
 }
 
 impl TimerEntry {
+    /// Returns the unique id of the outstanding timeout
     pub fn id(&self) -> Uuid {
         match self {
             TimerEntry::OneShot { id, .. } => *id,
@@ -50,6 +88,7 @@ impl TimerEntry {
         }
     }
 
+    /// Returns a reference to the unique id of the outstanding timeout
     pub fn id_ref(&self) -> &Uuid {
         match self {
             TimerEntry::OneShot { id, .. } => id,
@@ -57,6 +96,7 @@ impl TimerEntry {
         }
     }
 
+    /// Returns the time until the timeout is supposed to be triggered
     pub fn delay(&self) -> Duration {
         match self {
             TimerEntry::OneShot { timeout, .. } => *timeout,
@@ -64,6 +104,7 @@ impl TimerEntry {
         }
     }
 
+    /// Returns a reference to the time until the timeout is supposed to be triggered
     pub fn delay_ref(&self) -> &Duration {
         match self {
             TimerEntry::OneShot { timeout, .. } => timeout,
@@ -71,6 +112,7 @@ impl TimerEntry {
         }
     }
 
+    /// Updates the `timeout` or `delay` value of the entry with the given duration `d`
     pub fn with_duration(self, d: Duration) -> TimerEntry {
         match self {
             TimerEntry::OneShot { id, action, .. } => TimerEntry::OneShot {
@@ -89,6 +131,10 @@ impl TimerEntry {
         }
     }
 
+    /// Execute the action associated with the timeout
+    ///
+    /// Returns a new timer entry, if it needs to be rescheduled
+    /// and `None` otherwise.
     pub fn execute(self) -> Option<TimerEntry> {
         match self {
             TimerEntry::OneShot { id, action, .. } => {
@@ -133,9 +179,12 @@ impl fmt::Debug for TimerEntry {
 
 type TimerList = Vec<TimerEntry>;
 
+/// Errors encounted by a timer implementation
 #[derive(Debug)]
 pub enum TimerError {
+    /// The timeout with the given id was not found
     NotFound,
+    /// The timout has already expired
     Expired(TimerEntry),
 }
 

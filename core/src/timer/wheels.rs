@@ -48,40 +48,9 @@ impl<RestType> ByteWheel<RestType> {
         }
     }
 
-    // fn replace(&mut self, pos: u8, entries: TimerList) -> () {
-    //     let index = pos as usize;
-    //     self.slots[index] = Some(Box::new(entries));
-    // }
-
-    // fn take(&mut self, pos: u8) -> Option<WheelEntryList<RestType>> {
-    //     let index = pos as usize;
-    //     let sbl = mem::replace(&mut self.slots[index], None);
-    //     sbl.map(|l| {
-    //         self.count -= l.len() as u64;
-    //         *l
-    //     })
-    // }
-
     fn is_empty(&self) -> bool {
         self.count == 0
     }
-
-    // fn cancel(&mut self, id: Uuid) -> Result<(), TimerError> {
-    //     for lo in self.slots.iter_mut() {
-    //         match lo {
-    //             Some(l) => match l.iter().position(|we| we.entry.id() == id) {
-    //                 Some(pos) => {
-    //                     l.swap_remove(pos);
-    //                     self.count -= 1;
-    //                     return Ok(());
-    //                 }
-    //                 None => (), // ignore
-    //             },
-    //             None => (), // ignore
-    //         }
-    //     }
-    //     Err(TimerError::NotFound)
-    // }
 
     fn tick(&mut self, results: &mut WheelEntryList<RestType>) -> u8 {
         self.current = self.current.wrapping_add(1u8);
@@ -98,6 +67,12 @@ impl<RestType> ByteWheel<RestType> {
     }
 }
 
+/// An implementation of four-level byte-sized wheel
+///
+/// Any value scheduled so far off that it doesn't fit into the wheel
+/// is stored in an overflow `Vec` and added to the wheel, once time as advanced enough
+/// that it actually fits.
+/// In this design the maximum schedule duration is [`u32::MAX`](std::u32::MAX) units (typically ms).
 pub struct QuadWheelWithOverflow {
     primary: ByteWheel<[u8; 0]>,
     secondary: ByteWheel<[u8; 1]>,
@@ -114,6 +89,7 @@ const SECONDARY_LENGTH: u32 = 1 << 16; // 2^16
 const TERTIARY_LENGTH: u32 = 1 << 24; // 2^24
 
 impl QuadWheelWithOverflow {
+    /// Create a new wheel
     pub fn new() -> QuadWheelWithOverflow {
         QuadWheelWithOverflow {
             primary: ByteWheel::new(),
@@ -146,6 +122,7 @@ impl QuadWheelWithOverflow {
         weak_e
     }
 
+    /// Insert a new timeout into the wheel
     pub fn insert(&mut self, e: TimerEntry) -> Result<(), TimerError> {
         if e.delay() >= MAX_SCHEDULE_DUR {
             let remaining_delay = Duration::from_millis(self.remaining_time_in_cycle());
@@ -200,6 +177,11 @@ impl QuadWheelWithOverflow {
         }
     }
 
+    /// Cancel the timeout with the given `id`
+    ///
+    /// This method is very cheap, as it doesn't actually touch the wheels at all.
+    /// It simply removes the value from the lookup table, so it can't be executed
+    /// once its triggered. This also automatically prevents rescheduling of periodic timeouts.
     pub fn cancel(&mut self, id: Uuid) -> Result<(), TimerError> {
         // Simply remove it from the lookup table
         // This will prevent the Weak pointer in the wheels from upgrading later
@@ -207,18 +189,6 @@ impl QuadWheelWithOverflow {
             Some(_) => Ok(()),
             None => Err(TimerError::NotFound),
         }
-        // Just do search for now
-        // self.primary
-        //     .cancel(id)
-        //     .or_else(|_| self.secondary.cancel(id))
-        //     .or_else(|_| self.tertiary.cancel(id))
-        //     .or_else(|_| match self.overflow.iter().position(|e| e.id() == id) {
-        //         Some(pos) => {
-        //             self.overflow.swap_remove(pos);
-        //             Ok(())
-        //         }
-        //         None => Err(TimerError::NotFound),
-        //     })
     }
 
     fn take_timer(&mut self, weak_e: Weak<TimerEntry>) -> Option<TimerEntry> {
@@ -244,6 +214,9 @@ impl QuadWheelWithOverflow {
         }
     }
 
+    /// Move the wheel forward by a single unit (ms)
+    ///
+    /// Returns a list of all timers that expire during this tick.
     pub fn tick(&mut self) -> TimerList {
         let mut res: TimerList = Vec::new();
         // primary
@@ -342,6 +315,11 @@ impl QuadWheelWithOverflow {
         res
     }
 
+    /// Skip a certain `amount` of units (ms)
+    ///
+    /// No timers will be executed for the skipped time.
+    /// Only use this after determining that it's actually
+    /// valid with [can_skip](QuadWheelWithOverflow::can_skip)!
     pub fn skip(&mut self, amount: u32) {
         let new_time = self.current_time_in_cycle().wrapping_add(amount);
         let new_time_bytes: [u8; 4] = unsafe { mem::transmute(new_time.to_be()) };
@@ -351,6 +329,7 @@ impl QuadWheelWithOverflow {
         self.quarternary.current = new_time_bytes[0];
     }
 
+    /// Determine if and how many ticks can be skipped
     pub fn can_skip(&self) -> Skip {
         if self.primary.is_empty() {
             if self.secondary.is_empty() {
@@ -384,14 +363,24 @@ impl QuadWheelWithOverflow {
     }
 }
 
+/// Result of a [can_skip](QuadWheelWithOverflow::can_skip) invocation
 #[derive(PartialEq, Debug)]
 pub enum Skip {
+    /// The wheel is completely empty, so there's no point in skipping
+    ///
+    /// In fact, this may be a good opportunity to reset the wheel, if the 
+    /// time semantics allow for that.
     Empty,
+    /// It's possible to skip up to the provided number of ticks (in ms)
     Millis(u32),
+    /// Nothing can be skipped, as the next tick has expiring timers
     None,
 }
 
 impl Skip {
+    /// Provide a skip instance from ms
+    ///
+    /// A `ms` value of `0` will result in a `Skip::None`.
     pub fn from_millis(ms: u32) -> Skip {
         if ms == 0 {
             Skip::None
@@ -400,6 +389,7 @@ impl Skip {
         }
     }
 
+    /// A skip instance for empty wheels
     pub fn empty() -> Skip {
         Skip::Empty
     }
