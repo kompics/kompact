@@ -191,7 +191,10 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
     },
 }
 
-//unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} // this isn't technically true, but I know I'm never actually sending it
+// This isn't technically true, but I know I'm never actually sending 
+// individual Rc instances to different threads. Only the whole component
+// with all its Rc instances crosses threads sometimes.
+unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} 
 
 #[derive(Clone)]
 struct TimerActorRef {
