@@ -94,9 +94,12 @@ fn main() {
     let system = conf.build().expect("KompactSystem");
     let pingerc = system.create(move || Pinger::new());
     let pinger_ppp: RequiredRef<PingPongPort> = pingerc.required_ref(); //pingerc.on_definition(|cd| cd.ppp.share());
-    system.start_notify(&pingerc).wait_timeout(time::Duration::from_millis(100)).expect("started");
+    system
+        .start_notify(&pingerc)
+        .wait_timeout(time::Duration::from_millis(100))
+        .expect("started");
     system.trigger_i(Pong, &pinger_ppp);
-    
+
     // thread::sleep(time::Duration::from_millis(5000));
 
     // let generic_comp = system.create_and_start(move || {
@@ -104,15 +107,16 @@ fn main() {
     //     g
     // });
     let generic_comp = system.create(GenericComp::<String>::new);
-    system.start_notify(&generic_comp).wait_timeout(time::Duration::from_millis(100)).expect("started");
+    system
+        .start_notify(&generic_comp)
+        .wait_timeout(time::Duration::from_millis(100))
+        .expect("started");
     let msg = String::from("Test");
     generic_comp.actor_ref().tell(msg.clone());
     thread::sleep(time::Duration::from_millis(100));
     //let comp_inspect = &generic_comp.definition().lock().unwrap();
-    generic_comp.on_definition(|cd| {
-        match cd.test {
-            Some(ref test) => assert_eq!(test, &msg),
-            None => panic!("test should have been Some")
-        }
+    generic_comp.on_definition(|cd| match cd.test {
+        Some(ref test) => assert_eq!(test, &msg),
+        None => panic!("test should have been Some"),
     });
 }

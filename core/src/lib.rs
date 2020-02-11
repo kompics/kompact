@@ -158,7 +158,7 @@ pub mod prelude {
             RegistrationError,
             Serialised,
         },
-        timer_manager::Timer,
+        timer_manager::{Timer, ScheduledTimer, TimerRefFactory},
     };
 
     pub use crate::{

@@ -37,7 +37,7 @@ pub(crate) enum SupervisorMsg {
     Started(Arc<dyn CoreContainer>),
     Stopped(Uuid),
     Killed(Uuid),
-    Faulty(Uuid), // TODO implement fault handling!
+    Faulty(Uuid),
     Listen(Arc<Mutex<Promise<()>>>, ListenEvent),
     Shutdown(Promise<()>),
 }
