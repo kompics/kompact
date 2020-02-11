@@ -16,7 +16,7 @@ use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{
     clone::Clone,
     fmt::{Debug, Formatter, Result as FmtResult},
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
     sync::{
         atomic::{AtomicUsize, Ordering},

@@ -58,7 +58,7 @@ impl FromStr for Transport {
 pub struct TransportParseError(());
 impl fmt::Display for TransportParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(self.description())
+        fmt.write_str(&self.to_string())
     }
 }
 impl Error for TransportParseError {
@@ -75,7 +75,7 @@ pub enum PathParseError {
 }
 impl fmt::Display for PathParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(self.description())
+        fmt.write_str(&self.to_string())
     }
 }
 impl Error for PathParseError {

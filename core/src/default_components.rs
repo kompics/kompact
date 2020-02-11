@@ -85,6 +85,10 @@ impl TimerComponent for DefaultTimer {
     }
 }
 
+/// A wrapper for custom system components
+///
+/// This struct already has [SystemComponents][SystemComponents] implemented for it,
+/// saving you the work.
 pub struct CustomComponents<B, C>
 where
     B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
@@ -127,6 +131,10 @@ where
     }
 }
 
+/// The default deadletter box
+///
+/// Simply logs every received message at the `info` level
+/// and then discards it.
 #[derive(ComponentDefinition)]
 pub struct DeadletterBox {
     ctx: ComponentContext<DeadletterBox>,
@@ -134,6 +142,10 @@ pub struct DeadletterBox {
 }
 
 impl DeadletterBox {
+    /// Creates a new deadletter box
+    ///
+    /// The `notify_ready` promise will be fulfilled, when the component
+    /// received a [Start](ControlEvent::Start) event.
     pub fn new(notify_ready: Promise<()>) -> DeadletterBox {
         DeadletterBox {
             ctx: ComponentContext::new(),
@@ -174,6 +186,10 @@ impl Provide<ControlPort> for DeadletterBox {
     }
 }
 
+/// The default non-networked dispatcher 
+///
+/// Logs network messages at the `info` level and local messages at the `warn` level,
+/// then discards either.
 #[derive(ComponentDefinition)]
 pub struct LocalDispatcher {
     ctx: ComponentContext<LocalDispatcher>,
@@ -181,6 +197,10 @@ pub struct LocalDispatcher {
 }
 
 impl LocalDispatcher {
+    /// Creates a new local dispatcher
+    ///
+    /// The `notify_ready` promise will be fulfilled, when the component
+    /// received a [Start](ControlEvent::Start) event.
     pub fn new(notify_ready: Promise<()>) -> LocalDispatcher {
         LocalDispatcher {
             ctx: ComponentContext::new(),

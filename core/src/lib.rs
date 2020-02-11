@@ -69,7 +69,7 @@ use slog_async::Async;
 use std::convert::{From, Into};
 
 mod actors;
-mod component;
+pub mod component;
 pub mod dedicated_scheduler;
 pub mod default_components;
 mod dispatch;
@@ -132,6 +132,7 @@ pub mod prelude {
             Component,
             ComponentContext,
             ComponentDefinition,
+            ComponentLogging,
             CoreContainer,
             ExecuteResult,
             LockingProvideRef,
