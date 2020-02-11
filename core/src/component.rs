@@ -532,7 +532,9 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// impl Provide<ControlPort> for HelloLogging {
     ///     fn handle(&mut self, event: ControlEvent) -> () {
     ///         info!(self.ctx().log(), "Hello control event: {:?}", event);
-    ///         self.ctx().system().shutdown_async();
+    ///         if event == ControlEvent::Start {
+    ///             self.ctx().system().shutdown_async();
+    ///         }
     ///     }    
     /// }
     ///
@@ -568,9 +570,14 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     ///     }    
     /// }
     /// impl Provide<ControlPort> for ConfigComponent {
-    ///     fn handle(&mut self, _event: ControlEvent) -> () {
-    ///         assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
-    ///         self.ctx().system().shutdown_async();
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///             ControlEvent::Start => {
+    ///                 assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
+    ///                 self.ctx().system().shutdown_async();
+    ///             }
+    ///             _ => (), // ignore
+    ///         }
     ///     }    
     /// }
     /// let default_values = r#"{ a = 7 }"#;

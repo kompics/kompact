@@ -242,9 +242,71 @@ pub mod doctest_helpers {
 pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]
-mod tests {
+mod test_helpers {
+    use std::{
+        env,
+        fs,
+        ops::Deref,
+        path::{Path, PathBuf},
+    };
+    use tempfile::TempDir;
 
-    use std::{thread, time};
+    // liberally borrowed from https://andrewra.dev/2019/03/01/testing-in-rust-temporary-files/
+    pub struct Fixture {
+        path: PathBuf,
+        source: PathBuf,
+        _tempdir: TempDir,
+    }
+
+    impl Fixture {
+        #[allow(unused)]
+        pub fn blank(fixture_filename: &str) -> Self {
+            // First, figure out the right file in `tests/fixtures/`:
+            let root_dir = &env::var("CARGO_MANIFEST_DIR").expect("$CARGO_MANIFEST_DIR");
+            let mut source = PathBuf::from(root_dir);
+            source.push("tests/fixtures");
+            source.push(&fixture_filename);
+
+            // The "real" path of the file is going to be under a temporary directory:
+            let tempdir = tempfile::tempdir().unwrap();
+            let mut path = PathBuf::from(&tempdir.path());
+            path.push(&fixture_filename);
+
+            Fixture {
+                _tempdir: tempdir,
+                source,
+                path,
+            }
+        }
+
+        #[allow(unused)]
+        pub fn copy(fixture_filename: &str) -> Self {
+            let fixture = Fixture::blank(fixture_filename);
+            fs::copy(&fixture.source, &fixture.path).unwrap();
+            fixture
+        }
+    }
+
+    impl Deref for Fixture {
+        type Target = Path;
+
+        fn deref(&self) -> &Self::Target {
+            self.path.deref()
+        }
+    }
+
+    impl AsRef<Path> for Fixture {
+        fn as_ref(&self) -> &Path {
+            self.path.as_ref()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_helpers::*;
+
+    use std::{fs::File, io::Write, ops::Deref, thread, time};
     //use futures::{Future, future};
     //use futures_cpupool::CpuPool;
     use super::prelude::*;
@@ -845,5 +907,83 @@ mod tests {
         let stopper = system.create(Stopper::new);
         system.start(&stopper);
         system.await_termination();
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    struct ConfigComponent {
+        ctx: ComponentContext<Self>,
+        test_value: Option<i64>,
+    }
+    impl ConfigComponent {
+        fn new() -> ConfigComponent {
+            ConfigComponent {
+                ctx: ComponentContext::new(),
+                test_value: None,
+            }
+        }
+    }
+    impl Provide<ControlPort> for ConfigComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    self.test_value = self.ctx().config()["a"].as_i64();
+                    self.ctx().system().shutdown_async();
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    #[test]
+    fn test_config_from_string() -> () {
+        let default_values = r#"{ a = 7 }"#;
+        let mut conf = KompactConfig::default();
+        conf.load_config_str(default_values);
+        let system = conf.build().expect("system");
+        let c = system.create(ConfigComponent::new);
+        system.start(&c);
+        system.await_termination();
+        c.on_definition(|cd| {
+            assert_eq!(7i64, cd.test_value.take().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_config_from_file() -> () {
+        //let default_values = r#"{ a = 7 }"#;
+        let config_file_path = Fixture::blank("application.conf");
+        let mut config_file = File::create(config_file_path.deref()).expect("config file");
+        config_file
+            .write_all(b"{ a = 7 }")
+            .expect("write config file");
+        let mut conf = KompactConfig::default();
+        conf.load_config_file(config_file_path.to_path_buf());
+        let system = conf.build().expect("system");
+        let c = system.create(ConfigComponent::new);
+        system.start(&c);
+        system.await_termination();
+        c.on_definition(|cd| {
+            assert_eq!(7i64, cd.test_value.take().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_config_merged() -> () {
+        let default_values = r#"{ a = 5 }"#;
+        let config_file_path = Fixture::blank("application.conf");
+        let mut config_file = File::create(config_file_path.deref()).expect("config file");
+        config_file
+            .write_all(b"{ a = 7 }")
+            .expect("write config file");
+        let mut conf = KompactConfig::default();
+        conf.load_config_str(default_values)
+            .load_config_file(config_file_path.to_path_buf());
+        let system = conf.build().expect("system");
+        let c = system.create(ConfigComponent::new);
+        system.start(&c);
+        system.await_termination();
+        c.on_definition(|cd| {
+            assert_eq!(7i64, cd.test_value.take().unwrap());
+        });
     }
 }
