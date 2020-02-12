@@ -335,16 +335,16 @@ where
     }
 }
 
-impl<CD> DynActorRefFactory for Arc<Component<CD>>
-where
-    CD: ComponentDefinition + ActorRaw + 'static,
-{
-    fn dyn_ref(&self) -> DynActorRef {
-        let component = Arc::downgrade(self);
-        let msg_queue = Arc::downgrade(&self.msg_queue);
-        DynActorRef::from(component, msg_queue)
-    }
-}
+// impl<CD> DynActorRefFactory for Arc<Component<CD>>
+// where
+//     CD: ComponentDefinition + ActorRaw + 'static,
+// {
+//     fn dyn_ref(&self) -> DynActorRef {
+//         let component = Arc::downgrade(self);
+//         let msg_queue = Arc::downgrade(&self.msg_queue);
+//         DynActorRef::from(component, msg_queue)
+//     }
+// }
 
 impl<CD> ActorRefFactory for CD
 where

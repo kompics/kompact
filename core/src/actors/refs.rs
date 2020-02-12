@@ -284,11 +284,11 @@ impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
         self.weak_ref()
     }
 }
-impl<M: MessageBounds> DynActorRefFactory for ActorRefStrong<M> {
-    fn dyn_ref(&self) -> DynActorRef {
-        self.weak_ref().dyn_ref()
-    }
-}
+// impl<M: MessageBounds> DynActorRefFactory for ActorRefStrong<M> {
+//     fn dyn_ref(&self) -> DynActorRef {
+//         self.weak_ref().dyn_ref()
+//     }
+// }
 
 impl<M: MessageBounds> fmt::Debug for ActorRefStrong<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -550,7 +550,10 @@ impl<Req: MessageBounds, Resp: MessageBounds> WithSender<Req, Resp> {
         WithSender { sender, content }
     }
 
-    pub fn from(content: Req, sender: &dyn ActorRefFactory<Message = Resp>) -> WithSender<Req, Resp> {
+    pub fn from(
+        content: Req,
+        sender: &dyn ActorRefFactory<Message = Resp>,
+    ) -> WithSender<Req, Resp> {
         WithSender::new(content, sender.actor_ref())
     }
 
@@ -591,7 +594,10 @@ impl<Req: MessageBounds, Resp: MessageBounds> WithSenderStrong<Req, Resp> {
         WithSenderStrong { sender, content }
     }
 
-    pub fn from(content: Req, sender: &dyn ActorRefFactory<Message = Resp>) -> WithSenderStrong<Req, Resp> {
+    pub fn from(
+        content: Req,
+        sender: &dyn ActorRefFactory<Message = Resp>,
+    ) -> WithSenderStrong<Req, Resp> {
         WithSenderStrong::new(content, sender.actor_ref().hold().expect("Live ref"))
     }
 
@@ -632,7 +638,10 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
         WithRecipient { sender, content }
     }
 
-    pub fn from<M>(content: Req, sender: &dyn ActorRefFactory<Message = M>) -> WithRecipient<Req, Resp>
+    pub fn from<M>(
+        content: Req,
+        sender: &dyn ActorRefFactory<Message = M>,
+    ) -> WithRecipient<Req, Resp>
     where
         M: MessageBounds + From<Resp>,
     {

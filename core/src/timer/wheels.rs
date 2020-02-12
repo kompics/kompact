@@ -368,7 +368,7 @@ impl QuadWheelWithOverflow {
 pub enum Skip {
     /// The wheel is completely empty, so there's no point in skipping
     ///
-    /// In fact, this may be a good opportunity to reset the wheel, if the 
+    /// In fact, this may be a good opportunity to reset the wheel, if the
     /// time semantics allow for that.
     Empty,
     /// It's possible to skip up to the provided number of ticks (in ms)

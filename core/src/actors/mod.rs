@@ -29,7 +29,7 @@ where
 /// This trait handles raw message envelopes, without any unpacking
 /// or other convenient syntactic sugars.
 ///
-/// Usually it's better to use the unwrapped functions in [Actor](Actor), 
+/// Usually it's better to use the unwrapped functions in [Actor](Actor),
 /// but this can be more efficient at times, for example
 /// when the content of the envelope isn't actually accessed in the component.
 ///
@@ -45,7 +45,7 @@ where
 /// ignore_control!(RawActor);
 /// impl ActorRaw for RawActor {
 ///     type Message = ();
-/// 
+///
 ///     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> () {
 ///         match env {
 ///            MsgEnvelope::Typed(m) => info!(self.log(), "Got a local message: {:?}", m),
@@ -62,13 +62,13 @@ pub trait ActorRaw {
     ///
     /// Incoming messages can either be local, in which case they are of type
     /// `Self::Message` (wrapped into a [MessageEnvelope](MessageEnvelope::Typed)),
-    /// or they are coming from the network, in which case they of type 
+    /// or they are coming from the network, in which case they of type
     /// [NetMessage](NetMessage) (again wrapped into a [MessageEnvelope](MessageEnvelope::Net)).
     ///
     /// # Note
     ///
     /// Remember that components usually run on a shared thread pool,
-    /// so, just like for [handle](Provide::handle) implementations, 
+    /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> ();
 }
@@ -80,7 +80,7 @@ pub trait ActorRaw {
 ///
 /// Actor can also be derived via `#[derive(Actor)]` for components which don't require
 /// this messaging mechanism.
-/// 
+///
 /// # Example
 ///
 /// ```
@@ -93,11 +93,11 @@ pub trait ActorRaw {
 /// ignore_control!(NormalActor);
 /// impl Actor for NormalActor {
 ///     type Message = ();
-/// 
+///
 ///     fn receive_local(&mut self, msg: Self::Message) -> () {
 ///         info!(self.log(), "Got a local message: {:?}", msg);
 ///     }
-/// 
+///
 ///     fn receive_network(&mut self, msg: NetMessage) -> () {
 ///         info!(self.log(), "Got a network message: {:?}", msg)
 ///     }
@@ -114,7 +114,7 @@ pub trait Actor {
     /// # Note
     ///
     /// Remember that components usually run on a shared thread pool,
-    /// so, just like for [handle](Provide::handle) implementations, 
+    /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
     fn receive_local(&mut self, msg: Self::Message) -> ();
 
@@ -129,7 +129,7 @@ pub trait Actor {
     /// # Note
     ///
     /// Remember that components usually run on a shared thread pool,
-    /// so, just like for [handle](Provide::handle) implementations, 
+    /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
     fn receive_network(&mut self, msg: NetMessage) -> ();
 }
@@ -173,12 +173,14 @@ pub trait DynActorRefFactory {
     fn dyn_ref(&self) -> DynActorRef;
 }
 
-// Impossible in Rust...must provide individual implementations for every F -.-
-// impl<M: MessageBounds, F: ActorRefFactory<M>> DynActorRefFactory for F {
-//     fn dyn_ref(&self) -> DynActorRef {
-//         self.actor_ref().dyn_ref()
-//     }
-// }
+impl<F> DynActorRefFactory for F
+where
+    F: ActorRefFactory,
+{
+    fn dyn_ref(&self) -> DynActorRef {
+        self.actor_ref().dyn_ref()
+    }
+}
 
 pub trait Dispatching {
     fn dispatcher_ref(&self) -> DispatcherRef;

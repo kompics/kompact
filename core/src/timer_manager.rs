@@ -118,8 +118,8 @@ pub trait Timer<C: ComponentDefinition> {
     ///     fn handle(&mut self, event: ControlEvent) -> () {
     ///         if event == ControlEvent::Start {
     ///             let timeout = self.schedule_periodic(
-    ///                     Duration::from_millis(10), 
-    ///                     Duration::from_millis(100), 
+    ///                     Duration::from_millis(10),
+    ///                     Duration::from_millis(100),
     ///                     move |new_self, _id| {
     ///                 info!(new_self.log(), "Timeout was triggered!");
     ///                 new_self.counter += 1usize;
