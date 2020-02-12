@@ -277,7 +277,9 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         }
     }
 }
-impl<M: MessageBounds> ActorRefFactory<M> for ActorRefStrong<M> {
+impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
+    type Message = M;
+
     fn actor_ref(&self) -> ActorRef<M> {
         self.weak_ref()
     }
@@ -425,7 +427,9 @@ impl<M: MessageBounds> ActorRef<M> {
     }
 }
 
-impl<M: MessageBounds> ActorRefFactory<M> for ActorRef<M> {
+impl<M: MessageBounds> ActorRefFactory for ActorRef<M> {
+    type Message = M;
+
     fn actor_ref(&self) -> ActorRef<M> {
         self.clone()
     }
@@ -546,7 +550,7 @@ impl<Req: MessageBounds, Resp: MessageBounds> WithSender<Req, Resp> {
         WithSender { sender, content }
     }
 
-    pub fn from(content: Req, sender: &dyn ActorRefFactory<Resp>) -> WithSender<Req, Resp> {
+    pub fn from(content: Req, sender: &dyn ActorRefFactory<Message = Resp>) -> WithSender<Req, Resp> {
         WithSender::new(content, sender.actor_ref())
     }
 
@@ -587,7 +591,7 @@ impl<Req: MessageBounds, Resp: MessageBounds> WithSenderStrong<Req, Resp> {
         WithSenderStrong { sender, content }
     }
 
-    pub fn from(content: Req, sender: &dyn ActorRefFactory<Resp>) -> WithSenderStrong<Req, Resp> {
+    pub fn from(content: Req, sender: &dyn ActorRefFactory<Message = Resp>) -> WithSenderStrong<Req, Resp> {
         WithSenderStrong::new(content, sender.actor_ref().hold().expect("Live ref"))
     }
 
@@ -628,7 +632,7 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
         WithRecipient { sender, content }
     }
 
-    pub fn from<M>(content: Req, sender: &dyn ActorRefFactory<M>) -> WithRecipient<Req, Resp>
+    pub fn from<M>(content: Req, sender: &dyn ActorRefFactory<Message = M>) -> WithRecipient<Req, Resp>
     where
         M: MessageBounds + From<Resp>,
     {
@@ -637,7 +641,7 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
 
     pub fn from_convert<M: MessageBounds>(
         content: Req,
-        sender: &dyn ActorRefFactory<M>,
+        sender: &dyn ActorRefFactory<Message = M>,
         convert: fn(Resp) -> M,
     ) -> WithRecipient<Req, Resp> {
         WithRecipient::new(content, sender.actor_ref().recipient_with(convert))
@@ -673,7 +677,7 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Deref for WithRecipient<Req
 pub trait Receiver<T> {
     fn recipient(&self) -> Recipient<T>;
 }
-impl<M, T> Receiver<T> for dyn ActorRefFactory<M>
+impl<M, T> Receiver<T> for dyn ActorRefFactory<Message = M>
 where
     T: fmt::Debug + 'static,
     M: From<T> + MessageBounds,

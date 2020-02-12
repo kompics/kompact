@@ -322,10 +322,12 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     }
 }
 
-impl<CD> ActorRefFactory<CD::Message> for Arc<Component<CD>>
+impl<CD> ActorRefFactory for Arc<Component<CD>>
 where
     CD: ComponentDefinition + ActorRaw + 'static,
 {
+    type Message = CD::Message;
+
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         let comp = Arc::downgrade(self);
         let msgq = Arc::downgrade(&self.msg_queue);
@@ -344,10 +346,12 @@ where
     }
 }
 
-impl<CD> ActorRefFactory<CD::Message> for CD
+impl<CD> ActorRefFactory for CD
 where
     CD: ComponentDefinition + ActorRaw + 'static,
 {
+    type Message = CD::Message;
+
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         self.ctx().actor_ref()
     }
@@ -677,10 +681,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     }
 }
 
-impl<CD> ActorRefFactory<CD::Message> for ComponentContext<CD>
+impl<CD> ActorRefFactory for ComponentContext<CD>
 where
     CD: ComponentDefinition + ActorRaw + Sized + 'static,
 {
+    type Message = CD::Message;
+
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         self.inner_ref().actor_ref.clone()
     }

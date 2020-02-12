@@ -161,12 +161,12 @@ where
 }
 
 /// A trait for things that have associated [actor references](ActorRef)
-pub trait ActorRefFactory<M: MessageBounds> {
-    // /// The type of messages carried by references produced by this factory
-    //type Message: MessageBounds;
+pub trait ActorRefFactory {
+    /// The type of messages carried by references produced by this factory
+    type Message: MessageBounds;
 
     /// Returns the associated actor reference
-    fn actor_ref(&self) -> ActorRef<M>;
+    fn actor_ref(&self) -> ActorRef<Self::Message>;
 }
 
 pub trait DynActorRefFactory {

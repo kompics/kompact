@@ -1276,7 +1276,9 @@ impl KompactSystem {
     }
 }
 
-impl ActorRefFactory<Never> for KompactSystem {
+impl ActorRefFactory for KompactSystem {
+    type Message = Never;
+
     /// Returns a reference to the deadletter box
     fn actor_ref(&self) -> ActorRef<Never> {
         self.inner.assert_active();
