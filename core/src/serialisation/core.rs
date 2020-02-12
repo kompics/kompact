@@ -1,10 +1,21 @@
 use super::*;
 
+/// Erros that can be thrown during serialisation or deserialisation
 #[derive(Debug)]
 pub enum SerError {
+    /// The data was invalid, corrupted, or otherwise not as expected
     InvalidData(String),
+    /// The data represents the wrong type, or an unknown type
     InvalidType(String),
+    /// Any other kind of error
     Unknown(String),
+}
+
+impl SerError {
+    pub fn from_debug<E: Debug>(error: E) -> SerError {
+        let msg = format!("Wrapped error: {:?}", error);
+        SerError::Unknown(msg)
+    }
 }
 
 /// A trait for types that can serialise data of type `T`.

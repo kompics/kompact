@@ -7,6 +7,13 @@ use syn::{parse_macro_input, DeriveInput};
 
 use std::iter::Iterator;
 
+/// A macro to derive fair [ComponentDefinition](ComponentDefinition) implementations
+///
+/// Implementations will set up ports and the component context correctly, and
+/// during execution check ports in a fair round-robin manner.
+///
+/// Using this macro will also derive implementations of [ProvideRef](ProvideRef)
+/// or [RequireRef](RequireRef) for each declared port.
 #[proc_macro_derive(ComponentDefinition)]
 pub fn component_definition(input: TokenStream) -> TokenStream {
     // Parse the input stream
