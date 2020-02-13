@@ -12,6 +12,8 @@ cache: cargo
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
+  - cd core
+  - ./test-feature-matrix.sh
 # need be superuser so as to successfully compile & install protobuf library
 #sudo: true
 

@@ -25,6 +25,9 @@ default = ["serde","slog/max_level_trace", "slog/release_max_level_info", "ser_i
 silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
 low_latency = ["executors/ws-no-park"]
 ser_id_64 = []
+ser_id_32 = []
+ser_id_16 = []
+ser_id_8 = []
 thread_pinning = ["core_affinity"]
 
 [dependencies]

@@ -12,6 +12,24 @@ use uuid::Uuid;
 
 pub mod framing;
 
+/// An incoming message from the networking subsystem
+///
+/// `NetMessage` instance can either represent serialised data
+/// or heap-allocated "reflected" data cast to `Box<Any>`.
+/// Network messages are of type [NetMessage](NetMessage) and
+/// Messages are "reflected" instead of serialised whenever possible
+/// for messages sent to an [ActorPath](ActorPath) that turned out to be in the same
+/// [KompactSystem](KompactSystem).
+///
+/// Whether serialised or heap-allocated, network message always come with a
+/// serialisation id of type [SerId](SerId) that can be used to identify the
+/// underlying type with a simple lookup.
+///
+/// It is recommend to use [try_deserialise](NetMessage::try_deserialise) or
+/// [try_deserialise_unchecked](NetMessage::try_deserialise_unchecked) to unpack
+/// the contained data to the appropriate type, instead of using the [data](NetMessage::data)
+/// directly. These methods abstract over whether or not the data is actually serialised
+/// or simply heap-allocated.
 #[derive(Debug)]
 pub struct NetMessage {
     ser_id: SerId,
@@ -19,9 +37,13 @@ pub struct NetMessage {
     receiver: ActorPath,
     data: HeapOrSer,
 }
+/// Holder for data that is either heap-allocated or
+/// or serialised.
 #[derive(Debug)]
 pub enum HeapOrSer {
+    /// Data is heap-allocated and can be [downcast](std::boxed::Box::downcast)
     Boxed(Box<dyn Any + Send + 'static>),
+    /// Data is serialised and must be [deserialised](Deserialiser::deserialise)
     Serialised(bytes::Bytes),
 }
 impl NetMessage {

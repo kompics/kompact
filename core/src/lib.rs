@@ -45,6 +45,7 @@
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
 
+// Protocol buffers serialisation support
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
 use self::{
@@ -59,6 +60,7 @@ use self::{
     utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
+// The default crate for scheduler implementations
 pub use executors;
 #[allow(unused_imports)]
 use kompact_actor_derive::*;
@@ -69,17 +71,23 @@ use slog_async::Async;
 use std::convert::{From, Into};
 
 mod actors;
+/// Traits and structs for component API and internals
 pub mod component;
-pub mod dedicated_scheduler;
+mod dedicated_scheduler;
+/// Default implementations for system components
 pub mod default_components;
 mod dispatch;
 mod lifecycle;
+/// Facilities and utilities for dealing with network messages
 pub mod messaging;
+/// Default networking implementation
 pub mod net;
 mod ports;
+/// Kompact system runtime facilities, such as configuration and schedulers
 pub mod runtime;
 mod serialisation;
 mod supervision;
+/// Reusable timer facility internals
 pub mod timer;
 mod timer_manager;
 mod utils;
