@@ -61,9 +61,9 @@ pub trait ActorRaw {
     /// Handle an incoming message
     ///
     /// Incoming messages can either be local, in which case they are of type
-    /// `Self::Message` (wrapped into a [MessageEnvelope](MessageEnvelope::Typed)),
+    /// `Self::Message` (wrapped into a [MsgEnvelope](MsgEnvelope::Typed)),
     /// or they are coming from the network, in which case they of type
-    /// [NetMessage](NetMessage) (again wrapped into a [MessageEnvelope](MessageEnvelope::Net)).
+    /// [NetMessage](NetMessage) (again wrapped into a [MsgEnvelope](MsgEnvelope::Net)).
     ///
     /// # Note
     ///
@@ -139,9 +139,9 @@ pub trait Actor {
 /// If you need a custom networking implementation, it must implement `Dispatcher`
 /// to allow messages to be routed correctly to channels, for example.
 ///
-/// See [NetworkDispatcher](NetworkDispatcher) for the provided networking dispatcher solution.
+/// See [NetworkDispatcher](crate::prelude::NetworkDispatcher) for the provided networking dispatcher solution.
 pub trait Dispatcher: ActorRaw<Message = DispatchEnvelope> {
-    /// Retruns the system path for this dispatcher
+    /// Returns the system path for this dispatcher
     fn system_path(&mut self) -> SystemPath;
 }
 

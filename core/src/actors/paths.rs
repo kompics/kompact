@@ -447,9 +447,6 @@ impl UniquePath {
     }
 
     /// Returns a mutable reference to this path's system path part
-    ///
-    /// Use this followed by [set_transport](SystemPath::set_transport) if you
-    /// want to change the [Transport](Transport) protocol used by the actor path.
     pub fn system_mut(&mut self) -> &mut SystemPath {
         &mut self.system
     }
@@ -550,9 +547,6 @@ impl NamedPath {
     }
 
     /// Returns a mutable reference to this path's system path part
-    ///
-    /// Use this followed by [set_transport](SystemPath::set_transport) if you
-    /// want to change the [Transport](Transport) protocol used by the actor path.
     pub fn system_mut(&mut self) -> &mut SystemPath {
         &mut self.system
     }

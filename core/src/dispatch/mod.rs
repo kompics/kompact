@@ -31,7 +31,20 @@ use std::{io::ErrorKind, time::Duration};
 pub mod lookup;
 pub mod queue_manager;
 
-/// Configuration builder for network dispatcher.
+/// Configuration builder for the network dispatcher
+///
+/// # Example
+///
+/// This example binds to local host on a free port chosen by the operating system.
+///
+/// ```
+/// use kompact::prelude::*;
+///
+/// let mut conf = KompactConfig::default();
+/// conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
+/// let system = conf.build().expect("system");
+/// # system.shutdown().expect("shutdown");
+/// ```
 #[derive(Clone, PartialEq, Debug)]
 pub struct NetworkConfig {
     addr: SocketAddr,
@@ -39,6 +52,7 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
+    /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
     pub fn new(addr: SocketAddr) -> Self {
         NetworkConfig {
             addr,
@@ -46,18 +60,22 @@ impl NetworkConfig {
         }
     }
 
-    /// Replace current socket addrss with `addr`.
+    /// Replace the current socket address with `addr`.
     pub fn with_socket(mut self, addr: SocketAddr) -> Self {
         self.addr = addr;
         self
     }
 
+    /// Complete the configuration and provide a function that produces a network dispatcher
+    ///
+    /// Returns the appropriate function type for use
+    /// with [system_components](KompactConfig::system_components).
     pub fn build(self) -> impl Fn(Promise<()>) -> NetworkDispatcher {
         move |notify_ready| NetworkDispatcher::with_config(self.clone(), notify_ready)
     }
 }
 
-/// Socket defaults to `127.0.0.1:0` (i.e. a random local port).
+/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::TCP)
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
@@ -67,7 +85,18 @@ impl Default for NetworkConfig {
     }
 }
 
-/// Network-aware dispatcher for messages to remote actors.
+/// A network-capable dispatcher for sending messages to remote actors
+///
+/// Construct this using [NetworkConfig](NetworkConfig::build).
+///
+/// This dispatcher automatically creates channels to requested target
+/// systems on demand and maintains them while in use.
+///
+/// The current implementation only supports [TCP](Transport::TCP) as
+/// a transport protocol.
+///
+/// If possible, this implementation will "reflect" messages
+/// to local actors directly back up, instead of serialising them first.
 #[derive(ComponentDefinition)]
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
@@ -75,9 +104,9 @@ pub struct NetworkDispatcher {
     connections: FnvHashMap<SocketAddr, ConnectionState>,
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
-    /// Shared lookup structure for mapping [ActorPath]s and [ActorRefs]
+    /// Shared lookup structure for mapping [actor paths](ActorPath) and [actor refs](ActorRef)
     lookup: Arc<ArcSwap<ActorStore>>,
-    // Fields initialized at [ControlEvent::Start]; they require ComponentContextual awareness
+    // Fields initialized at [Start](ControlEvent::Start) – they require ComponentContextual awareness
     /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
     /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
@@ -87,13 +116,33 @@ pub struct NetworkDispatcher {
     notify_ready: Option<Promise<()>>,
 }
 
-// impl NetworkDispatcher
 impl NetworkDispatcher {
+    
+    /// Create a new dispatcher with the default configuration
+    ///
+    /// See also [NetworkConfig](NetworkConfig).
+    ///
+    /// # Example
+    ///
+    /// This example binds to local host on a free port chosen by the operating system.
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// let mut conf = KompactConfig::default();
+    /// conf.system_components(DeadletterBox::new, NetworkDispatcher::new);
+    /// let system = conf.build().expect("system");
+    /// # system.shutdown().expect("shutdown");
+    /// ```
     pub fn new(notify_ready: Promise<()>) -> Self {
         let config = NetworkConfig::default();
         NetworkDispatcher::with_config(config, notify_ready)
     }
 
+    /// Create a new dispatcher with the given configuration
+    ///
+    /// For better readability in combination with [system_components](KompactConfig::system_components), 
+    /// use [NetworkConfig::build](NetworkConfig::build) instead.
     pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
         let reaper = lookup::gc::ActorRefReaper::default();
@@ -416,7 +465,11 @@ impl Actor for NetworkDispatcher {
                 use lookup::ActorLookup;
 
                 match reg {
-                    RegistrationEnvelope::Register(actor, path, promise) => {
+                    RegistrationEnvelope {
+                        actor,
+                        path,
+                        promise,
+                    } => {
                         let ap = self.resolve_path(&path);
                         let lease = self.lookup.lease();
                         let res = if lease.contains(&path) {
@@ -457,7 +510,8 @@ impl Actor for NetworkDispatcher {
 }
 
 impl Dispatcher for NetworkDispatcher {
-    /// Generates a [SystemPath](kompact::actors) from this dispatcher's configuration
+    /// Generates a [SystemPath](SystemPath) from this dispatcher's configuration
+    ///
     /// This is only possible after the socket is bound and will panic if attempted earlier!
     fn system_path(&mut self) -> SystemPath {
         // TODO get protocol from configuration
@@ -547,13 +601,14 @@ impl futures::Sink for DynActorRef {
 mod dispatch_tests {
     use super::{super::*, *};
 
-    use crate::{
-        actors::{ActorPath, UniquePath},
-        component::{ComponentContext, Provide},
-        default_components::DeadletterBox,
-        lifecycle::{ControlEvent, ControlPort},
-        runtime::{KompactConfig, KompactSystem},
-    };
+    // use crate::{
+    //     actors::{ActorPath, UniquePath},
+    //     component::{ComponentContext, Provide},
+    //     default_components::DeadletterBox,
+    //     lifecycle::{ControlEvent, ControlPort},
+    //     runtime::{KompactConfig, KompactSystem},
+    // };
+    //use crate::prelude::*;
     use bytes::{Buf, BufMut};
     use std::{thread, time::Duration};
 

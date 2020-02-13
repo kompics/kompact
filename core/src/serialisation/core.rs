@@ -1,6 +1,6 @@
 use super::*;
 
-/// Erros that can be thrown during serialisation or deserialisation
+/// Errors that can be thrown during serialisation or deserialisation
 #[derive(Debug)]
 pub enum SerError {
     /// The data was invalid, corrupted, or otherwise not as expected
@@ -12,22 +12,27 @@ pub enum SerError {
 }
 
 impl SerError {
+    /// Create a serialisation error from any kind of error that 
+    /// implements the [Debug](std::fmt::Debug) trait
+    ///
+    /// This always produces the [Unknown](SerError::Unknown) variant.
     pub fn from_debug<E: Debug>(error: E) -> SerError {
         let msg = format!("Wrapped error: {:?}", error);
         SerError::Unknown(msg)
     }
 }
 
-/// A trait for types that can serialise data of type `T`.
+/// A trait for types that can serialise data of type `T`
 pub trait Serialiser<T>: Send {
-    /// The serialisation id for this serialiser.
+    /// The serialisation id for this serialiser
     ///
     /// Serialisation ids are used to determine the deserialiser to use with a particular byte buffer.
     /// They are prepended to the actual serialised data and read first during deserialisation.
     /// Serialisation ids must be globally unique within a distributed Kompact system.
     fn ser_id(&self) -> SerId;
 
-    /// An indicator how many bytes must be reserved in a buffer for a value to be serialsed into it with this serialiser.
+    /// An indicator how many bytes must be reserved in a buffer for a value to be 
+    /// serialsed into it with this serialiser
     ///
     /// If the total size is unknown, `None` should be returned.
     ///
@@ -45,16 +50,17 @@ pub trait Serialiser<T>: Send {
     fn serialise(&self, v: &T, buf: &mut dyn BufMut) -> Result<(), SerError>;
 }
 
-/// A trait for items that can serialise themselves into a buffer.
+/// A trait for values that can serialise themselves into a buffer
 pub trait Serialisable: Send + Debug {
-    /// The serialisation id for this serialisabl.
+    /// The serialisation id for this serialisable
     ///
     /// Serialisation ids are used to determine the deserialiser to use with a particular byte buffer.
     /// They are prepended to the actual serialised data and read first during deserialisation.
-    /// Serialisation ids must be globally unique within a distributed Kompact system.
+    /// Serialisation ids must be globally unique within a *distributed* Kompact system.
     fn ser_id(&self) -> SerId;
 
-    /// An indicator how many bytes must be reserved in a buffer for a value to be serialsed into it with this serialiser.
+    /// An indicator how many bytes must be reserved in a buffer for a value to be 
+    /// serialsed into it with this serialiser
     ///
     /// If the total size is unknown, `None` should be returned.
     ///
@@ -62,24 +68,30 @@ pub trait Serialisable: Send + Debug {
     /// since they are simply optimisations to avoid many small memory allocations during the serialisation process.
     fn size_hint(&self) -> Option<usize>;
 
-    /// Serialises this object (`self`) into `buf`.
+    /// Serialises this object (`self`) into `buf`
     ///
     /// Serialisation should produce a copy, and not consume the original value.
     ///
     /// Returns a [SerError](SerError) if unsuccessful.
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError>;
 
-    /// Try move this object onto the heap for reflection, instead of serialising.
+    // TODO serialise owned...may need to rename some things here
+
+    /// Try move this object onto the heap for reflection, instead of serialising
     ///
-    /// Return the original object if the move fails, so that it can still be serialised.
+    /// Returns the original object if the move fails, so that it can still be serialised.
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>>;
 
-    /// Serialise with a one-off buffer.
+    /// Serialise with a one-off buffer
+    ///
+    /// Calls [serialise](Serialisable::serialise) internally by default.
     fn serialised(&self) -> Result<crate::messaging::Serialised, SerError> {
-        crate::serialisation::helpers::serialise_to_serialised(self)
+        crate::serialisation::ser_helpers::serialise_to_serialised(self)
     }
 }
 
+/// Turns a pair of a [Serialiser](Serialiser) and value of it's type `T` into a
+/// heap-allocated [Serialisable](Serialisable)
 impl<T, S> From<(T, S)> for Box<dyn Serialisable>
 where
     T: Send + Debug + 'static,
@@ -91,6 +103,8 @@ where
     }
 }
 
+/// Turns a stack-allocated [Serialisable](Serialisable) into a
+/// heap-allocated [Serialisable](Serialisable)
 impl<T> From<T> for Box<dyn Serialisable>
 where
     T: Send + Debug + Serialisable + Sized + 'static,
@@ -100,6 +114,7 @@ where
     }
 }
 
+/// A data type equivalent to a pair of value and a serialiser for it
 struct SerialisableValue<T, S>
 where
     T: Send + Debug,
@@ -148,35 +163,54 @@ where
     }
 }
 
-/// A trait to deserialise values of type `T` from buffers.
+/// A trait to deserialise values of type `T` from buffers
+///
+/// There should be one deserialiser with the same serialisation id
+/// for each [Serialiser](Serialiser) or [Serialisable](Serialisable)
+/// implementation. It is recommended to implement both on the same type.
 pub trait Deserialiser<T>: Send {
-    /// The serialisation id for which this deserialiser is to be invoked.
+    /// The serialisation id for which this deserialiser is to be invoked
     const SER_ID: SerId;
-    /// Try to deserialise a `T` from `buf`.
+
+    /// Try to deserialise a `T` from the given `buf`
     ///
     /// Returns a [SerError](SerError) if unsuccessful.
     fn deserialise(buf: &mut dyn Buf) -> Result<T, SerError>;
 }
 
+/// A trait for values that can get deserialised themselves
+///
+/// Can be used for serialisers that reuse already allocated memory
+/// as the target, such as protocol buffers.
 pub trait Deserialisable<T> {
+
+    /// The serialisation id for which this deserialiser is to be invoked
     fn ser_id(&self) -> SerId;
+
+    /// Try to deserialise this data into a `T`
+    ///
+    /// Returns a [SerError](SerError) if unsuccessful.
     fn get_deserialised(self) -> Result<T, SerError>;
 }
 
-pub trait BoxDeserialisable<T> {
-    fn boxed_ser_id(&self) -> SerId;
-    fn boxed_get_deserialised(self: Box<Self>) -> Result<T, SerError>;
-}
 
-impl<T> Deserialisable<T> for Box<dyn BoxDeserialisable<T>> {
-    fn ser_id(&self) -> SerId {
-        self.boxed_ser_id()
-    }
+// These seem all unused
 
-    fn get_deserialised(self) -> Result<T, SerError> {
-        self.boxed_get_deserialised()
-    }
-}
+
+// pub trait BoxDeserialisable<T> {
+//     fn boxed_ser_id(&self) -> SerId;
+//     fn boxed_get_deserialised(self: Box<Self>) -> Result<T, SerError>;
+// }
+
+// impl<T> Deserialisable<T> for Box<dyn BoxDeserialisable<T>> {
+//     fn ser_id(&self) -> SerId {
+//         self.boxed_ser_id()
+//     }
+
+//     fn get_deserialised(self) -> Result<T, SerError> {
+//         self.boxed_get_deserialised()
+//     }
+// }
 
 // /// Trivial identity Deserialisable
 // impl<T> Deserialisable<T> for T {
@@ -192,7 +226,7 @@ impl<T> Deserialisable<T> for Box<dyn BoxDeserialisable<T>> {
 // /// Trivial heap to Stack Deserialisable
 // impl<T: Send> Deserialisable<T> for Box<T> {
 //     fn ser_id(&self) -> SerId {
-//         unimplemented!();
+//         serialisation_ids::UNKNOWN
 //     }
 
 //     fn get_deserialised(self) -> Result<T, SerError> {

@@ -11,6 +11,7 @@ use super::*;
 
 /// A factory trait to produce instances of `TimerRef`(timer::TimerRef)
 pub trait TimerRefFactory {
+    /// Returns the timer reference for associated with this factory
     fn timer_ref(&self) -> timer::TimerRef;
 }
 

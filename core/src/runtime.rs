@@ -1439,7 +1439,7 @@ impl KompactRuntime {
         let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Typed(DispatchEnvelope::Registration(
-            RegistrationEnvelope::Register(actor_ref.dyn_ref(), path, Some(promise)),
+            RegistrationEnvelope::with_promise(actor_ref, path, promise),
         ));
         dispatcher.enqueue(envelope);
         future

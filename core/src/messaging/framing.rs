@@ -9,44 +9,25 @@ use bytes::{Buf, BufMut};
 use std::{any::Any, convert::TryFrom, net::IpAddr};
 use uuid::Uuid;
 
-// #[repr(u8)]
-// #[derive(Debug, Copy, Clone, PartialEq, Ord, PartialOrd, Eq)]
-// pub enum SerIdents {
-//     Unknown = 0x00,
-//     DispatchEnvelope = 0x01,
-//     UniquePath = 0x02,
-//     NamedPath = 0x03,
-//     SystemPathHeader = 0x04,
-//     SystemPath = 0x05,
-//     ActorPath = 0x06,
-// }
-
-// impl From<u8> for SerIdents {
-//     fn from(repr: u8) -> Self {
-//         match repr {
-//             0x00 =>
-//             0x01 => SerIdents::DispatchEnvelope,
-//             0x02 => SerIdents::UniqueActorPath,
-//             0x03 => SerIdents::NamedActorPath,
-//             0x04 => SerIdents::SystemPathHeader,
-//             0x05 => SerIdents::SystemPath,
-//             _ => SerIdents::Unknown,
-//         }
-//     }
-// }
-
+/// The type of address used
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
 pub enum AddressType {
+    /// An IPv4 address
     IPv4 = 0,
+    /// An IPv6 address
     IPv6 = 1,
+    /// A domain name
     Domain = 2,
 }
 
+/// The type of path used
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
 pub enum PathType {
+    /// A [unique path](ActorPath::Unique)
     Unique = 0,
+    /// A [named path](ActorPath::Named)
     Named = 1,
 }
 
@@ -131,6 +112,7 @@ impl<'a> From<&'a IpAddr> for AddressType {
     }
 }
 
+/// The header for a [system path](SystemPath)
 #[derive(Debug)]
 pub struct SystemPathHeader {
     storage: [u8; 1],
@@ -140,6 +122,7 @@ pub struct SystemPathHeader {
 }
 
 impl SystemPathHeader {
+    /// Create header from an actor path
     pub fn from_path(sys: &ActorPath) -> Self {
         use bitfields::BitFieldExt;
 
@@ -168,6 +151,7 @@ impl SystemPathHeader {
         }
     }
 
+    /// Create header from a system path
     pub fn from_system(sys: &SystemPath) -> Self {
         use bitfields::BitFieldExt;
 
@@ -193,6 +177,7 @@ impl SystemPathHeader {
         }
     }
 
+    /// Put this header's data into the give buffer
     pub fn put_into(&self, buf: &mut dyn BufMut) {
         buf.put_u8(self.storage[0])
     }

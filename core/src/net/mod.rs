@@ -4,7 +4,7 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 use futures::{self, stream::Stream, sync, Future};
 use net::events::{NetworkError, NetworkEvent};
-use serialisation::helpers::deserialise_msg;
+use serialisation::ser_helpers::deserialise_msg;
 use spaniel::{codec::FrameCodec, frames::Frame};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{
@@ -16,15 +16,22 @@ use tokio_retry::{self, strategy::ExponentialBackoff};
 use tokio::net::tcp::ConnectFuture;
 use tokio_retry::Retry;
 
+/// The state of a connection
 #[derive(Debug)]
 pub enum ConnectionState {
+    /// Newly created
     New,
+    /// Still initialising
     Initializing,
+    /// Connected with a frame sender
     Connected(sync::mpsc::UnboundedSender<Frame>),
+    /// Already closed
     Closed,
+    /// Threw an error
     Error(std::io::Error),
 }
 
+/// Events on the network level
 pub mod events {
     use std;
 
@@ -35,14 +42,20 @@ pub mod events {
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkEvent {
+        /// The state of a connection changed
         Connection(SocketAddr, ConnectionState),
+        /// Data was received
         Data(Frame),
     }
 
+    /// Errors emitted byt the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkError {
+        /// The protocol is not supported in this implementation
         UnsupportedProtocol,
+        /// There is no executor to run the bridge on
         MissingExecutor,
+        /// Some other IO error
         Io(std::io::Error),
     }
 
@@ -53,11 +66,15 @@ pub mod events {
     }
 }
 
+/// The configuration for the network `Bridge`
 pub struct BridgeConfig {
     retry_strategy: RetryStrategy,
 }
 
 impl BridgeConfig {
+    /// Create a new config
+    ///
+    /// This is the same as the [Default](std::default::Default) implementation.
     pub fn new() -> Self {
         BridgeConfig::default()
     }
@@ -99,7 +116,7 @@ pub struct Bridge {
 
 // impl bridge
 impl Bridge {
-    /// Creates a new [Bridge]
+    /// Creates a new bridge
     ///
     /// # Returns
     /// A tuple consisting of the new Bridge object and the network event receiver.
@@ -145,6 +162,7 @@ impl Bridge {
         Ok(())
     }
 
+    /// Stops the bridge
     pub fn stop(mut self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         if let Some(runtime) = self.tokio_runtime.take() {
@@ -157,6 +175,7 @@ impl Bridge {
         Ok(())
     }
 
+    /// Returns the local address if already bound
     pub fn local_addr(&self) -> &Option<SocketAddr> {
         &self.bound_addr
     }
@@ -384,11 +403,16 @@ struct NetworkThread {
     bound_addr: SocketAddr,
 }
 
+/// Errors returned by the network bridge
 #[derive(Debug)]
 pub enum NetworkBridgeErr {
+    /// A wrapped error from Tokio land
     Tokio(tokio::io::Error),
+    /// Something went wrong while binding
     Binding(String),
+    /// Something went wrong with the thread
     Thread(String),
+    /// Something else went wrong
     Other(String),
 }
 

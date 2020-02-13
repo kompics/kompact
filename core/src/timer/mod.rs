@@ -66,15 +66,22 @@ pub trait Timer {
 pub enum TimerEntry {
     /// A one-off timer
     OneShot {
+        /// The unique of the timeout
         id: Uuid,
+        /// The length of the timeout
         timeout: Duration,
+        /// The action to invoke when the timeout expires
         action: Box<dyn FnOnce(Uuid) + Send + 'static>,
     },
     /// A recurring timer
     Periodic {
+        /// The unique of the timeout
         id: Uuid,
+        /// The delay until the `action` is first invoked
         delay: Duration,
+        /// The time between `action` invocations
         period: Duration,
+        /// The action to invoke whenever the timeout expires
         action: Box<dyn Fn(Uuid) + Send + 'static>,
     },
 }

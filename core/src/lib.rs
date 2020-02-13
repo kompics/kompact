@@ -36,6 +36,7 @@
 //! system.shutdown().expect("shutdown");
 //! ```
 
+#![deny(missing_docs)]
 #![allow(unused_parens)]
 #![feature(specialization)]
 #![feature(unsized_locals)]
@@ -171,6 +172,7 @@ pub mod prelude {
             PathResolvable,
             RegistrationError,
             Serialised,
+            UnpackError,
         },
         timer_manager::{ScheduledTimer, Timer, TimerRefFactory},
     };
@@ -193,7 +195,9 @@ pub mod prelude {
     };
 }
 
-/// For test helpers also use `use prelude_test::*`.
+/// A module containing helper functions for (unit) testing
+///
+/// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
     pub use crate::serialisation::ser_test_helpers;
 }
@@ -205,18 +209,24 @@ pub mod prelude_test {
 pub mod doctest_helpers {
     use crate::prelude::*;
 
+    /// A quick test path to create an [ActorPath](ActorPath) with
+    pub const TEST_PATH: &'static str = "local://127.0.0.1:0/test_actor";
+
+    /// A test port
     pub struct TestPort;
     impl Port for TestPort {
         type Indication = Never;
         type Request = Never;
     }
 
+    /// A test component
     #[derive(ComponentDefinition, Actor)]
     pub struct TestComponent1 {
         ctx: ComponentContext<Self>,
         test_port: ProvidedPort<TestPort, Self>,
     }
     impl TestComponent1 {
+        /// Create a new test component
         pub fn new() -> TestComponent1 {
             TestComponent1 {
                 ctx: ComponentContext::new(),
@@ -231,12 +241,14 @@ pub mod doctest_helpers {
         }
     }
 
+    /// Another test component
     #[derive(ComponentDefinition, Actor)]
     pub struct TestComponent2 {
         ctx: ComponentContext<Self>,
         test_port: RequiredPort<TestPort, Self>,
     }
     impl TestComponent2 {
+        /// Create a new test component
         pub fn new() -> TestComponent2 {
             TestComponent2 {
                 ctx: ComponentContext::new(),

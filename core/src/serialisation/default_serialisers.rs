@@ -1,6 +1,6 @@
 use super::*;
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 
 /// Contains constants with internal serialisation ids.
 ///

@@ -8,7 +8,7 @@ use super::*;
 
 mod core;
 mod default_serialisers;
-pub mod helpers;
+pub mod ser_helpers;
 #[cfg(feature = "protobuf")]
 pub mod protobuf_serialisers;
 
@@ -169,10 +169,13 @@ pub trait SerIdSize {
 }
 pub use ser_id::*;
 
+/// A module with helper functions for serialisation tests
 pub mod ser_test_helpers {
     use super::*;
 
-    /// Directly serialise something into the given buf. Mostly for testing.
+    /// Directly serialise something into the given buf
+    ///
+    /// This function panics if serialisation fails.
     pub fn just_serialise<S>(si: S, buf: &mut dyn BufMut) -> ()
     where
         S: Into<Box<dyn Serialisable>>,
@@ -181,7 +184,9 @@ pub mod ser_test_helpers {
         s.serialise(buf).expect("Did not serialise correctly");
     }
 
-    /// Directly serialise something into some buf and throw it away. Only for testing.
+    /// Directly serialise something into some buf and then throw it away
+    ///
+    /// This function panics if serialisation fails.
     pub fn test_serialise<S>(si: S) -> ()
     where
         S: Into<Box<dyn Serialisable>>,
