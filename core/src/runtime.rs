@@ -1503,7 +1503,7 @@ impl KompactRuntime {
         }
         let res = self.timer.shutdown();
         lifecycle::set_destroyed(self.state());
-        println!("System is destroyed!");
+        debug!(self.logger(), "System is destroyed");
         res
     }
 
