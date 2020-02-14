@@ -6,6 +6,7 @@ members = [
     "macros/macro-test",
     "feature-tests/protobuf-test",
     "experiments/dynamic-benches",
-    "experiments/datastructures"
+    "experiments/datastructures",
+    "docs/examples"
 ]
 

@@ -23,6 +23,7 @@
 //!            match event {
 //!                ControlEvent::Start => {
 //!                    info!(self.ctx.log(), "Hello World!");
+//!                    self.ctx().system().shutdown_async();
 //!                }
 //!                _ => (), // ignore other control events
 //!            }
@@ -31,9 +32,8 @@
 //!
 //! let system = KompactConfig::default().build().expect("system");
 //! let component = system.create(HelloWorldComponent::new);
-//! let start_future = system.start_notify(&component);
-//! start_future.wait();
-//! system.shutdown().expect("shutdown");
+//! system.start(&component);
+//! system.await_termination();
 //! ```
 
 #![deny(missing_docs)]
