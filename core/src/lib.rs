@@ -443,7 +443,20 @@ mod tests {
         let mut settings = KompactConfig::new();
         settings
             .threads(4)
-            .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
+            .executor(move |t| executors::crossbeam_channel_pool::ThreadPool::new(t));
+        let system = settings.build().expect("KompactSystem");
+        test_with_system(system);
+    }
+
+    #[test]
+    fn custom_scheduler() {
+        //let pool = ThreadPool::new(2);
+        let mut settings = KompactConfig::new();
+        settings.threads(2).scheduler(move |t| {
+            crate::runtime::ExecutorScheduler::from(
+                executors::crossbeam_channel_pool::ThreadPool::new(t),
+            )
+        });
         let system = settings.build().expect("KompactSystem");
         test_with_system(system);
     }

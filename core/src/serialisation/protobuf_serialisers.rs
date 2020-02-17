@@ -34,7 +34,6 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
     }
 }
 
-
 /// Something that can be deserialised into a protobuf message of type `M`
 pub struct ProtobufDeser<M: Message + Any + Debug, B: Buf> {
     /// An existing allocated message of type `M`
