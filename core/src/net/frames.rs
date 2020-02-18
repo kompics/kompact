@@ -15,19 +15,27 @@ use crate::serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialis
 use crate::actors::SystemPath;
 use crate::serialisation;
 //use stream::StreamId;
-
+/// Used to identify start of a frame head
 pub const MAGIC_NUM: u32 = 0xC0A1BA11;
-// (frame length) + (magic) + (frame type)
+/// Framehead has constant size: (frame length) + (magic) + (frame type)
 pub const FRAME_HEAD_LEN: u32 = 4 + 4 + 1;
 
+/// Error messages for encoding/decoding
 #[derive(Debug)]
 pub enum FramingError {
+    /// Encoding error, the buffer lacks capacity
     BufferCapacity,
+    /// Uknown frame type.
     UnsupportedFrameType,
+    /// Invalid start of frame.
     InvalidMagicNum,
+    /// Invalid frame
     InvalidFrame,
+    /// Serialisation during encode or deserialisation during decode
     SerialisationError,
+    /// Unwrap error
     OptionError,
+    /// IO errors wrapped into FramingError
     Io(std::io::Error),
 }
 
@@ -40,14 +48,20 @@ impl From<std::io::Error> for FramingError {
 /// Core network frame definition
 #[derive(Debug)]
 pub enum Frame {
+    /// Request Credits for credit-based flow-control
     StreamRequest(StreamRequest),
+    /// Give Credits for credit-based flow-control
     CreditUpdate(CreditUpdate),
+    /// Frame of Data
     Data(Data),
+    /// Hello, used to initiate network channels
     Hello(Hello),
+    /// Bye to signal that a channel is closing.
     Bye(),
 }
 
 impl Frame {
+    /// Returns which FrameType a Frame is.
     pub fn frame_type(&self) -> FrameType {
         match *self {
             Frame::StreamRequest(_) => FrameType::StreamRequest,
@@ -68,7 +82,7 @@ impl Frame {
             _ => unimplemented!(),
         }
     }*/
-
+    /// Encode a frame into a BufMut
     pub fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         let head = FrameHead::new(self.frame_type(), self.encoded_len());
         head.encode_into(dst, self.encoded_len() as u32);
@@ -94,33 +108,41 @@ impl Frame {
     }
 }
 
-pub trait FrameExt {
+/// Trait for unifying the Encode/Decode of the different FrameTypes.
+pub(crate) trait FrameExt {
     fn decode_from(src: ChunkLease) -> Result<Frame, FramingError>;
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()>;
     fn encoded_len(&self) -> usize;
 }
 
+/// Request Credits for credit-based flow-control
 #[derive(Debug)]
 pub struct StreamRequest {
-    //pub stream_id: StreamId,
+    /// How many credits are requested
     pub credit_capacity: u32,
 }
 
+/// Give Credits for credit-based flow-control
 #[derive(Debug)]
 pub struct CreditUpdate {
-    //pub stream_id: StreamId,
+    /// How many credits are given
     pub credit: u32,
 }
 
+/// Frame of Data
 #[derive(Debug)]
 pub struct Data {
+    /// The actual contents of the Frame
     pub payload: ChunkLease,
 }
 
+
+/// Hello, used to initiate network channels
 #[derive(Debug)]
 pub struct Hello {
     //pub stream_id: StreamId,
     //pub seq_num: u32,
+    /// The Cannonical Address of the host saying Hello
     pub addr: SocketAddr,
 }
 
@@ -128,11 +150,17 @@ pub struct Hello {
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub enum FrameType {
+    /// Request Credits for credit-based flow-control
     StreamRequest = 0x01,
+    /// Frame of Data
     Data = 0x02,
+    /// Give Credits for credit-based flow-control
     CreditUpdate = 0x03,
+    /// Hello, used to initiate network channels
     Hello = 0x04,
+    /// Bye to signal that a channel is closing.
     Bye = 0x05,
+    /// Unknown frame type
     Unknown = 0x06,
 }
 
@@ -151,19 +179,19 @@ impl From<u8> for FrameType {
 
 // Head of each frame
 #[derive(Debug)]
-pub struct FrameHead {
+pub(crate) struct FrameHead {
     frame_type: FrameType,
     content_length: usize,
 }
 
 impl FrameHead {
-    pub fn new(frame_type: FrameType, content_length: usize) -> Self {
+    pub(crate) fn new(frame_type: FrameType, content_length: usize) -> Self {
         FrameHead { frame_type, content_length }
     }
 
     // Encodes own fields and entire frame length into `dst`.
     // This conforms to the length_delimited decoder found in the framed writer
-    pub fn encode_into<B: BufMut>(&self, dst: &mut B, content_len: u32) {
+    pub(crate) fn encode_into<B: BufMut>(&self, dst: &mut B, content_len: u32) {
         assert!(dst.remaining_mut() >= FRAME_HEAD_LEN as usize);
         // Represents total length, including bytes for encoding length
         // NOTE: This is not needed, and thus commented out, if length_delimited is also used for writing (as in the kompcis code)
@@ -172,7 +200,7 @@ impl FrameHead {
         dst.put_u8(self.frame_type as u8);
     }
 
-    pub fn decode_from<B: Buf>(src: &mut B) -> Result<Self, FramingError> {
+    pub(crate) fn decode_from<B: Buf>(src: &mut B) -> Result<Self, FramingError> {
         // length_delimited's decoder will have parsed the length out of `src`, subtract that out
         if src.remaining() < (FRAME_HEAD_LEN) as usize {
             return Err(FramingError::BufferCapacity);
@@ -190,18 +218,18 @@ impl FrameHead {
         Ok(head)
     }
 
-    pub fn content_length(&self) -> usize { self.content_length }
-    pub fn frame_type(&self) -> FrameType {
+    pub(crate) fn content_length(&self) -> usize { self.content_length }
+    pub(crate) fn frame_type(&self) -> FrameType {
         self.frame_type
     }
 
-    pub fn encoded_len() -> usize {
+    pub(crate) fn encoded_len() -> usize {
         FRAME_HEAD_LEN as usize
     }
 }
 
 impl StreamRequest {
-    pub fn new(credit_capacity: u32) -> Self {
+    pub(crate) fn new(credit_capacity: u32) -> Self {
         StreamRequest {
             credit_capacity,
         }
@@ -209,17 +237,20 @@ impl StreamRequest {
 }
 
 impl Hello {
+    /// Create a new hello message
     pub fn new(addr: SocketAddr) -> Self {
         Hello {
             addr,
         }
     }
+    /// Get the address sent in the Hello message
     pub fn addr(&self) -> SocketAddr {
         self.addr
     }
 }
 
 impl Data {
+    /// Create a new data frame
     pub fn new(payload: ChunkLease) -> Self {
         Data {
             payload,
@@ -232,7 +263,7 @@ impl Data {
     }
     */
 
-    pub fn encoded_len(&self) -> usize {
+    pub(crate) fn encoded_len(&self) -> usize {
         self.payload.bytes().len()
     }
 /*
@@ -241,7 +272,7 @@ impl Data {
     }*/
 
     /// Consumes this frame and returns the raw payload buffer
-    pub fn payload(self) -> ChunkLease {
+    pub(crate) fn payload(self) -> ChunkLease {
         self.payload
     }
 }

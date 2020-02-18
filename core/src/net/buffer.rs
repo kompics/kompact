@@ -11,11 +11,10 @@ use std::mem::MaybeUninit;
 use crate::net::buffer_pool::BufferPool;
 use core::mem;
 
-pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
+const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = 655355; // Idk what's a good number here: To be determined later
 
-
-
+/// BufferChunk is a lockable pinned byte-slice
 pub struct BufferChunk {
     chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
     ref_count: Arc<u8>,
@@ -23,6 +22,7 @@ pub struct BufferChunk {
 }
 
 impl BufferChunk {
+    /// Allocate a new unlocked BufferChunk
     pub fn new() -> Self {
         let mut slice = ([0u8; BUFFER_SIZE]);
         BufferChunk {
@@ -32,11 +32,12 @@ impl BufferChunk {
         }
     }
 
+    /// Get the length of the BufferChunk
     pub fn len(&self) -> usize {
         self.chunk.len()
     }
 
-    /// Private function returning a pointer to a subslice of the chunk
+    /// Return a pointer to a subslice of the chunk
     pub unsafe fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
         assert!(from < to && to <= self.len() && !self.locked);
         let ptr = self.chunk.as_mut_ptr();
@@ -44,6 +45,7 @@ impl BufferChunk {
         std::slice::from_raw_parts_mut(offset_ptr, to-from)
     }
 
+    /// Swaps the pointers of the two buffers such that they effectively switch place
     pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
         std::mem::swap(self.get_chunk_mut(),  other.get_chunk_mut());
         std::mem::swap(self.get_lock_mut(), other.get_lock_mut());
@@ -59,26 +61,33 @@ impl BufferChunk {
         //return bytes::Bytes::from(slice.to_vec())
     }*/
 
+    /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
+    /// the returned lease is a consumable Buf.
     pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease {
         unsafe {
             ChunkLease::new(self.get_slice(from, to), self.get_lock())
         }
     }
 
+    /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
+    /// the returned lease is a writable BufMut.
     pub fn get_free_lease(&mut self, from: usize, to: usize) -> ChunkLease {
         unsafe {
             ChunkLease::new_unused(self.get_slice(from, to), self.get_lock())
         }
     }
 
+    /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated
     pub fn get_lock(&self) -> Arc<u8> {
         self.ref_count.clone()
     }
 
+    /// Returns a mutable pointer to the full underlying byte-slice.
     pub fn get_chunk_mut(&mut self) -> &mut Pin<Box<[u8; BUFFER_SIZE]>> {
         &mut self.chunk
     }
 
+    /// Returns a mutable pointer to the associated lock.
     pub fn get_lock_mut(&mut self) -> &mut Arc<u8> {
         &mut self.ref_count
     }
@@ -97,18 +106,21 @@ impl BufferChunk {
         }
     }
 
+    /// Locks the BufferChunk, it will not be writable nor will any leases be created before it has been unlocked.
     pub fn lock(&mut self) -> () {
         self.locked = true;
     }
 }
 
-pub struct EncodeBuffer {
+/// Structure used by components to continuously extract leases from BufferChunks swapped with the internal/private BufferPool
+pub(crate) struct EncodeBuffer {
     buffer: BufferChunk,
     buffer_pool: BufferPool,
     write_offset: usize,
 }
 
 impl EncodeBuffer {
+    /// Creates a new EncodeBuffer, allocates a new BufferPool.
     pub fn new() -> Self {
         let mut buffer_pool = BufferPool::new();
         if let Some(mut buffer) = buffer_pool.get_buffer() {
@@ -122,6 +134,7 @@ impl EncodeBuffer {
         }
     }
 
+    /// Returns a writable ChunkLease of length `size` if the BufferPool has available Buffers to use.
     pub fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
         if self.remaining() > size {
             self.write_offset += size;
@@ -137,6 +150,7 @@ impl EncodeBuffer {
         None
     }
 
+    /// Returns the remaining length of the current BufferChunk.
     pub fn remaining(&self) -> usize {
         self.buffer.len() - self.write_offset
     }
@@ -152,6 +166,7 @@ pub struct DecodeBuffer {
 }
 
 impl DecodeBuffer{
+    /// Creates a new DecodeBuffer from th given BufferChunk.
     pub fn new(buffer: BufferChunk) -> Self {
         DecodeBuffer{
             buffer,
@@ -172,8 +187,10 @@ impl DecodeBuffer{
         }
     }
 
+    /// Returns the length of the read-portion of the buffer
     pub fn len(&self) -> usize { self.write_offset - self.read_offset }
 
+    /// Returns the length of the write-portion of the buffer
     pub fn remaining(&self) -> usize {
         self.buffer.len() - self.write_offset
     }
@@ -183,10 +200,12 @@ impl DecodeBuffer{
         self.write_offset += num_bytes;
     }
 
+    /// Get the current write-offset of the buffer
     pub fn get_write_offset(&self) -> usize {
         self.write_offset
     }
 
+    /// Get the first 24 bytes of the DecodeBuffer, used for testing/debugging
     pub fn get_buffer_head(&mut self) -> &mut [u8] {
         unsafe {
             return self.buffer.get_slice(0,24);
@@ -283,6 +302,8 @@ impl DecodeBuffer{
     }
 }
 
+/// A ChunkLease is a Byte-buffer which locks the BufferChunk which the ChunkLease is a lease from.
+/// Can be used both as Buf of BufMut depending on what is needed.
 #[derive(Debug)]
 pub struct ChunkLease {
     content: &'static mut [u8],
@@ -293,6 +314,7 @@ pub struct ChunkLease {
 }
 
 impl ChunkLease {
+    /// Creates a new ChunkLease from a static byte-slice with already written bytes and a `lock`.
     pub fn new(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
         let capacity = content.len();
         let written = content.len();
@@ -305,6 +327,7 @@ impl ChunkLease {
         }
     }
 
+    /// Creates a new ChunkLease with available space and a `lock`
     pub fn new_unused(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
         let capacity = content.len();
         ChunkLease{
@@ -316,6 +339,7 @@ impl ChunkLease {
         }
     }
 
+    /// Creates an empty ChunkLease, used as auxiliary method in test-cases
     pub fn empty() -> ChunkLease {
         static mut slice: [u8; 1] = [0];
         unsafe {

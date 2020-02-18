@@ -5,6 +5,12 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
+/// A macro to derive empty actor implementations
+///
+/// Use this macro if you only care about the component model mechanics for your type.
+///
+/// Implementations derived using this macro have message type `Never` (or `!` if you prefer).
+/// Whenever they receive a network message, they simply log a warning.
 #[proc_macro_derive(Actor)]
 pub fn actor(input: TokenStream) -> TokenStream {
     // Parse the input stream
@@ -31,7 +37,7 @@ fn impl_actor(ast: &syn::DeriveInput) -> TokenStream2 {
                 type Message = Never;
 
                 fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> () {
-                    println!("Got msg, but component isn't handling any: {:?}", env);
+                    warn!(self.log(), "Got msg, but component isn't handling any: {:?}", env);
                 }
             }
         }

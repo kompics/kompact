@@ -14,16 +14,27 @@ use crate::net::frames::FrameHead;
 use crate::net::frames;
 use std::borrow::Borrow;
 
+/// Transport protocol to use for delivering messages
+/// sent to an [ActorPath](ActorPath)
+///
+/// # Note
+///
+/// Dispatcher implementations are not required to implement all protocols.
+/// Check your concrete implementation, before selecting an arbitrary protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Transport {
+    /// Local reflection only, no network messages involved
     LOCAL = 0b00,
+    /// Send messages over TCP
     TCP = 0b01,
+    /// Send messages as UDP datagrams
     UDP = 0b10,
 }
 
 // impl Transport
 impl Transport {
+    /// Returns `true` if this is an instance of [Transport::LOCAL](Transport::LOCAL)
     pub fn is_local(&self) -> bool {
         match *self {
             Transport::LOCAL => true,
@@ -31,6 +42,7 @@ impl Transport {
         }
     }
 
+    /// Returns `true` if this is *not* an instance of [Transport::LOCAL](Transport::LOCAL)
     pub fn is_remote(&self) -> bool {
         !self.is_local()
     }
@@ -59,11 +71,12 @@ impl FromStr for Transport {
     }
 }
 
+/// Error type for parsing the [Transport](Transport) from a string
 #[derive(Clone, Debug)]
 pub struct TransportParseError(());
 impl fmt::Display for TransportParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(self.description())
+        fmt.write_str(&self.to_string())
     }
 }
 impl Error for TransportParseError {
@@ -72,15 +85,19 @@ impl Error for TransportParseError {
     }
 }
 
+/// Error type for parsing [paths](ActorPath) from a string
 #[derive(Clone, Debug)]
 pub enum PathParseError {
+    /// The format is wrong
     Form(String),
+    /// The transport protocol was invalid
     Transport(TransportParseError),
+    /// The network address was invalid
     Addr(AddrParseError),
 }
 impl fmt::Display for PathParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(self.description())
+        fmt.write_str(&self.to_string())
     }
 }
 impl Error for PathParseError {
@@ -107,6 +124,9 @@ impl From<AddrParseError> for PathParseError {
     }
 }
 
+/// The part of an [ActorPath](ActorPath) that refers to the [KompactSystem](KompactSystem)
+///
+/// As a URI, a `SystemPath` looks like `"tcp://127.0.0.1:8080"`, for example.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SystemPath {
     protocol: Transport,
@@ -116,6 +136,7 @@ pub struct SystemPath {
 }
 
 impl SystemPath {
+    /// Construct a new system path from individual parts
     pub fn new(protocol: Transport, address: IpAddr, port: u16) -> SystemPath {
         SystemPath {
             protocol,
@@ -124,6 +145,7 @@ impl SystemPath {
         }
     }
 
+    /// Construct a new system path from individual parts using a [SocketAddr](std::net::SocketAddr)
     pub fn with_socket(protocol: Transport, socket: SocketAddr) -> SystemPath {
         SystemPath {
             protocol,
@@ -132,8 +154,19 @@ impl SystemPath {
         }
     }
 
+    /// Returns a reference to the [Transport](Transport) protocol associated with with this system path
+    pub fn protocol(&self) -> Transport {
+        self.protocol
+    }
+
+    /// Returns a reference to the IP address associated with with this system path
     pub fn address(&self) -> &IpAddr {
         &self.address
+    }
+
+    /// Returns the port associated with with this system path
+    pub fn port(&self) -> u16 {
+        self.port
     }
 }
 
@@ -147,13 +180,13 @@ pub(crate) trait SystemField {
     fn system(&self) -> &SystemPath;
 
     fn protocol(&self) -> Transport {
-        self.system().protocol
+        self.system().protocol()
     }
     fn address(&self) -> &IpAddr {
-        &self.system().address
+        &self.system().address()
     }
     fn port(&self) -> u16 {
-        self.system().port
+        self.system().port()
     }
 }
 
@@ -163,20 +196,30 @@ impl SystemField for SystemPath {
     }
 }
 
+/// A factory trait for things can produce [PathResolvable](PathResolvable) instances
+///
+/// Only makes sense for types that can [dispatch](Dispatching) messages.
 pub trait ActorSource: Dispatching {
+    /// Returns the associated path resolvable
     fn path_resolvable(&self) -> PathResolvable;
 }
 
+/// A factory trait for things that have associated [actor paths](ActorPath)
 pub trait ActorPathFactory {
+    /// Returns the associated actor path
     fn actor_path(&self) -> ActorPath;
 }
 
-// impl<F: ActorPathFactory + Dispatching> ActorSource for F {
-//     fn path_resolvable(&self) -> PathResolvable {
-//         PathResolvable::Ac
-//     }
-// }
-
+/// A temporary combination of an [ActorPath](ActorPath)
+/// and something that can [dispatch](Dispatching) stuff
+///
+/// This can be used when you want to use a different actor path
+/// than the one of the current component for a [tell](ActorPath::tell)
+/// but still need to use the component's dispatcher for the message.
+/// This is useful for forwarding components, for example, when trying to
+/// preserve the original sender.
+///
+/// See also [using_dispatcher](ActorPath::using_dispatcher).
 pub struct DispatchingPath<'a, 'b> {
     path: &'a ActorPath,
     ctx: &'b dyn Dispatching,
@@ -192,15 +235,52 @@ impl<'a, 'b> ActorSource for DispatchingPath<'a, 'b> {
     }
 }
 
+/// An actor path is a serialisable, possibly remote reference to
+/// an actor
+///
+/// Any message sent via an actor path *might* go over the network,
+/// and must be treated as fallible.
+/// It must also be [serialisable](Serialisable).
 #[derive(Clone, Debug)]
 #[repr(u8)]
 #[derive(PartialEq, Eq)]
 pub enum ActorPath {
+    /// A unique actor path identifies a concrete instance of an actor
+    ///
+    /// Unique actor paths use the component's unique id internally.
+    ///
+    /// Unique actor paths become invalid when a component is
+    /// replaced with a new instance of the same type.
+    ///
+    /// A unique path may look something like `"tcp://127.0.0.1:8080#1e555f40-de1d-4aee-8202-64fdc27edfa8"`, for example.
     Unique(UniquePath),
+    /// A named actor path identifies a service, rather than a concrete actor instance
+    ///
+    /// Named paths must be [registered](KompactSystem::register_by_alias) to a particular actor,
+    /// and their registration can be changed over time,
+    /// as actors fail and are replaced, for example.
+    ///
+    /// Named paths may be described hierarchically, similar to URLs.
+    ///
+    /// A named path may look something like `"tcp://127.0.0.1:8080/my-actor-group/my-actor"`, for example.
     Named(NamedPath),
 }
 
 impl ActorPath {
+    /// Send message `m` to the actor designated by this path
+    ///
+    /// The `from` field is used as a source,
+    /// and the `ActorPath` it resolved to will be supplied at the destination.
+    ///
+    /// Serialisation of `m` happens lazily in the dispatcher,
+    /// and only if it really goes over the network. If this actor path
+    /// turns out to be local, `m` will be moved to the heap and send locally instead.
+    ///
+    /// In fact, this method always moves `m` onto the heap (unless it already is allocated there),
+    /// to facility this lazy serialisation.
+    /// As this method has some overhead in the case where it sure
+    /// that `m` will definitely go over the network, you can use
+    /// [tell_ser](ActorPath::tell_ser) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
     where
         S: ActorSource,
@@ -217,7 +297,7 @@ impl ActorPath {
         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
     }
 
-    /// Same as [tell](tell), but serialises eagerly.
+    /// Same as [tell](ActorPath::tell), but serialises eagerly
     pub fn tell_ser<S, B, E>(&self, m: B, from: &S) -> Result<(), E>
     where
         S: ActorSource,
@@ -235,7 +315,9 @@ impl ActorPath {
         Ok(())
     }
 
-    /// Same as [tell](tell), but serialises eagerly.
+    /// Similar to [tell_ser](ActorPath::tell_ser), but uses a pooled and reusable byte buffer.
+    /// The component definition given in `from` must have initialized a pool using [initialize_pool](ComponentContext::initialize_pool)
+    /// The pool is garbage-collected on demand when tell_pooled is called and the pool has run out of available buffers.
     pub fn tell_pooled<B, CD>(&self, m: B, from: &mut CD) -> Result<(), SerError>
         where
             B: Serialisable + Sized,
@@ -268,7 +350,7 @@ impl ActorPath {
             //println!("getting buffer");
             if let Some(mut buf) = from.ctx_mut().get_buffer(size) {
                 //println!("serializing into chunk");
-                crate::serialisation::helpers::serialise_into_framed_chunk(&src_path, &dst, m, &mut buf);
+                crate::serialisation::ser_helpers::serialise_into_framed_chunk(&src_path, &dst, m, &mut buf);
                 let env = DispatchEnvelope::Msg {
                     src: from.path_resolvable(),
                     dst,
@@ -286,6 +368,14 @@ impl ActorPath {
         }
     }
 
+    /// Returns a temporary combination of an [ActorPath](ActorPath)
+    /// and something that can [dispatch](Dispatching) stuff
+    ///
+    /// This can be used when you want to use a different actor path
+    /// than the one of the current component for a [tell](ActorPath::tell)
+    /// but still need to use the component's dispatcher for the message.
+    /// This is useful for forwarding components, for example, when trying to
+    /// preserve the original sender.
     pub fn using_dispatcher<'a, 'b>(
         &'a self,
         disp: &'b dyn Dispatching,
@@ -303,6 +393,7 @@ impl ActorPath {
         }
     }
 
+    /// Change the transport protocol for this actor path
     pub fn set_transport(&mut self, proto: Transport) {
         self.system_mut().protocol = proto;
     }
@@ -367,6 +458,14 @@ impl FromStr for ActorPath {
     }
 }
 
+/// A unique actor path identifies a concrete instance of an actor
+///
+/// Unique actor paths use the component's unique id internally.
+///
+/// Unique actor paths become invalid when a component is
+/// replaced with a new instance of the same type.
+///
+/// A unique path may look something like `"tcp://127.0.0.1:8080#1e555f40-de1d-4aee-8202-64fdc27edfa8"`, for example.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UniquePath {
     system: SystemPath,
@@ -374,6 +473,7 @@ pub struct UniquePath {
 }
 
 impl UniquePath {
+    /// Construct a new unique path from parts
     pub fn new(protocol: Transport, address: IpAddr, port: u16, id: Uuid) -> UniquePath {
         UniquePath {
             system: SystemPath::new(protocol, address, port),
@@ -381,10 +481,12 @@ impl UniquePath {
         }
     }
 
+    /// Construct a new unique path from a system path and an id
     pub fn with_system(system: SystemPath, id: Uuid) -> UniquePath {
         UniquePath { system, id }
     }
 
+    /// Construct a new unique path with a [socket](std::net::SocketAddr) and an id
     pub fn with_socket(protocol: Transport, socket: SocketAddr, id: Uuid) -> UniquePath {
         UniquePath {
             system: SystemPath::with_socket(protocol, socket),
@@ -392,14 +494,17 @@ impl UniquePath {
         }
     }
 
+    /// Returns a reference to this path's unique id
     pub fn uuid_ref(&self) -> &Uuid {
         &self.id
     }
 
+    /// Returns a copy of this path's unique id
     pub fn clone_id(&self) -> Uuid {
         self.id.clone()
     }
 
+    /// Returns a mutable reference to this path's system path part
     pub fn system_mut(&mut self) -> &mut SystemPath {
         &mut self.system
     }
@@ -414,7 +519,6 @@ impl TryFrom<String> for UniquePath {
     }
 }
 
-/// Attempts to parse a `&str` as a [UniquePath].
 impl FromStr for UniquePath {
     type Err = PathParseError;
 
@@ -444,6 +548,15 @@ impl SystemField for UniquePath {
     }
 }
 
+/// A named actor path identifies a service, rather than a concrete actor instance
+///
+/// Named paths must be [registered](KompactSystem::register_by_alias) to a particular actor,
+/// and their registration can be changed over time,
+/// as actors fail and are replaced, for example.
+///
+/// Named paths may be described hierarchically, similar to URLs.
+///
+/// A named path may look something like `"tcp://127.0.0.1:8080/my-actor-group/my-actor"`, for example.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedPath {
     system: SystemPath,
@@ -451,6 +564,10 @@ pub struct NamedPath {
 }
 
 impl NamedPath {
+    /// Construct a new named path from parts
+    ///
+    /// Make sure that none of the elements of the `path` vector contain slashes (i.e., `/`),
+    /// as those will be the path separators for the individual elements later.
     pub fn new(protocol: Transport, address: IpAddr, port: u16, path: Vec<String>) -> NamedPath {
         NamedPath {
             system: SystemPath::new(protocol, address, port),
@@ -458,6 +575,10 @@ impl NamedPath {
         }
     }
 
+    /// Construct a new named path from a [socket](std::net::SocketAddr) and vector of path elements
+    ///
+    /// Make sure that none of the elements of the `path` vector contain slashes (i.e., `/`),
+    /// as those will be the path separators for the individual elements later.
     pub fn with_socket(protocol: Transport, socket: SocketAddr, path: Vec<String>) -> NamedPath {
         NamedPath {
             system: SystemPath::with_socket(protocol, socket),
@@ -465,18 +586,25 @@ impl NamedPath {
         }
     }
 
+    /// Construct a new named path from a system path and vector of path elements
+    ///
+    /// Make sure that none of the elements of the `path` vector contain slashes (i.e., `/`),
+    /// as those will be the path separators for the individual elements later.
     pub fn with_system(system: SystemPath, path: Vec<String>) -> NamedPath {
         NamedPath { system, path }
     }
 
+    /// Returns a reference to the path vector
     pub fn path_ref(&self) -> &Vec<String> {
         &self.path
     }
 
+    /// Returns a copy to the path vector
     pub fn clone_path(&self) -> Vec<String> {
         self.path.clone()
     }
 
+    /// Returns a mutable reference to this path's system path part
     pub fn system_mut(&mut self) -> &mut SystemPath {
         &mut self.system
     }
@@ -520,22 +648,27 @@ impl FromStr for NamedPath {
     }
 }
 
-pub struct RegisteredPath {
-    path: ActorPath,
-    dispatcher: DispatcherRef,
-}
+// this doesn't seem to be used anywhere...
+//
+/// An actor path paired with a reference to a dispatcher
+///
+/// This struct can be used in places where an [ActorSource](ActorSource) is expected.
+// pub struct RegisteredPath {
+//     path: ActorPath,
+//     dispatcher: DispatcherRef,
+// }
 
-impl Dispatching for RegisteredPath {
-    fn dispatcher_ref(&self) -> DispatcherRef {
-        self.dispatcher.clone()
-    }
-}
+// impl Dispatching for RegisteredPath {
+//     fn dispatcher_ref(&self) -> DispatcherRef {
+//         self.dispatcher.clone()
+//     }
+// }
 
-impl ActorSource for RegisteredPath {
-    fn path_resolvable(&self) -> PathResolvable {
-        PathResolvable::Path(self.path.clone())
-    }
-}
+// impl ActorSource for RegisteredPath {
+//     fn path_resolvable(&self) -> PathResolvable {
+//         PathResolvable::Path(self.path.clone())
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -546,9 +679,6 @@ mod tests {
 
     #[test]
     fn actor_path_strings() {
-        let mut settings = KompactConfig::new();
-        settings.label("my_system".to_string());
-        //let system = KompicsSystem::new(settings);
         let ap = ActorPath::from_str(PATH).expect("a proper path");
         println!("Got ActorPath={}", ap);
 
@@ -566,6 +696,7 @@ mod tests {
             Uuid::new_v4(),
         ));
         let ref1_string = ref1.to_string();
+        //println!("ActorPath::Unique: {}", ref1_string);
         let ref1_deser = ActorPath::from_str(&ref1_string).expect("a proper path");
         let ref1_deser2: ActorPath = ref1_string.parse().expect("a proper path");
         assert_eq!(ref1, ref1_deser);

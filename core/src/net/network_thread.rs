@@ -37,10 +37,13 @@ const START_TOKEN: Token = Token(1);
 const DISPATCHER: Token = Token(usize::MAX-1);
 const READ_BUFFER_SIZE: usize = 655355;
 const MAX_POLL_EVENTS: usize = 1024;
+/// How many times to retry on interrupt before we give up
 pub const MAX_INTERRUPTS: i32 = 9;
 
+/// Thread structure responsible for driving the Network IO
 pub struct NetworkThread {
     log: KompactLogger,
+    /// The SocketAddr the network thread is bound to and listening on
     pub addr: SocketAddr,
     //connection_events: UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
@@ -63,6 +66,7 @@ pub struct NetworkThread {
     network_thread_sender: Sender<bool>,
 }
 
+/// Return values for IO Operations on the [NetworkChannel](net::network_channel::NetworkChannel) abstraction
 enum IOReturn {
     Retry,
     AwaitReadable,
@@ -74,6 +78,10 @@ enum IOReturn {
 }
 
 impl NetworkThread {
+    /// Creates a struct for the NetworkThread and binds to a socket without actually spawning a thread.
+    /// The `input_queue` is used to send DispatchEvents to the thread but they won't be read unless
+    /// the `dispatcher_registration` is activated to wake up the thread.
+    /// `network_thread_sender` is used to confirm shutdown of the thread.
     pub fn new(
         log: KompactLogger,
         addr: SocketAddr,
@@ -130,7 +138,7 @@ impl NetworkThread {
 
     }
 
-    // Event loop
+    /// Event loop, spawn a thread calling this method start the thread.
     pub fn run(&mut self) -> () {
         let mut events = Events::with_capacity(MAX_POLL_EVENTS);
         info!(self.log, "NetworkThread entering main EventLoop");
@@ -326,7 +334,7 @@ impl NetworkThread {
                         let lease_lookup = self.lookup.lease();
                         {
                             use dispatch::lookup::ActorLookup;
-                            use serialisation::helpers::deserialise_msg;
+                            use serialisation::ser_helpers::deserialise_msg;
                             let buf = fr.payload();
                             let mut envelope = deserialise_msg(buf).expect("s11n errors");
                             match lease_lookup.get_by_actor_path(envelope.receiver()) {
@@ -463,23 +471,23 @@ impl NetworkThread {
 }
 
 // Error handling helper functions
-pub fn would_block(err: &io::Error) -> bool {
+pub(crate) fn would_block(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::WouldBlock
 }
 
-pub fn interrupted(err: &io::Error) -> bool {
+pub(crate) fn interrupted(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::Interrupted
 }
 
-pub fn no_buffer_space(err: &io::Error) -> bool {
+pub(crate) fn no_buffer_space(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::InvalidData
 }
 
-pub fn connection_reset(err: &io::Error) -> bool {
+pub(crate) fn connection_reset(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::ConnectionReset
 }
 
-pub fn broken_pipe(err: &io::Error) -> bool {
+pub(crate) fn broken_pipe(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::BrokenPipe
 }
 

@@ -9,10 +9,18 @@ use uuid::Uuid;
 
 use super::*;
 
+/// A factory trait to produce instances of `TimerRef`(timer::TimerRef)
 pub trait TimerRefFactory {
+    /// Returns the timer reference for associated with this factory
     fn timer_ref(&self) -> timer::TimerRef;
 }
 
+/// Opaque reference to a scheduled instance of a timer
+///
+/// Use this to cancel the timer with [cancel_timer](Timer::cancel_timer).
+///
+/// Instances are returned from functions that schedule timers, such as
+/// [schedule_once](Timer::schedule_once) and [schedule_periodic](Timer::schedule_periodic).
 #[derive(Clone, Debug)]
 pub struct ScheduledTimer(Uuid);
 
@@ -22,11 +30,116 @@ impl ScheduledTimer {
     }
 }
 
+/// API exposed within a component by a timer implementation
+///
+/// This allows behaviours to be scheduled for later execution.
 pub trait Timer<C: ComponentDefinition> {
+    /// Schedule the `action` to be run once after `timeout` expires
+    ///
+    /// # Note
+    ///
+    /// Depending on your system and the implementation used,
+    /// there is always a certain lag between the execution of the `action`
+    /// and the `timeout` expiring on the system's clock.
+    /// Thus it is only guaranteed that the `action` is not run *before*
+    /// the `timeout` expires, but no bounds on the lag are given.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct TimerComponent {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl TimerComponent {
+    ///     fn new() -> TimerComponent {
+    ///         TimerComponent {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for TimerComponent {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         if event == ControlEvent::Start {
+    ///             self.schedule_once(Duration::from_millis(10), move |new_self, _id| {
+    ///                 info!(new_self.log(), "Timeout was triggered!");
+    ///                 new_self.ctx().system().shutdown_async();
+    ///             });
+    ///         }
+    ///     }    
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TimerComponent::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
         F: FnOnce(&mut C, Uuid) + Send + 'static;
 
+    /// Schedule the `action` to be run every `timeout` time units
+    ///
+    /// The first time, the `action` will be run after `delay` expires,
+    /// and then again every `timeout` time units after.
+    ///
+    /// # Note
+    ///
+    /// Depending on your system and the implementation used,
+    /// there is always a certain lag between the execution of the `action`
+    /// and the `timeout` expiring on the system's clock.
+    /// Thus it is only guaranteed that the `action` is not run *before*
+    /// the `timeout` expires, but no bounds on the lag are given.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct TimerComponent {
+    ///    ctx: ComponentContext<Self>,
+    ///    counter: usize,
+    ///    timeout: Option<ScheduledTimer>,
+    /// }
+    /// impl TimerComponent {
+    ///     fn new() -> TimerComponent {
+    ///         TimerComponent {
+    ///             ctx: ComponentContext::new(),
+    ///             counter: 0usize,
+    ///             timeout: None,
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for TimerComponent {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         if event == ControlEvent::Start {
+    ///             let timeout = self.schedule_periodic(
+    ///                     Duration::from_millis(10),
+    ///                     Duration::from_millis(100),
+    ///                     move |new_self, _id| {
+    ///                 info!(new_self.log(), "Timeout was triggered!");
+    ///                 new_self.counter += 1usize;
+    ///                 if new_self.counter > 10usize {
+    ///                     let timeout = new_self.timeout.take().expect("timeout");
+    ///                     new_self.cancel_timer(timeout);
+    ///                     new_self.ctx().system().shutdown_async();
+    ///                 }
+    ///             });
+    ///             self.timeout = Some(timeout);
+    ///         }
+    ///     }    
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TimerComponent::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
     fn schedule_periodic<F>(
         &mut self,
         delay: Duration,
@@ -36,6 +149,14 @@ pub trait Timer<C: ComponentDefinition> {
     where
         F: Fn(&mut C, Uuid) + Send + 'static;
 
+    /// Cancel the timer indicated by the `handle`
+    ///
+    /// This method is asynchronous, and calling it is no guarantee
+    /// than an already scheduled timeout is not going to fire before it
+    /// is actually cancelled.
+    ///
+    /// However, calling this method will definitely prevent *periodic* timeouts
+    /// from being rescheduled.
     fn cancel_timer(&mut self, handle: ScheduledTimer);
 }
 
@@ -141,6 +262,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
     }
 }
 
+// NEVER SEND THIS!
 pub(crate) enum TimerHandle<C: ComponentDefinition> {
     OneShot {
         _id: Uuid, // not used atm
@@ -152,7 +274,10 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
     },
 }
 
-unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {} // this isn't technically true, but I know I'm never actually sending it
+// This isn't technically true, but I know I'm never actually sending
+// individual Rc instances to different threads. Only the whole component
+// with all its Rc instances crosses threads sometimes.
+unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {}
 
 #[derive(Clone)]
 struct TimerActorRef {

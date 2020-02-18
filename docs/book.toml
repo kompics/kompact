@@ -1,0 +1,18 @@
+[book]
+title = "The Kompact Book"
+authors = ["Lars Kroll"]
+description = "A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems."
+
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "ayu"
+curly-quotes = true
+mathjax-support = true
+git-repository-url = "https://github.com/kompics/kompact"
+
+[output.linkcheck]
+follow-web-links = true

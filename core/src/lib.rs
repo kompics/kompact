@@ -1,9 +1,42 @@
 //! The Kompact message-passing framework provides a hybrid approach
 //! between the Kompics component model and the Actor model for writing distributed systems.
 //!
-//! To get all kompact related things into scope import `use kompact::prelude::*;` instead of `use kompact::*;`.
+//! To get all Kompact related things into scope import `use kompact::prelude::*;` instead of `use kompact::*;`.
 //!
+//! # Hello World Example
+//! ```
+//! use kompact::prelude::*;
+//!
+//! #[derive(ComponentDefinition, Actor)]
+//! struct HelloWorldComponent {
+//!     ctx: ComponentContext<Self>
+//! }
+//! impl HelloWorldComponent {
+//!     pub fn new() -> HelloWorldComponent {
+//!         HelloWorldComponent {
+//!             ctx: ComponentContext::new()
+//!         }
+//!     }
+//! }
+//! impl Provide<ControlPort> for HelloWorldComponent {
+//!     fn handle(&mut self, event: ControlEvent) -> () {
+//!            match event {
+//!                ControlEvent::Start => {
+//!                    info!(self.ctx.log(), "Hello World!");
+//!                }
+//!                _ => (), // ignore other control events
+//!            }
+//!       }
+//! }
+//!
+//! let system = KompactConfig::default().build().expect("system");
+//! let component = system.create(HelloWorldComponent::new);
+//! let start_future = system.start_notify(&component);
+//! start_future.wait();
+//! system.shutdown().expect("shutdown");
+//! ```
 
+#![deny(missing_docs)]
 #![allow(unused_parens)]
 #![feature(specialization)]
 #![feature(unsized_locals)]
@@ -13,6 +46,7 @@
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
 
+// Protocol buffers serialisation support
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
 use self::{
@@ -27,6 +61,7 @@ use self::{
     utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
+// The default crate for scheduler implementations
 pub use executors;
 #[allow(unused_imports)]
 use kompact_actor_derive::*;
@@ -37,27 +72,34 @@ use slog_async::Async;
 use std::convert::{From, Into};
 
 mod actors;
-mod component;
-pub mod dedicated_scheduler;
+/// Traits and structs for component API and internals
+pub mod component;
+mod dedicated_scheduler;
+/// Default implementations for system components
 pub mod default_components;
 mod dispatch;
 mod lifecycle;
+/// Facilities and utilities for dealing with network messages
 pub mod messaging;
+/// Default networking implementation
 pub mod net;
 mod ports;
-mod runtime;
+/// Kompact system runtime facilities, such as configuration and schedulers
+pub mod runtime;
 mod serialisation;
 mod supervision;
+/// Reusable timer facility internals
 pub mod timer;
 mod timer_manager;
 mod utils;
 
-//#[derive(Debug, Clone, Copy)]
-//struct FakeNever;
 /// A more readable placeholder for a stable Never (`!`) type.
-pub type Never = !; //FakeNever;
+///
+/// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
+/// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
+pub type Never = !;
 
-/// To get all kompact related things into scope import `use kompact::prelude::*`.
+/// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
 
@@ -83,12 +125,17 @@ pub mod prelude {
             ActorRefFactory,
             ActorRefStrong,
             ActorSource,
+            Dispatcher,
+            DispatcherRef,
             Dispatching,
+            DispatchingPath,
             MessageBounds,
             NamedPath,
             NetworkActor,
+            Receiver,
             Recipient,
             Request,
+            SystemPath,
             Transport,
             UniquePath,
             WithRecipient,
@@ -99,6 +146,7 @@ pub mod prelude {
             Component,
             ComponentContext,
             ComponentDefinition,
+            ComponentLogging,
             CoreContainer,
             ExecuteResult,
             LockingProvideRef,
@@ -124,8 +172,9 @@ pub mod prelude {
             PathResolvable,
             RegistrationError,
             Serialised,
+            UnpackError,
         },
-        timer_manager::Timer,
+        timer_manager::{ScheduledTimer, Timer, TimerRefFactory},
     };
 
     pub use crate::{
@@ -138,22 +187,152 @@ pub mod prelude {
             Ask,
             Fulfillable,
             Future as KFuture,
+            IterExtras,
             Promise as KPromise,
+            PromiseErr,
+            TryDualLockError,
         },
     };
 }
 
-/// For test helpers also use `use prelude_test::*`.
+/// A module containing helper functions for (unit) testing
+///
+/// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
     pub use crate::serialisation::ser_test_helpers;
 }
 
+/// Helper structs and functions for doctests.
+///
+/// Please simply ignore this module, which should be gated by `#[cfg(doctest)]`,
+/// which doesn't seem to [work properly](https://github.com/rust-lang/rust/issues/67295).
+pub mod doctest_helpers {
+    use crate::prelude::*;
+
+    /// A quick test path to create an [ActorPath](ActorPath) with
+    pub const TEST_PATH: &'static str = "local://127.0.0.1:0/test_actor";
+
+    /// A test port
+    pub struct TestPort;
+    impl Port for TestPort {
+        type Indication = Never;
+        type Request = Never;
+    }
+
+    /// A test component
+    #[derive(ComponentDefinition, Actor)]
+    pub struct TestComponent1 {
+        ctx: ComponentContext<Self>,
+        test_port: ProvidedPort<TestPort, Self>,
+    }
+    impl TestComponent1 {
+        /// Create a new test component
+        pub fn new() -> TestComponent1 {
+            TestComponent1 {
+                ctx: ComponentContext::new(),
+                test_port: ProvidedPort::new(),
+            }
+        }
+    }
+    ignore_control!(TestComponent1);
+    impl Provide<TestPort> for TestComponent1 {
+        fn handle(&mut self, _event: Never) -> () {
+            unreachable!();
+        }
+    }
+
+    /// Another test component
+    #[derive(ComponentDefinition, Actor)]
+    pub struct TestComponent2 {
+        ctx: ComponentContext<Self>,
+        test_port: RequiredPort<TestPort, Self>,
+    }
+    impl TestComponent2 {
+        /// Create a new test component
+        pub fn new() -> TestComponent2 {
+            TestComponent2 {
+                ctx: ComponentContext::new(),
+                test_port: RequiredPort::new(),
+            }
+        }
+    }
+    ignore_control!(TestComponent2);
+    impl Require<TestPort> for TestComponent2 {
+        fn handle(&mut self, _event: Never) -> () {
+            unreachable!();
+        }
+    }
+}
+
+/// A simple type alias Kompact's slog `Logger` type signature.
 pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]
-mod tests {
+mod test_helpers {
+    use std::{
+        env,
+        fs,
+        ops::Deref,
+        path::{Path, PathBuf},
+    };
+    use tempfile::TempDir;
 
-    use std::{thread, time};
+    // liberally borrowed from https://andrewra.dev/2019/03/01/testing-in-rust-temporary-files/
+    pub struct Fixture {
+        path: PathBuf,
+        source: PathBuf,
+        _tempdir: TempDir,
+    }
+
+    impl Fixture {
+        #[allow(unused)]
+        pub fn blank(fixture_filename: &str) -> Self {
+            // First, figure out the right file in `tests/fixtures/`:
+            let root_dir = &env::var("CARGO_MANIFEST_DIR").expect("$CARGO_MANIFEST_DIR");
+            let mut source = PathBuf::from(root_dir);
+            source.push("tests/fixtures");
+            source.push(&fixture_filename);
+
+            // The "real" path of the file is going to be under a temporary directory:
+            let tempdir = tempfile::tempdir().unwrap();
+            let mut path = PathBuf::from(&tempdir.path());
+            path.push(&fixture_filename);
+
+            Fixture {
+                _tempdir: tempdir,
+                source,
+                path,
+            }
+        }
+
+        #[allow(unused)]
+        pub fn copy(fixture_filename: &str) -> Self {
+            let fixture = Fixture::blank(fixture_filename);
+            fs::copy(&fixture.source, &fixture.path).unwrap();
+            fixture
+        }
+    }
+
+    impl Deref for Fixture {
+        type Target = Path;
+
+        fn deref(&self) -> &Self::Target {
+            self.path.deref()
+        }
+    }
+
+    impl AsRef<Path> for Fixture {
+        fn as_ref(&self) -> &Path {
+            self.path.as_ref()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_helpers::*;
+
+    use std::{fs::File, io::Write, ops::Deref, thread, time};
     //use futures::{Future, future};
     //use futures_cpupool::CpuPool;
     use super::prelude::*;
@@ -265,7 +444,7 @@ mod tests {
         settings
             .threads(4)
             .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
-        let system = KompactSystem::new(settings).expect("KompactSystem");
+        let system = settings.build().expect("KompactSystem");
         test_with_system(system);
     }
 
@@ -493,7 +672,8 @@ mod tests {
     #[test]
     fn test_timer() -> () {
         let system = KompactConfig::default().build().expect("KompactSystem");
-        let trc = system.create_and_start(TimerRecvComponent::new);
+        let trc = system.create(TimerRecvComponent::new);
+        system.start(&trc);
 
         thread::sleep(Duration::from_millis(1000));
 
@@ -723,5 +903,113 @@ mod tests {
         system
             .shutdown()
             .expect("Kompact didn't shut down properly");
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    struct Stopper {
+        ctx: ComponentContext<Self>,
+    }
+    impl Stopper {
+        fn new() -> Stopper {
+            Stopper {
+                ctx: ComponentContext::new(),
+            }
+        }
+    }
+    impl Provide<ControlPort> for Stopper {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    self.ctx().system().shutdown_async();
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    #[test]
+    fn test_async_shutdown() -> () {
+        let system = KompactConfig::default().build().expect("system");
+        let stopper = system.create(Stopper::new);
+        system.start(&stopper);
+        system.await_termination();
+    }
+
+    #[derive(ComponentDefinition, Actor)]
+    struct ConfigComponent {
+        ctx: ComponentContext<Self>,
+        test_value: Option<i64>,
+    }
+    impl ConfigComponent {
+        fn new() -> ConfigComponent {
+            ConfigComponent {
+                ctx: ComponentContext::new(),
+                test_value: None,
+            }
+        }
+    }
+    impl Provide<ControlPort> for ConfigComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    self.test_value = self.ctx().config()["a"].as_i64();
+                    self.ctx().system().shutdown_async();
+                }
+                _ => (), // ignore
+            }
+        }
+    }
+
+    #[test]
+    fn test_config_from_string() -> () {
+        let default_values = r#"{ a = 7 }"#;
+        let mut conf = KompactConfig::default();
+        conf.load_config_str(default_values);
+        let system = conf.build().expect("system");
+        let c = system.create(ConfigComponent::new);
+        system.start(&c);
+        system.await_termination();
+        c.on_definition(|cd| {
+            assert_eq!(7i64, cd.test_value.take().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_config_from_file() -> () {
+        //let default_values = r#"{ a = 7 }"#;
+        let config_file_path = Fixture::blank("application.conf");
+        let mut config_file = File::create(config_file_path.deref()).expect("config file");
+        config_file
+            .write_all(b"{ a = 7 }")
+            .expect("write config file");
+        let mut conf = KompactConfig::default();
+        conf.load_config_file(config_file_path.to_path_buf());
+        let system = conf.build().expect("system");
+        let c = system.create(ConfigComponent::new);
+        system.start(&c);
+        system.await_termination();
+        c.on_definition(|cd| {
+            assert_eq!(7i64, cd.test_value.take().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_config_merged() -> () {
+        let default_values = r#"{ a = 5 }"#;
+        let config_file_path = Fixture::blank("application.conf");
+        let mut config_file = File::create(config_file_path.deref()).expect("config file");
+        config_file
+            .write_all(b"{ a = 7 }")
+            .expect("write config file");
+        let mut conf = KompactConfig::default();
+        conf.load_config_str(default_values)
+            .load_config_file(config_file_path.to_path_buf());
+        let system = conf.build().expect("system");
+        let c = system.create(ConfigComponent::new);
+        system.start(&c);
+        system.await_termination();
+        c.on_definition(|cd| {
+            assert_eq!(7i64, cd.test_value.take().unwrap());
+        });
     }
 }

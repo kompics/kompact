@@ -2,6 +2,7 @@ use super::*;
 
 use std::{fmt, ops::Deref};
 
+/// The type of actor references for [dispatcher](Dispatcher) implementations
 pub type DispatcherRef = ActorRefStrong<DispatchEnvelope>;
 
 #[derive(Debug)]
@@ -142,21 +143,25 @@ where
     }
 }
 
+/// A kind of actor reference that only allows [network messages](NetMessage) to be sent
+///
+/// For local-only dynamically typed actors, consider using `type Message = Box<Any>;`
+/// together with `ActorRef<Box<Any>>` instead.
 #[derive(Clone)]
 pub struct DynActorRef {
     component: Weak<dyn CoreContainer>,
     msg_queue: Weak<dyn DynMsgQueue>,
 }
 impl DynActorRef {
-    pub(crate) fn from(
-        component: Weak<dyn CoreContainer>,
-        msg_queue: Weak<dyn DynMsgQueue>,
-    ) -> DynActorRef {
-        DynActorRef {
-            component,
-            msg_queue,
-        }
-    }
+    // pub(crate) fn from(
+    //     component: Weak<dyn CoreContainer>,
+    //     msg_queue: Weak<dyn DynMsgQueue>,
+    // ) -> DynActorRef {
+    //     DynActorRef {
+    //         component,
+    //         msg_queue,
+    //     }
+    // }
 
     pub(crate) fn enqueue(&self, msg: NetMessage) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
@@ -188,6 +193,7 @@ impl DynActorRef {
         self.component.upgrade().is_some()
     }
 
+    /// Send a network message to the target actor
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<NetMessage>,
@@ -216,6 +222,18 @@ impl PartialEq for DynActorRef {
     }
 }
 
+/// A version of [ActorRef](ActorRef) that prevents the target from being deallocated
+///
+/// Holding this kind of reference increases performance slightly,
+/// compared to the normal [ActorRef](ActorRef). However, one must be careful
+/// not to leave strong references lying around when not needed anymore, as they
+/// prevent the target component from being deallocated, potentially causing memory creep.
+///
+/// Should be created via [hold](ActorRef::hold).
+///
+/// It is recommended to upgrade a normal actor reference to this variant,
+/// if many messages will be sent in a loop to it. After the loop, the strong reference
+/// can be dropped again.
 pub struct ActorRefStrong<M: MessageBounds> {
     component: Arc<dyn CoreContainer>,
     msg_queue: Arc<TypedMsgQueue<M>>,
@@ -245,7 +263,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         }
     }
 
-    /// Send message `v` to the actor instance referenced by this `ActorRefStrong`.
+    /// Send message `v` to the actor instance referenced by this actor reference
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<M>,
@@ -255,7 +273,60 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         self.enqueue(env)
     }
 
-    /// Helper to create messages that expect a response via a future instead of a message.
+    /// Helper to create messages that expect a response via a future instead of a message
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct AskComponent {
+    ///     ctx: ComponentContext<Self>
+    /// }
+    ///
+    /// # impl AskComponent {
+    /// #  fn new() -> AskComponent {
+    /// #        AskComponent {
+    /// #            ctx: ComponentContext::new()
+    /// #        }
+    /// #    }
+    /// # }
+    ///
+    /// # ignore_control!(AskComponent);
+    ///
+    /// impl Actor for AskComponent {
+    ///     type Message = Ask<u64, String>;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///         msg.complete(|num| {
+    ///             format!("{}", num)
+    ///         })
+    ///         .expect("completion");
+    ///     }
+    ///
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    /// #        unimplemented!("We don't care about this.");
+    /// #    }
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(AskComponent::new);
+    /// let strong_ref = c.actor_ref().hold().expect("live ref");
+    ///
+    /// let start_f = system.start_notify(&c);
+    /// start_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("component start");
+    ///
+    /// let response_f = strong_ref.ask(Ask::of(42u64));
+    /// let response = response_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("response");
+    /// assert_eq!("42".to_string(), response);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
     pub fn ask<R, F>(&self, f: F) -> Future<R>
     where
         R: Send + Sized,
@@ -268,6 +339,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         future
     }
 
+    /// Downgrade this strong reference to a "normal" actor reference
     pub fn weak_ref(&self) -> ActorRef<M> {
         let c = Arc::downgrade(&self.component);
         let q = Arc::downgrade(&self.msg_queue);
@@ -277,14 +349,11 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         }
     }
 }
-impl<M: MessageBounds> ActorRefFactory<M> for ActorRefStrong<M> {
+impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
+    type Message = M;
+
     fn actor_ref(&self) -> ActorRef<M> {
         self.weak_ref()
-    }
-}
-impl<M: MessageBounds> DynActorRefFactory for ActorRefStrong<M> {
-    fn dyn_ref(&self) -> DynActorRef {
-        self.weak_ref().dyn_ref()
     }
 }
 
@@ -306,6 +375,21 @@ impl<M: MessageBounds> PartialEq for ActorRefStrong<M> {
     }
 }
 
+/// A reference to an actor with `type Message = M;`
+///
+/// Use [tell](ActorRef::tell) to send messages to the referenced actor.
+///
+/// This kind of actor reference is similar to a [Weak](std::sync::Weak)
+/// in that it doesn't prevent deallocation of the referenced actor.
+/// If deallocation must be prevented for some reason, consider upgrading this to an
+/// [ActorRefStrong](ActorRefStrong) using [hold](ActorRef::hold).
+/// Note that a component can still enter the *destroyed* (or other non-active) state,
+/// while a strong reference is held.
+/// Holding a strong reference only prevent memory deallocation,
+/// but does not guarantee messag handling.
+///
+/// Upgrading this to an [ActorRefStrong](ActorRefStrong) also improves performance somewhat,
+/// and is recommended when using the same actor reference over and over again in a loop, for example.
 pub struct ActorRef<M: MessageBounds> {
     component: Weak<dyn CoreContainer>,
     msg_queue: Weak<TypedMsgQueue<M>>,
@@ -357,6 +441,10 @@ impl<M: MessageBounds> ActorRef<M> {
         }
     }
 
+    /// Upgrade this reference to a strong reference
+    ///
+    /// This is only possible if the target actor has not already been
+    /// deallocated. If it has, `None` will be returned.
     pub fn hold(&self) -> Option<ActorRefStrong<M>> {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
@@ -370,7 +458,7 @@ impl<M: MessageBounds> ActorRef<M> {
         }
     }
 
-    /// Send message `v` to the actor instance referenced by this `ActorRef`.
+    /// Send message `v` to the actor instance referenced by this actor reference
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<M>,
@@ -380,7 +468,60 @@ impl<M: MessageBounds> ActorRef<M> {
         self.enqueue(env);
     }
 
-    /// Helper to create messages that expect a response via a future instead of a message.
+    /// Helper to create messages that expect a response via a future instead of a message
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct AskComponent {
+    ///     ctx: ComponentContext<Self>
+    /// }
+    ///
+    /// # impl AskComponent {
+    /// #  fn new() -> AskComponent {
+    /// #        AskComponent {
+    /// #            ctx: ComponentContext::new()
+    /// #        }
+    /// #    }
+    /// # }
+    ///
+    /// # ignore_control!(AskComponent);
+    ///
+    /// impl Actor for AskComponent {
+    ///     type Message = Ask<u64, String>;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///         msg.complete(|num| {
+    ///             format!("{}", num)
+    ///         })
+    ///         .expect("completion");
+    ///     }
+    ///
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    /// #        unimplemented!("We don't care about this.");
+    /// #    }
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(AskComponent::new);
+    /// let actor_ref = c.actor_ref();
+    ///
+    /// let start_f = system.start_notify(&c);
+    /// start_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("component start");
+    ///
+    /// let response_f = actor_ref.ask(Ask::of(42u64));
+    /// let response = response_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("response");
+    /// assert_eq!("42".to_string(), response);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
     pub fn ask<R, F>(&self, f: F) -> Future<R>
     where
         R: Send + Sized,
@@ -393,7 +534,8 @@ impl<M: MessageBounds> ActorRef<M> {
         future
     }
 
-    /// Returns a version of this actor ref that can only be used for `NetworkMessage`, but not `M`.
+    /// Returns a version of this actor ref that can only be used for [network messages](NetMessage),
+    /// but not for `M`
     pub fn dyn_ref(&self) -> DynActorRef {
         DynActorRef {
             component: self.component.clone(),
@@ -401,11 +543,13 @@ impl<M: MessageBounds> ActorRef<M> {
         }
     }
 
-    /// Returns a version of this actor ref that can only be used to send `T`, which is then autowrapped into `M`.
+    /// Returns a version of this actor ref that can only be used to send `T`, which is then auto-wrapped into `M`
     ///
     /// Use this expose a narrower interface to another actor.
     ///
-    /// *Note* that the indirection provided by `Recipient` has some performance impact.
+    /// # Note
+    ///
+    /// The indirection provided by `Recipient` has some performance impact.
     /// Use benchmarking to establish whether or not the better encapsulation is worth
     /// the performance loss in your scenario.
     pub fn recipient<T>(&self) -> Recipient<T>
@@ -416,6 +560,16 @@ impl<M: MessageBounds> ActorRef<M> {
         Recipient::from(self.component.clone(), adapter)
     }
 
+    /// Returns a version of this actor ref that can only be used to send `T`, which is then auto-wrapped into `M`
+    /// using `convert`
+    ///
+    /// Use this expose a narrower interface to another actor.
+    ///
+    /// # Note
+    ///
+    /// The indirection provided by `Recipient` has some performance impact.
+    /// Use benchmarking to establish whether or not the better encapsulation is worth
+    /// the performance loss in your scenario.
     pub fn recipient_with<T>(&self, convert: fn(T) -> M) -> Recipient<T>
     where
         T: fmt::Debug + 'static,
@@ -425,7 +579,9 @@ impl<M: MessageBounds> ActorRef<M> {
     }
 }
 
-impl<M: MessageBounds> ActorRefFactory<M> for ActorRef<M> {
+impl<M: MessageBounds> ActorRefFactory for ActorRef<M> {
+    type Message = M;
+
     fn actor_ref(&self) -> ActorRef<M> {
         self.clone()
     }
@@ -453,9 +609,15 @@ impl<M: MessageBounds> PartialEq for ActorRef<M> {
 }
 
 /// A version of [ActorRef](ActorRef) that automatically converts `M` into some `M'`
-/// as specified by the actor that created the `Recipient` from its own `ActorRef`.
+/// as specified by the actor that created the `Recipient` from its own [ActorRef](ActorRef).
 ///
-/// Used to expose only a subset of an actor's interface to another actor.
+/// This can be used to expose only a subset of an actor's interface to another actor.
+///
+/// # Note
+///
+/// The indirection provided by this `Recipient` has some performance impact.
+/// Use benchmarking to establish whether or not the better encapsulation is worth
+/// the performance loss in your scenario.
 pub struct Recipient<M> {
     component: Weak<dyn CoreContainer>,
     msg_queue: Box<dyn AdapterQueue<M>>,
@@ -492,6 +654,7 @@ impl<M: fmt::Debug> Recipient<M> {
         }
     }
 
+    /// Send message `v` to the actor instance referenced by this `Recipient`
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<M>,
@@ -530,34 +693,63 @@ impl<M> PartialEq for Recipient<M> {
     }
 }
 
+/// A marker trait for messags that expect a response
+///
+/// Messages with this trait can be [replied](Request::reply) to.
 pub trait Request: MessageBounds {
+    /// The type of the response that is expected
     type Response;
 
+    /// Fulfill this request by supplying a response of the appropriate type
     fn reply(&self, resp: Self::Response);
 }
 
+/// A generic type for request-response messages
+///
+/// This type contains information about the target actor
+/// for the response, as well as the actual request itself.
+///
+/// Implementations can also be [dereferenced](std::ops::Deref::deref())
+/// to the request message and [replied](Request::reply) to with a
+/// response.
 #[derive(Debug)]
 pub struct WithSender<Req: MessageBounds, Resp: MessageBounds> {
     sender: ActorRef<Resp>,
     content: Req,
 }
 impl<Req: MessageBounds, Resp: MessageBounds> WithSender<Req, Resp> {
+    /// Create a new instance from a request and an actor to reply to
     pub fn new(content: Req, sender: ActorRef<Resp>) -> WithSender<Req, Resp> {
         WithSender { sender, content }
     }
 
-    pub fn from(content: Req, sender: &dyn ActorRefFactory<Resp>) -> WithSender<Req, Resp> {
+    /// Create a new instance from a request and something that can produce a reference to
+    /// an actor to reply to
+    ///
+    /// This variant is convenient from within a component, as components and their contexts
+    /// implement [ActorRefFactory](ActorRefFactory) for their actor message type.
+    pub fn from(
+        content: Req,
+        sender: &dyn ActorRefFactory<Message = Resp>,
+    ) -> WithSender<Req, Resp> {
         WithSender::new(content, sender.actor_ref())
     }
 
+    /// Returns a reference to the response target actor
     pub fn sender(&self) -> &ActorRef<Resp> {
         &self.sender
     }
 
+    /// Returns a reference to the content
     pub fn content(&self) -> &Req {
         &self.content
     }
 
+    /// Takes only the content
+    ///
+    /// This prevents the request from being completed,
+    /// as the `sender` is dropped!
+    /// Use only after replying to the request.
     pub fn take_content(self) -> Req {
         self.content
     }
@@ -577,28 +769,55 @@ impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSender<Req, Resp> {
     }
 }
 
+/// A generic type for request-response messages with a strong actor reference
+///
+/// This type contains information about the target actor
+/// for the response, as well as the actual request itself.
+/// It also prevents the response target actor from being deallocated.
+/// Since that actor is waiting for a response, this is often a reasonable
+/// choice and has performance benefits as well.
+///
+/// Implementations can also be [dereferenced](std::ops::Deref::deref())
+/// to the request message and [replied](Request::reply) to with a
+/// response.
 #[derive(Debug)]
 pub struct WithSenderStrong<Req: MessageBounds, Resp: MessageBounds> {
     sender: ActorRefStrong<Resp>,
     content: Req,
 }
 impl<Req: MessageBounds, Resp: MessageBounds> WithSenderStrong<Req, Resp> {
+    /// Create a new instance from a request and an actor to reply to
     pub fn new(content: Req, sender: ActorRefStrong<Resp>) -> WithSenderStrong<Req, Resp> {
         WithSenderStrong { sender, content }
     }
 
-    pub fn from(content: Req, sender: &dyn ActorRefFactory<Resp>) -> WithSenderStrong<Req, Resp> {
+    /// Create a new instance from a request and something that can produce a reference to
+    /// an actor to reply to
+    ///
+    /// This variant is convenient from within a component, as components and their contexts
+    /// implement [ActorRefFactory](ActorRefFactory) for their actor message type.
+    pub fn from(
+        content: Req,
+        sender: &dyn ActorRefFactory<Message = Resp>,
+    ) -> WithSenderStrong<Req, Resp> {
         WithSenderStrong::new(content, sender.actor_ref().hold().expect("Live ref"))
     }
 
+    /// Returns a strong reference to the response target actor
     pub fn sender(&self) -> &ActorRefStrong<Resp> {
         &self.sender
     }
 
+    /// Returns a reference to the content
     pub fn content(&self) -> &Req {
         &self.content
     }
 
+    /// Takes only the content
+    ///
+    /// This prevents the request from being completed,
+    /// as the `sender` is dropped!
+    /// Use only after replying to the request.
     pub fn take_content(self) -> Req {
         self.content
     }
@@ -618,39 +837,68 @@ impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSenderStrong<Req, Re
     }
 }
 
+/// A generic type for request-response messages with a [Recipient](Recipient) as actor reference
+///
+/// This type contains narrowed information about the target actor
+/// for the response, as well as the actual request itself.
+///
+/// Implementations can also be [dereferenced](std::ops::Deref::deref())
+/// to the request message and [replied](Request::reply) to with a
+/// response.
 #[derive(Debug)]
 pub struct WithRecipient<Req: MessageBounds, Resp: fmt::Debug + 'static> {
     sender: Recipient<Resp>,
     content: Req,
 }
 impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
+    /// Create a new instance from a request and a recipient for the response
     pub fn new(content: Req, sender: Recipient<Resp>) -> WithRecipient<Req, Resp> {
         WithRecipient { sender, content }
     }
 
-    pub fn from<M>(content: Req, sender: &dyn ActorRefFactory<M>) -> WithRecipient<Req, Resp>
+    /// Create a new instance from a request and something that can produce a reference to
+    /// an actor to reply to
+    ///
+    /// This variant is convenient from within a component, as components and their contexts
+    /// implement [ActorRefFactory](ActorRefFactory) for their actor message type.
+    pub fn from<M>(
+        content: Req,
+        sender: &dyn ActorRefFactory<Message = M>,
+    ) -> WithRecipient<Req, Resp>
     where
         M: MessageBounds + From<Resp>,
     {
         WithRecipient::new(content, sender.actor_ref().recipient())
     }
 
+    /// Create a new instance from a request and something that can produce a reference to
+    /// an actor to reply to, with custom `convert` function
+    ///
+    /// This variant is convenient from within a component, as components and their contexts
+    /// implement [ActorRefFactory](ActorRefFactory) for their actor message type.
     pub fn from_convert<M: MessageBounds>(
         content: Req,
-        sender: &dyn ActorRefFactory<M>,
+        sender: &dyn ActorRefFactory<Message = M>,
         convert: fn(Resp) -> M,
     ) -> WithRecipient<Req, Resp> {
         WithRecipient::new(content, sender.actor_ref().recipient_with(convert))
     }
 
+    /// Returns a strong reference to the response target actor
     pub fn sender(&self) -> &Recipient<Resp> {
         &self.sender
     }
 
+    /// Returns a reference to the content
     pub fn content(&self) -> &Req {
         &self.content
     }
 
+    /// Takes only the content
+    ///
+    /// This prevents the request from being completed,
+    /// as the `sender` is dropped!
+    /// Use only after replying to the request.
     pub fn take_content(self) -> Req {
         self.content
     }
@@ -670,10 +918,15 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Deref for WithRecipient<Req
     }
 }
 
+/// A factory trait for [recipients](Recipient)
+///
+/// This trait is blanket implemented for all [ActorRefFactory](ActorRefFactory)
+/// implementations where the message type is `From<T>`.
 pub trait Receiver<T> {
+    /// Produce a recipient for `T`
     fn recipient(&self) -> Recipient<T>;
 }
-impl<M, T> Receiver<T> for dyn ActorRefFactory<M>
+impl<M, T> Receiver<T> for dyn ActorRefFactory<Message = M>
 where
     T: fmt::Debug + 'static,
     M: From<T> + MessageBounds,
@@ -692,10 +945,11 @@ mod tests {
 
     #[test]
     fn test_recipient_explicit() {
-        let sys = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let latch = Arc::new(CountdownEvent::new(1));
         let latch2 = latch.clone();
-        let ldactor = sys.create_and_start(move || LatchDropActor::new(latch2));
+        let ldactor = system.create(move || LatchDropActor::new(latch2));
+        system.start(&ldactor);
         let ldref = ldactor.actor_ref();
         let ldrecipient: Recipient<Countdown> = ldref.recipient_with(|c| CountdownWrapper(c));
         ldrecipient.tell(Countdown);
@@ -705,10 +959,11 @@ mod tests {
 
     #[test]
     fn test_recipient_into() {
-        let sys = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default().build().expect("KompactSystem");
         let latch = Arc::new(CountdownEvent::new(1));
         let latch2 = latch.clone();
-        let ldactor = sys.create_and_start(move || LatchDropActor::new(latch2));
+        let ldactor = system.create(move || LatchDropActor::new(latch2));
+        system.start(&ldactor);
         let ldref = ldactor.actor_ref();
         let ldrecipient: Recipient<Countdown> = ldref.recipient();
         ldrecipient.tell(Countdown);

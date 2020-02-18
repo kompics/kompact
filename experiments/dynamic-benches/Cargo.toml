@@ -11,6 +11,7 @@ uuid = { version = "0.7", features = ["v4"] }
 fnv = "1.0"
 fxhash = "0.2.1"
 synchronoise = "1.0"
+panoradix = "0.6"
 criterion = {version = "0.3", features=['real_blackbox']}
 
 [dependencies.kompact]
@@ -18,6 +19,9 @@ path = "../../core/"
 # default-features = true
 # features = ["silent_logging", "low_latency"]
 features = ["silent_logging"]
+
+[dependencies.datastructures]
+path = "../datastructures"
 
 
 [dev-dependencies]
@@ -28,12 +32,17 @@ name = "network_latency"
 path = "src/network_latency.rs"
 harness = false
 
-#[[bench]]
-#name = "hashes"
-#path = "src/hashes.rs"
-#harness = false
+[[bench]]
+name = "hashes"
+path = "src/hashes.rs"
+harness = false
 
-#[[bench]]
-#name = "actorrefs"
-#path = "src/actorrefs.rs"
-#harness = false
+[[bench]]
+name = "actorrefs"
+path = "src/actorrefs.rs"
+harness = false
+
+[[bench]]
+name = "loop_opts"
+path = "src/loop_opts.rs"
+harness = false

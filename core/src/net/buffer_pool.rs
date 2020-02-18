@@ -9,7 +9,7 @@ pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
 
-pub struct BufferPool {
+pub(crate) struct BufferPool {
     pool: VecDeque<BufferChunk>,
     returned: VecDeque<BufferChunk>,
     pool_size: usize,

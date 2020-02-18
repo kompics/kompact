@@ -9,16 +9,29 @@ use std::{
 
 use super::*;
 
-//pub fn connect<P: Port>(c: &ProvidedRef<P>, p: &mut Required<P>) -> () {}
-
+/// This error type is returned when on [`on_dual_definition`](fn.on_dual_definition.html) fails,
+/// indicating that a proper lock could not be established on both components.
 #[derive(Debug)]
 pub enum TryDualLockError {
+    /// Indicates that the first component would block while waiting to be locked.
     LeftWouldBlock,
+    /// Indicates that the second component would block while waiting to be locked.
     RightWouldBlock,
+    /// Indicates that the first component has had its mutex poisoned.
     LeftPoisoned,
+    /// Indicates that the second component has had its mutex poisoned.
     RightPoisoned,
 }
 
+/// Applies function `f` to the component definitions of `c1` and `c2`, while holding both mutexes.
+///
+/// As locking two mutexes is a deadlock risk, this method fails immediately if one of the mutexes can not be acquired.
+///
+/// This method is used internally by [`biconnect_components`](prelude/fn.biconnect_components.html) and can be used
+/// directly for the same purpose, if some additional work needs to be done on one or both component definitions and
+/// it is desirable to avoid acquiring the same mutex again.
+///
+/// This function can fail with a [`TryDualLockError`](enum.TryDualLockError.html), if one of the mutexes can not be acquired immediately.
 pub fn on_dual_definition<C1, C2, F, T>(
     c1: &Arc<Component<C1>>,
     c2: &Arc<Component<C2>>,
@@ -41,6 +54,24 @@ where
     Ok(f(cd1.deref_mut(), cd2.deref_mut()))
 }
 
+/// Connect two components on their instances of port type `P`.
+///
+/// The component providing the port must be given as first argument, and the requiring component second.
+///
+/// This function can fail with a [`TryDualLockError`](enum.TryDualLockError.html), if one of the mutexes can not be acquired immediately.
+///
+/// # Example
+///
+/// ```
+/// use kompact::prelude::*;
+/// # use kompact::doctest_helpers::*;
+///
+///
+/// let system = KompactConfig::default().build().expect("system");
+/// let c1 = system.create(TestComponent1::new);
+/// let c2 = system.create(TestComponent2::new);
+/// biconnect_components::<TestPort,_,_>(&c1, &c2).expect("connection");
+/// ```
 pub fn biconnect_components<P, C1, C2>(
     provider: &Arc<Component<C1>>,
     requirer: &Arc<Component<C2>>,
@@ -58,6 +89,9 @@ where
     })
 }
 
+/// Connect two port instances.
+///
+/// The providing port instance must be given as first argument, and the requiring instance second.
 pub fn biconnect_ports<P, C1, C2>(
     prov: &mut ProvidedPort<P, C1>,
     req: &mut RequiredPort<P, C2>,
@@ -73,6 +107,10 @@ where
     req.connect(prov_share);
 }
 
+/// Produces a new `Promise`/`Future` pair.
+///
+/// # Note
+/// This API is considered temporary and will eventually be replaced with Rust's async facilities.
 pub fn promise<T: Send + Sized>() -> (Promise<T>, Future<T>) {
     let (tx, rx) = mpsc::channel();
     let f = Future { result_channel: rx };
@@ -80,28 +118,44 @@ pub fn promise<T: Send + Sized>() -> (Promise<T>, Future<T>) {
     (p, f)
 }
 
+/// An error returned when a promise can't be fulfilled.
 #[derive(Debug)]
 pub enum PromiseErr {
+    /// Indicates that the paired future was already dropped.
     ChannelBroken,
+    /// Indicates that this promise has somehow been fulfilled before.
     AlreadyFulfilled,
 }
 
-/// Until the futures crate stabilises
+/// A custom future implementation, that can be fulfilled via its paired promise.
+///
+/// # Note
+/// This API is considered temporary and will eventually be replaced with Rust's async facilities.
 #[derive(Debug)]
 pub struct Future<T: Send + Sized> {
     result_channel: mpsc::Receiver<T>,
 }
 
 impl<T: Send + Sized> Future<T> {
+    /// Wait for the future to be fulfilled and return the value.
+    ///
+    /// This method panics, if there is an error with the link to the promise.
     pub fn wait(self) -> T {
         self.result_channel.recv().unwrap()
     }
 
+    /// Wait for the future to be fulfilled or the timeout to expire.
+    ///
+    /// If the timeout expires, the future itself is returned, so it can be retried later.
     pub fn wait_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
         self.result_channel.recv_timeout(timeout).map_err(|_| self)
     }
 }
 impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T, E>> {
+    /// Wait for the future to be fulfilled or the timeout to expire.
+    ///
+    /// If the result of the future is an error or the the timeout expires,
+    /// this method will panic with an appropriate error message.
     pub fn wait_expect(self, timeout: Duration, error_msg: &'static str) -> T {
         self.wait_timeout(timeout)
             .expect(&format!("{} (caused by timeout)", error_msg))
@@ -109,11 +163,18 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T
     }
 }
 
+/// Anything that can be fulfilled with a value of type `T`.
 pub trait Fulfillable<T> {
+    /// Fulfill self with the value `t`
+    ///
+    /// Returns a [PromiseErr](PromiseErr) if unsuccessful.
     fn fulfill(self, t: T) -> Result<(), PromiseErr>;
 }
 
-/// Until the futures crate stabilises
+/// A custom promise implementation, that can be fulfill its paired future.
+///
+/// # Note
+/// This API is considered temporary and will eventually be replaced with Rust's async facilities.
 #[derive(Debug, Clone)]
 pub struct Promise<T: Send + Sized> {
     result_channel: mpsc::Sender<T>,
@@ -127,6 +188,9 @@ impl<T: Send + Sized> Fulfillable<T> for Promise<T> {
     }
 }
 
+/// A message type for request-response messages.
+///
+/// Used together with the [ask](ActorRef::ask) function.
 #[derive(Debug)]
 pub struct Ask<Request, Response>
 where
@@ -141,30 +205,43 @@ where
     Request: MessageBounds,
     Response: Send + Sized,
 {
+    /// Produce a new `Ask` instance from a promise and a `Request`.
     pub fn new(promise: Promise<Response>, content: Request) -> Ask<Request, Response> {
         Ask { promise, content }
     }
 
+    /// Produce a function that takes a promise and returns an ask with the given `Request`.
+    ///
+    /// Use this avoid the explicit chaining of the `promise` that the [new](Ask::new) function requires.
     pub fn of(content: Request) -> impl FnOnce(Promise<Response>) -> Ask<Request, Response> {
         |promise| Ask::new(promise, content)
     }
 
+    /// The request associated with this `Ask`.
     pub fn request(&self) -> &Request {
         &self.content
     }
 
+    /// The request associated with this `Ask` (mutable).
     pub fn request_mut(&mut self) -> &mut Request {
         &mut self.content
     }
 
+    /// Decompose this `Ask` into a pair of a promise and a `Request`.
     pub fn take(self) -> (Promise<Response>, Request) {
         (self.promise, self.content)
     }
 
+    /// Reply to this `Ask` with the `response`.
+    ///
+    /// Fails with a [PromiseErr](PromiseErr) if the promise has already been fulfilled or the other end dropped the future.
     pub fn reply(self, response: Response) -> Result<(), PromiseErr> {
         self.promise.fulfill(response)
     }
 
+    /// Run `f` to produce a response to this `Ask` and reply with that reponse.
+    ///
+    /// Fails with a [PromiseErr](PromiseErr) if the promise has already been fulfilled or the other end dropped the future.
     pub fn complete<F>(self, f: F) -> Result<(), PromiseErr>
     where
         F: FnOnce(Request) -> Response,
@@ -174,6 +251,14 @@ where
     }
 }
 
+/// A macro that provides an empty implementation of the [ControlPort](ControlPort) handler.
+///
+/// Use this in components that do not require any special treatment of control events.
+///
+/// To ignore control events for a component `TestComponent`, write:
+/// ```ignore
+/// ignore_control!(TestComponent);
+/// ```
 #[macro_export]
 macro_rules! ignore_control {
     ($component:ty) => {
@@ -184,6 +269,35 @@ macro_rules! ignore_control {
         }
     };
 }
+
+/// Additional iterator functions
+pub trait IterExtras: Iterator {
+    /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
+    ///
+    /// Behaves like `iterator.for_each(|item| f(item, t.clone()))`, except that it avoids cloning
+    /// in the case where the iterator contains a single item or for the last item in a larger iterator.
+    ///
+    /// Use this when cloning `T` is relatively expensive compared to `f`.
+    fn for_each_with<T, F>(mut self, t: T, mut f: F)
+    where
+        T: Clone,
+        F: FnMut(Self::Item, T),
+    {
+        let mut current: Option<Self::Item> = self.next();
+        let mut next: Option<Self::Item> = self.next();
+        while next.is_some() {
+            let item = current.take().unwrap();
+            f(item, t.clone());
+            current = next;
+            next = self.next();
+        }
+        match current.take() {
+            Some(item) => f(item, t),
+            None => (), // nothing to do
+        }
+    }
+}
+impl<T: ?Sized> IterExtras for T where T: Iterator {}
 
 #[cfg(test)]
 mod tests {

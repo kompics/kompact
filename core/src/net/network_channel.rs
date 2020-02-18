@@ -14,7 +14,7 @@ use std::net::Shutdown::Both;
 use core::mem;
 use std::cmp::Ordering;
 
-pub struct TcpChannel {
+pub(crate) struct TcpChannel {
     stream: TcpStream,
     outbound_queue: VecDeque<SerializedFrame>,
     pub token: Token,

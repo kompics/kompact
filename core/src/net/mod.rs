@@ -4,17 +4,8 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 use futures::{self, stream::Stream, sync, Future};
 use net::events::{NetworkError, NetworkEvent};
-use serialisation::helpers::deserialise_msg;
+use serialisation::ser_helpers::deserialise_msg;
 use std::{net::SocketAddr, sync::Arc};
-/* use tokio::{
-    net::{TcpListener, TcpStream},
-    runtime::{Builder as RuntimeBuilder, Runtime, TaskExecutor},
-};
-use tokio_retry::{self, strategy::ExponentialBackoff};
-
-use tokio::net::tcp::ConnectFuture;
-use tokio_retry::Retry; */
-
 use std::thread;
 use iovec::IoVec;
 use crossbeam_queue::SegQueue;
@@ -26,22 +17,29 @@ use crate::net::frames::*;
 use crate::net::events::DispatchEvent;
 use crate::messaging::SerializedFrame;
 
-pub mod network_thread;
 pub mod frames;
-pub mod buffer_pool;
+#[allow(missing_docs)]
 pub mod buffer;
-pub mod network_channel;
+pub(crate) mod network_thread;
+pub(crate) mod buffer_pool;
+pub(crate) mod network_channel;
 
+/// The state of a connection
 #[derive(Debug)]
 pub enum ConnectionState {
+    /// Newly created
     New,
+    /// Still initialising
     Initializing,
+    /// Connected with a confirmed canonical SocketAddr
     Connected(SocketAddr),
+    /// Already closed
     Closed,
+    /// Threw an error
     Error(std::io::Error),
 }
 
-
+/// Events on the network level
 pub mod events {
     use std;
 
@@ -54,22 +52,31 @@ pub mod events {
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkEvent {
+        /// The state of a connection changed
         Connection(SocketAddr, ConnectionState),
+        /// Data was received
         Data(Frame),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
+        /// Send the SerializedFrame to receiver associated with the SocketAddr
         Send(SocketAddr, SerializedFrame),
+        /// Tells the network thread to Stop
         Stop(),
+        /// Tells the network adress to open up a channel to the SocketAddr
         Connect(SocketAddr),
     }
 
+    /// Errors emitted byt the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkError {
+        /// The protocol is not supported in this implementation
         UnsupportedProtocol,
+        /// There is no executor to run the bridge on
         MissingExecutor,
+        /// Some other IO error
         Io(std::io::Error),
     }
 
@@ -80,11 +87,15 @@ pub mod events {
     }
 }
 
+/// The configuration for the network `Bridge`
 pub struct BridgeConfig {
     retry_strategy: RetryStrategy,
 }
 
 impl BridgeConfig {
+    /// Create a new config
+    ///
+    /// This is the same as the [Default](std::default::Default) implementation.
     pub fn new() -> Self {
         BridgeConfig::default()
     }
@@ -132,7 +143,7 @@ pub struct Bridge {
 
 // impl bridge
 impl Bridge {
-    /// Creates a new [Bridge]
+    /// Creates a new bridge
     ///
     /// # Returns
     /// A tuple consisting of the new Bridge object and the network event receiver.
@@ -199,6 +210,7 @@ impl Bridge {
         Ok(())
     }
 
+    /// Stops the bridge
     pub fn stop(mut self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         self.network_input_queue.send(DispatchEvent::Stop());
@@ -218,10 +230,12 @@ impl Bridge {
         Ok(())
     }
 
+    /// Returns the local address if already bound
     pub fn local_addr(&self) -> &Option<SocketAddr> {
         &self.bound_addr
     }
 
+    /// Forwards `serialized` to the NetworkThread and makes sure that it will wake up.
     pub fn route(&self, addr: SocketAddr, serialized: SerializedFrame) -> () {
         //println!("Bridge Route to {}", &addr);
         match serialized {
@@ -241,6 +255,7 @@ impl Bridge {
         //let mut buf = Box::new(BytesMut::with_capacity(bytes.len()));
         //buf.as_mut().put(bytes);
     }
+
     /// Attempts to establish a TCP connection to the provided `addr`.
     ///
     /// # Side effects
@@ -258,56 +273,6 @@ impl Bridge {
                 self.network_input_queue.send(events::DispatchEvent::Connect(addr));
                 self.network_thread_registration.set_readiness(Ready::readable());
                 Ok(())
-                /*if let Some(ref executor) = self.executor {
-                    let lookup = self.lookup.clone();
-                    let events = self.events.clone();
-                    let err_events = events.clone();
-                    let log = self.log.clone();
-                    let err_log = log.clone();
-                    let err_log2 = log.clone();
-
-                    let retry_strategy = match self.cfg.retry_strategy {
-                        RetryStrategy::ExponentialBackoff { base_ms, num_tries } => {
-                            use tokio_retry::strategy::jitter;
-                            ExponentialBackoff::from_millis(base_ms)
-                                .map(jitter)
-                                .take(num_tries)
-                        }
-                    };
-
-                    let connect_fut = Retry::spawn(retry_strategy, TcpConnecter(addr.clone()))
-                        .map_err(move |why| match why {
-                            tokio_retry::Error::TimerError(terr) => {
-                                error!(err_log, "TimerError connecting to {:?}: {:?}", addr, terr);
-                            }
-                            tokio_retry::Error::OperationError(err) => {
-                                err_events.unbounded_send(NetworkEvent::Connection(
-                                    addr,
-                                    ConnectionState::Error(err),
-                                )).unwrap_or_else(|e| {
-                                    error!(err_log, "OperationError connecting to {:?} could not be sent: {:?}", addr, e);
-                                });
-                            }
-                        })
-                        .and_then(move |tcp_stream| {
-                            tcp_stream.set_nodelay(true).expect("Could not set no delay!");
-                            let peer_addr = tcp_stream
-                                .peer_addr()
-                                .expect("stream must have a peer address");
-                            let (tx, rx) = sync::mpsc::unbounded();
-                            events.unbounded_send(NetworkEvent::Connection(
-                                peer_addr,
-                                ConnectionState::Connected(tx),
-                            )).unwrap_or_else(|e| {
-                                error!(err_log2,"Connected to {:?} could not be sent: {:?}", peer_addr, e);
-                            });
-                            handle_tcp(tcp_stream, rx, events.clone(), log, lookup)
-                        });
-                    executor.spawn(connect_fut);
-                    Ok(())
-                } else {
-                    Err(NetworkError::MissingExecutor)
-                }*/
             }
             _other => Err(NetworkError::UnsupportedProtocol),
         }
@@ -485,9 +450,11 @@ struct NetworkThread {
 */
 #[derive(Debug)]
 pub enum NetworkBridgeErr {
-    //Tokio(tokio::io::Error),
+    /// Something went wrong while binding
     Binding(String),
+    /// Something went wrong with the thread
     Thread(String),
+    /// Something else went wrong
     Other(String),
 }
 

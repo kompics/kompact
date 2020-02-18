@@ -1,11 +1,15 @@
 use super::*;
 
+/// A timer implementation that used virtual time
+///
+/// Time is simply advanced until the next event is scheduled.
 pub struct SimulationTimer {
     time: u128,
     timer: QuadWheelWithOverflow,
 }
 
 impl SimulationTimer {
+    /// Create a new simulation timer starting at `0`
     pub fn new() -> SimulationTimer {
         SimulationTimer {
             time: 0u128,
@@ -13,6 +17,7 @@ impl SimulationTimer {
         }
     }
 
+    /// Create a new simulation timer starting at a system clock value
     pub fn at(now: SystemTime) -> SimulationTimer {
         let t = now
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -24,10 +29,12 @@ impl SimulationTimer {
         }
     }
 
+    /// Return the timers current virtual time value (in ms)
     pub fn current_time(&self) -> u128 {
         self.time
     }
 
+    /// Advance the virtual time
     pub fn next(&mut self) -> SimulationStep {
         loop {
             match self.timer.can_skip() {
@@ -59,8 +66,15 @@ impl SimulationTimer {
     }
 }
 
+/// Result of advancing virtual time
 pub enum SimulationStep {
+    /// No timeout remain
+    ///
+    /// The simulation can be considered complete.
     Finished,
+    /// Step was executed, but timeouts remain
+    ///
+    /// Continue calling [next](SimulationTimer::next) to advance virtual time.
     Ok,
 }
 

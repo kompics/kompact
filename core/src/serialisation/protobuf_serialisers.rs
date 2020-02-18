@@ -1,8 +1,10 @@
+//! Provides serialisation support for protocol buffers
 use super::*;
 
 use protobuf::{Message, ProtobufError};
 use bytes::buf::BufMutExt;
 
+/// Kompact serialisation marker for protobuf messages
 pub struct ProtobufSer;
 
 impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
@@ -33,18 +35,22 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
     }
 }
 
+
+/// Something that can be deserialised into a protobuf message of type `M`
 pub struct ProtobufDeser<M: Message + Any + Debug, B: Buf> {
+    /// An existing allocated message of type `M`
     pub msg: M,
+    /// A buffer with data to be written into the memory at `msg`
     pub buf: B,
 }
 
+/// This implementation reuses the memory already allocated for `self.msg`
 impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B> {
     fn ser_id(&self) -> SerId {
         serialisation_ids::PBUF
     }
 
     fn get_deserialised(self) -> Result<M, SerError> {
-        //let (mut m, b) = self;
         let ProtobufDeser { msg: mut m, buf: b } = self;
         let r = m.merge_from_bytes(b.bytes()).map_err(|e| match e {
             ProtobufError::IoError(_) => {

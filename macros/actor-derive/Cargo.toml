@@ -1,7 +1,7 @@
 [package]
 name = "kompact-actor-derive"
-version = "0.8.1"
-authors = ["Lars Kroll <lkroll@kth.se>"]
+version = "0.9.0"
+authors = ["Max Meldrum <mmeldrum@kth.se>", "Lars Kroll <lkroll@kth.se>"]
 description = "A derive macro for Kompact Actors."
 edition = "2018"
 

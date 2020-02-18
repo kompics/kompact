@@ -12,6 +12,7 @@ use std::{
 };
 use uuid::Uuid;
 //use oncemutex::OnceMutex;
+use hocon::Hocon;
 use std::cell::UnsafeCell;
 
 use super::*;
@@ -20,15 +21,24 @@ use bytes::{BufMut, BytesMut};
 use crate::net::buffer::{ChunkLease, BufferChunk, DecodeBuffer, EncodeBuffer};
 use crate::net::buffer_pool::BufferPool;
 
+/// A trait for abstracting over structures that contain a component core
+///
+/// Used for implementing scheduling and execution logic,
+/// such as [Scheduler](runtime::Scheduler).
 pub trait CoreContainer: Send + Sync {
+    /// Returns the component's unique id
     fn id(&self) -> &Uuid;
+    /// Returns a reference to the actual component core
     fn core(&self) -> &ComponentCore;
+    /// Executes this component on the current thread
     fn execute(&self) -> ();
-
+    /// Returns a reference to this component's control port
     fn control_port(&self) -> ProvidedRef<ControlPort>;
+    /// Returns this component's system
     fn system(&self) -> KompactSystem {
         self.core().system().clone()
     }
+    /// Schedules this component on its associated scheduler
     fn schedule(&self) -> ();
 }
 
@@ -38,6 +48,10 @@ impl fmt::Debug for dyn CoreContainer {
     }
 }
 
+/// A concrete component instance
+///
+/// The component class itself is application agnostic,
+/// but it contains the application specific [ComponentDefinition](ComponentDefinition).
 pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     core: ComponentCore,
     custom_scheduler: Option<dedicated_scheduler::DedicatedThreadScheduler>,
@@ -156,14 +170,26 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         }
     }
 
+    /// Returns the mutex containing the underlying [ComponentDefinition](ComponentDefinition).
     pub fn definition(&self) -> &Mutex<C> {
         &self.definition
     }
 
+    /// Returns a mutable reference to the underlying component definition.
+    ///
+    /// This can only be done if you have a reference to the component instance
+    /// that isn't hidden behind an [Arc](std::sync::Arc). For example,
+    /// after the system shuts down and your code holds on to the last reference to a component
+    /// you can use [get_mut](std::sync::Arc::get_mut) or [try_unwrap](std::sync::Arc::try_unwrap).
     pub fn definition_mut(&mut self) -> &mut C {
         self.definition.get_mut().unwrap()
     }
 
+    /// Execute a function on the underlying [ComponentDefinition](ComponentDefinition)
+    /// and return the result
+    ///
+    /// This method will attempt to lock the mutex, and then apply `f` to the component definition
+    /// inside the guard.
     pub fn on_definition<T, F>(&self, f: F) -> T
     where
         F: FnOnce(&mut C) -> T,
@@ -172,23 +198,31 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         f(cd.deref_mut())
     }
 
+    /// Returns a reference to this component's logger
     pub fn logger(&self) -> &KompactLogger {
         &self.logger
     }
 
+    /// Returns `true` if the component is marked as *faulty*.
     pub fn is_faulty(&self) -> bool {
         lifecycle::is_faulty(&self.state)
     }
 
+    /// Returns `true` if the component is marked as *active*.
     pub fn is_active(&self) -> bool {
         lifecycle::is_active(&self.state)
     }
 
+    /// Returns `true` if the component is marked as *destroyed*.
     pub fn is_destroyed(&self) -> bool {
         lifecycle::is_destroyed(&self.state)
     }
 
-    /// Wait synchronously for this component be either destroyed or faulty.
+    /// Wait synchronously for this component be either *destroyed* or *faulty*
+    ///
+    /// This component blocks the current thread and hot-waits for the component
+    /// to become either *faulty* or *destroyed*. It is meant mostly for testing
+    /// and not recommended in production.
     pub fn wait_ended(&self) -> () {
         loop {
             if self.is_faulty() || self.is_destroyed() {
@@ -291,10 +325,12 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     }
 }
 
-impl<CD> ActorRefFactory<CD::Message> for Arc<Component<CD>>
+impl<CD> ActorRefFactory for Arc<Component<CD>>
 where
     CD: ComponentDefinition + ActorRaw + 'static,
 {
+    type Message = CD::Message;
+
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         let comp = Arc::downgrade(self);
         let msgq = Arc::downgrade(&self.msg_queue);
@@ -302,21 +338,23 @@ where
     }
 }
 
-impl<CD> DynActorRefFactory for Arc<Component<CD>>
-where
-    CD: ComponentDefinition + ActorRaw + 'static,
-{
-    fn dyn_ref(&self) -> DynActorRef {
-        let component = Arc::downgrade(self);
-        let msg_queue = Arc::downgrade(&self.msg_queue);
-        DynActorRef::from(component, msg_queue)
-    }
-}
+// impl<CD> DynActorRefFactory for Arc<Component<CD>>
+// where
+//     CD: ComponentDefinition + ActorRaw + 'static,
+// {
+//     fn dyn_ref(&self) -> DynActorRef {
+//         let component = Arc::downgrade(self);
+//         let msg_queue = Arc::downgrade(&self.msg_queue);
+//         DynActorRef::from(component, msg_queue)
+//     }
+// }
 
-impl<CD> ActorRefFactory<CD::Message> for CD
+impl<CD> ActorRefFactory for CD
 where
     CD: ComponentDefinition + ActorRaw + 'static,
 {
+    type Message = CD::Message;
+
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         self.ctx().actor_ref()
     }
@@ -448,17 +486,26 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
 //    fn setup_ports(&mut self, self_component: Arc<Mutex<Self>>) -> ();
 //}
 
+/// Statistics about the last invocation of [execute](ComponentDefinition::execute).
 pub struct ExecuteResult {
     count: usize,
     skip: usize,
 }
 
 impl ExecuteResult {
+    /// Create a new execute result
+    ///
+    /// `count` gives the total number of events handled during the invocation
+    /// `skip` gives the offset from where queues will be checked during the next invocation (used for fairness)
     pub fn new(count: usize, skip: usize) -> ExecuteResult {
         ExecuteResult { count, skip }
     }
 }
 
+/// The contextual object for a Kompact component
+///
+/// Gives access compact internal features like
+/// timers, logging, confguration, an the self reference.
 pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
     inner: Option<ComponentContextInner<CD>>,
 }
@@ -469,17 +516,18 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
     buffer: Option<EncodeBuffer>,
-}
-
-impl<CD: ComponentDefinition + ActorRaw + Sized + 'static> ComponentContextInner<CD> {
-
+    config: Arc<Hocon>,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
+    /// Create a new, uninitialised component context
     pub fn new() -> ComponentContext<CD> {
         ComponentContext { inner: None }
     }
 
+    /// Initialise the component context with the actual component instance
+    ///
+    /// This *must* be invoked from [setup](ComponentDefinition::setup).
     pub fn initialise(&mut self, c: Arc<Component<CD>>) -> ()
     where
         CD: ComponentDefinition + 'static,
@@ -491,6 +539,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             logger: c.logger().new(o!("ctype" => CD::type_name())),
             actor_ref: c.actor_ref(),
             buffer: None,
+            config: system.config_owned(),
         };
         self.inner = Some(inner);
         trace!(self.log(), "Initialised.");
@@ -510,14 +559,98 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
+    /// The components logger instance
+    ///
+    /// This instance will already be preloaded
+    /// with component specific information in the MDC.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct HelloLogging {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl HelloLogging {
+    ///     fn new() -> HelloLogging {
+    ///         HelloLogging {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for HelloLogging {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         info!(self.ctx().log(), "Hello control event: {:?}", event);
+    ///         if event == ControlEvent::Start {
+    ///             self.ctx().system().shutdown_async();
+    ///         }
+    ///     }    
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(HelloLogging::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
     pub fn log(&self) -> &KompactLogger {
         &self.inner_ref().logger
+    }
+
+    /// Get a reference to the system configuration
+    ///
+    /// Use [load_config_str](KompactConfig::load_config_str) or
+    /// or [load_config_file](KompactConfig::load_config_file)
+    /// to load values into the config object.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct ConfigComponent {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl ConfigComponent {
+    ///     fn new() -> ConfigComponent {
+    ///         ConfigComponent {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for ConfigComponent {
+    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///             ControlEvent::Start => {
+    ///                 assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
+    ///                 self.ctx().system().shutdown_async();
+    ///             }
+    ///             _ => (), // ignore
+    ///         }
+    ///     }    
+    /// }
+    /// let default_values = r#"{ a = 7 }"#;
+    /// let mut conf = KompactConfig::default();
+    /// conf.load_config_str(default_values);
+    /// let system = conf.build().expect("system");
+    /// let c = system.create(ConfigComponent::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
+    pub fn config(&self) -> &Hocon {
+        self.inner_ref().config.as_ref()
     }
 
     pub(crate) fn timer_manager_mut(&mut self) -> &mut TimerManager<CD> {
         &mut self.inner_mut().timer_manager
     }
 
+    /// Returns the component instance wrapping this component definition
+    ///
+    /// This is mostly meant to be passed along for scheduling and the like.
+    /// Don't try to lock anything on the already thread executing the component!
     pub fn component(&self) -> Arc<dyn CoreContainer> {
         match self.inner_ref().component.upgrade() {
             Some(ac) => ac,
@@ -525,31 +658,39 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
+    /// Returns the Kompact system this component is a part of
     pub fn system(&self) -> KompactSystem {
         self.component().system()
     }
 
+    /// Returns a reference to the system dispatcher
     pub fn dispatcher_ref(&self) -> DispatcherRef {
         self.system().dispatcher_ref()
     }
 
+    /// Returns a reference to the system's deadletter box
     pub fn deadletter_ref(&self) -> ActorRef<Never> {
         self.system().actor_ref()
     }
 
+    /// Returns this components unique id
     pub fn id(&self) -> Uuid {
         self.component().id().clone()
     }
 
+    /// Destroys this component
+    ///
+    /// Simply sends a [Kill](ControlEvent::Kill) event to itself.
     pub fn suicide(&self) -> () {
         self.component().control_port().enqueue(ControlEvent::Kill);
     }
 
+    /// Initializes a buffer pool which [tell_pooled](ActorPath::tell_pooled) can use.
     pub fn initialize_pool(&mut self) -> () {
         self.inner_mut().buffer = Some(EncodeBuffer::new());
     }
 
-    pub fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
+    pub(crate) fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
         //self.inner_mut().get_buffer(size)
         if let Some(buffer) = &mut self.inner_mut().buffer {
             buffer.get_buffer(size)
@@ -559,10 +700,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     }
 }
 
-impl<CD> ActorRefFactory<CD::Message> for ComponentContext<CD>
+impl<CD> ActorRefFactory for ComponentContext<CD>
 where
     CD: ComponentDefinition + ActorRaw + Sized + 'static,
 {
+    type Message = CD::Message;
+
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         self.inner_ref().actor_ref.clone()
     }
@@ -578,18 +721,60 @@ where
     }
 }
 
+/// The core trait every component must implement
+///
+/// Should usually simply be derived using `#[derive(ComponentDefinition)]`.
+///
+/// Only implement this manually if you need special execution logic,
+/// for example for custom fairness models.
+///
+/// # Note
+///
+/// The derive macro additionally provides implementation of
+/// [ProvideRef](ProvideRef) or [RequireRef](RequireRef) for each of the
+/// component's ports. It is generally recommended to do so as well, when not
+/// using the derive macro, as it enables some rather convenient APIs.
 pub trait ComponentDefinition: Provide<ControlPort> + ActorRaw + Send
 where
     Self: Sized,
 {
+    /// Prepare the component for being run
+    ///
+    /// You *must* call [initialise](ComponentContext::initialise) on this
+    /// component's context instance.
+    ///
+    /// You *must* call [set_parent](ProvidedPort::set_parent) (or [RequiredPort::set_parent](RequiredPort::set_parent))
+    /// for each of the component's ports.
     fn setup(&mut self, self_component: Arc<Component<Self>>) -> ();
+
+    /// Execute events on the component's ports
+    ///
+    /// You may run up to `max_events` events from the component's ports.
+    ///
+    /// The `skip` value normally contains the offset where the last invocation stopped.
+    /// However, you can specify the next value when you create the returning [ExecuteResult](ExecuteResult),
+    /// so you can custome the semantics of this value, if desired.
     fn execute(&mut self, max_events: usize, skip: usize) -> ExecuteResult;
+
+    /// Return a reference the component's context field
     fn ctx(&self) -> &ComponentContext<Self>;
+
+    /// Return a mutable reference the component's context field
     fn ctx_mut(&mut self) -> &mut ComponentContext<Self>;
+
+    /// Return the name of the component's type
+    ///
+    /// This is only used for the logging MDC, so you can technically
+    /// return whatever you like. It simply helps with debugging if it's related
+    /// to the actual struct name.
     fn type_name() -> &'static str;
 }
 
+/// An abstraction over providers of Kompact loggers
 pub trait ComponentLogging {
+    /// Returns a reference to the component's logger instance
+    ///
+    /// See [log](ComponentContext::log) for more details.
     fn log(&self) -> &KompactLogger;
 }
 impl<CD> ComponentLogging for CD
@@ -601,29 +786,69 @@ where
     }
 }
 
+/// A trait implementing handling of provided events of `P`
+///
+/// This is equivalent to a Kompics *Handler* subscribed on a provided port of type `P`.
 pub trait Provide<P: Port + 'static> {
+    /// Handle the port's `event`
+    ///
+    /// # Note
+    ///
+    /// Remember that components usually run on a shared thread pool,
+    /// so you shouldn't ever block in this method unless you know what you are doing.
     fn handle(&mut self, event: P::Request) -> ();
 }
 
+/// A trait implementing handling of required events of `P`
+///
+/// This is equivalent to a Kompics *Handler* subscribed on a required port of type `P`.
 pub trait Require<P: Port + 'static> {
+    /// Handle the port's `event`
+    ///
+    /// # Note
+    ///
+    /// Remember that components usually run on a shared thread pool,
+    /// so you shouldn't ever block in this method unless you know what you are doing.
     fn handle(&mut self, event: P::Indication) -> ();
 }
 
+/// A convenience abstraction over concrete port instance fields
+///
+/// This trait is usually automatically derived when using `#[derive(ComponentDefinition)]`.
 pub trait ProvideRef<P: Port + 'static> {
+    /// Returns a provided reference to this component's port instance of type `P`
     fn provided_ref(&mut self) -> ProvidedRef<P>;
+    /// Connects this component's provided port instance of type `P` to `req`
     fn connect_to_required(&mut self, req: RequiredRef<P>) -> ();
 }
+
+/// A convenience abstraction over concrete port instance fields
+///
+/// This trait is usually automatically derived when using `#[derive(ComponentDefinition)]`.
 pub trait RequireRef<P: Port + 'static> {
+    /// Returns a required reference to this component's port instance of type `P`
     fn required_ref(&mut self) -> RequiredRef<P>;
+    /// Connects this component's required port instance of type `P` to `prov`
     fn connect_to_provided(&mut self, prov: ProvidedRef<P>) -> ();
 }
 
+/// Same as [ProvideRef](ProvideRef), but for instances that must be locked first
+///
+/// This is used, for example, with an `Arc<Component<_>>`.
 pub trait LockingProvideRef<P: Port + 'static> {
+    /// Returns a required reference to this component's port instance of type `P`
     fn provided_ref(&self) -> ProvidedRef<P>;
+    /// Connects this component's required port instance of type `P` to `prov`
     fn connect_to_required(&self, req: RequiredRef<P>) -> ();
 }
+
+/// Same as [RequireRef](RequireRef), but for instances that must be locked first
+///
+/// This is used, for example, with an `Arc<Component<_>>`.
 pub trait LockingRequireRef<P: Port + 'static> {
+    /// Returns a required reference to this component's port instance of type `P`
     fn required_ref(&self) -> RequiredRef<P>;
+    /// Connects this component's required port instance of type `P` to `prov`
     fn connect_to_provided(&self, prov: ProvidedRef<P>) -> ();
 }
 
@@ -654,12 +879,22 @@ where
     }
 }
 
+/// Indicates whether or not a component should be sent to the [Scheduler](runtime::Scheduler)
 pub enum SchedulingDecision {
+    /// Sent the component to the [Scheduler](runtime::Scheduler)
+    ///
+    /// That is, call [schedule](CoreContainer::schedule).
     Schedule,
+    /// Don't schedule the component, because it is already scheduled
     AlreadyScheduled,
+    /// Don't schedule the component, because it has nothing to do
     NoWork,
 }
 
+/// The core of a Kompact component
+///
+/// Contains the unique id, as well as references to the Kompact system,
+/// internal state variables, and the component instance itself.
 pub struct ComponentCore {
     id: Uuid,
     system: KompactSystem,
@@ -668,7 +903,9 @@ pub struct ComponentCore {
 }
 
 impl ComponentCore {
-    pub fn with<CC: CoreContainer + Sized + 'static>(system: KompactSystem) -> ComponentCore {
+    pub(crate) fn with<CC: CoreContainer + Sized + 'static>(
+        system: KompactSystem,
+    ) -> ComponentCore {
         let weak_sized = Weak::<CC>::new();
         let weak = weak_sized as Weak<dyn CoreContainer>;
         ComponentCore {
@@ -679,10 +916,12 @@ impl ComponentCore {
         }
     }
 
+    /// Returns a reference to the Kompact system this component is a part of
     pub fn system(&self) -> &KompactSystem {
         &self.system
     }
 
+    /// Returns the component's unique id
     pub fn id(&self) -> &Uuid {
         &self.id
     }
@@ -692,6 +931,9 @@ impl ComponentCore {
         *component_mut = Arc::downgrade(&c);
     }
 
+    /// Returns the component instance itself, wrapped in an [Arc](std::sync::Arc)
+    ///
+    /// This method will panic if the component hasn't been properly initialised, yet!
     pub fn component(&self) -> Arc<dyn CoreContainer> {
         unsafe {
             match (*self.component.get()).upgrade() {
@@ -709,13 +951,7 @@ impl ComponentCore {
         }
     }
 
-    pub fn decrement_work(&self, work_done: usize) -> SchedulingDecision {
-        //        let oldv: isize = match work_done_u.checked_as_num() {
-        //            Some(work_done) => self.work_count.fetch_sub(work_done, Ordering::SeqCst),
-        //            None => {
-        //
-        //            }
-        //        }
+    pub(crate) fn decrement_work(&self, work_done: usize) -> SchedulingDecision {
         let oldv = self.work_count.fetch_sub(work_done, Ordering::SeqCst);
         let newv = oldv - work_done;
         if (newv > 0) {
@@ -726,7 +962,7 @@ impl ComponentCore {
     }
 }
 
-// The compiler gets stuck into recursive loop trying to figure this out itself
+// The compiler gets stuck into a recursive loop trying to figure this out itself
 //unsafe impl<C: ComponentDefinition + Sized> Send for Component<C> {}
 //unsafe impl<C: ComponentDefinition + Sized> Sync for Component<C> {}
 

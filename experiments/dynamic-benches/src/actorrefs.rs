@@ -99,7 +99,7 @@ mod tests {
 
     pub fn bench_clone_recipient(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
+        let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         let tester_recipient: Recipient<Ping> = tester_ref.recipient();
         let mut cloned_recipient = tester_recipient.clone();
@@ -115,7 +115,7 @@ mod tests {
 
     pub fn bench_tell_recipient(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
+        let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         let tester_recipient: Recipient<Ping> = tester_ref.recipient();
         b.iter(|| {
@@ -128,7 +128,7 @@ mod tests {
 
     pub fn bench_clone_actor_ref(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
+        let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         let mut cloned_ref = tester_ref.clone();
         b.iter(|| {
@@ -142,7 +142,7 @@ mod tests {
 
     pub fn bench_tell_actor_ref(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
+        let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         b.iter(|| {
             tester_ref.tell(&PING);
@@ -154,7 +154,7 @@ mod tests {
 
     pub fn bench_tell_actor_ref_strong(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
+        let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref().hold().expect("Live Ref");
         b.iter(|| {
             tester_ref.tell(&PING);
@@ -166,7 +166,7 @@ mod tests {
 
     pub fn bench_trigger_port(b: &mut Bencher) {
         let sys = KompactConfig::default().build().expect("System");
-        let tester = sys.create_and_start(TestActor::new);
+        let tester = sys.create(TestActor::new);
         let test_port = tester.on_definition(|c| c.testp.share());
         b.iter(|| {
             sys.trigger_r(&PING, &test_port);
