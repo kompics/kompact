@@ -38,25 +38,30 @@ In addition to counting the `CountMe` events and messages, we will also count co
 {{#rustdoc_include ../../examples/src/bin/counters.rs:42:71}}
 ```
 
-In the Kompics-style communication, we reply by simply triggering the `CurrentCount` event on our `counter_port` to whoever may listen. In the Acto-style, we need to know some reference to respond to. Since we are not responding to another component, but to the main-thread, we will use the `Ask`-pattern provided by Kompact, which converts our response message into a future that can be blocked on, until the result is available.
+In the Kompics-style communication, we reply by simply triggering the `CurrentCount` event on our `counter_port` to whoever may listen. In the Actor-style, we need to know some reference to respond to. Since we are not responding to another component, but to the main-thread, we will use the `Ask`-pattern provided by Kompact, which converts our response message into a future that can be blocked on, until the result is available.
 
 ### Sending Stuff
 
 In order to count something, we must of course send some events and messages. We could do so in Actor-style by using `tell(...)` as before, but this time we want to wait for a response as well. So instead we will use `ask(...)` and wrap our `CountMe` into an `Ask` instance as required by our actor's implementation. In the Kompics-style, we can trigger on a port reference using `system.trigger_r(...)` instead. Whenever we get a response, we print it using the system's logger:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters.rs:73:91}}
+{{#rustdoc_include ../../examples/src/bin/counters.rs:73:93}}
 ```
 
 There are two things worth noting here:
 
 1. We are never getting any responses from the Kompics-style communication. There simply isn't anything subscribed to our port, so the responses we are sending are simply dropped immediately. Kompact does not provide an `Ask`-equivalent for ports, since maintaining two mechanisms to achieve the same effect is inefficient, and this communication pattern is very unusual for the Kompics model.
-2. We are also not getting any feedback when the events sent to the port are being handled. In order to see them being handled at all, we added a `thread::sleep(...)` invocation there. Events and messages in Kompact do **not** share the same queues and there are no ordering guarantees between them. Quite the opposite, in fact: Kompact ensures a certain amount of fairness between the two mechanisms and by the default will try to handle one message for every event it handles. Thus, without the sleep, we would see between one (the start event) and 100 events being counted when the final `Ask` returns. Even like this, it's not guaranteed that any or all events are handled before the sleep expires. It's just very likely, if you computer isn't terribly slow.
+2. We are also not getting any feedback when the events sent to the port are being handled. In order to see them being handled at all, we added a `thread::sleep(...)` invocation there. Events and messages in Kompact do **not** share the same queues and there are no ordering guarantees between them. Quite the opposite, in fact: Kompact ensures a certain amount of fairness between the two mechanisms and by the default will try to handle one message for every event it handles. Thus, without the sleep, we would see between one (the start event) and 101 events being counted when the final `Ask` returns. Even like this, it's not guaranteed that any or all events are handled before the sleep expires. It's just very likely, if your computer isn't terribly slow.
+
+> **Note:** As before, if you have checked out the [examples folder](https://github.com/kompics/kompact/tree/master/docs/examples) you can run the concrete binary with:
+> ```bash
+> cargo run --release --bin counters
+> ```
 
 ## Conclusions
 
 We have shown how Kompact handles internal state, and that it is automatically shared between the two different communication styles Kompact provides.
 
-We have also seen, that there are no ordering guarantees between ports and message communication, something that is also true among different ports on the same component. It is thus important to remember, that for applications that require a certain sequence of events to be processed before proceeding, verifying completion must happen through the same communication style and event through the same port.
+We have also seen, that there are no ordering guarantees between ports and message communication, something that is also true among different ports on the same component. It is thus important to remember that for applications, that require a certain sequence of events to be processed before proceeding, verifying completion must happen through the same communication style and even through the same port.
 
 We will go through all the new parts introduced in this chapter again in detail in the following sections.

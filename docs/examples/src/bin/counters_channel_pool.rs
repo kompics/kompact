@@ -1,4 +1,4 @@
-use kompact::prelude::*;
+use kompact::{executors, prelude::*};
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,7 +71,10 @@ impl Actor for Counter {
 }
 
 pub fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let mut conf = KompactConfig::default();
+    conf.threads(1usize);
+    conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
+    let system = conf.build().expect("system");
     let counter = system.create(Counter::new);
     system.start(&counter);
     let actor_ref = counter.actor_ref();

@@ -113,7 +113,7 @@ pub mod prelude {
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
-    pub use crate::{ignore_control, match_deser};
+    pub use crate::{ignore_control, ignore_indications, ignore_requests, match_deser};
 
     pub use crate::{
         actors::{
