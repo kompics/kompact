@@ -24,12 +24,13 @@ use std::sync::mpsc::{channel, Sender, Receiver as Recv};
 use crate::net::network_thread::NetworkThread;
 use crate::net::frames::*;
 use crate::net::events::DispatchEvent;
-use crate::messaging::Serialized;
+use crate::messaging::SerializedFrame;
 
 pub mod network_thread;
 pub mod frames;
 pub mod buffer_pool;
 pub mod buffer;
+pub mod network_channel;
 
 #[derive(Debug)]
 pub enum ConnectionState {
@@ -48,7 +49,7 @@ pub mod events {
     use crate::net::frames::*;
     use std::net::SocketAddr;
     use bytes::BytesMut;
-    use crate::messaging::Serialized;
+    use crate::messaging::SerializedFrame;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
@@ -60,8 +61,9 @@ pub mod events {
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
-        Send(SocketAddr, Serialized),
+        Send(SocketAddr, SerializedFrame),
         Stop(),
+        Connect(SocketAddr),
     }
 
     #[derive(Debug)]
@@ -140,17 +142,20 @@ impl Bridge {
         network_thread_log: KompactLogger,
         bridge_log: KompactLogger,
         addr: SocketAddr,
+        dispatcher_ref: DispatcherRef,
     ) -> (Self, SocketAddr) {
         let (registration, network_thread_registration) = Registration::new2();
         let (sender, receiver ) = channel();
         let (network_thread_sender, network_thread_receiver ) = channel();
         let mut network_thread = NetworkThread::new(
+            network_thread_log,
             addr,
             lookup.clone(),
             registration,
             network_thread_registration.clone(),
             receiver,
-            network_thread_sender
+            network_thread_sender,
+            dispatcher_ref.clone(),
         );
         let bound_addr = network_thread.addr.clone();
         let bridge = Bridge {
@@ -160,11 +165,11 @@ impl Bridge {
             //network_thread: Box::new(network_thread),
             network_input_queue:sender,
             network_thread_registration,
-            dispatcher: None,
+            dispatcher: Some(dispatcher_ref),
             bound_addr: Some(bound_addr.clone()),
             network_thread_receiver: Box::new(network_thread_receiver),
         };
-        thread::spawn(move || {
+        thread::Builder::new().name("network_thread".to_string()).spawn(move || {
             network_thread.run();
         });
         (bridge, bound_addr)
@@ -208,6 +213,7 @@ impl Bridge {
         */
         // Wait for network thread to receive the "stopped" event
         self.network_thread_receiver.recv(); // should block until something is sent
+        //println!("bridge stopped!");
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }
@@ -216,40 +222,43 @@ impl Bridge {
         &self.bound_addr
     }
 
-    pub fn route(&self, addr: SocketAddr, serialized: Serialized) -> () {
+    pub fn route(&self, addr: SocketAddr, serialized: SerializedFrame) -> () {
+        //println!("Bridge Route to {}", &addr);
         match serialized {
-            Serialized::Bytes(bytes) => {
+            SerializedFrame::Bytes(bytes) => {
                 let size = FrameHead::encoded_len() + bytes.len();
                 let mut buf = BytesMut::with_capacity(size);
                 let head = FrameHead::new(FrameType::Data, bytes.len());
                 head.encode_into(&mut buf, bytes.len() as u32);
                 buf.put_slice(bytes.bytes());
-                self.network_input_queue.send(events::DispatchEvent::Send(addr, Serialized::Bytes(buf.freeze())));
+                self.network_input_queue.send(events::DispatchEvent::Send(addr, SerializedFrame::Bytes(buf.freeze())));
             }
-            Serialized::Chunk(chunk) => {
-                self.network_input_queue.send(events::DispatchEvent::Send(addr, Serialized::Chunk(chunk)));
+            SerializedFrame::Chunk(chunk) => {
+                self.network_input_queue.send(events::DispatchEvent::Send(addr, SerializedFrame::Chunk(chunk)));
             }
         }
         self.network_thread_registration.set_readiness(Ready::readable());
         //let mut buf = Box::new(BytesMut::with_capacity(bytes.len()));
         //buf.as_mut().put(bytes);
     }
-}
     /// Attempts to establish a TCP connection to the provided `addr`.
     ///
     /// # Side effects
     /// When the connection is successul:
     ///     - a `ConnectionState::Connected` is dispatched on the network bridge event queue
-    ///     - a new task is spawned on the Tokio runtime for driving the TCP connection's  I/O
+    //     - a new task is spawned on the Tokio runtime for driving the TCP connection's  I/O
     ///
     /// # Errors
     /// If the provided protocol is not supported or if the Tokio runtime's executor has not been
     /// set.
-    /*
     pub fn connect(&mut self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkError> {
+        //println!("bridge bound to {} connecting to addr {}, ", self.bound_addr.unwrap(), addr);
         match proto {
             Transport::TCP => {
-                if let Some(ref executor) = self.executor {
+                self.network_input_queue.send(events::DispatchEvent::Connect(addr));
+                self.network_thread_registration.set_readiness(Ready::readable());
+                Ok(())
+                /*if let Some(ref executor) = self.executor {
                     let lookup = self.lookup.clone();
                     let events = self.events.clone();
                     let err_events = events.clone();
@@ -298,13 +307,13 @@ impl Bridge {
                     Ok(())
                 } else {
                     Err(NetworkError::MissingExecutor)
-                }
+                }*/
             }
             _other => Err(NetworkError::UnsupportedProtocol),
         }
     }
 }
-
+/*
 struct TcpConnecter(SocketAddr);
 
 impl tokio_retry::Action for TcpConnecter {

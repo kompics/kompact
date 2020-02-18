@@ -19,8 +19,8 @@ pub mod framing;
 #[derive(Debug)]
 pub struct NetMessage {
     ser_id: SerId,
-    sender: ActorPath,
-    receiver: ActorPath,
+    pub(crate) sender: ActorPath,
+    pub(crate) receiver: ActorPath,
     data: HeapOrSer,
 }
 #[derive(Debug)]
@@ -226,7 +226,7 @@ pub enum DispatchData {
 }
 
 #[derive(Debug)]
-pub enum Serialized {
+pub enum SerializedFrame {
     Bytes(Bytes),
     Chunk(ChunkLease),
 }
@@ -258,16 +258,16 @@ impl DispatchData {
         }
     }
 
-    pub fn to_serialised(self, src: ActorPath, dst: ActorPath) -> Result<Serialized, SerError> {
+    pub fn to_serialised(self, src: ActorPath, dst: ActorPath) -> Result<SerializedFrame, SerError> {
         match self {
             DispatchData::Lazy(ser) => {
-                Ok(Serialized::Bytes(crate::serialisation::helpers::serialise_msg(&src, &dst, ser)?))
+                Ok(SerializedFrame::Bytes(crate::serialisation::helpers::serialise_msg(&src, &dst, ser)?))
             }
             DispatchData::Eager(ser) => {
-                Ok(Serialized::Bytes(crate::serialisation::helpers::embed_in_msg(&src, &dst, ser)?))
+                Ok(SerializedFrame::Bytes(crate::serialisation::helpers::embed_in_msg(&src, &dst, ser)?))
             }
             DispatchData::Pooled((chunk, ser_id)) => {
-                Ok(Serialized::Chunk(chunk))
+                Ok(SerializedFrame::Chunk(chunk))
             }
         }
     }

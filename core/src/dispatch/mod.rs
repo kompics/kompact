@@ -119,7 +119,7 @@ impl NetworkDispatcher {
             .expect("Self can hardly be deallocated!");
         let bridge_logger = self.ctx.log().new(o!("owner" => "Bridge"));
         let network_thread_logger = self.ctx.log().new(o!("owner" => "NetworkThread"));
-        let (mut bridge, addr) = net::Bridge::new(self.lookup.clone(), network_thread_logger, bridge_logger, self.cfg.addr.clone());
+        let (mut bridge, addr) = net::Bridge::new(self.lookup.clone(), network_thread_logger, bridge_logger, self.cfg.addr.clone(), dispatcher.clone());
 
         bridge.set_dispatcher(dispatcher.clone());
         bridge.start()?;
@@ -139,8 +139,8 @@ impl NetworkDispatcher {
                     .to_string(),
             ));
         } */
-        //let queue_manager = QueueManager::new();
-        //self.queue_manager = Some(queue_manager);
+        let queue_manager = QueueManager::new();
+        self.queue_manager = Some(queue_manager);
         Ok(())
     }
 
@@ -153,11 +153,9 @@ impl NetworkDispatcher {
     }
 
     fn do_stop(&mut self, _cleanup: bool) -> () {
-        /*
         if let Some(manager) = self.queue_manager.take() {
             manager.stop();
         }
-        */
         if let Some(bridge) = self.net_bridge.take() {
             if let Err(e) = bridge.stop() {
                 error!(
@@ -194,43 +192,50 @@ impl NetworkDispatcher {
     }
 
     fn on_event(&mut self, ev: EventEnvelope) {
+        //println!("Dispatch on_event");
         match ev {
             EventEnvelope::Network(ev) => match ev {
-                _ => {
-                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
-                    debug!(self.ctx().log(), "Received important data!");
-                }
-                /*
-                NetworkEvent::Connection(addr, conn_state) => self.on_conn_state(addr, conn_state),
+                NetworkEvent::Connection(addr, conn_state) => {
+                    //println!("Connection...");
+                    self.on_conn_state(addr, conn_state)
+                },
                 NetworkEvent::Data(_) => {
+                    //println!("Data _");
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
                 }
-                */
+                _ => {
+                    //println!("_ match");
+                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
+                    debug!(self.ctx().log(), "Received important data!");
+                }
             },
         }
     }
-    /*
+
     fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
         use self::ConnectionState::*;
-
+        //println!("on_conn_state for addr {}", &addr);
         match state {
             Connected(ref mut frame_sender) => {
-                debug!(
+                info!(
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
                 );
-
                 if let Some(ref mut qm) = self.queue_manager {
                     if qm.has_frame(&addr) {
                         // Drain as much as possible
                         while let Some(frame) = qm.pop_frame(&addr) {
-                            if let Err(err) = frame_sender.unbounded_send(frame) {
+                            if let Some(bridge) = &self.net_bridge {
+                                //println!("Sending queued frame to newly established connection");
+                                bridge.route(addr, frame);
+                            }
+                            /*if let Err(err) = frame_sender.unbounded_send(frame) {
                                 // TODO the underlying channel has been dropped,
                                 // indicating that the entire connection is, in fact, not Connected
                                 qm.enqueue_frame(err.into_inner(), addr.clone());
                                 break;
-                            }
+                            }*/
                         }
                     }
                 }
@@ -258,7 +263,7 @@ impl NetworkDispatcher {
         }
         self.connections.insert(addr, state);
     }
-    */
+
     /// Forwards `msg` up to a local `dst` actor, if it exists.
     fn route_local(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
         use crate::dispatch::lookup::ActorLookup;
@@ -303,7 +308,7 @@ impl NetworkDispatcher {
             DispatchData::Lazy(serializable) => {}
         }
         */
-        let bytes = {
+        let serialized = {
             let ser_id = msg.ser_id();
             let mut payload = match msg.to_serialised(src, dst) {
                 Ok(p) => p,
@@ -318,24 +323,20 @@ impl NetworkDispatcher {
                 }
             };
             payload
-            //Frame::Data(Data::new(ChunkLease::new(&mut payload, Arc::new(0))))
         };
 
-        if let Some(bridge) = &self.net_bridge {
-            bridge.route(addr, bytes);
-        }
-        /*
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
             ConnectionState::New | ConnectionState::Closed => {
+                //println!("route_remote found New or Closed state");
                 debug!(
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
                 );
                 self.queue_manager
                     .as_mut()
-                    .map(|ref mut q| q.enqueue_frame(frame, addr));
+                    .map(|ref mut q| q.enqueue_frame(serialized, addr));
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
@@ -346,23 +347,24 @@ impl NetworkDispatcher {
                     Some(ConnectionState::Closed)
                 }
             }
-            ConnectionState::Connected(ref mut tx) => {
+            ConnectionState::Connected(_) => {
+                //println!("route_remote found Connected state");
                 if let Some(ref mut qm) = self.queue_manager {
                     if qm.has_frame(&addr) {
-                        qm.enqueue_frame(frame, addr.clone());
-                        qm.try_drain(addr, tx)
+                        qm.enqueue_frame(serialized, addr.clone());
+
+                        if let Some(bridge) = &self.net_bridge {
+                            while let Some(frame) = qm.pop_frame(&addr) {
+                                bridge.route(addr, frame);
+                            }
+                        }
+                        None
                     } else {
                         // Send frame
-                        if let Err(err) = tx.unbounded_send(frame) {
-                            // Unbounded senders report errors only if dropped
-                            let next = Some(ConnectionState::Closed);
-                            // Consume error and retrieve failed Frame
-                            let frame = err.into_inner();
-                            qm.enqueue_frame(frame, addr);
-                            next
-                        } else {
-                            None
+                        if let Some(bridge) = &self.net_bridge {
+                            bridge.route(addr, serialized);
                         }
+                        None
                     }
                 } else {
                     // No queue manager available! Should we even allow this state?
@@ -373,7 +375,7 @@ impl NetworkDispatcher {
                 debug!(self.ctx.log(), "Connection is initializing; queuing frame");
                 self.queue_manager
                     .as_mut()
-                    .map(|ref mut q| q.enqueue_frame(frame, addr));
+                    .map(|ref mut q| q.enqueue_frame(serialized, addr));
                 None
             }
             _ => None,
@@ -382,7 +384,7 @@ impl NetworkDispatcher {
         if let Some(next) = next {
             *state = next;
         }
-        */
+
     }
 
     fn resolve_path(&mut self, resolvable: &PathResolvable) -> ActorPath {
@@ -402,8 +404,13 @@ impl NetworkDispatcher {
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
     fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: DispatchData) {
-        let src_path = self.resolve_path(&src);
-
+        let mut src_path = self.resolve_path(&src);
+        //println!("*** Dispatch route {:?}", dst_path.system().protocol());
+        if src_path.system() == dst_path.system() {
+            //println!("*** dst system == src system");
+            self.route_local(src_path, dst_path, msg);
+            return;
+        }
         let proto = {
             let dst_sys = dst_path.system();
             SystemField::protocol(dst_sys)
@@ -929,7 +936,7 @@ mod dispatch_tests {
         const SER_ID: SerId = Self::SID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<PingMsg, SerError> {
-            println!("deserializing buf with remaining {} bytes", buf.remaining());
+            //println!("deserializing buf with remaining {} bytes", buf.remaining());
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",

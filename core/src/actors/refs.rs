@@ -375,11 +375,9 @@ impl<M: MessageBounds> ActorRef<M> {
     where
         I: Into<M>,
     {
-        println!("Telling actor ref");
         let msg: M = v.into();
         let env = MsgEnvelope::Typed(msg);
         self.enqueue(env);
-        println!("enqueued to actor ref");
     }
 
     /// Helper to create messages that expect a response via a future instead of a message.

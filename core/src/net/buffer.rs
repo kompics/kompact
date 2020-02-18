@@ -172,6 +172,8 @@ impl DecodeBuffer{
         }
     }
 
+    pub fn len(&self) -> usize { self.write_offset - self.read_offset }
+
     pub fn remaining(&self) -> usize {
         self.buffer.len() - self.write_offset
     }
@@ -236,6 +238,15 @@ impl DecodeBuffer{
                                 return Some(data);
                             }
                         },
+                        FrameType::Hello => {
+                            //println!("decoding Hello");
+                            if let Ok(hello) = Hello::decode_from(lease) {
+                                self.next_frame_head = None;
+                                return Some(hello);
+                            } else {
+                                println!("Failed to decode data");
+                            }
+                        },
                         _ => {
                             println!("Weird head");
                         }
@@ -249,6 +260,16 @@ impl DecodeBuffer{
                     let slice = self.buffer.get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
                     self.read_offset += FRAME_HEAD_LEN;
                     if let Ok(head) = FrameHead::decode_from(&mut slice.borrow()) {
+                        if head.content_length() == 0 {
+                            //println!("Content len 0");
+                            match head.frame_type() {
+                                FrameType::Bye => {
+                                    //println!("returning Bye frame");
+                                    return Some(Frame::Bye())
+                                },
+                                _ => {}
+                            }
+                        }
                         self.next_frame_head = Some(head);
                         return self.get_frame();
                     } else {
