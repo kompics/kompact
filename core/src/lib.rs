@@ -158,7 +158,7 @@ pub mod prelude {
         },
         lifecycle::{ControlEvent, ControlPort},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
-        runtime::{KompactConfig, KompactSystem},
+        runtime::{KompactConfig, KompactSystem, SystemHandle},
         Never,
     };
 

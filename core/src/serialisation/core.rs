@@ -12,7 +12,7 @@ pub enum SerError {
 }
 
 impl SerError {
-    /// Create a serialisation error from any kind of error that 
+    /// Create a serialisation error from any kind of error that
     /// implements the [Debug](std::fmt::Debug) trait
     ///
     /// This always produces the [Unknown](SerError::Unknown) variant.
@@ -31,7 +31,7 @@ pub trait Serialiser<T>: Send {
     /// Serialisation ids must be globally unique within a distributed Kompact system.
     fn ser_id(&self) -> SerId;
 
-    /// An indicator how many bytes must be reserved in a buffer for a value to be 
+    /// An indicator how many bytes must be reserved in a buffer for a value to be
     /// serialsed into it with this serialiser
     ///
     /// If the total size is unknown, `None` should be returned.
@@ -59,7 +59,7 @@ pub trait Serialisable: Send + Debug {
     /// Serialisation ids must be globally unique within a *distributed* Kompact system.
     fn ser_id(&self) -> SerId;
 
-    /// An indicator how many bytes must be reserved in a buffer for a value to be 
+    /// An indicator how many bytes must be reserved in a buffer for a value to be
     /// serialsed into it with this serialiser
     ///
     /// If the total size is unknown, `None` should be returned.
@@ -183,7 +183,6 @@ pub trait Deserialiser<T>: Send {
 /// Can be used for serialisers that reuse already allocated memory
 /// as the target, such as protocol buffers.
 pub trait Deserialisable<T> {
-
     /// The serialisation id for which this deserialiser is to be invoked
     fn ser_id(&self) -> SerId;
 
@@ -193,9 +192,7 @@ pub trait Deserialisable<T> {
     fn get_deserialised(self) -> Result<T, SerError>;
 }
 
-
 // These seem all unused
-
 
 // pub trait BoxDeserialisable<T> {
 //     fn boxed_ser_id(&self) -> SerId;

@@ -117,7 +117,6 @@ pub struct NetworkDispatcher {
 }
 
 impl NetworkDispatcher {
-    
     /// Create a new dispatcher with the default configuration
     ///
     /// See also [NetworkConfig](NetworkConfig).
@@ -141,7 +140,7 @@ impl NetworkDispatcher {
 
     /// Create a new dispatcher with the given configuration
     ///
-    /// For better readability in combination with [system_components](KompactConfig::system_components), 
+    /// For better readability in combination with [system_components](KompactConfig::system_components),
     /// use [NetworkConfig::build](NetworkConfig::build) instead.
     pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
@@ -447,8 +446,8 @@ impl NetworkDispatcher {
     }
 
     fn actor_path(&mut self) -> ActorPath {
-        let uuid = self.ctx.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+        let uuid = self.ctx.id().clone();
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid))
     }
 }
 
