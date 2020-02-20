@@ -446,8 +446,8 @@ impl NetworkDispatcher {
     }
 
     fn actor_path(&mut self) -> ActorPath {
-        let uuid = self.ctx.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+        let uuid = self.ctx.id().clone();
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid))
     }
 }
 
