@@ -38,9 +38,6 @@
 
 #![deny(missing_docs)]
 #![allow(unused_parens)]
-#![feature(specialization)]
-#![feature(unsized_locals)]
-#![feature(drain_filter)]
 #![feature(never_type)]
 
 #[cfg(feature = "thread_pinning")]

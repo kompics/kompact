@@ -16,9 +16,10 @@ criterion = {version = "0.3", features=['real_blackbox']}
 
 [dependencies.kompact]
 path = "../../core/"
-# default-features = true
+default-features = false
+#features = ["silent_logging"]
 # features = ["silent_logging", "low_latency"]
-features = ["silent_logging"]
+features = ["silent_logging", "thread_pinning", "ser_id_64"]
 
 [dependencies.datastructures]
 path = "../datastructures"
