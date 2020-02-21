@@ -10,4 +10,6 @@ Early development prototype of a component system like Kompics in the Rust langu
 
 ## Version
 
-Requires Rust `nightly` right now until `unsized_locals` and `specialization` features are stabilised.
+Kompact before `v0.9.0` requires Rust `nightly`.
+
+Since `v0.9.0` Kompact can be built on stable Rust, with a slightly different API.

@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2018"
 
+build = "build.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -12,7 +14,9 @@ fnv = "1.0"
 fxhash = "0.2.1"
 synchronoise = "1.0"
 panoradix = "0.6"
-criterion = {version = "0.3", features=['real_blackbox']}
+criterion = {version = "0.3"}
+# only works on nightly
+#criterion = {version = "0.3", features=["real_blackbox"]}
 
 [dependencies.kompact]
 path = "../../core/"
@@ -25,8 +29,8 @@ features = ["silent_logging", "thread_pinning", "ser_id_64"]
 path = "../datastructures"
 
 
-[dev-dependencies]
-criterion = {version = "0.3", features=['real_blackbox']}
+#[dev-dependencies]
+#criterion = {version = "0.3", features=['real_blackbox']}
 
 [[bench]]
 name = "network_latency"
@@ -47,3 +51,6 @@ harness = false
 name = "loop_opts"
 path = "src/loop_opts.rs"
 harness = false
+
+[build-dependencies]
+rustc_version = "0.2"

@@ -38,7 +38,7 @@
 
 #![deny(missing_docs)]
 #![allow(unused_parens)]
-#![feature(never_type)]
+#![cfg_attr(nightly, feature(never_type))]
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
@@ -94,7 +94,18 @@ mod utils;
 ///
 /// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
 /// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
+#[cfg(nightly)]
 pub type Never = !;
+
+/// A more readable placeholder for a stable Never (`!`) type.
+///
+/// Only nightly this defaults to `!` and will eventually be replaced with that once `never_type` stabilises.
+///
+/// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
+/// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
+#[cfg(not(nightly))]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum Never {}
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
