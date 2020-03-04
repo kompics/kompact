@@ -9,7 +9,6 @@ use crate::{
         Deserialiser,
         SerError,
         SerIdBuf,
-        SerIdBufMut,
         SerIdSize,
         Serialisable,
         Serialiser,
@@ -17,10 +16,11 @@ use crate::{
 };
 use bytes::{Buf, Bytes, BytesMut, BufMut};
 use bytes::buf::BufExt;
-use crate::net::buffer::ChunkLease;
+use crate::net::buffer::{ChunkLease, EncodeBuffer};
 use std::sync::Arc;
 use std::borrow::BorrowMut;
-use crate::net::frames::{FrameHead, FrameType}; //IntoBuf
+use crate::net::frames::{FrameHead, FrameType};
+use crate::serialisation::ser_id::SerIdBufMut; //IntoBuf
 //use bytes::buf::ext::BufExt;
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
@@ -74,8 +74,8 @@ pub fn serialise_to_chunk_msg(
 /// according to the message's size hint.
 /// The message's serialised data is then stored in this buffer.
 pub fn serialise_to_serialised<S>(ser: &S) -> Result<Serialised, SerError>
-where
-    S: Serialisable + ?Sized,
+    where
+        S: Serialisable + ?Sized,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -87,15 +87,16 @@ where
         Err(SerError::Unknown("Unknown serialisation size".into()))
     }
 }
+
 /// Creates a new [Serialised](Serialised) from the provided fields and serialiser `ser`
 ///
 /// It allocates a new [BytesMut](bytes::BytesMut)
 /// according to the message's size hint.
 /// The message's serialised data is then stored in this buffer.
 pub fn serialiser_to_serialised<T, S>(t: &T, ser: &S) -> Result<Serialised, SerError>
-where
-    T: std::fmt::Debug,
-    S: Serialiser<T> + ?Sized,
+    where
+        T: std::fmt::Debug,
+        S: Serialiser<T> + ?Sized,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -149,11 +150,11 @@ pub fn serialise_msg(
 }
 
 /// Serialises the message's data and frame-head into the pre-allocated ChunkLease in `buf`.
-pub fn serialise_into_framed_chunk<B: Serialisable>(
+pub fn serialise_into_framed_buf<B: Serialisable, BM: BufMut + Sized>(
     src: &ActorPath,
     dst: &ActorPath,
     mut msg: B,
-    buf: &mut ChunkLease,
+    buf: &mut BM,
 ) -> Result<(), SerError> {
     let mut size: usize = 0;
     let content_size = msg.size_hint().unwrap_or(0);
@@ -161,7 +162,7 @@ pub fn serialise_into_framed_chunk<B: Serialisable>(
     size += dst.size_hint().unwrap_or(0);
     size += msg.ser_id().size();
     size += content_size;
-    
+
     let head = FrameHead::new(FrameType::Data, size);
     //size += FrameHead::encoded_len();
     // Frame is FrameHead+Src+Dst+SerID+Msg
@@ -169,9 +170,11 @@ pub fn serialise_into_framed_chunk<B: Serialisable>(
     if size == 0 {
         return Err(SerError::InvalidData("Encoded size is zero".into()));
     }
+    /*
     if size > buf.remaining_mut() {
         return Err(SerError::InvalidData("Encoded size is too big for the buffer".into()));
     }
+    */
 
     head.encode_into(buf, size as u32);
     Serialisable::serialise(src, buf)?;

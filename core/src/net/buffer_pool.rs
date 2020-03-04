@@ -6,7 +6,7 @@ use crate::net::buffer::BufferChunk;
 use std::collections::VecDeque;
 
 pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
-const INITIAL_BUFFER_LEN: usize = 5;
+pub const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
 
 pub(crate) struct BufferPool {
@@ -18,13 +18,13 @@ pub(crate) struct BufferPool {
 impl BufferPool {
     pub fn new() -> Self {
         let mut pool = VecDeque::<BufferChunk>::new();
-        let mut returned= VecDeque::<BufferChunk>::new();
+        let mut returned = VecDeque::<BufferChunk>::new();
         let mut pool_size = 0;
         for i in 0..INITIAL_BUFFER_LEN {
             pool_size += 1;
             pool.push_front(Self::new_buffer())
         }
-        BufferPool{
+        BufferPool {
             pool,
             returned,
             pool_size,
@@ -37,7 +37,7 @@ impl BufferPool {
 
     pub fn get_buffer(&mut self) -> Option<BufferChunk> {
         if let Some(new_buffer) = self.pool.pop_front() {
-            return Some(new_buffer)
+            return Some(new_buffer);
         }
         self.try_reclaim()
     }
@@ -54,7 +54,7 @@ impl BufferPool {
             if let Some(mut returned_buffer) = self.returned.pop_front() {
                 if returned_buffer.free() {
                     //println!("Reclaimed a buffer!");
-                    return Some(returned_buffer)
+                    return Some(returned_buffer);
                 } else {
                     //println!("Buffer reclaim attempt failed!");
                     self.returned.push_back(returned_buffer);
@@ -66,10 +66,16 @@ impl BufferPool {
 
     fn increase_pool(&mut self) -> Option<BufferChunk> {
         if self.pool_size >= MAX_POOL_SIZE {
-            return None
+            return None;
         };
         self.pool_size += 1;
         //println!("Increased pool size to {}", self.pool_size);
         Some(Self::new_buffer())
+    }
+
+    // Method for assertions, returns:
+    // (#chunks allocated by the pool, #available chunks, #returned chunks)
+    pub(crate) fn get_pool_sizes(&self) -> (usize, usize, usize) {
+        (self.pool_size, self.pool.len(), self.returned.len())
     }
 }

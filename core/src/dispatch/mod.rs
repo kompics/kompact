@@ -118,7 +118,6 @@ pub struct NetworkDispatcher {
 }
 
 impl NetworkDispatcher {
-    
     /// Create a new dispatcher with the default configuration
     ///
     /// See also [NetworkConfig](NetworkConfig).
@@ -247,7 +246,7 @@ impl NetworkDispatcher {
                 NetworkEvent::Connection(addr, conn_state) => {
                     //println!("Connection...");
                     self.on_conn_state(addr, conn_state)
-                },
+                }
                 NetworkEvent::Data(_) => {
                     //println!("Data _");
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
@@ -363,11 +362,11 @@ impl NetworkDispatcher {
                 Ok(p) => p,
                 Err(e) => {
                     error!(
-                    self.ctx.log(),
-                    "Could not serialise a remote message (ser_id = {}). Dropping. Error was: {:?}",
-                    ser_id,
-                    e
-                );
+                        self.ctx.log(),
+                        "Could not serialise a remote message (ser_id = {}). Dropping. Error was: {:?}",
+                        ser_id,
+                        e
+                    );
                     return;
                 }
             };
@@ -433,7 +432,6 @@ impl NetworkDispatcher {
         if let Some(next) = next {
             *state = next;
         }
-
     }
 
     fn resolve_path(&mut self, resolvable: &PathResolvable) -> ActorPath {
@@ -536,7 +534,7 @@ impl Actor for NetworkDispatcher {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        warn!(self.ctx.log(), "Received network message: {:?}", msg,);
+        warn!(self.ctx.log(), "Received network message: {:?}", msg, );
     }
 }
 
@@ -643,6 +641,7 @@ mod dispatch_tests {
     use bytes::{Buf, BufMut};
     use std::{thread, time::Duration};
     use crate::prelude::Any;
+    use std::borrow::BorrowMut;
 
     #[test]
     #[should_panic(expected = "KompactSystem: Poisoned")]
@@ -910,12 +909,15 @@ mod dispatch_tests {
     }
 
     struct PingPongSer;
+
     impl PingPongSer {
         const SID: SerId = 42;
     }
+
     const PING_PONG_SER: PingPongSer = PingPongSer {};
     const PING_ID: i8 = 1;
     const PONG_ID: i8 = 2;
+
     impl Serialiser<PingMsg> for PingPongSer {
         fn ser_id(&self) -> SerId {
             Self::SID
@@ -987,6 +989,7 @@ mod dispatch_tests {
             Result::Ok(())
         }
     }
+
     impl Deserialiser<PingMsg> for PingPongSer {
         const SER_ID: SerId = Self::SID;
 
@@ -1012,6 +1015,7 @@ mod dispatch_tests {
             }
         }
     }
+
     impl Deserialiser<PongMsg> for PingPongSer {
         const SER_ID: SerId = Self::SID;
 
@@ -1059,9 +1063,9 @@ mod dispatch_tests {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
-                    self.ctx_mut().initialize_pool();
-                    let target = self.target.clone();
-                    target.tell_pooled(PingMsg { i: 0 }, self);
+                    //let target = self.target.clone();
+                    let mut buf = self.ctx.borrow_mut().get_buffer();
+                    self.target.tell_serialised(PingMsg { i: 0 }, self, &mut buf);
                 }
                 _ => (),
             }
@@ -1081,8 +1085,9 @@ mod dispatch_tests {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
-                        let target = self.target.clone();
-                        target.tell_pooled((PingMsg { i: pong.i + 1 }), self);
+                        //let target = self.target.clone();
+                        let mut buf = self.ctx.borrow_mut().get_buffer();
+                        self.target.tell_serialised((PingMsg { i: pong.i + 1 }), self, &mut buf);
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
@@ -1128,8 +1133,9 @@ mod dispatch_tests {
                 ping: PingMsg [PingPongSer] => {
                     info!(self.ctx.log(), "Got msg {:?}", ping);
                     let pong = PongMsg { i: ping.i };
+                    let mut buf = self.ctx.borrow_mut().get_buffer();
                     sender
-                        .tell_pooled(pong, self)
+                        .tell_serialised(pong, self, &mut buf)
                         .expect("PongMsg should serialise");
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),

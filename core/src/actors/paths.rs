@@ -8,11 +8,13 @@ use std::{
     str::FromStr,
 };
 use uuid::Uuid;
-use crate::net::buffer::ChunkLease;
+use crate::net::buffer::{ChunkLease, EncodeBuffer};
 use bytes::{BufMut, BytesMut};
 use crate::net::frames::FrameHead;
 use crate::net::frames;
 use std::borrow::Borrow;
+use std::cell::{RefCell, Ref, RefMut};
+use std::ops::DerefMut;
 
 /// Transport protocol to use for delivering messages
 /// sent to an [ActorPath](ActorPath)
@@ -74,11 +76,13 @@ impl FromStr for Transport {
 /// Error type for parsing the [Transport](Transport) from a string
 #[derive(Clone, Debug)]
 pub struct TransportParseError(());
+
 impl fmt::Display for TransportParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str(&self.to_string())
     }
 }
+
 impl Error for TransportParseError {
     fn description(&self) -> &str {
         "Transport must be one of [local,tcp,udp]"
@@ -95,11 +99,13 @@ pub enum PathParseError {
     /// The network address was invalid
     Addr(AddrParseError),
 }
+
 impl fmt::Display for PathParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str(&self.to_string())
     }
 }
+
 impl Error for PathParseError {
     fn description(&self) -> &str {
         "Path could not be parsed"
@@ -113,11 +119,13 @@ impl Error for PathParseError {
         }
     }
 }
+
 impl From<TransportParseError> for PathParseError {
     fn from(e: TransportParseError) -> PathParseError {
         PathParseError::Transport(e)
     }
 }
+
 impl From<AddrParseError> for PathParseError {
     fn from(e: AddrParseError) -> PathParseError {
         PathParseError::Addr(e)
@@ -224,11 +232,13 @@ pub struct DispatchingPath<'a, 'b> {
     path: &'a ActorPath,
     ctx: &'b dyn Dispatching,
 }
+
 impl<'a, 'b> Dispatching for DispatchingPath<'a, 'b> {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx.dispatcher_ref()
     }
 }
+
 impl<'a, 'b> ActorSource for DispatchingPath<'a, 'b> {
     fn path_resolvable(&self) -> PathResolvable {
         PathResolvable::Path(self.path.clone())
@@ -282,9 +292,9 @@ impl ActorPath {
     /// that `m` will definitely go over the network, you can use
     /// [tell_ser](ActorPath::tell_ser) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
-    where
-        S: ActorSource,
-        B: Into<Box<dyn Serialisable>>,
+        where
+            S: ActorSource,
+            B: Into<Box<dyn Serialisable>>,
     {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
@@ -297,31 +307,50 @@ impl ActorPath {
         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
     }
 
-    /// Same as [tell](ActorPath::tell), but serialises eagerly
-    pub fn tell_ser<S, B, E>(&self, m: B, from: &S) -> Result<(), E>
-    where
-        S: ActorSource,
-        B: TryInto<Serialised, Error = E>,
+    /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
+    pub fn tell_serialised<S, B>(&self, m: B, from: &S, encode_buffer: &mut RefMut<EncodeBuffer>) -> Result<(), SerError>
+        where
+            S: ActorSource,
+            B: Serialisable,
     {
-        let msg: Serialised = m.try_into()?;
+        let mut buf = RefMut::deref_mut(encode_buffer);
+
+        let ser_id = &m.ser_id();
         let src = from.path_resolvable();
         let dst = self.clone();
-        let env = DispatchEnvelope::Msg {
-            src,
-            dst,
-            msg: DispatchData::Eager(msg),
+
+        let src_path = match &src {
+            PathResolvable::Path(actor_path) => {
+                actor_path
+            }
+            _ => {
+                panic!("tell_pooled from non-actor");
+            }
         };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-        Ok(())
+
+        crate::serialisation::ser_helpers::serialise_into_framed_buf(&src_path, &dst, m, &mut buf.deref_mut())?;
+        if let Some(chunk_lease) = buf.deref_mut().get_chunk() {
+            let env = DispatchEnvelope::Msg {
+                src,
+                dst,
+                msg: DispatchData::Pooled((chunk_lease, *ser_id)),
+            };
+            from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+            Ok(())
+        } else {
+            panic!("failed to get buffer!");
+        }
     }
 
+
+    /*
     /// Similar to [tell_ser](ActorPath::tell_ser), but uses a pooled and reusable byte buffer.
     /// The component definition given in `from` must have initialized a pool using [initialize_pool](ComponentContext::initialize_pool)
     /// The pool is garbage-collected on demand when tell_pooled is called and the pool has run out of available buffers.
     pub fn tell_pooled<B, CD>(&self, m: B, from: &mut CD) -> Result<(), SerError>
         where
             B: Serialisable + Sized,
-            //S: ActorSource,
+        //S: ActorSource,
             CD: ComponentDefinition + Sized + 'static,
     {
         //println!("TELL POOLED");
@@ -342,7 +371,6 @@ impl ActorPath {
         let dst = self.clone();
         //println!("checking size hint");
         if let Some(mut size) = m.size_hint() {
-
             size += FrameHead::encoded_len();
             size += src_path.size_hint().unwrap_or(0);
             size += dst.size_hint().unwrap_or(0);
@@ -350,7 +378,7 @@ impl ActorPath {
             //println!("getting buffer");
             if let Some(mut buf) = from.ctx_mut().get_buffer(size) {
                 //println!("serializing into chunk");
-                crate::serialisation::ser_helpers::serialise_into_framed_chunk(&src_path, &dst, m, &mut buf);
+                crate::serialisation::ser_helpers::serialise_into_framed_buf(&src_path, &dst, m, &mut buf);
                 let env = DispatchEnvelope::Msg {
                     src: from.path_resolvable(),
                     dst,
@@ -367,6 +395,8 @@ impl ActorPath {
             panic!("no size hint");
         }
     }
+    */
+
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
     /// and something that can [dispatch](Dispatching) stuff
@@ -669,10 +699,8 @@ impl FromStr for NamedPath {
 //         PathResolvable::Path(self.path.clone())
 //     }
 // }
-
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     const PATH: &'static str = "local://127.0.0.1:0/test_actor";
@@ -687,6 +715,7 @@ mod tests {
         let ap2: ActorPath = s.parse().expect("a proper path");
         assert_eq!(ap, ap2);
     }
+
     #[test]
     fn actor_path_unique_strings() {
         let ref1 = ActorPath::Unique(UniquePath::new(
@@ -702,6 +731,7 @@ mod tests {
         assert_eq!(ref1, ref1_deser);
         assert_eq!(ref1, ref1_deser2);
     }
+
     #[test]
     fn actor_path_named_strings() {
         let ref1 = ActorPath::Named(NamedPath::new(
