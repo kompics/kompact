@@ -1,32 +1,71 @@
-use bytes::{BytesMut, BufMut, Buf, Bytes};
-use iovec::IoVec;
-use crate::net::frames::*;
-use crate::net::frames;
-use std::collections::VecDeque;
-use std::pin::Pin;
-use std::ops::{DerefMut, Deref};
-use std::sync::Arc;
-use std::borrow::Borrow;
-use std::mem::MaybeUninit;
-use crate::net::buffer_pool::BufferPool;
+use crate::net::{buffer_pool::BufferPool, frames, frames::*};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::mem;
+use iovec::IoVec;
+use std::{
+    borrow::Borrow,
+    collections::VecDeque,
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    sync::Arc,
+};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = 655355; // Idk what's a good number here: To be determined later
 
+/// Required methods for a Chunk
+pub trait Chunk: Send {
+    /// Returns a mutable pointer to the underlying buffer
+    fn as_mut_ptr(&mut self) -> *mut u8;
+    /// Returns the length of the chunk
+    fn len(&self) -> usize;
+}
+
+/// A Default Kompact Chunk
+pub(crate) struct DefaultChunk {
+    chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
+}
+impl DefaultChunk {
+    pub fn new() -> DefaultChunk {
+        let mut slice = ([0u8; BUFFER_SIZE]);
+        DefaultChunk {
+            chunk: Pin::new(Box::new(slice)),
+        }
+    }
+}
+
+impl Chunk for DefaultChunk {
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.chunk.as_mut_ptr()
+    }
+
+    fn len(&self) -> usize {
+        self.chunk.len()
+    }
+}
+
 /// BufferChunk is a lockable pinned byte-slice
 pub struct BufferChunk {
-    chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
+    chunk: Box<dyn Chunk>,
     ref_count: Arc<u8>,
     locked: bool,
 }
 
 impl BufferChunk {
-    /// Allocate a new unlocked BufferChunk
+    /// Allocate a new Default BufferChunk
     pub fn new() -> Self {
-        let mut slice = ([0u8; BUFFER_SIZE]);
         BufferChunk {
-            chunk: Pin::new(Box::new(slice)),
+            chunk: Box::new(DefaultChunk::new()),
+            ref_count: Arc::new(0),
+            locked: false,
+        }
+    }
+
+    /// Creates a BufferChunk using the given Chunk
+    pub fn from_chunk(chunk: Box<dyn Chunk>) -> Self {
+        BufferChunk {
+            chunk,
             ref_count: Arc::new(0),
             locked: false,
         }
@@ -42,15 +81,16 @@ impl BufferChunk {
         assert!(from < to && to <= self.len() && !self.locked);
         let ptr = self.chunk.as_mut_ptr();
         let offset_ptr = ptr.offset(from as isize);
-        std::slice::from_raw_parts_mut(offset_ptr, to-from)
+        std::slice::from_raw_parts_mut(offset_ptr, to - from)
     }
 
     /// Swaps the pointers of the two buffers such that they effectively switch place
     pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
-        std::mem::swap(self.get_chunk_mut(),  other.get_chunk_mut());
+        std::mem::swap(self.get_chunk_mut(), other.get_chunk_mut());
         std::mem::swap(self.get_lock_mut(), other.get_lock_mut());
     }
-/*
+
+    /*
     pub fn get_bytes(&mut self, from: usize, to: usize) -> Bytes {
         let slice = unsafe {
             self.get_slice(from, to)
@@ -64,17 +104,13 @@ impl BufferChunk {
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
     /// the returned lease is a consumable Buf.
     pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease {
-        unsafe {
-            ChunkLease::new(self.get_slice(from, to), self.get_lock())
-        }
+        unsafe { ChunkLease::new(self.get_slice(from, to), self.get_lock()) }
     }
 
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
     /// the returned lease is a writable BufMut.
     pub fn get_free_lease(&mut self, from: usize, to: usize) -> ChunkLease {
-        unsafe {
-            ChunkLease::new_unused(self.get_slice(from, to), self.get_lock())
-        }
+        unsafe { ChunkLease::new_unused(self.get_slice(from, to), self.get_lock()) }
     }
 
     /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated
@@ -83,7 +119,7 @@ impl BufferChunk {
     }
 
     /// Returns a mutable pointer to the full underlying byte-slice.
-    pub fn get_chunk_mut(&mut self) -> &mut Pin<Box<[u8; BUFFER_SIZE]>> {
+    pub fn get_chunk_mut(&mut self) -> &mut Box<dyn Chunk> {
         &mut self.chunk
     }
 
@@ -124,7 +160,7 @@ impl EncodeBuffer {
     pub fn new() -> Self {
         let mut buffer_pool = BufferPool::new();
         if let Some(mut buffer) = buffer_pool.get_buffer() {
-            EncodeBuffer{
+            EncodeBuffer {
                 buffer,
                 buffer_pool,
                 write_offset: 0,
@@ -138,13 +174,16 @@ impl EncodeBuffer {
     pub fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
         if self.remaining() > size {
             self.write_offset += size;
-            return Some(self.buffer.get_free_lease(self.write_offset-size, self.write_offset))
+            return Some(
+                self.buffer
+                    .get_free_lease(self.write_offset - size, self.write_offset),
+            );
         } else {
             if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
                 self.buffer.swap_buffer(&mut new_buffer);
                 self.buffer_pool.return_buffer(new_buffer);
                 self.write_offset = size;
-                return Some(self.buffer.get_free_lease(0, size))
+                return Some(self.buffer.get_free_lease(0, size));
             }
         }
         None
@@ -165,10 +204,10 @@ pub struct DecodeBuffer {
     next_frame_head: Option<FrameHead>,
 }
 
-impl DecodeBuffer{
+impl DecodeBuffer {
     /// Creates a new DecodeBuffer from th given BufferChunk.
     pub fn new(buffer: BufferChunk) -> Self {
-        DecodeBuffer{
+        DecodeBuffer {
             buffer,
             write_offset: 0,
             read_offset: 0,
@@ -180,15 +219,21 @@ impl DecodeBuffer{
     /// If something is written to the slice the advance writeable must be called after
     pub fn get_writeable(&mut self) -> Option<&mut IoVec> {
         if self.buffer.len() - self.write_offset < 128 {
-            return None
+            return None;
         }
         unsafe {
-            Some(self.buffer.get_slice(self.write_offset, self.buffer.len()).into())
+            Some(
+                self.buffer
+                    .get_slice(self.write_offset, self.buffer.len())
+                    .into(),
+            )
         }
     }
 
     /// Returns the length of the read-portion of the buffer
-    pub fn len(&self) -> usize { self.write_offset - self.read_offset }
+    pub fn len(&self) -> usize {
+        self.write_offset - self.read_offset
+    }
 
     /// Returns the length of the write-portion of the buffer
     pub fn remaining(&self) -> usize {
@@ -208,7 +253,7 @@ impl DecodeBuffer{
     /// Get the first 24 bytes of the DecodeBuffer, used for testing/debugging
     pub fn get_buffer_head(&mut self) -> &mut [u8] {
         unsafe {
-            return self.buffer.get_slice(0,24);
+            return self.buffer.get_slice(0, 24);
         }
     }
 
@@ -220,7 +265,9 @@ impl DecodeBuffer{
             // We need to copy the bits from self.inner to other.inner before swapping
             let overflow_len = self.write_offset - self.read_offset;
             unsafe {
-                other.get_slice(0, overflow_len).clone_from_slice(self.buffer.get_slice(self.read_offset, self.write_offset));
+                other
+                    .get_slice(0, overflow_len)
+                    .clone_from_slice(self.buffer.get_slice(self.read_offset, self.write_offset));
             }
             self.write_offset = overflow_len;
             self.read_offset = 0;
@@ -233,14 +280,15 @@ impl DecodeBuffer{
         other.lock();
     }
 
-
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Option<Frame> {
-        let readable_len = (self.write_offset-self.read_offset) as usize;
+        let readable_len = (self.write_offset - self.read_offset) as usize;
         if let Some(head) = &self.next_frame_head {
             if readable_len >= head.content_length() {
                 unsafe {
-                    let mut lease = self.buffer.get_lease(self.read_offset, self.read_offset+head.content_length());
+                    let mut lease = self
+                        .buffer
+                        .get_lease(self.read_offset, self.read_offset + head.content_length());
                     self.read_offset += head.content_length();
                     match head.frame_type() {
                         FrameType::Data => {
@@ -250,13 +298,13 @@ impl DecodeBuffer{
                             } else {
                                 println!("Failed to decode data");
                             }
-                        },
+                        }
                         FrameType::StreamRequest => {
                             if let Ok(data) = StreamRequest::decode_from(lease) {
                                 self.next_frame_head = None;
                                 return Some(data);
                             }
-                        },
+                        }
                         FrameType::Hello => {
                             //println!("decoding Hello");
                             if let Ok(hello) = Hello::decode_from(lease) {
@@ -265,18 +313,19 @@ impl DecodeBuffer{
                             } else {
                                 println!("Failed to decode data");
                             }
-                        },
+                        }
                         _ => {
                             println!("Weird head");
                         }
                     }
                 }
             }
-        }
-        else {
+        } else {
             if readable_len >= FRAME_HEAD_LEN {
                 unsafe {
-                    let slice = self.buffer.get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
+                    let slice = self
+                        .buffer
+                        .get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
                     self.read_offset += FRAME_HEAD_LEN;
                     if let Ok(head) = FrameHead::decode_from(&mut slice.borrow()) {
                         if head.content_length() == 0 {
@@ -284,8 +333,8 @@ impl DecodeBuffer{
                             match head.frame_type() {
                                 FrameType::Bye => {
                                     //println!("returning Bye frame");
-                                    return Some(Frame::Bye())
-                                },
+                                    return Some(Frame::Bye());
+                                }
                                 _ => {}
                             }
                         }
@@ -293,7 +342,10 @@ impl DecodeBuffer{
                         return self.get_frame();
                     } else {
                         // We are lost in the buffer, this is very bad
-                        println!("Buffer split-off but not starting at a FrameHead: {:?}", &slice);
+                        println!(
+                            "Buffer split-off but not starting at a FrameHead: {:?}",
+                            &slice
+                        );
                     }
                 }
             }
@@ -318,7 +370,7 @@ impl ChunkLease {
     pub fn new(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
         let capacity = content.len();
         let written = content.len();
-        ChunkLease{
+        ChunkLease {
             content,
             written,
             capacity,
@@ -330,7 +382,7 @@ impl ChunkLease {
     /// Creates a new ChunkLease with available space and a `lock`
     pub fn new_unused(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
         let capacity = content.len();
-        ChunkLease{
+        ChunkLease {
             content,
             written: 0,
             capacity,
@@ -344,7 +396,7 @@ impl ChunkLease {
         static mut slice: [u8; 1] = [0];
         unsafe {
             let pointer: &'static mut [u8] = &mut slice;
-            ChunkLease{
+            ChunkLease {
                 read: 0,
                 content: pointer,
                 written: 0,
@@ -357,7 +409,7 @@ impl ChunkLease {
 
 impl Buf for ChunkLease {
     fn remaining(&self) -> usize {
-        self.capacity-self.read
+        self.capacity - self.read
     }
 
     fn bytes(&self) -> &[u8] {
@@ -365,7 +417,7 @@ impl Buf for ChunkLease {
         let ptr = self.content.as_ptr();
         unsafe {
             let offset_ptr = ptr.offset(self.read as isize);
-            return std::slice::from_raw_parts(offset_ptr, self.capacity-self.read);
+            return std::slice::from_raw_parts(offset_ptr, self.capacity - self.read);
         }
     }
 
@@ -389,7 +441,10 @@ impl BufMut for ChunkLease {
         let ptr = self.content.as_mut_ptr();
         unsafe {
             let offset_ptr = ptr.offset(self.written as isize);
-             return mem::transmute( std::slice::from_raw_parts_mut(offset_ptr, self.capacity-self.written));
+            return mem::transmute(std::slice::from_raw_parts_mut(
+                offset_ptr,
+                self.capacity - self.written,
+            ));
         }
         //unsafe { mem::transmute(&mut *&(self.content).offset(self.written as isize)) }
     }
