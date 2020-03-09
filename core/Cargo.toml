@@ -1,7 +1,8 @@
 [package]
 name = "kompact"
-version = "0.9.0"
-authors = ["Lars Kroll <lkroll@kth.se>", "Johan Mickos <johanmi@kth.se>", "Max Meldrum <mmeldrum@kth.se>"]
+version = "0.10.0"
+authors = ["Lars Kroll <lkroll@kth.se>", "Johan Mickos <johanmi@kth.se>", "Max Meldrum <mmeldrum@kth.se>",
+    "Adam Hasselberg<adamhas@kth.se>"]
 edition = "2018"
 
 description = "Kompact is a Rust implementation of the Kompics component model combined with the Actor model."
