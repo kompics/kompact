@@ -156,8 +156,8 @@ impl Bridge {
         dispatcher_ref: DispatcherRef,
     ) -> (Self, SocketAddr) {
         let (registration, network_thread_registration) = Registration::new2();
-        let (sender, receiver ) = channel();
-        let (network_thread_sender, network_thread_receiver ) = channel();
+        let (sender, receiver) = channel();
+        let (network_thread_sender, network_thread_receiver) = channel();
         let mut network_thread = NetworkThread::new(
             network_thread_log,
             addr,
@@ -174,7 +174,7 @@ impl Bridge {
             log: bridge_log,
             lookup,
             //network_thread: Box::new(network_thread),
-            network_input_queue:sender,
+            network_input_queue: sender,
             network_thread_registration,
             dispatcher: Some(dispatcher_ref),
             bound_addr: Some(bound_addr.clone()),
@@ -243,7 +243,7 @@ impl Bridge {
                 let size = FrameHead::encoded_len() + bytes.len();
                 let mut buf = BytesMut::with_capacity(size);
                 let head = FrameHead::new(FrameType::Data, bytes.len());
-                head.encode_into(&mut buf, bytes.len() as u32);
+                head.encode_into(&mut buf);
                 buf.put_slice(bytes.bytes());
                 self.network_input_queue.send(events::DispatchEvent::Send(addr, SerializedFrame::Bytes(buf.freeze())));
             }

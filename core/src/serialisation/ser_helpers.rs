@@ -176,7 +176,7 @@ pub fn serialise_into_framed_buf<B: Serialisable, BM: BufMut + Sized>(
     }
     */
 
-    head.encode_into(buf, size as u32);
+    head.encode_into(buf);
     Serialisable::serialise(src, buf)?;
     Serialisable::serialise(dst, buf)?;
     buf.put_ser_id(msg.ser_id());

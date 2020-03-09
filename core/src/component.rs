@@ -693,11 +693,11 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
 
     /// Get a reference to the interior EncodeBuffer without retaining a self borrow
     /// initializes the private pool if it has not already been initialized
-    pub fn get_buffer(&mut self) -> RefMut<EncodeBuffer> {
+    pub fn get_buffer(&self) -> &RefCell<EncodeBuffer> {
         //self.inner_mut().get_buffer(size)
         {
-            if let Some(buffer) = &self.inner_mut().buffer {
-                return buffer.borrow_mut();
+            if let Some(buffer) = &self.inner_ref().buffer {
+                return buffer;
             }
         }
         panic!("Failure");

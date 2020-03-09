@@ -14,6 +14,7 @@ use crate::serialisation::serialisation_ids::{ACTOR_PATH, SYSTEM_PATH};
 use crate::serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser};
 use crate::actors::SystemPath;
 use crate::serialisation;
+
 //use stream::StreamId;
 /// Used to identify start of a frame head
 pub const MAGIC_NUM: u32 = 0xC0A1BA11;
@@ -85,7 +86,7 @@ impl Frame {
     /// Encode a frame into a BufMut
     pub fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         let head = FrameHead::new(self.frame_type(), self.encoded_len());
-        head.encode_into(dst, self.encoded_len() as u32);
+        head.encode_into(dst);
         match *self {
             Frame::StreamRequest(ref frame) => frame.encode_into(dst),
             Frame::CreditUpdate(ref frame) => frame.encode_into(dst),
@@ -191,12 +192,12 @@ impl FrameHead {
 
     // Encodes own fields and entire frame length into `dst`.
     // This conforms to the length_delimited decoder found in the framed writer
-    pub(crate) fn encode_into<B: BufMut>(&self, dst: &mut B, content_len: u32) {
+    pub(crate) fn encode_into<B: BufMut>(&self, dst: &mut B) {
         assert!(dst.remaining_mut() >= FRAME_HEAD_LEN as usize);
         // Represents total length, including bytes for encoding length
         // NOTE: This is not needed, and thus commented out, if length_delimited is also used for writing (as in the kompcis code)
         dst.put_u32(MAGIC_NUM);
-        dst.put_u32(content_len);
+        dst.put_u32(self.content_length as u32);
         dst.put_u8(self.frame_type as u8);
     }
 
@@ -266,10 +267,10 @@ impl Data {
     pub(crate) fn encoded_len(&self) -> usize {
         self.payload.bytes().len()
     }
-/*
-    pub fn payload_ref(&self) -> &Bytes {
-        &self.payload
-    }*/
+    /*
+        pub fn payload_ref(&self) -> &Bytes {
+            &self.payload
+        }*/
 
     /// Consumes this frame and returns the raw payload buffer
     pub(crate) fn payload(self) -> ChunkLease {

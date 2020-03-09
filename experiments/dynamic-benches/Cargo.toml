@@ -27,10 +27,10 @@ path = "../datastructures"
 [dev-dependencies]
 criterion = {version = "0.3", features=['real_blackbox']}
 
-#[[bench]]
-#name = "network_latency"
-#path = "src/network_latency.rs"
-#harness = false
+[[bench]]
+name = "network_latency"
+path = "src/network_latency.rs"
+harness = false
 
 [[bench]]
 name = "hashes"

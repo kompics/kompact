@@ -198,6 +198,12 @@ impl EncodeBuffer {
             panic!("Trying to swap buffer but no free buffers found in the pool!")
         }
     }
+
+    /// This method advances the write_offset by cnt
+    /// Used to reserve space for FrameHeads, enables us to serialize without knowing the size beforehand
+    pub(crate) fn pad(&mut self, cnt: usize) {
+        self.write_offset += cnt;
+    }
 }
 
 
@@ -479,6 +485,19 @@ impl ChunkLease {
                 lock: Arc::new(0),
             }
         }
+    }
+
+    /// This inserts a FrameHead at the head of the Chunklease, the ChunkLease should be padded manually
+    /// before this method is invoked, i.e. it does not create space for the head on its own.
+    pub(crate) fn insert_head(&mut self, head: FrameHead) {
+        // Store the write pointer
+        let written = self.written;
+        // Move write-pointer to the front of the buffer:
+        self.written = 0;
+        // Encode the into self
+        head.encode_into(self);
+        // Restore write-pointer
+        self.written = written;
     }
 }
 

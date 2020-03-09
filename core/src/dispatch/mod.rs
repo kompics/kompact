@@ -556,6 +556,7 @@ impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Start => {
+                self.ctx_mut().initialize_pool();
                 info!(self.ctx.log(), "Starting network...");
                 let res = self.start(); //.expect("Could not create NetworkDispatcher!");
                 match res {
@@ -1062,10 +1063,11 @@ mod dispatch_tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
                     //let target = self.target.clone();
-                    let mut buf = self.ctx.borrow_mut().get_buffer();
-                    self.target.tell_serialised(PingMsg { i: 0 }, self, &mut buf);
+                    //let mut buf = self.ctx.inner_ref().
+                    self.target.tell_serialised(PingMsg { i: 0 }, self);
                 }
                 _ => (),
             }
@@ -1086,8 +1088,8 @@ mod dispatch_tests {
                     self.count += 1;
                     if self.count < PING_COUNT {
                         //let target = self.target.clone();
-                        let mut buf = self.ctx.borrow_mut().get_buffer();
-                        self.target.tell_serialised((PingMsg { i: pong.i + 1 }), self, &mut buf);
+                        //let buf = ;
+                        self.target.tell_serialised((PingMsg { i: pong.i + 1 }), self);
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
@@ -1131,11 +1133,11 @@ mod dispatch_tests {
             let sender = msg.sender().clone();
             match_deser! {msg; {
                 ping: PingMsg [PingPongSer] => {
-                    info!(self.ctx.log(), "Got msg {:?}", ping);
+                    info!(self.ctx.log(), "Got msg {:?} from {:?}", ping, sender);
                     let pong = PongMsg { i: ping.i };
-                    let mut buf = self.ctx.borrow_mut().get_buffer();
+                    //let mut buf = self.ctx.borrow_mut().get_buffer();
                     sender
-                        .tell_serialised(pong, self, &mut buf)
+                        .tell_serialised(pong, self)
                         .expect("PongMsg should serialise");
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),

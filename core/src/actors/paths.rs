@@ -9,8 +9,8 @@ use std::{
 };
 use uuid::Uuid;
 use crate::net::buffer::{ChunkLease, EncodeBuffer};
-use bytes::{BufMut, BytesMut};
-use crate::net::frames::FrameHead;
+use bytes::{BufMut, BytesMut, Buf};
+use crate::net::frames::{FrameHead, FRAME_HEAD_LEN, FrameType};
 use crate::net::frames;
 use std::borrow::Borrow;
 use std::cell::{RefCell, Ref, RefMut};
@@ -308,32 +308,35 @@ impl ActorPath {
     }
 
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
-    pub fn tell_serialised<S, B>(&self, m: B, from: &S, encode_buffer: &mut RefMut<EncodeBuffer>) -> Result<(), SerError>
+    pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
         where
-            S: ActorSource,
-            B: Serialisable,
+            CD: ComponentDefinition + Sized + 'static,
+            B: Serialisable + 'static,
     {
-        let mut buf = RefMut::deref_mut(encode_buffer);
+        if self.protocol() == Transport::LOCAL {
+            // No need to serialize!
+            self.tell(m, from);
+            return Ok(());
+        }
+        //let mut buf = encode_buffer.deref_mut();
+        let mut buf_ref = from.ctx().get_buffer().borrow_mut();
+        let buf = buf_ref.deref_mut();
+        // Reserve space for the header:
+        buf.pad(FRAME_HEAD_LEN as usize);
 
-        let ser_id = &m.ser_id();
-        let src = from.path_resolvable();
-        let dst = self.clone();
+        from.actor_path().serialise(buf); // src
+        self.clone().serialise(buf); // dst
+        buf.put_ser_id(m.ser_id()); // ser_id
+        Serialisable::serialise(&m, buf); // data
 
-        let src_path = match &src {
-            PathResolvable::Path(actor_path) => {
-                actor_path
-            }
-            _ => {
-                panic!("tell_pooled from non-actor");
-            }
-        };
-
-        crate::serialisation::ser_helpers::serialise_into_framed_buf(&src_path, &dst, m, &mut buf.deref_mut())?;
-        if let Some(chunk_lease) = buf.deref_mut().get_chunk() {
+        if let Some(mut chunk_lease) = buf.get_chunk() {
+            // The length which a FrameHead tells does not include the size of the FrameHead itself
+            let len = chunk_lease.remaining() - FRAME_HEAD_LEN as usize;
+            chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
             let env = DispatchEnvelope::Msg {
-                src,
-                dst,
-                msg: DispatchData::Pooled((chunk_lease, *ser_id)),
+                src: from.path_resolvable(),
+                dst: self.clone(),
+                msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
             };
             from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
             Ok(())
