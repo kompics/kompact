@@ -390,7 +390,7 @@ where
 {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut CD, Uuid) + Send + 'static,
+        F: FnOnce(&mut CD, ScheduledTimer) + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -405,7 +405,7 @@ where
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut CD, Uuid) + Send + 'static,
+        F: Fn(&mut CD, ScheduledTimer) + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();

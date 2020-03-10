@@ -28,7 +28,7 @@ We will also use message based communicaton for the work assignments for the ind
 
 ## Events
 
-We will use Kompics-style communication for the results going from the workers to the manager. However, these are of the same type as the final result; a `u64` wrapped in a `WorkResult`. So all we have to do is add `std::clone::Clone` trait, which is required for events.
+We will use Kompics-style communication for the results going from the workers to the manager. However, these are of the same type as the final result; a `u64` wrapped in a `WorkResult`. So all we have to do is add the `std::clone::Clone` trait, which is required for events.
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../../examples/src/bin/workers.rs:67:68}}

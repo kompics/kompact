@@ -5,6 +5,7 @@ authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2018"
 
 [dependencies]
+
 [dependencies.kompact]
 path = "../../core/"
 default-features = true
