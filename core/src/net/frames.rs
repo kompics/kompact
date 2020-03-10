@@ -1,19 +1,13 @@
 //! Frames are the core of the message transport layer, allowing applications to build
 //! custom protocols atop this library.
 
-use bytes::{Buf, BytesMut};
-use bytes::BufMut;
-use bytes::Bytes;
+use bytes::{Buf, BufMut};
+
 //use bytes::IntoBuf;
-use std;
-use std::fmt::Debug;
-use std::sync::Arc;
-use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr, IpAddr, Ipv6Addr};
+use std::{self, fmt::Debug};
+
 use crate::net::buffer::ChunkLease;
-use crate::serialisation::serialisation_ids::{ACTOR_PATH, SYSTEM_PATH};
-use crate::serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser};
-use crate::actors::SystemPath;
-use crate::serialisation;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 //use stream::StreamId;
 /// Used to identify start of a frame head
@@ -72,6 +66,7 @@ impl Frame {
             Frame::Bye() => FrameType::Bye,
         }
     }
+
     /*
     pub fn decode_from(buf: &mut ChunkLease<Bytes>) -> Result<Self, FramingError> {
         //let mut buf = buf.into_buf();
@@ -137,7 +132,6 @@ pub struct Data {
     pub payload: ChunkLease,
 }
 
-
 /// Hello, used to initiate network channels
 #[derive(Debug)]
 pub struct Hello {
@@ -187,7 +181,10 @@ pub(crate) struct FrameHead {
 
 impl FrameHead {
     pub(crate) fn new(frame_type: FrameType, content_length: usize) -> Self {
-        FrameHead { frame_type, content_length }
+        FrameHead {
+            frame_type,
+            content_length,
+        }
     }
 
     // Encodes own fields and entire frame length into `dst`.
@@ -219,7 +216,10 @@ impl FrameHead {
         Ok(head)
     }
 
-    pub(crate) fn content_length(&self) -> usize { self.content_length }
+    pub(crate) fn content_length(&self) -> usize {
+        self.content_length
+    }
+
     pub(crate) fn frame_type(&self) -> FrameType {
         self.frame_type
     }
@@ -231,19 +231,16 @@ impl FrameHead {
 
 impl StreamRequest {
     pub(crate) fn new(credit_capacity: u32) -> Self {
-        StreamRequest {
-            credit_capacity,
-        }
+        StreamRequest { credit_capacity }
     }
 }
 
 impl Hello {
     /// Create a new hello message
     pub fn new(addr: SocketAddr) -> Self {
-        Hello {
-            addr,
-        }
+        Hello { addr }
     }
+
     /// Get the address sent in the Hello message
     pub fn addr(&self) -> SocketAddr {
         self.addr
@@ -253,9 +250,7 @@ impl Hello {
 impl Data {
     /// Create a new data frame
     pub fn new(payload: ChunkLease) -> Self {
-        Data {
-            payload,
-        }
+        Data { payload }
     }
 
     /*
@@ -267,10 +262,11 @@ impl Data {
     pub(crate) fn encoded_len(&self) -> usize {
         self.payload.bytes().len()
     }
+
     /*
-        pub fn payload_ref(&self) -> &Bytes {
-            &self.payload
-        }*/
+    pub fn payload_ref(&self) -> &Bytes {
+        &self.payload
+    }*/
 
     /// Consumes this frame and returns the raw payload buffer
     pub(crate) fn payload(self) -> ChunkLease {
@@ -284,15 +280,13 @@ impl FrameExt for Data {
             return Err(FramingError::InvalidFrame);
         } */
         //let payload: Bytes = src.to_bytes();
-        let data_frame = Data {
-            payload,
-        };
+        let data_frame = Data { payload };
         Ok(Frame::Data(data_frame))
     }
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         // NOTE: This method _COPIES_ the owned bytes into `dst` rather than extending with the owned bytes
-        let payload_len = self.payload.bytes().len();
+        let _payload_len = self.payload.bytes().len();
         assert!(dst.remaining_mut() >= (self.encoded_len()));
         dst.put_slice(&self.payload.bytes());
         Ok(())
@@ -368,10 +362,10 @@ impl FrameExt for Hello {
 
     fn encoded_len(&self) -> usize {
         match self.addr {
-            SocketAddr::V4(v4) => {
+            SocketAddr::V4(_v4) => {
                 1 + 4 + 2 // version + ip + port
             }
-            SocketAddr::V6(v6) => {
+            SocketAddr::V6(_v6) => {
                 1 + 16 + 2 // version + ip + port
             }
         }
@@ -379,11 +373,11 @@ impl FrameExt for Hello {
 }
 
 impl FrameExt for CreditUpdate {
-    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
+    fn decode_from(_src: ChunkLease) -> Result<Frame, FramingError> {
         unimplemented!()
     }
 
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+    fn encode_into<B: BufMut>(&self, _dst: &mut B) -> Result<(), ()> {
         unimplemented!()
     }
 

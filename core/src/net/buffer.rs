@@ -1,6 +1,6 @@
 use crate::net::{buffer_pool::BufferPool, frames, frames::*};
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-use core::{mem, cmp, ptr};
+use bytes::{Buf, BufMut};
+use core::{cmp, mem, ptr};
 use iovec::IoVec;
 use std::{
     borrow::Borrow,
@@ -31,7 +31,7 @@ pub(crate) struct DefaultChunk {
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
-        let mut slice = ([0u8; BUFFER_SIZE]);
+        let slice = ([0u8; BUFFER_SIZE]);
         DefaultChunk {
             chunk: Pin::new(Box::new(slice)),
         }
@@ -158,7 +158,7 @@ impl EncodeBuffer {
     /// Creates a new EncodeBuffer, allocates a new BufferPool.
     pub fn new() -> Self {
         let mut buffer_pool = BufferPool::new();
-        if let Some(mut buffer) = buffer_pool.get_buffer() {
+        if let Some(buffer) = buffer_pool.get_buffer() {
             EncodeBuffer {
                 buffer,
                 buffer_pool,
@@ -174,7 +174,10 @@ impl EncodeBuffer {
     pub fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
         if self.remaining() > size {
             self.write_offset += size;
-            return Some(self.buffer.get_free_lease(self.write_offset - size, self.write_offset));
+            return Some(
+                self.buffer
+                    .get_free_lease(self.write_offset - size, self.write_offset),
+            );
         } else {
             if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
                 self.buffer.swap_buffer(&mut new_buffer);
@@ -185,13 +188,16 @@ impl EncodeBuffer {
         }
         None
     }
+
     /// Extracts the bytes between the read-pointer and the write-pointer and advances the read-pointer
     /// Ensures there's a minimum of ENCODEBUFFER_MIN_REMAINING left in the current buffer
     pub fn get_chunk(&mut self) -> Option<ChunkLease> {
         let cnt = self.write_offset - self.read_offset;
         if cnt > 0 {
             self.read_offset += cnt;
-            let lease = self.buffer.get_lease(self.write_offset - cnt, self.write_offset);
+            let lease = self
+                .buffer
+                .get_lease(self.write_offset - cnt, self.write_offset);
 
             if self.remaining() < ENCODEBUFFER_MIN_REMAINING {
                 self.swap_buffer();
@@ -216,7 +222,7 @@ impl EncodeBuffer {
             self.read_offset = 0;
             if let Some(chunk) = overflow {
                 self.put_slice(chunk.content);
-                //self.write_offset = chunk.remaining();
+            //self.write_offset = chunk.remaining();
             } else {
                 self.write_offset = 0;
             }
@@ -233,7 +239,6 @@ impl EncodeBuffer {
         self.write_offset += cnt;
     }
 }
-
 
 impl BufMut for EncodeBuffer {
     fn remaining_mut(&self) -> usize {
@@ -252,12 +257,18 @@ impl BufMut for EncodeBuffer {
         let ptr = self.buffer.chunk.as_mut_ptr();
         unsafe {
             let offset_ptr = ptr.offset(self.write_offset as isize);
-            return mem::transmute(std::slice::from_raw_parts_mut(offset_ptr, self.buffer.chunk.len() - self.write_offset));
+            return mem::transmute(std::slice::from_raw_parts_mut(
+                offset_ptr,
+                self.buffer.chunk.len() - self.write_offset,
+            ));
         }
         //unsafe { mem::transmute(&mut *&(self.content).offset(self.written as isize)) }
     }
 
-    fn put<T: super::Buf>(&mut self, mut src: T) where Self: Sized {
+    fn put<T: super::Buf>(&mut self, mut src: T)
+    where
+        Self: Sized,
+    {
         assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
 
         if self.remaining_mut() < src.remaining() {
@@ -275,14 +286,13 @@ impl BufMut for EncodeBuffer {
                 let d = self.bytes_mut();
                 l = cmp::min(s.len(), d.len());
 
-                ptr::copy_nonoverlapping(
-                    s.as_ptr(),
-                    d.as_mut_ptr() as *mut u8,
-                    l);
+                ptr::copy_nonoverlapping(s.as_ptr(), d.as_mut_ptr() as *mut u8, l);
             }
 
             src.advance(l);
-            unsafe { self.advance_mut(l); }
+            unsafe {
+                self.advance_mut(l);
+            }
         }
     }
 
@@ -296,7 +306,11 @@ impl BufMut for EncodeBuffer {
             self.swap_buffer();
         }
 
-        assert!(self.remaining_mut() >= src.len(), "EncodeBuffer trying to write too big of a slice, len: {}", src.len());
+        assert!(
+            self.remaining_mut() >= src.len(),
+            "EncodeBuffer trying to write too big of a slice, len: {}",
+            src.len()
+        );
 
         while off < src.len() {
             let cnt;
@@ -305,15 +319,14 @@ impl BufMut for EncodeBuffer {
                 let dst = self.bytes_mut();
                 cnt = cmp::min(dst.len(), src.len() - off);
 
-                ptr::copy_nonoverlapping(
-                    src[off..].as_ptr(),
-                    dst.as_mut_ptr() as *mut u8,
-                    cnt);
+                ptr::copy_nonoverlapping(src[off..].as_ptr(), dst.as_mut_ptr() as *mut u8, cnt);
 
                 off += cnt;
             }
 
-            unsafe { self.advance_mut(cnt); }
+            unsafe {
+                self.advance_mut(cnt);
+            }
         }
     }
 }
@@ -409,7 +422,9 @@ impl DecodeBuffer {
         if let Some(head) = &self.next_frame_head {
             if readable_len >= head.content_length() {
                 unsafe {
-                    let mut lease = self.buffer.get_lease(self.read_offset, self.read_offset + head.content_length());
+                    let lease = self
+                        .buffer
+                        .get_lease(self.read_offset, self.read_offset + head.content_length());
                     self.read_offset += head.content_length();
                     match head.frame_type() {
                         FrameType::Data => {
@@ -574,7 +589,10 @@ impl BufMut for ChunkLease {
         let ptr = self.content.as_mut_ptr();
         unsafe {
             let offset_ptr = ptr.offset(self.written as isize);
-            return mem::transmute(std::slice::from_raw_parts_mut(offset_ptr, self.capacity - self.written));
+            return mem::transmute(std::slice::from_raw_parts_mut(
+                offset_ptr,
+                self.capacity - self.written,
+            ));
         }
     }
 }
@@ -584,7 +602,7 @@ unsafe impl Send for ChunkLease {}
 
 #[cfg(test)]
 mod tests {
-    // This is very non-exhaustive testing, just a 
+    // This is very non-exhaustive testing, just a
 
     use super::*;
 
@@ -611,16 +629,25 @@ mod tests {
             for _ in 0..=(BUFFER_SIZE / ENCODEBUFFER_MIN_REMAINING) + 1 {
                 encode_buffer.put_slice(test_string.clone().as_bytes());
                 let chunk = encode_buffer.get_chunk();
-                assert_eq!(chunk.unwrap().content, test_string.as_bytes(), "cnt = {}", cnt);
+                assert_eq!(
+                    chunk.unwrap().content,
+                    test_string.as_bytes(),
+                    "cnt = {}",
+                    cnt
+                );
                 cnt += 1;
             }
         }
 
         // Check the buffer pool sizes
-        assert_eq!(encode_buffer.buffer_pool.get_pool_sizes(),
-                   (crate::net::buffer_pool::INITIAL_BUFFER_LEN, // Total allocated
-                    0, // Available
-                    crate::net::buffer_pool::INITIAL_BUFFER_LEN - 1)); // Returned
+        assert_eq!(
+            encode_buffer.buffer_pool.get_pool_sizes(),
+            (
+                crate::net::buffer_pool::INITIAL_BUFFER_LEN, // Total allocated
+                0,                                           // Available
+                crate::net::buffer_pool::INITIAL_BUFFER_LEN - 1
+            )
+        ); // Returned
     }
 
     #[test]

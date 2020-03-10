@@ -200,7 +200,7 @@ pub mod ser_test_helpers {
 mod tests {
 
     use super::*;
-    use bytes::{BytesMut}; //IntoBuf
+    use bytes::BytesMut; //IntoBuf
 
     #[derive(PartialEq, Debug, Clone)]
     struct Test1 {

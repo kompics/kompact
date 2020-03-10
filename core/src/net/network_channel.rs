@@ -1,18 +1,23 @@
-use std::collections::VecDeque;
-use mio::tcp::TcpStream;
-use mio::{Token, Ready};
-use std::net::SocketAddr;
-use crate::messaging::{SerializedFrame};
-use crate::net::buffer::{DecodeBuffer, BufferChunk};
-use crate::net::{ConnectionState, network_thread};
-use crate::net::frames::{Frame, Hello};
-use crate::net::network_thread::*;
-use std::io;
-use std::io::{Write, ErrorKind, Error};
+use crate::{
+    messaging::SerializedFrame,
+    net::{
+        buffer::{BufferChunk, DecodeBuffer},
+        frames::{Frame, Hello},
+        network_thread,
+        network_thread::*,
+        ConnectionState,
+    },
+};
 use bytes::{Buf, BytesMut};
-use std::net::Shutdown::Both;
 use core::mem;
-use std::cmp::Ordering;
+use mio::{tcp::TcpStream, Ready, Token};
+use std::{
+    cmp::Ordering,
+    collections::VecDeque,
+    io,
+    io::{Error, ErrorKind, Write},
+    net::{Shutdown::Both, SocketAddr},
+};
 
 pub(crate) struct TcpChannel {
     stream: TcpStream,
@@ -26,16 +31,16 @@ pub(crate) struct TcpChannel {
 
 impl TcpChannel {
     pub fn new(stream: TcpStream, token: Token, buffer_chunk: BufferChunk) -> Self {
-        let mut input_buffer = DecodeBuffer::new(buffer_chunk);
+        let input_buffer = DecodeBuffer::new(buffer_chunk);
         stream.set_nodelay(true);
-        TcpChannel{
+        TcpChannel {
             stream,
             outbound_queue: VecDeque::new(),
             token,
             input_buffer,
             state: ConnectionState::New,
             messages: 0,
-            pending_set: Ready::readable()|Ready::writable(),
+            pending_set: Ready::readable() | Ready::writable(),
         }
     }
 
@@ -43,13 +48,16 @@ impl TcpChannel {
         &mut self.stream
     }
 
-    pub fn stream(&self) -> & TcpStream {
-        & self.stream
+    pub fn stream(&self) -> &TcpStream {
+        &self.stream
     }
 
     pub fn has_remaining_output(&self) -> bool {
-        if self.outbound_queue.len() > 0 {true}
-        else {false}
+        if self.outbound_queue.len() > 0 {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn initialize(&mut self, addr: &SocketAddr) -> () {
@@ -57,12 +65,12 @@ impl TcpChannel {
         let mut hello_bytes = BytesMut::with_capacity(hello.encoded_len());
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = hello.encode_into(&mut hello_bytes) {
-            self.outbound_queue.push_back(SerializedFrame::Bytes(hello_bytes.freeze()));
+            self.outbound_queue
+                .push_back(SerializedFrame::Bytes(hello_bytes.freeze()));
             self.try_drain();
         } else {
             panic!("Unable to send hello bytes, failed to encode!");
         }
-
     }
 
     pub fn swap_buffer(&mut self, new_buffer: &mut BufferChunk) -> () {
@@ -82,28 +90,28 @@ impl TcpChannel {
                 match self.stream.read_bufs(&mut [&mut io_vec]) {
                     Ok(0) => {
                         self.pending_set.insert(Ready::readable());
-                        return Ok(sum_read_bytes)
-                    },
+                        return Ok(sum_read_bytes);
+                    }
                     Ok(n) => {
                         sum_read_bytes = sum_read_bytes + n;
                         read_bytes = n;
                         // continue looping and reading
-                    },
+                    }
                     Err(err) if would_block(&err) => {
                         self.pending_set.insert(Ready::readable());
-                        return Ok(sum_read_bytes)
-                    },
+                        return Ok(sum_read_bytes);
+                    }
                     Err(err) if interrupted(&err) => {
                         // We should continue trying until no interruption
                         interrupts += 1;
                         if interrupts >= network_thread::MAX_INTERRUPTS {
                             self.pending_set.insert(Ready::readable());
-                            return Err(err)
+                            return Err(err);
                         }
-                    },
+                    }
                     Err(err) => {
                         //println!("network thread {} got uncaught error during read from remote {}", self.stream.local_addr().unwrap(), self.stream.peer_addr().unwrap());
-                        return Err(err)
+                        return Err(err);
                     }
                 }
             } else {
@@ -111,7 +119,8 @@ impl TcpChannel {
             }
         }
     }
-/*
+
+    /*
     pub fn close(&mut self) -> () {
         let bye = Frame::Bye();
         let mut bye_bytes = BytesMut::with_capacity(hello.encoded_len());
@@ -130,7 +139,8 @@ impl TcpChannel {
         let mut bye_bytes = BytesMut::with_capacity(bye.encoded_len());
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = bye.encode_into(&mut bye_bytes) {
-            self.outbound_queue.push_back(SerializedFrame::Bytes(bye_bytes.freeze()));
+            self.outbound_queue
+                .push_back(SerializedFrame::Bytes(bye_bytes.freeze()));
             self.try_drain();
         } else {
             panic!("Unable to send hello bytes, failed to encode!");
@@ -147,7 +157,7 @@ impl TcpChannel {
     pub fn decode(&mut self) -> Option<Frame> {
         if let Some(frame) = self.input_buffer.get_frame() {
             self.messages += 1;
-            return Some(frame)
+            return Some(frame);
         }
         None
     }
@@ -198,13 +208,15 @@ impl TcpChannel {
                     // re-insert the data at the front of the buffer
                     self.outbound_queue.push_front(serialized_frame);
                     interrupts += 1;
-                    if interrupts >= MAX_INTERRUPTS {return Err(err)}
+                    if interrupts >= MAX_INTERRUPTS {
+                        return Err(err);
+                    }
                 }
                 // Other errors we'll consider fatal.
                 Err(err) => {
                     self.outbound_queue.push_front(serialized_frame);
                     return Err(err);
-                },
+                }
             }
         }
         if self.has_remaining_output() {
@@ -217,25 +229,30 @@ impl TcpChannel {
 
     pub fn write_serialized(&mut self, serialized: &SerializedFrame) -> io::Result<usize> {
         match serialized {
-            SerializedFrame::Chunk(chunk) => {
-                self.stream.write(chunk.bytes())
-            }
-            SerializedFrame::Bytes(bytes) => {
-                self.stream.write(bytes.bytes())
-            }
+            SerializedFrame::Chunk(chunk) => self.stream.write(chunk.bytes()),
+            SerializedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
         }
     }
 
     /// Compares the SocketAddr the two channels are bound on and ensures that both sides will merge into the same channel on both sides
     /// The channel to retain will be self while the unused other will be stopped.
     pub fn merge(&mut self, other: &mut TcpChannel) -> () {
-        let this_peer = SocketWrapper{ inner: self.stream.peer_addr().unwrap()};
-        let that_peer = SocketWrapper{ inner: other.stream.peer_addr().unwrap()};
-        let this_local = SocketWrapper{ inner: self.stream.local_addr().unwrap()};
-        let that_local =  SocketWrapper{ inner: other.stream.local_addr().unwrap()};
+        let this_peer = SocketWrapper {
+            inner: self.stream.peer_addr().unwrap(),
+        };
+        let that_peer = SocketWrapper {
+            inner: other.stream.peer_addr().unwrap(),
+        };
+        let this_local = SocketWrapper {
+            inner: self.stream.local_addr().unwrap(),
+        };
+        let that_local = SocketWrapper {
+            inner: other.stream.local_addr().unwrap(),
+        };
 
-        if (this_peer < that_peer && this_peer < this_local && this_peer < that_local) ||
-            (this_local < that_local && this_local < this_peer && this_local < that_local) {
+        if (this_peer < that_peer && this_peer < this_local && this_peer < that_local)
+            || (this_local < that_local && this_local < this_peer && this_local < that_local)
+        {
             // Keep self, this_local or this_peer was the lowest in the set
         } else {
             // Keep other
@@ -247,17 +264,15 @@ impl TcpChannel {
         }
     }
 
-    fn merge_with(&mut self, other: &mut Self) -> () {
-
-    }
+    fn merge_with(&mut self, _other: &mut Self) -> () {}
 }
 
 #[derive(PartialEq, Eq)]
 struct SocketWrapper {
-    pub inner: SocketAddr
+    pub inner: SocketAddr,
 }
 
-impl std::cmp::PartialOrd for SocketWrapper{
+impl std::cmp::PartialOrd for SocketWrapper {
     fn partial_cmp(&self, other: &SocketWrapper) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -266,19 +281,21 @@ impl std::cmp::PartialOrd for SocketWrapper{
 impl Ord for SocketWrapper {
     fn cmp(&self, other: &SocketWrapper) -> Ordering {
         match self.inner {
-            SocketAddr::V4(self_v4) => {
-                if other.inner.is_ipv6() { Ordering::Greater}
-                else {
+            SocketAddr::V4(_self_v4) => {
+                if other.inner.is_ipv6() {
+                    Ordering::Greater
+                } else {
                     if self.inner.ip() == other.inner.ip() {
                         self.inner.port().cmp(&other.inner.port())
                     } else {
                         self.inner.ip().cmp(&other.inner.ip())
                     }
                 }
-            },
-            SocketAddr::V6(self_v6) => {
-                if other.inner.is_ipv4() { Ordering::Greater}
-                else {
+            }
+            SocketAddr::V6(_self_v6) => {
+                if other.inner.is_ipv4() {
+                    Ordering::Greater
+                } else {
                     if self.inner.ip() == other.inner.ip() {
                         self.inner.port().cmp(&other.inner.port())
                     } else {

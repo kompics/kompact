@@ -27,7 +27,6 @@ use futures::{self, Async, AsyncSink, Poll, StartSend};
 //use std::collections::HashMap;
 use fnv::FnvHashMap;
 use std::{io::ErrorKind, time::Duration};
-use crate::net::buffer::ChunkLease;
 
 pub mod lookup;
 pub mod queue_manager;
@@ -167,7 +166,13 @@ impl NetworkDispatcher {
             .expect("Self can hardly be deallocated!");
         let bridge_logger = self.ctx.log().new(o!("owner" => "Bridge"));
         let network_thread_logger = self.ctx.log().new(o!("owner" => "NetworkThread"));
-        let (mut bridge, addr) = net::Bridge::new(self.lookup.clone(), network_thread_logger, bridge_logger, self.cfg.addr.clone(), dispatcher.clone());
+        let (mut bridge, _addr) = net::Bridge::new(
+            self.lookup.clone(),
+            network_thread_logger,
+            bridge_logger,
+            self.cfg.addr.clone(),
+            dispatcher.clone(),
+        );
 
         bridge.set_dispatcher(dispatcher.clone());
         self.net_bridge = Some(bridge);
@@ -264,7 +269,7 @@ impl NetworkDispatcher {
         use self::ConnectionState::*;
         //println!("on_conn_state for addr {}", &addr);
         match state {
-            Connected(ref mut frame_sender) => {
+            Connected(ref mut _frame_sender) => {
                 info!(
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
@@ -344,8 +349,6 @@ impl NetworkDispatcher {
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
     fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
-        use crate::net::frames::*;
-
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         /*
         match msg {
@@ -357,7 +360,7 @@ impl NetworkDispatcher {
         */
         let serialized = {
             let ser_id = msg.ser_id();
-            let mut payload = match msg.to_serialised(src, dst) {
+            let payload = match msg.to_serialised(src, dst) {
                 Ok(p) => p,
                 Err(e) => {
                     error!(
@@ -450,7 +453,7 @@ impl NetworkDispatcher {
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
     fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: DispatchData) {
-        let mut src_path = self.resolve_path(&src);
+        let src_path = self.resolve_path(&src);
         //println!("*** Dispatch route {:?}", dst_path.system().protocol());
         if src_path.system() == dst_path.system() {
             //println!("*** dst system == src system");
@@ -533,7 +536,7 @@ impl Actor for NetworkDispatcher {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        warn!(self.ctx.log(), "Received network message: {:?}", msg, );
+        warn!(self.ctx.log(), "Received network message: {:?}", msg,);
     }
 }
 
@@ -638,10 +641,9 @@ mod dispatch_tests {
     //     runtime::{KompactConfig, KompactSystem},
     // };
     //use crate::prelude::*;
+    use crate::prelude::Any;
     use bytes::{Buf, BufMut};
     use std::{thread, time::Duration};
-    use crate::prelude::Any;
-    use std::borrow::BorrowMut;
 
     #[test]
     #[should_panic(expected = "KompactSystem: Poisoned")]
@@ -943,13 +945,13 @@ mod dispatch_tests {
             Some(9)
         }
 
-        fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+        fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PING_ID);
             buf.put_u64(self.i);
             Result::Ok(())
         }
 
-        fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
             Ok(self)
         }
     }
@@ -963,13 +965,13 @@ mod dispatch_tests {
             Some(9)
         }
 
-        fn serialise(&self, buf: &mut BufMut) -> Result<(), SerError> {
+        fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
             buf.put_i8(PONG_ID);
             buf.put_u64(self.i);
             Result::Ok(())
         }
 
-        fn local(self: Box<Self>) -> Result<Box<Any + Send>, Box<Serialisable>> {
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
             Ok(self)
         }
     }
@@ -1088,7 +1090,8 @@ mod dispatch_tests {
                     if self.count < PING_COUNT {
                         //let target = self.target.clone();
                         //let buf = ;
-                        self.target.tell_serialised((PingMsg { i: pong.i + 1 }), self);
+                        self.target
+                            .tell_serialised((PingMsg { i: pong.i + 1 }), self);
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),

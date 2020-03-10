@@ -1,19 +1,17 @@
 use super::*;
-use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable, Serialised};
+use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable};
 use std::{
-    convert::{TryFrom, TryInto},
+    convert::TryFrom,
     error::Error,
     fmt::{self, Debug},
     net::{AddrParseError, IpAddr, SocketAddr},
     str::FromStr,
 };
 use uuid::Uuid;
-use crate::net::buffer::{ChunkLease, EncodeBuffer};
-use bytes::{BufMut, BytesMut, Buf};
-use crate::net::frames::{FrameHead, FRAME_HEAD_LEN, FrameType};
-use crate::net::frames;
-use std::borrow::Borrow;
-use std::cell::{RefCell, Ref, RefMut};
+
+use crate::net::frames::{FrameHead, FrameType, FRAME_HEAD_LEN};
+use bytes::Buf;
+
 use std::ops::DerefMut;
 
 /// Transport protocol to use for delivering messages
@@ -292,9 +290,9 @@ impl ActorPath {
     /// that `m` will definitely go over the network, you can use
     /// [tell_ser](ActorPath::tell_ser) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
-        where
-            S: ActorSource,
-            B: Into<Box<dyn Serialisable>>,
+    where
+        S: ActorSource,
+        B: Into<Box<dyn Serialisable>>,
     {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
@@ -309,9 +307,9 @@ impl ActorPath {
 
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
-        where
-            CD: ComponentDefinition + Sized + 'static,
-            B: Serialisable + 'static,
+    where
+        CD: ComponentDefinition + Sized + 'static,
+        B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
@@ -344,7 +342,6 @@ impl ActorPath {
             panic!("failed to get buffer!");
         }
     }
-
 
     /*
     /// Similar to [tell_ser](ActorPath::tell_ser), but uses a pooled and reusable byte buffer.
@@ -399,7 +396,6 @@ impl ActorPath {
         }
     }
     */
-
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
     /// and something that can [dispatch](Dispatching) stuff

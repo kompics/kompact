@@ -188,7 +188,7 @@ impl Deserialiser<()> for () {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::{BytesMut};
+    use bytes::BytesMut;
 
     #[test]
     fn test_string_serialisation() {

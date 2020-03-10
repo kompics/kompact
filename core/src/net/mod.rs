@@ -2,27 +2,25 @@ use super::*;
 use actors::Transport;
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
-use futures::{self, stream::Stream, sync, Future};
+use futures::{self, stream::Stream, Future};
 use net::events::{NetworkError, NetworkEvent};
-use serialisation::ser_helpers::deserialise_msg;
-use std::{net::SocketAddr, sync::Arc};
-use std::thread;
-use iovec::IoVec;
-use crossbeam_queue::SegQueue;
-use mio::{SetReadiness, Registration, Ready};
-use bytes::{BytesMut, Bytes, BufMut, Buf};
-use std::sync::mpsc::{channel, Sender, Receiver as Recv};
-use crate::net::network_thread::NetworkThread;
-use crate::net::frames::*;
-use crate::net::events::DispatchEvent;
-use crate::messaging::SerializedFrame;
 
-pub mod frames;
+use std::{net::SocketAddr, sync::Arc, thread};
+
+use crate::{
+    messaging::SerializedFrame,
+    net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
+};
+use bytes::{Buf, BufMut, BytesMut};
+use mio::{Ready, Registration, SetReadiness};
+use std::sync::mpsc::{channel, Receiver as Recv, Sender};
+
 #[allow(missing_docs)]
 pub mod buffer;
-pub(crate) mod network_thread;
 pub(crate) mod buffer_pool;
+pub mod frames;
 pub(crate) mod network_channel;
+pub(crate) mod network_thread;
 
 /// The state of a connection
 #[derive(Debug)]
@@ -46,7 +44,7 @@ pub mod events {
     use super::ConnectionState;
     use crate::net::frames::*;
     use std::net::SocketAddr;
-    use bytes::BytesMut;
+
     use crate::messaging::SerializedFrame;
 
     /// Network events emitted by the network `Bridge`
@@ -180,9 +178,11 @@ impl Bridge {
             bound_addr: Some(bound_addr.clone()),
             network_thread_receiver: Box::new(network_thread_receiver),
         };
-        thread::Builder::new().name("network_thread".to_string()).spawn(move || {
-            network_thread.run();
-        });
+        thread::Builder::new()
+            .name("network_thread".to_string())
+            .spawn(move || {
+                network_thread.run();
+            });
         (bridge, bound_addr)
     }
 
@@ -192,10 +192,11 @@ impl Bridge {
     }
 
     /// Stops the bridge
-    pub fn stop(mut self) -> Result<(), NetworkBridgeErr> {
+    pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         self.network_input_queue.send(DispatchEvent::Stop());
-        self.network_thread_registration.set_readiness(Ready::readable());
+        self.network_thread_registration
+            .set_readiness(Ready::readable());
         self.network_thread_receiver.recv(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
@@ -215,13 +216,20 @@ impl Bridge {
                 let head = FrameHead::new(FrameType::Data, bytes.len());
                 head.encode_into(&mut buf);
                 buf.put_slice(bytes.bytes());
-                self.network_input_queue.send(events::DispatchEvent::Send(addr, SerializedFrame::Bytes(buf.freeze())));
+                self.network_input_queue.send(events::DispatchEvent::Send(
+                    addr,
+                    SerializedFrame::Bytes(buf.freeze()),
+                ));
             }
             SerializedFrame::Chunk(chunk) => {
-                self.network_input_queue.send(events::DispatchEvent::Send(addr, SerializedFrame::Chunk(chunk)));
+                self.network_input_queue.send(events::DispatchEvent::Send(
+                    addr,
+                    SerializedFrame::Chunk(chunk),
+                ));
             }
         }
-        self.network_thread_registration.set_readiness(Ready::readable());
+        self.network_thread_registration
+            .set_readiness(Ready::readable());
     }
 
     /// Attempts to establish a TCP connection to the provided `addr`.
@@ -238,8 +246,10 @@ impl Bridge {
         //println!("bridge bound to {} connecting to addr {}, ", self.bound_addr.unwrap(), addr);
         match proto {
             Transport::TCP => {
-                self.network_input_queue.send(events::DispatchEvent::Connect(addr));
-                self.network_thread_registration.set_readiness(Ready::readable());
+                self.network_input_queue
+                    .send(events::DispatchEvent::Connect(addr));
+                self.network_thread_registration
+                    .set_readiness(Ready::readable());
                 Ok(())
             }
             _other => Err(NetworkError::UnsupportedProtocol),

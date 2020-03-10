@@ -459,7 +459,7 @@ impl Deserialiser<ActorPath> for ActorPath {
 mod serialisation_tests {
     use super::*;
     use crate::actors::SystemField;
-    use bytes::{BytesMut}; //IntoBuf
+    use bytes::BytesMut; //IntoBuf
 
     #[test]
     fn system_path_serequiv() {

@@ -1,11 +1,11 @@
 use crate::net::ConnectionState;
 use futures::sync;
-use crate::net::frames::*;
+
+use crate::messaging::SerializedFrame;
 use std::{
     collections::{HashMap, VecDeque},
     net::SocketAddr,
 };
-use crate::messaging::SerializedFrame;
 
 /// Wrapper around a hashmap of frame queues.
 ///

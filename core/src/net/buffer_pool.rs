@@ -1,10 +1,8 @@
 use crate::net::{
     buffer::{BufferChunk, Chunk, DefaultChunk},
     frames,
-    frames::*,
 };
-use bytes::{Buf, BufMut, BytesMut};
-use iovec::IoVec;
+
 use std::collections::VecDeque;
 
 pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
@@ -83,7 +81,7 @@ impl BufferPool {
     /// until it successfully finds an available one
     /// If it fails it will attempt to create a new buffer instead
     fn try_reclaim(&mut self) -> Option<BufferChunk> {
-        for i in 0..self.returned.len() {
+        for _i in 0..self.returned.len() {
             if let Some(mut returned_buffer) = self.returned.pop_front() {
                 if returned_buffer.free() {
                     //println!("Reclaimed a buffer!");

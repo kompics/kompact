@@ -13,8 +13,8 @@ fn main() {
 mod tests {
     use super::messages::*;
     use bytes::BytesMut;
-    use bytes::buf::BufMut;
-    use kompact::{prelude::*, prelude_test::*, protobuf_serialisers::*};
+
+    use kompact::{prelude::*, protobuf_serialisers::*};
     use ser_test_helpers::{just_serialise, test_serialise};
 
     #[test]

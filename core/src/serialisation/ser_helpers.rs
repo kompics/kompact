@@ -5,23 +5,16 @@
 use crate::{
     actors::ActorPath,
     messaging::{NetMessage, Serialised},
-    serialisation::{
-        Deserialiser,
-        SerError,
-        SerIdBuf,
-        SerIdSize,
-        Serialisable,
-        Serialiser,
-    },
+    net::buffer::ChunkLease,
+    serialisation::{Deserialiser, SerError, SerIdBuf, SerIdSize, Serialisable, Serialiser},
 };
-use bytes::{Buf, Bytes, BytesMut, BufMut};
-use bytes::buf::BufExt;
-use crate::net::buffer::{ChunkLease, EncodeBuffer};
-use std::sync::Arc;
-use std::borrow::BorrowMut;
-use crate::net::frames::{FrameHead, FrameType};
-use crate::serialisation::ser_id::SerIdBufMut; //IntoBuf
-//use bytes::buf::ext::BufExt;
+use bytes::{buf::BufExt, Buf, BufMut, Bytes, BytesMut};
+
+use crate::{
+    net::frames::{FrameHead, FrameType},
+    serialisation::ser_id::SerIdBufMut,
+}; //IntoBuf
+   //use bytes::buf::ext::BufExt;
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -55,7 +48,7 @@ pub fn serialise_to_chunk_msg(
     msg: Box<dyn Serialisable>,
     mut buf: ChunkLease,
 ) -> Result<NetMessage, SerError> {
-    if let Some(size) = msg.size_hint() {
+    if let Some(_size) = msg.size_hint() {
         match msg.serialise(&mut buf) {
             Ok(_) => {
                 let envelope = NetMessage::with_chunk(msg.ser_id(), src, dst, buf);
@@ -74,8 +67,8 @@ pub fn serialise_to_chunk_msg(
 /// according to the message's size hint.
 /// The message's serialised data is then stored in this buffer.
 pub fn serialise_to_serialised<S>(ser: &S) -> Result<Serialised, SerError>
-    where
-        S: Serialisable + ?Sized,
+where
+    S: Serialisable + ?Sized,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -94,9 +87,9 @@ pub fn serialise_to_serialised<S>(ser: &S) -> Result<Serialised, SerError>
 /// according to the message's size hint.
 /// The message's serialised data is then stored in this buffer.
 pub fn serialiser_to_serialised<T, S>(t: &T, ser: &S) -> Result<Serialised, SerError>
-    where
-        T: std::fmt::Debug,
-        S: Serialiser<T> + ?Sized,
+where
+    T: std::fmt::Debug,
+    S: Serialiser<T> + ?Sized,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -153,7 +146,7 @@ pub fn serialise_msg(
 pub fn serialise_into_framed_buf<B: Serialisable, BM: BufMut + Sized>(
     src: &ActorPath,
     dst: &ActorPath,
-    mut msg: B,
+    msg: B,
     buf: &mut BM,
 ) -> Result<(), SerError> {
     let mut size: usize = 0;
@@ -185,7 +178,6 @@ pub fn serialise_into_framed_buf<B: Serialisable, BM: BufMut + Sized>(
     Ok(())
 }
 
-
 /// Embed an eagerly serialised message into a buffer with the actor paths
 ///
 /// It allocates a new [BytesMut](bytes::BytesMut)
@@ -211,7 +203,6 @@ pub fn embed_in_msg(src: &ActorPath, dst: &ActorPath, msg: Serialised) -> Result
 
     Ok(bytes)
 }
-
 
 /// Extracts a [NetMessage](NetMessage) from the provided ChunkLease.
 ///
@@ -249,7 +240,6 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
 
     Ok(envelope)
 }
-
 
 // Deserializes data in the buffer according to the ActorPath structure in the [framing] module.
 // pub fn deserialise_actor_path<B: Buf>(mut buf: B) -> Result<(B, ActorPath), SerError> {
