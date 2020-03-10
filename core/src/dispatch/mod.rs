@@ -170,7 +170,6 @@ impl NetworkDispatcher {
         let (mut bridge, addr) = net::Bridge::new(self.lookup.clone(), network_thread_logger, bridge_logger, self.cfg.addr.clone(), dispatcher.clone());
 
         bridge.set_dispatcher(dispatcher.clone());
-        bridge.start()?;
         self.net_bridge = Some(bridge);
         /*
         if let Some(ref ex) = bridge.executor.as_ref() {
