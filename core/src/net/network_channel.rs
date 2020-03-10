@@ -165,9 +165,8 @@ impl TcpChannel {
         None
     }
 
-    pub fn enqueue_serialized(&mut self, serialized: SerializedFrame) -> io::Result<usize> {
+    pub fn enqueue_serialized(&mut self, serialized: SerializedFrame) -> () {
         self.outbound_queue.push_back(serialized);
-        self.try_drain()
     }
 
     pub fn try_drain(&mut self) -> io::Result<usize> {

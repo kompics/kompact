@@ -96,14 +96,14 @@ impl NetworkThread {
             let actual_addr = listener.local_addr().expect("could not get real addr");
             // Set up polling for the Dispatcher and the listener.
             let poll = Poll::new().expect("failed to create Poll instance in NetworkThread");
-            poll.register(
+            let _ = poll.register(
                 &listener,
                 SERVER,
                 Ready::readable(),
                 PollOpt::edge() | PollOpt::oneshot(),
             )
                 .expect("failed to register TCP SERVER");
-            poll.register(
+            let _ = poll.register(
                 &dispatcher_registration,
                 DISPATCHER,
                 Ready::readable(),
@@ -155,7 +155,7 @@ impl NetworkThread {
             for event in events.iter() {
                 //println!("{} Handling event", self.addr);
                 if let Err(e) = self.handle_event(event) {
-                    error!(self.log, "NetworkThread Error while handling event {:?}", e);
+                    error!(self.log, "NetworkThread Error while handling event with token {:?}: {:?}", event.token(), e);
                 };
                 if self.stopped {
                     if let Err(e) = self.network_thread_sender.send(true) {
@@ -176,24 +176,24 @@ impl NetworkThread {
                     //println!("error accepting stream:\n {:?}", e);
                 }
                 // Listen for more
-                self.poll.register(
+                let _ = self.poll.register(
                     &self.listener,
                     SERVER,
                     Ready::readable(),
                     PollOpt::edge() | PollOpt::oneshot(),
-                ).unwrap();
+                );
             }
             DISPATCHER => {
                 // Message available from Dispatcher, clear the poll readiness before receiving
                 self.dispatcher_set_readiness.set_readiness(Ready::empty())?;
                 self.receive_dispatch()?;
                 // Reregister polling
-                self.poll.register(
+                let _ = self.poll.register(
                     &self.dispatcher_registration,
                     DISPATCHER,
                     Ready::readable(),
                     PollOpt::edge() | PollOpt::oneshot(),
-                )?;
+                );
             }
             token => {
                 // lookup token state in kv map <token, state> (it's corresponding addr for now)
@@ -233,7 +233,7 @@ impl NetworkThread {
                     }
                     if close_channel {
                         if let Some(channel) = self.channel_map.remove(&addr) {
-                            self.poll.deregister(channel.stream())?;
+                            self.poll.deregister(channel.stream());
                         }
                         return Ok(());
                     }
@@ -255,7 +255,7 @@ impl NetworkThread {
                         channel.token.clone(),
                         channel.pending_set,
                         PollOpt::edge() | PollOpt::oneshot(),
-                    )?;
+                    );
                 }
             }
         }
@@ -456,13 +456,13 @@ impl NetworkThread {
                 self.log,
                 "NetworkThread {} saying Hello to {}", self.addr, &addr
             );
-            channel.initialize(&self.addr)?;
-            self.poll.register(
+            let _ = channel.initialize(&self.addr);
+            let _ = self.poll.register(
                 channel.stream(),
                 self.token.clone(),
                 Ready::readable() | Ready::writable(),
                 PollOpt::edge() | PollOpt::oneshot(),
-            )?;
+            );
             self.channel_map.insert(addr.clone(), channel);
             self.next_token();
             Ok(())
@@ -481,7 +481,7 @@ impl NetworkThread {
                     // Get the token corresponding to the connection
                     if let Some(channel) = self.channel_map.get_mut(&addr) {
                         // The stream is already set-up, buffer the package and wait for writable event
-                        channel.enqueue_serialized(packet)?;
+                        channel.enqueue_serialized(packet);
                         if let Err(e) = channel.try_drain() {
                             error!(
                                 self.log,
@@ -494,7 +494,7 @@ impl NetworkThread {
                                 channel.token.clone(),
                                 Ready::readable() | Ready::writable(),
                                 PollOpt::edge() | PollOpt::oneshot(),
-                            )?;
+                            );
                         }
                     } else {
                         // The stream isn't set-up, request connection, set-it up and try to send the message
@@ -504,15 +504,15 @@ impl NetworkThread {
                         );
                         self.request_stream(addr.clone())?;
                         if let Some(channel) = self.channel_map.get_mut(&addr) {
-                            channel.enqueue_serialized(packet)?;
-                            channel.try_drain()?;
+                            channel.enqueue_serialized(packet);
+                            let _ = channel.try_drain(); // Ignore errors at this point...
                             if channel.has_remaining_output() {
-                                self.poll.register(
+                                let _ = self.poll.register(
                                     channel.stream(),
                                     channel.token.clone(),
                                     Ready::readable() | Ready::writable(),
                                     PollOpt::edge() | PollOpt::oneshot(),
-                                )?;
+                                );
                             }
                         }
                     }
