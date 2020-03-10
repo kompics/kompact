@@ -1,38 +1,71 @@
-use bytes::{BytesMut, BufMut, Buf};
+use crate::net::{
+    buffer::{BufferChunk, Chunk, DefaultChunk},
+    frames,
+    frames::*,
+};
+use bytes::{Buf, BufMut, BytesMut};
 use iovec::IoVec;
-use crate::net::frames::*;
-use crate::net::frames;
-use crate::net::buffer::BufferChunk;
 use std::collections::VecDeque;
 
 pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 pub const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
 
+/// Methods required by a ChunkAllocator
+pub trait ChunkAllocator: Send + 'static {
+    fn get_chunk(&self) -> Box<dyn Chunk>;
+}
+
+/// A default allocator for Kompact
+///
+/// Heap allocates chunks through the normal Rust system allocator
+#[derive(Default)]
+pub(crate) struct DefaultAllocator {}
+
+impl ChunkAllocator for DefaultAllocator {
+    fn get_chunk(&self) -> Box<dyn Chunk> {
+        Box::new(DefaultChunk::new())
+    }
+}
+
 pub(crate) struct BufferPool {
     pool: VecDeque<BufferChunk>,
     returned: VecDeque<BufferChunk>,
     pool_size: usize,
+    chunk_allocator: Box<dyn ChunkAllocator>,
 }
 
 impl BufferPool {
     pub fn new() -> Self {
         let mut pool = VecDeque::<BufferChunk>::new();
-        let mut returned = VecDeque::<BufferChunk>::new();
-        let mut pool_size = 0;
-        for i in 0..INITIAL_BUFFER_LEN {
-            pool_size += 1;
-            pool.push_front(Self::new_buffer())
+        let chunk_allocator = Box::new(DefaultAllocator::default());
+        for _ in 0..INITIAL_BUFFER_LEN {
+            pool.push_front(BufferChunk::from_chunk(chunk_allocator.get_chunk()));
         }
         BufferPool {
             pool,
-            returned,
-            pool_size,
+            returned: VecDeque::new(),
+            pool_size: INITIAL_BUFFER_LEN,
+            chunk_allocator,
         }
     }
 
-    fn new_buffer() -> BufferChunk {
-        BufferChunk::new()
+    /// Creates a BufferPool with a custom ChunkAllocator
+    pub fn with_allocator(chunk_allocator: Box<dyn ChunkAllocator>) -> Self {
+        let mut pool = VecDeque::<BufferChunk>::new();
+        for _ in 0..INITIAL_BUFFER_LEN {
+            pool.push_front(BufferChunk::from_chunk(chunk_allocator.get_chunk()));
+        }
+        BufferPool {
+            pool,
+            returned: VecDeque::new(),
+            pool_size: INITIAL_BUFFER_LEN,
+            chunk_allocator,
+        }
+    }
+
+    fn new_buffer(&self) -> BufferChunk {
+        BufferChunk::from_chunk(self.chunk_allocator.get_chunk())
     }
 
     pub fn get_buffer(&mut self) -> Option<BufferChunk> {
@@ -70,7 +103,7 @@ impl BufferPool {
         };
         self.pool_size += 1;
         //println!("Increased pool size to {}", self.pool_size);
-        Some(Self::new_buffer())
+        Some(self.new_buffer())
     }
 
     // Method for assertions, returns:

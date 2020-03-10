@@ -1,34 +1,74 @@
-use bytes::{BytesMut, BufMut, Buf, Bytes};
-use iovec::IoVec;
-use crate::net::frames::*;
-use crate::net::frames;
-use std::collections::VecDeque;
-use std::pin::Pin;
-use std::ops::{DerefMut, Deref};
-use std::sync::Arc;
-use std::borrow::Borrow;
-use std::mem::MaybeUninit;
-use crate::net::buffer_pool::BufferPool;
+use crate::net::{buffer_pool::BufferPool, frames, frames::*};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::{mem, cmp, ptr};
+use iovec::IoVec;
+use std::{
+    borrow::Borrow,
+    collections::VecDeque,
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    sync::Arc,
+};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 1000;
 // Assume 64 byte cache lines -> 1000 cache lines per chunk
 const ENCODEBUFFER_MIN_REMAINING: usize = 64; // Always have at least a full cache line available
 
+/// Required methods for a Chunk
+pub trait Chunk: Send {
+    /// Returns a mutable pointer to the underlying buffer
+    fn as_mut_ptr(&mut self) -> *mut u8;
+    /// Returns the length of the chunk
+    fn len(&self) -> usize;
+}
+
+/// A Default Kompact Chunk
+pub(crate) struct DefaultChunk {
+    chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
+}
+
+impl DefaultChunk {
+    pub fn new() -> DefaultChunk {
+        let mut slice = ([0u8; BUFFER_SIZE]);
+        DefaultChunk {
+            chunk: Pin::new(Box::new(slice)),
+        }
+    }
+}
+
+impl Chunk for DefaultChunk {
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.chunk.as_mut_ptr()
+    }
+
+    fn len(&self) -> usize {
+        self.chunk.len()
+    }
+}
+
 /// BufferChunk is a lockable pinned byte-slice
 pub struct BufferChunk {
-    chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
+    chunk: Box<dyn Chunk>,
     ref_count: Arc<u8>,
     locked: bool,
 }
 
 impl BufferChunk {
-    /// Allocate a new unlocked BufferChunk
+    /// Allocate a new Default BufferChunk
     pub fn new() -> Self {
-        let mut slice = ([0u8; BUFFER_SIZE]);
         BufferChunk {
-            chunk: Pin::new(Box::new(slice)),
+            chunk: Box::new(DefaultChunk::new()),
+            ref_count: Arc::new(0),
+            locked: false,
+        }
+    }
+
+    /// Creates a BufferChunk using the given Chunk
+    pub fn from_chunk(chunk: Box<dyn Chunk>) -> Self {
+        BufferChunk {
+            chunk,
             ref_count: Arc::new(0),
             locked: false,
         }
@@ -52,31 +92,17 @@ impl BufferChunk {
         std::mem::swap(self.get_chunk_mut(), other.get_chunk_mut());
         std::mem::swap(self.get_lock_mut(), other.get_lock_mut());
     }
-    /*
-        pub fn get_bytes(&mut self, from: usize, to: usize) -> Bytes {
-            let slice = unsafe {
-                self.get_slice(from, to)
-            };
-            let mut bytes_mut = BytesMut::with_capacity(to-from);
-            bytes_mut.extend_from_slice(slice);
-            return bytes_mut.freeze();
-            //return bytes::Bytes::from(slice.to_vec())
-        }*/
 
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
     /// the returned lease is a consumable Buf.
     pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease {
-        unsafe {
-            ChunkLease::new(self.get_slice(from, to), self.get_lock())
-        }
+        unsafe { ChunkLease::new(self.get_slice(from, to), self.get_lock()) }
     }
 
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
     /// the returned lease is a writable BufMut.
     pub fn get_free_lease(&mut self, from: usize, to: usize) -> ChunkLease {
-        unsafe {
-            ChunkLease::new_unused(self.get_slice(from, to), self.get_lock())
-        }
+        unsafe { ChunkLease::new_unused(self.get_slice(from, to), self.get_lock()) }
     }
 
     /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated
@@ -85,7 +111,7 @@ impl BufferChunk {
     }
 
     /// Returns a mutable pointer to the full underlying byte-slice.
-    pub fn get_chunk_mut(&mut self) -> &mut Pin<Box<[u8; BUFFER_SIZE]>> {
+    pub fn get_chunk_mut(&mut self) -> &mut Box<dyn Chunk> {
         &mut self.chunk
     }
 
@@ -151,8 +177,10 @@ impl EncodeBuffer {
             return Some(self.buffer.get_free_lease(self.write_offset - size, self.write_offset));
         } else {
             if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
-                self.swap_buffer();
-                return Some(self.buffer.get_free_lease(self.write_offset - size, self.write_offset));
+                self.buffer.swap_buffer(&mut new_buffer);
+                self.buffer_pool.return_buffer(new_buffer);
+                self.write_offset = size;
+                return Some(self.buffer.get_free_lease(0, size));
             }
         }
         None
@@ -317,12 +345,18 @@ impl DecodeBuffer {
             return None;
         }
         unsafe {
-            Some(self.buffer.get_slice(self.write_offset, self.buffer.len()).into())
+            Some(
+                self.buffer
+                    .get_slice(self.write_offset, self.buffer.len())
+                    .into(),
+            )
         }
     }
 
     /// Returns the length of the read-portion of the buffer
-    pub fn len(&self) -> usize { self.write_offset - self.read_offset }
+    pub fn len(&self) -> usize {
+        self.write_offset - self.read_offset
+    }
 
     /// Returns the length of the write-portion of the buffer
     pub fn remaining(&self) -> usize {
@@ -354,7 +388,9 @@ impl DecodeBuffer {
             // We need to copy the bits from self.inner to other.inner before swapping
             let overflow_len = self.write_offset - self.read_offset;
             unsafe {
-                other.get_slice(0, overflow_len).clone_from_slice(self.buffer.get_slice(self.read_offset, self.write_offset));
+                other
+                    .get_slice(0, overflow_len)
+                    .clone_from_slice(self.buffer.get_slice(self.read_offset, self.write_offset));
             }
             self.write_offset = overflow_len;
             self.read_offset = 0;
@@ -366,7 +402,6 @@ impl DecodeBuffer {
         self.buffer.swap_buffer(other);
         other.lock();
     }
-
 
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Option<Frame> {
@@ -409,7 +444,9 @@ impl DecodeBuffer {
         } else {
             if readable_len >= FRAME_HEAD_LEN {
                 unsafe {
-                    let slice = self.buffer.get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
+                    let slice = self
+                        .buffer
+                        .get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
                     self.read_offset += FRAME_HEAD_LEN;
                     if let Ok(head) = FrameHead::decode_from(&mut slice.borrow()) {
                         if head.content_length() == 0 {
@@ -426,7 +463,10 @@ impl DecodeBuffer {
                         return self.get_frame();
                     } else {
                         // We are lost in the buffer, this is very bad
-                        println!("Buffer split-off but not starting at a FrameHead: {:?}", &slice);
+                        println!(
+                            "Buffer split-off but not starting at a FrameHead: {:?}",
+                            &slice
+                        );
                     }
                 }
             }
@@ -527,7 +567,6 @@ impl BufMut for ChunkLease {
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        //self.advance(cnt);
         self.written += cnt;
     }
 
@@ -537,7 +576,6 @@ impl BufMut for ChunkLease {
             let offset_ptr = ptr.offset(self.written as isize);
             return mem::transmute(std::slice::from_raw_parts_mut(offset_ptr, self.capacity - self.written));
         }
-        //unsafe { mem::transmute(&mut *&(self.content).offset(self.written as isize)) }
     }
 }
 
