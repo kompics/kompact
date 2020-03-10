@@ -87,8 +87,7 @@ impl Frame {
             Frame::CreditUpdate(ref frame) => frame.encode_into(dst),
             Frame::Data(ref frame) => frame.encode_into(dst),
             Frame::Hello(ref frame) => frame.encode_into(dst),
-            Frame::Bye() => Ok(()),
-            _ => Err(()),
+            Frame::Bye() => Ok(())
         }
     }
 
@@ -230,6 +229,7 @@ impl FrameHead {
 }
 
 impl StreamRequest {
+    #[allow(dead_code)]
     pub(crate) fn new(credit_capacity: u32) -> Self {
         StreamRequest { credit_capacity }
     }

@@ -1,5 +1,6 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
+
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -50,7 +51,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         }
         let (ctx_setup, ctx_access) = match ctx_field {
             Some(f) => {
-                let ref id = f.ident;
+                let id = &f.ident;
                 let setup = quote! { self.#id.initialise(self_component.clone()); };
                 let access = quote! { self.#id };
                 (setup, access)
@@ -60,7 +61,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         let port_setup = ports
             .iter()
             .map(|&(f, _)| {
-                let ref id = f.ident;
+                let id = &f.ident;
                 quote! { self.#id.set_parent(self_component.clone()); }
             })
             .collect::<Vec<_>>();
@@ -68,7 +69,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
             .iter()
             .enumerate()
             .map(|(i, &(f, ref t))| {
-                let ref id = f.ident;
+                let id = &f.ident;
                 //let ref ty = f.ty;
                 let handle = t.as_handle();
                 quote! {
@@ -92,7 +93,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
             .iter()
             .enumerate()
             .map(|(i, &(f, ref t))| {
-                let ref id = f.ident;
+                let id = &f.ident;
                 //let ref ty = f.ty;
                 let handle = t.as_handle();
                 quote! {
@@ -134,7 +135,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
             .iter()
             .map(|p| {
                 let (field, port_field) = p;
-                let ref id = field.ident;
+                let id = &field.ident;
                 match port_field {
                     PortField::Required(ty) => quote! {
                         impl #impl_generics RequireRef< #ty > for #name #ty_generics #where_clause {
@@ -203,17 +204,17 @@ enum PortField {
 
 impl PortField {
     fn as_handle(&self) -> TokenStream2 {
-        match self {
-            &PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
-            &PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
+        match *self {
+            PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
+            PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
         }
     }
 }
 
-const REQP: &'static str = "RequiredPort";
-const PROVP: &'static str = "ProvidedPort";
-const CTX: &'static str = "ComponentContext";
-const KOMPICS: &'static str = "kompact";
+const REQP: &str = "RequiredPort";
+const PROVP: &str = "ProvidedPort";
+const CTX: &str = "ComponentContext";
+const KOMPICS: &str = "kompact";
 
 fn identify_field(f: &syn::Field) -> ComponentField {
     if let syn::Type::Path(ref patht) = f.ty {

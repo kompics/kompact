@@ -32,7 +32,9 @@ pub(crate) struct TcpChannel {
 impl TcpChannel {
     pub fn new(stream: TcpStream, token: Token, buffer_chunk: BufferChunk) -> Self {
         let input_buffer = DecodeBuffer::new(buffer_chunk);
-        stream.set_nodelay(true);
+        if let Err(e) = stream.set_nodelay(true) {
+            eprintln!("failed to set nodelay on TcpChannel: {:?}", e);
+        }
         TcpChannel {
             stream,
             outbound_queue: VecDeque::new(),
@@ -60,17 +62,18 @@ impl TcpChannel {
         }
     }
 
-    pub fn initialize(&mut self, addr: &SocketAddr) -> () {
+    pub fn initialize(&mut self, addr: &SocketAddr) -> io::Result<()> {
         let hello = Frame::Hello(Hello::new(*addr));
         let mut hello_bytes = BytesMut::with_capacity(hello.encoded_len());
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = hello.encode_into(&mut hello_bytes) {
             self.outbound_queue
                 .push_back(SerializedFrame::Bytes(hello_bytes.freeze()));
-            self.try_drain();
+            self.try_drain()?;
         } else {
             panic!("Unable to send hello bytes, failed to encode!");
         }
+        Ok(())
     }
 
     pub fn swap_buffer(&mut self, new_buffer: &mut BufferChunk) -> () {
@@ -141,7 +144,7 @@ impl TcpChannel {
         if let Ok(()) = bye.encode_into(&mut bye_bytes) {
             self.outbound_queue
                 .push_back(SerializedFrame::Bytes(bye_bytes.freeze()));
-            self.try_drain();
+            let _ = self.try_drain(); // If we fail to drain it we kill it anyway...
         } else {
             panic!("Unable to send hello bytes, failed to encode!");
         }
@@ -150,7 +153,7 @@ impl TcpChannel {
 
     pub fn shutdown(&mut self) -> () {
         //self.receive();
-        self.stream.shutdown(Both);
+        let _ = self.stream.shutdown(Both); // Discard errors while closing channels for now...
         self.state = ConnectionState::Closed;
     }
 
@@ -178,7 +181,7 @@ impl TcpChannel {
                         // Split the data and continue sending the rest later if we sent less than the full frame
                         SerializedFrame::Bytes(bytes) => {
                             if n < bytes.len() {
-                                bytes.split_to(n);
+                                let _ = bytes.split_to(n); // Discard the already sent split off part.
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
@@ -188,7 +191,6 @@ impl TcpChannel {
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
-                        _ => {}
                     }
                     // Continue looping for the next message
                 }
@@ -263,8 +265,6 @@ impl TcpChannel {
             self.outbound_queue.append(&mut other.outbound_queue);
         }
     }
-
-    fn merge_with(&mut self, _other: &mut Self) -> () {}
 }
 
 #[derive(PartialEq, Eq)]

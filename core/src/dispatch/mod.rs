@@ -20,7 +20,7 @@ use crate::{
         RegistrationEnvelope,
         RegistrationError,
     },
-    net::{events::NetworkEvent, ConnectionState},
+    net::{events::NetworkEvent, ConnectionState, NetworkBridgeErr},
 };
 use arc_swap::ArcSwap;
 use futures::{self, Async, AsyncSink, Poll, StartSend};
@@ -248,16 +248,11 @@ impl NetworkDispatcher {
         match ev {
             EventEnvelope::Network(ev) => match ev {
                 NetworkEvent::Connection(addr, conn_state) => {
-                    //println!("Connection...");
-                    self.on_conn_state(addr, conn_state)
+                    if let Err(e) = self.on_conn_state(addr, conn_state) {
+                        error!(self.ctx().log(), "Error while connecting to {}, \n{:?}", addr, e)
+                    }
                 }
                 NetworkEvent::Data(_) => {
-                    //println!("Data _");
-                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
-                    debug!(self.ctx().log(), "Received important data!");
-                }
-                _ => {
-                    //println!("_ match");
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
                 }
@@ -265,7 +260,7 @@ impl NetworkDispatcher {
         }
     }
 
-    fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) {
+    fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) -> Result<(), NetworkBridgeErr> {
         use self::ConnectionState::*;
         //println!("on_conn_state for addr {}", &addr);
         match state {
@@ -280,7 +275,7 @@ impl NetworkDispatcher {
                         while let Some(frame) = qm.pop_frame(&addr) {
                             if let Some(bridge) = &self.net_bridge {
                                 //println!("Sending queued frame to newly established connection");
-                                bridge.route(addr, frame);
+                                bridge.route(addr, frame)?;
                             }
                             /*if let Err(err) = frame_sender.unbounded_send(frame) {
                                 // TODO the underlying channel has been dropped,
@@ -314,6 +309,7 @@ impl NetworkDispatcher {
             ref _other => (), // Don't care
         }
         self.connections.insert(addr, state);
+        Ok(())
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
@@ -348,32 +344,9 @@ impl NetworkDispatcher {
 
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
-    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) {
+    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
-        /*
-        match msg {
-            DispatchData::Eager(serialized) => {
-
-            }
-            DispatchData::Lazy(serializable) => {}
-        }
-        */
-        let serialized = {
-            let ser_id = msg.ser_id();
-            let payload = match msg.to_serialised(src, dst) {
-                Ok(p) => p,
-                Err(e) => {
-                    error!(
-                        self.ctx.log(),
-                        "Could not serialise a remote message (ser_id = {}). Dropping. Error was: {:?}",
-                        ser_id,
-                        e
-                    );
-                    return;
-                }
-            };
-            payload
-        };
+        let serialized = msg.to_serialised(src, dst)?;
 
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
@@ -405,14 +378,14 @@ impl NetworkDispatcher {
 
                         if let Some(bridge) = &self.net_bridge {
                             while let Some(frame) = qm.pop_frame(&addr) {
-                                bridge.route(addr, frame);
+                                bridge.route(addr, frame)?;
                             }
                         }
                         None
                     } else {
                         // Send frame
                         if let Some(bridge) = &self.net_bridge {
-                            bridge.route(addr, serialized);
+                            bridge.route(addr, serialized)?;
                         }
                         None
                     }
@@ -434,6 +407,7 @@ impl NetworkDispatcher {
         if let Some(next) = next {
             *state = next;
         }
+        Ok(())
     }
 
     fn resolve_path(&mut self, resolvable: &PathResolvable) -> ActorPath {
@@ -452,14 +426,14 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: DispatchData) {
+    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
         let src_path = self.resolve_path(&src);
         //println!("*** Dispatch route {:?}", dst_path.system().protocol());
         if src_path.system() == dst_path.system() {
             //println!("*** dst system == src system");
             self.route_local(src_path, dst_path, msg);
-            return;
-        }
+            return Ok(());
+        };
         let proto = {
             let dst_sys = dst_path.system();
             SystemField::protocol(dst_sys)
@@ -469,12 +443,13 @@ impl NetworkDispatcher {
                 self.route_local(src_path, dst_path, msg);
             }
             Transport::TCP => {
-                self.route_remote(src_path, dst_path, msg);
+                self.route_remote(src_path, dst_path, msg)?;
             }
             Transport::UDP => {
-                error!(self.ctx.log(), "UDP routing is not supported.");
+                return Err(NetworkBridgeErr::Other("UDP routing is not supported.".to_string()));
             }
         }
+        Ok(())
     }
 
     fn actor_path(&mut self) -> ActorPath {
@@ -490,7 +465,9 @@ impl Actor for NetworkDispatcher {
         match msg {
             DispatchEnvelope::Msg { src, dst, msg } => {
                 // Look up destination (local or remote), then route or err
-                self.route(src, dst, msg);
+                if let Err(e) = self.route(src, dst, msg) {
+                    error!(self.ctx.log(), "Failed to route message: {:?}", e);
+                };
             }
             DispatchEnvelope::Registration(reg) => {
                 use lookup::ActorLookup;
@@ -536,7 +513,7 @@ impl Actor for NetworkDispatcher {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        warn!(self.ctx.log(), "Received network message: {:?}", msg,);
+        warn!(self.ctx.log(), "Received network message: {:?}", msg, );
     }
 }
 
@@ -916,7 +893,6 @@ mod dispatch_tests {
         const SID: SerId = 42;
     }
 
-    const PING_PONG_SER: PingPongSer = PingPongSer {};
     const PING_ID: i8 = 1;
     const PONG_ID: i8 = 2;
 

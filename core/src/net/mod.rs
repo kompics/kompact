@@ -2,10 +2,9 @@ use super::*;
 use actors::Transport;
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
-use futures::{self, stream::Stream, Future};
-use net::events::{NetworkError, NetworkEvent};
+use net::events::NetworkEvent;
 
-use std::{net::SocketAddr, sync::Arc, thread};
+use std::{net::SocketAddr, sync::Arc, thread, io};
 
 use crate::{
     messaging::SerializedFrame,
@@ -13,7 +12,7 @@ use crate::{
 };
 use bytes::{Buf, BufMut, BytesMut};
 use mio::{Ready, Registration, SetReadiness};
-use std::sync::mpsc::{channel, Receiver as Recv, Sender};
+use std::sync::mpsc::{channel, Receiver as Recv, Sender, SendError, RecvError};
 
 #[allow(missing_docs)]
 pub mod buffer;
@@ -86,6 +85,7 @@ pub mod events {
 }
 
 /// The configuration for the network `Bridge`
+#[allow(dead_code)]
 pub struct BridgeConfig {
     retry_strategy: RetryStrategy,
 }
@@ -99,10 +99,12 @@ impl BridgeConfig {
     }
 }
 
+#[allow(dead_code)]
 enum RetryStrategy {
     ExponentialBackoff { base_ms: u64, num_tries: usize },
 }
 
+#[allow(dead_code)]
 impl Default for BridgeConfig {
     fn default() -> Self {
         let retry_strategy = RetryStrategy::ExponentialBackoff {
@@ -113,18 +115,14 @@ impl Default for BridgeConfig {
     }
 }
 
-/// Bridge to Tokio land, responsible for network connection management
+/// Bridge to Network Threads. Routes outbound messages to the correct network thread. Single threaded for now.
 pub struct Bridge {
     /// Network-specific configuration
-    cfg: BridgeConfig,
-    /// Executor belonging to the Tokio runtime
-    // pub(crate) executor: Option<TaskExecutor>,
-    /// Queue of network events emitted by the network layer
-    // events: sync::mpsc::UnboundedSender<NetworkEvent>,
+    //cfg: BridgeConfig,
     /// Core logger; shared with network thread
     log: KompactLogger,
     /// Shared actor reference lookup table
-    lookup: Arc<ArcSwap<ActorStore>>,
+    // lookup: Arc<ArcSwap<ActorStore>>,
     /// Network Thread stuff:
     // network_thread: Box<NetworkThread>,
     // ^ Can we avoid storing this by moving it into itself?
@@ -168,21 +166,22 @@ impl Bridge {
         );
         let bound_addr = network_thread.addr.clone();
         let bridge = Bridge {
-            cfg: BridgeConfig::default(),
+            // cfg: BridgeConfig::default(),
             log: bridge_log,
-            lookup,
-            //network_thread: Box::new(network_thread),
+            // lookup,
             network_input_queue: sender,
             network_thread_registration,
             dispatcher: Some(dispatcher_ref),
             bound_addr: Some(bound_addr.clone()),
             network_thread_receiver: Box::new(network_thread_receiver),
         };
-        thread::Builder::new()
+        if let Err(e) = thread::Builder::new()
             .name("network_thread".to_string())
             .spawn(move || {
                 network_thread.run();
-            });
+            }) {
+            panic!("Failed to start a Network Thread, error: {:?}", e);
+        }
         (bridge, bound_addr)
     }
 
@@ -194,10 +193,10 @@ impl Bridge {
     /// Stops the bridge
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
-        self.network_input_queue.send(DispatchEvent::Stop());
+        self.network_input_queue.send(DispatchEvent::Stop())?;
         self.network_thread_registration
-            .set_readiness(Ready::readable());
-        self.network_thread_receiver.recv(); // should block until something is sent
+            .set_readiness(Ready::readable())?;
+        self.network_thread_receiver.recv()?; // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }
@@ -208,7 +207,7 @@ impl Bridge {
     }
 
     /// Forwards `serialized` to the NetworkThread and makes sure that it will wake up.
-    pub fn route(&self, addr: SocketAddr, serialized: SerializedFrame) -> () {
+    pub fn route(&self, addr: SocketAddr, serialized: SerializedFrame) -> Result<(), NetworkBridgeErr> {
         match serialized {
             SerializedFrame::Bytes(bytes) => {
                 let size = FrameHead::encoded_len() + bytes.len();
@@ -219,17 +218,18 @@ impl Bridge {
                 self.network_input_queue.send(events::DispatchEvent::Send(
                     addr,
                     SerializedFrame::Bytes(buf.freeze()),
-                ));
+                ))?;
             }
             SerializedFrame::Chunk(chunk) => {
                 self.network_input_queue.send(events::DispatchEvent::Send(
                     addr,
                     SerializedFrame::Chunk(chunk),
-                ));
+                ))?;
             }
         }
         self.network_thread_registration
-            .set_readiness(Ready::readable());
+            .set_readiness(Ready::readable())?;
+        Ok(())
     }
 
     /// Attempts to establish a TCP connection to the provided `addr`.
@@ -242,17 +242,17 @@ impl Bridge {
     /// # Errors
     /// If the provided protocol is not supported or if the Tokio runtime's executor has not been
     /// set.
-    pub fn connect(&mut self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkError> {
+    pub fn connect(&mut self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         //println!("bridge bound to {} connecting to addr {}, ", self.bound_addr.unwrap(), addr);
         match proto {
             Transport::TCP => {
                 self.network_input_queue
-                    .send(events::DispatchEvent::Connect(addr));
+                    .send(events::DispatchEvent::Connect(addr))?;
                 self.network_thread_registration
-                    .set_readiness(Ready::readable());
+                    .set_readiness(Ready::readable())?;
                 Ok(())
             }
-            _other => Err(NetworkError::UnsupportedProtocol),
+            _other => Err(NetworkBridgeErr::Other("Bad Protocol".to_string())),
         }
     }
 }
@@ -266,4 +266,29 @@ pub enum NetworkBridgeErr {
     Thread(String),
     /// Something else went wrong
     Other(String),
+
+}
+
+impl<T> From<SendError<T>> for NetworkBridgeErr {
+    fn from(error: SendError<T>) -> Self {
+        NetworkBridgeErr::Other(format!("SendError: {:?}", error))
+    }
+}
+
+impl From<io::Error> for NetworkBridgeErr {
+    fn from(error: io::Error) -> Self {
+        NetworkBridgeErr::Other(format!("io::Error: {:?}", error))
+    }
+}
+
+impl From<RecvError> for NetworkBridgeErr {
+    fn from(error: RecvError) -> Self {
+        NetworkBridgeErr::Other(format!("RecvError: {:?}", error))
+    }
+}
+
+impl From<SerError> for NetworkBridgeErr {
+    fn from(error: SerError) -> Self {
+        NetworkBridgeErr::Other(format!("SerError: {:?}", error))
+    }
 }

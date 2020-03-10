@@ -45,6 +45,8 @@ impl QueueManager {
     }
 
     /// Attempts to drain all SerializedFrame entries stored for the provided SocketAddr into the Sender
+    /// Currently unused, will be brought back into play soon...
+    #[allow(dead_code)]
     pub fn try_drain(
         &mut self,
         dst: SocketAddr,

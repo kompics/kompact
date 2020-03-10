@@ -290,9 +290,9 @@ impl ActorPath {
     /// that `m` will definitely go over the network, you can use
     /// [tell_ser](ActorPath::tell_ser) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
-    where
-        S: ActorSource,
-        B: Into<Box<dyn Serialisable>>,
+        where
+            S: ActorSource,
+            B: Into<Box<dyn Serialisable>>,
     {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
@@ -307,9 +307,9 @@ impl ActorPath {
 
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
-    where
-        CD: ComponentDefinition + Sized + 'static,
-        B: Serialisable + 'static,
+        where
+            CD: ComponentDefinition + Sized + 'static,
+            B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
@@ -322,10 +322,10 @@ impl ActorPath {
         // Reserve space for the header:
         buf.pad(FRAME_HEAD_LEN as usize);
 
-        from.actor_path().serialise(buf); // src
-        self.clone().serialise(buf); // dst
+        from.actor_path().serialise(buf)?; // src
+        self.clone().serialise(buf)?; // dst
         buf.put_ser_id(m.ser_id()); // ser_id
-        Serialisable::serialise(&m, buf); // data
+        Serialisable::serialise(&m, buf)?; // data
 
         if let Some(mut chunk_lease) = buf.get_chunk() {
             // The length which a FrameHead tells does not include the size of the FrameHead itself
@@ -342,60 +342,6 @@ impl ActorPath {
             panic!("failed to get buffer!");
         }
     }
-
-    /*
-    /// Similar to [tell_ser](ActorPath::tell_ser), but uses a pooled and reusable byte buffer.
-    /// The component definition given in `from` must have initialized a pool using [initialize_pool](ComponentContext::initialize_pool)
-    /// The pool is garbage-collected on demand when tell_pooled is called and the pool has run out of available buffers.
-    pub fn tell_pooled<B, CD>(&self, m: B, from: &mut CD) -> Result<(), SerError>
-        where
-            B: Serialisable + Sized,
-        //S: ActorSource,
-            CD: ComponentDefinition + Sized + 'static,
-    {
-        //println!("TELL POOLED");
-        let src = from.path_resolvable();
-        let ser_id = &m.ser_id();
-        let src_path = match src {
-            PathResolvable::Path(actor_path) => {
-                actor_path
-            }
-            PathResolvable::ActorId(uuid) => {
-                //println!("actor path unique");
-                ActorPath::Unique(UniquePath::with_system(from.ctx().system().system_path(), uuid.clone()))
-            }
-            _ => {
-                panic!("tell_pooled sent from non-actor");
-            }
-        };
-        let dst = self.clone();
-        //println!("checking size hint");
-        if let Some(mut size) = m.size_hint() {
-            size += FrameHead::encoded_len();
-            size += src_path.size_hint().unwrap_or(0);
-            size += dst.size_hint().unwrap_or(0);
-            size += ser_id.size();
-            //println!("getting buffer");
-            if let Some(mut buf) = from.ctx_mut().get_buffer(size) {
-                //println!("serializing into chunk");
-                crate::serialisation::ser_helpers::serialise_into_framed_buf(&src_path, &dst, m, &mut buf);
-                let env = DispatchEnvelope::Msg {
-                    src: from.path_resolvable(),
-                    dst,
-                    msg: DispatchData::Pooled((buf, *ser_id)),
-                };
-                //println!("enqueing: {:?}", env);
-                from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-                Ok(())
-            } else {
-                panic!("failed to get buffer!");
-                // TODO: No buffer we should do exponential back-off right here and recursively call the function again
-            }
-        } else {
-            panic!("no size hint");
-        }
-    }
-    */
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
     /// and something that can [dispatch](Dispatching) stuff

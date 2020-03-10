@@ -4,9 +4,7 @@ use core::{cmp, mem, ptr};
 use iovec::IoVec;
 use std::{
     borrow::Borrow,
-    collections::VecDeque,
     mem::MaybeUninit,
-    ops::{Deref, DerefMut},
     pin::Pin,
     sync::Arc,
 };
@@ -222,7 +220,7 @@ impl EncodeBuffer {
             self.read_offset = 0;
             if let Some(chunk) = overflow {
                 self.put_slice(chunk.content);
-            //self.write_offset = chunk.remaining();
+                //self.write_offset = chunk.remaining();
             } else {
                 self.write_offset = 0;
             }
@@ -266,8 +264,8 @@ impl BufMut for EncodeBuffer {
     }
 
     fn put<T: super::Buf>(&mut self, mut src: T)
-    where
-        Self: Sized,
+        where
+            Self: Sized,
     {
         assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
 
@@ -421,38 +419,36 @@ impl DecodeBuffer {
         let readable_len = (self.write_offset - self.read_offset) as usize;
         if let Some(head) = &self.next_frame_head {
             if readable_len >= head.content_length() {
-                unsafe {
-                    let lease = self
-                        .buffer
-                        .get_lease(self.read_offset, self.read_offset + head.content_length());
-                    self.read_offset += head.content_length();
-                    match head.frame_type() {
-                        FrameType::Data => {
-                            if let Ok(data) = Data::decode_from(lease) {
-                                self.next_frame_head = None;
-                                return Some(data);
-                            } else {
-                                println!("Failed to decode data");
-                            }
+                let lease = self
+                    .buffer
+                    .get_lease(self.read_offset, self.read_offset + head.content_length());
+                self.read_offset += head.content_length();
+                match head.frame_type() {
+                    FrameType::Data => {
+                        if let Ok(data) = Data::decode_from(lease) {
+                            self.next_frame_head = None;
+                            return Some(data);
+                        } else {
+                            println!("Failed to decode data");
                         }
-                        FrameType::StreamRequest => {
-                            if let Ok(data) = StreamRequest::decode_from(lease) {
-                                self.next_frame_head = None;
-                                return Some(data);
-                            }
+                    }
+                    FrameType::StreamRequest => {
+                        if let Ok(data) = StreamRequest::decode_from(lease) {
+                            self.next_frame_head = None;
+                            return Some(data);
                         }
-                        FrameType::Hello => {
-                            //println!("decoding Hello");
-                            if let Ok(hello) = Hello::decode_from(lease) {
-                                self.next_frame_head = None;
-                                return Some(hello);
-                            } else {
-                                println!("Failed to decode data");
-                            }
+                    }
+                    FrameType::Hello => {
+                        //println!("decoding Hello");
+                        if let Ok(hello) = Hello::decode_from(lease) {
+                            self.next_frame_head = None;
+                            return Some(hello);
+                        } else {
+                            println!("Failed to decode data");
                         }
-                        _ => {
-                            println!("Weird head");
-                        }
+                    }
+                    _ => {
+                        println!("Weird head");
                     }
                 }
             }
@@ -529,9 +525,9 @@ impl ChunkLease {
 
     /// Creates an empty ChunkLease, used as auxiliary method in test-cases
     pub fn empty() -> ChunkLease {
-        static mut slice: [u8; 1] = [0];
+        static mut SLICE: [u8; 1] = [0];
         unsafe {
-            let pointer: &'static mut [u8] = &mut slice;
+            let pointer: &'static mut [u8] = &mut SLICE;
             ChunkLease {
                 read: 0,
                 content: pointer,

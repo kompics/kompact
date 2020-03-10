@@ -1,11 +1,7 @@
-use crate::net::{
-    buffer::{BufferChunk, Chunk, DefaultChunk},
-    frames,
-};
+use crate::net::buffer::{BufferChunk, Chunk, DefaultChunk};
 
 use std::collections::VecDeque;
 
-pub const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 pub const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
 
@@ -49,6 +45,7 @@ impl BufferPool {
     }
 
     /// Creates a BufferPool with a custom ChunkAllocator
+    #[allow(dead_code)]
     pub fn with_allocator(chunk_allocator: Box<dyn ChunkAllocator>) -> Self {
         let mut pool = VecDeque::<BufferChunk>::new();
         for _ in 0..INITIAL_BUFFER_LEN {
@@ -104,8 +101,8 @@ impl BufferPool {
         Some(self.new_buffer())
     }
 
-    // Method for assertions, returns:
-    // (#chunks allocated by the pool, #available chunks, #returned chunks)
+    /// We use this method for assertions in tests
+    #[allow(dead_code)]
     pub(crate) fn get_pool_sizes(&self) -> (usize, usize, usize) {
         (self.pool_size, self.pool.len(), self.returned.len())
     }
