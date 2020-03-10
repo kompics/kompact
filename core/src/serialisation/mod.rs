@@ -8,9 +8,9 @@ use super::*;
 
 mod core;
 mod default_serialisers;
-pub mod ser_helpers;
 #[cfg(feature = "protobuf")]
 pub mod protobuf_serialisers;
+pub mod ser_helpers;
 
 pub use self::{core::*, default_serialisers::*};
 

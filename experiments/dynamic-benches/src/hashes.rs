@@ -85,6 +85,7 @@ pub fn insert_benches_uuid(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_uuid_insert_radix(b, size),
         );
+        #[cfg(nightly)]
         g.bench_with_input(
             BenchmarkId::new("Byte Radix", data_size),
             data_size,
@@ -111,6 +112,7 @@ pub fn insert_benches_socket(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_socket_insert_radix(b, size),
         );
+        #[cfg(nightly)]
         g.bench_with_input(
             BenchmarkId::new("Byte Radix", data_size),
             data_size,
@@ -142,6 +144,7 @@ pub fn insert_benches_usize(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_usize_insert_radix(b, size),
         );
+        #[cfg(nightly)]
         g.bench_with_input(
             BenchmarkId::new("Byte Radix", data_size),
             data_size,
@@ -179,6 +182,7 @@ pub fn lookup_benches_uuid(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_uuid_lookup_radix(b, size),
         );
+        #[cfg(nightly)]
         g.bench_with_input(
             BenchmarkId::new("Byte Radix", data_size),
             data_size,
@@ -205,6 +209,7 @@ pub fn lookup_benches_socket(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_socket_lookup_radix(b, size),
         );
+        #[cfg(nightly)]
         g.bench_with_input(
             BenchmarkId::new("ByteRadix", data_size),
             data_size,
@@ -236,6 +241,7 @@ pub fn lookup_benches_usize(c: &mut Criterion) {
             data_size,
             |b, &size| tests::bench_usize_lookup_radix(b, size),
         );
+        #[cfg(nightly)]
         g.bench_with_input(
             BenchmarkId::new("Byte Radix", data_size),
             data_size,
@@ -248,6 +254,7 @@ pub fn lookup_benches_usize(c: &mut Criterion) {
 mod tests {
     use super::*;
     use criterion::Bencher;
+    #[cfg(nightly)]
     use datastructures::ByteSliceMap;
     use fnv::FnvHashMap;
     use fxhash::FxHashMap;
@@ -329,6 +336,7 @@ mod tests {
         map.clear();
     }
 
+    #[cfg(nightly)]
     pub fn bench_uuid_insert_byteradix(b: &mut Bencher, data_size: usize) {
         let data = load_uuid_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
@@ -405,6 +413,7 @@ mod tests {
         map.clear();
     }
 
+    #[cfg(nightly)]
     pub fn bench_socket_insert_byteradix(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
@@ -497,6 +506,7 @@ mod tests {
         map.clear();
     }
 
+    #[cfg(nightly)]
     pub fn bench_usize_insert_byteradix(b: &mut Bencher, data_size: usize) {
         let data = load_usize_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
@@ -598,6 +608,7 @@ mod tests {
         map.clear();
     }
 
+    #[cfg(nightly)]
     pub fn bench_uuid_lookup_byteradix(b: &mut Bencher, data_size: usize) {
         let data = load_uuid_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
@@ -682,6 +693,8 @@ mod tests {
         });
         map.clear();
     }
+
+    #[cfg(nightly)]
     pub fn bench_socket_lookup_byteradix(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
@@ -785,6 +798,7 @@ mod tests {
         map.clear();
     }
 
+    #[cfg(nightly)]
     pub fn bench_usize_lookup_byteradix(b: &mut Bencher, data_size: usize) {
         let data = load_usize_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();

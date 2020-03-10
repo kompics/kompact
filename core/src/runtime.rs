@@ -317,6 +317,43 @@ impl KompactConfig {
         self
     }
 
+    /// Set a particular set of system components
+    ///
+    /// This function works just like [system_components](KompactConfig::system_components),
+    /// except that it assigns the dispatcher is pinned to its own thread using
+    /// [create_dedicated_pinned_unsupervised](KompactSystem::create_dedicated_pinned_unsupervised).
+    #[cfg(feature = "thread_pinning")]
+    pub fn system_components_with_dedicated_dispatcher_pinned<B, C, FB, FC>(
+        &mut self,
+        deadletter_fn: FB,
+        dispatcher_fn: FC,
+        dispatcher_core: CoreId,
+    ) -> &mut Self
+    where
+        B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
+        C: ComponentDefinition
+            + ActorRaw<Message = DispatchEnvelope>
+            + Sized
+            + 'static
+            + Dispatcher,
+        FB: Fn(Promise<()>) -> B + 'static,
+        FC: Fn(Promise<()>) -> C + 'static,
+    {
+        let sb = move |system: &KompactSystem, dead_prom: Promise<()>, disp_prom: Promise<()>| {
+            let deadletter_box = system.create_unsupervised(|| deadletter_fn(dead_prom));
+            let dispatcher = system
+                .create_dedicated_pinned_unsupervised(|| dispatcher_fn(disp_prom), dispatcher_core);
+
+            let cc = CustomComponents {
+                deadletter_box,
+                dispatcher,
+            };
+            Box::new(cc) as Box<dyn SystemComponents>
+        };
+        self.sc_builder = Rc::new(sb);
+        self
+    }
+
     /// Set the logger implementation to use
     pub fn logger(&mut self, logger: KompactLogger) -> &mut Self {
         self.root_logger = Some(logger);
@@ -1306,6 +1343,175 @@ impl TimerRefFactory for KompactSystem {
         self.inner.assert_not_poisoned();
         self.inner.timer_ref()
     }
+}
+
+/// A limited version of a [KompactSystem](KompactSystem)
+///
+/// This is meant for use from within components, where all the blocking APIs
+/// are unacceptable anyway.
+pub trait SystemHandle: Dispatching {
+    // TODO convert all the Future APIs either into message-based (e.g., WithSender)
+    // or convert to Async/Await, once we have support for that.
+
+    /// Create a new component
+    ///
+    /// Uses `f` to create an instance of a [ComponentDefinition](ComponentDefinition),
+    /// which is the initialised to form a [Component](Component).
+    /// Since components are shared between threads, the created component
+    /// is wrapped into an [Arc](std::sync::Arc).
+    ///
+    /// Newly created components are not started automatically.
+    /// Use [start](KompactSystem::start) or [start_notify](KompactSystem::start_notify)
+    /// to start a newly created component, once it is connected properly.
+    ///
+    /// If you need address this component via the network, see the [register](KompactSystem::register) function.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn create<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static;
+
+    /// Start a component
+    ///
+    /// A component only handles events/messages once it is started.
+    /// In particular, a component that isn't started shouldn't be scheduled and thus
+    /// access to its definition should always succeed,
+    /// for example via [on_definition](Component::on_definition).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// system.start(&c);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn start<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static;
+
+    /// Stop a component
+    ///
+    /// A component does not handle any events/messages while it is stopped,
+    /// but it does not get deallocated either. It can be started again later with
+    /// [start](KompactSystem::start) or [start_notify](KompactSystem::start_notify).
+    ///
+    /// A component that is stopped shouldn't be scheduled and thus
+    /// access to its definition should always succeed,
+    /// for example via [on_definition](Component::on_definition).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// system.start_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never started!");
+    /// system.stop(&c);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static;
+
+    /// Stop and deallocate a component
+    ///
+    /// The supervisor will attempt to deallocate `c` once it is stopped.
+    /// However, if there are still outstanding references somewhere else in the system
+    /// this will fail, of course. In that case the supervisor leaves a debug message
+    /// in the logging output, so that this circumstance can be discovered if necessary.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// system.start_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never started!");
+    /// system.kill(c);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn kill<C>(&self, c: Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static;
+
+    /// Return the configured thoughput value
+    ///
+    /// See also [throughput](KompactConfig::throughput).
+    fn throughput(&self) -> usize;
+
+    /// Return the configured maximum number of messages per scheduling
+    ///
+    /// This value is based on [throughput](KompactConfig::throughput)
+    /// and [msg_priority](KompactConfig::msg_priority).
+    fn max_messages(&self) -> usize;
+
+    /// Shutdown the Kompact system from within a component
+    ///
+    /// Stops all components and then stops the scheduler.
+    ///
+    /// This function may fail to stop in time (or at all),
+    /// if components hang on to scheduler threads indefinitely.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct Stopper {
+    ///    ctx: ComponentContext<Self>,
+    /// }
+    /// impl Stopper {
+    ///     fn new() -> Stopper {
+    ///         Stopper {
+    ///             ctx: ComponentContext::new(),
+    ///         }
+    ///     }    
+    /// }
+    /// impl Provide<ControlPort> for Stopper {
+    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///            ControlEvent::Start => {
+    ///                self.ctx().system().shutdown_async();
+    ///            }
+    ///            _ => (), // ignore
+    ///        }
+    ///     }
+    /// }
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(Stopper::new);
+    /// system.start(&c);
+    /// system.await_termination();
+    /// ```
+    fn shutdown_async(&self) -> ();
+
+    /// Return the system path of this Kompact system
+    ///
+    /// The system path forms a prefix for every [ActorPath](prelude::ActorPath).
+    fn system_path(&self) -> SystemPath;
+
+    /// Returns a reference to the system's deadletter box
+    fn deadletter_ref(&self) -> ActorRef<Never>;
 }
 
 /// A trait to provide custom implementations of all system components

@@ -23,6 +23,8 @@ features = ["silent_logging"]
 [dependencies.datastructures]
 path = "../datastructures"
 
+[build-dependencies]
+rustc_version = "0.2"
 
 [dev-dependencies]
 criterion = {version = "0.3", features=['real_blackbox']}

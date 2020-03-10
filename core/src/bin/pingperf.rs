@@ -1,9 +1,10 @@
 #![allow(unused_parens)]
 
-use time;
-
 use kompact::prelude::*;
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use synchronoise::CountdownEvent;
 
 #[inline(always)]
@@ -113,7 +114,7 @@ impl Provide<PingPongPort> for Ponger {
     }
 }
 
-const NS_TO_S: f64 = 1.0 / (1000.0 * 1000.0 * 1000.0);
+//const NS_TO_S: f64 = 1.0 / (1000.0 * 1000.0 * 1000.0);
 const MSGS: u64 = 50000000;
 const PROC_PAIRS: usize = 8;
 
@@ -137,17 +138,16 @@ fn main() {
         pongers.push(pongerc);
     }
     println!("Starting {} Pingers&Pongers", PROC_PAIRS);
-    let startt = time::precise_time_ns();
+    let startt = Instant::now();
     for i in 0..PROC_PAIRS {
         sys.start(&pongers[i as usize]);
         sys.start(&pingers[i as usize]);
     }
     println!("Waiting for countdown...");
     latch.wait();
-    let endt = time::precise_time_ns();
+    let difft: Duration = startt.elapsed();
     println!("all done!");
-    let difft = (endt - startt) as f64;
-    let diffts = difft * NS_TO_S;
+    let diffts = difft.as_secs_f64();
     let total_msgs = (MSGS * (PROC_PAIRS as u64)) as f64;
     let msgs = total_msgs / diffts;
     println!("Ran {}msgs/s", msgs);

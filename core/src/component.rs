@@ -35,8 +35,8 @@ pub trait CoreContainer: Send + Sync {
     /// Returns a reference to this component's control port
     fn control_port(&self) -> ProvidedRef<ControlPort>;
     /// Returns this component's system
-    fn system(&self) -> KompactSystem {
-        self.core().system().clone()
+    fn system(&self) -> &KompactSystem {
+        self.core().system()
     }
     /// Schedules this component on its associated scheduler
     fn schedule(&self) -> ();
@@ -375,7 +375,7 @@ impl<CD> ActorSource for CD
         CD: ComponentDefinition + 'static,
 {
     fn path_resolvable(&self) -> PathResolvable {
-        PathResolvable::ActorId(self.ctx().id())
+        PathResolvable::ActorId(self.ctx().id().clone())
     }
 }
 
@@ -518,6 +518,7 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     actor_ref: ActorRef<CD::Message>,
     buffer: Option<RefCell<EncodeBuffer>>,
     config: Arc<Hocon>,
+    id: Uuid,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
@@ -534,6 +535,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             CD: ComponentDefinition + 'static,
     {
         let system = c.system();
+        let id = c.id().clone();
         let inner = ComponentContextInner {
             timer_manager: TimerManager::new(system.timer_ref()),
             component: Arc::downgrade(&c),
@@ -541,6 +543,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             actor_ref: c.actor_ref(),
             buffer: None,
             config: system.config_owned(),
+            id,
         };
         self.inner = Some(inner);
         trace!(self.log(), "Initialised.");
@@ -659,9 +662,9 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
-    /// Returns the Kompact system this component is a part of
-    pub fn system(&self) -> KompactSystem {
-        self.component().system()
+    /// Returns a handle to the Kompact system this component is a part of
+    pub fn system(&self) -> impl SystemHandle {
+        ContextSystemHandle::from(self.component())
     }
 
     /// Returns a reference to the system dispatcher
@@ -671,12 +674,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
 
     /// Returns a reference to the system's deadletter box
     pub fn deadletter_ref(&self) -> ActorRef<Never> {
-        self.system().actor_ref()
+        self.system().deadletter_ref()
     }
 
-    /// Returns this components unique id
-    pub fn id(&self) -> Uuid {
-        self.component().id().clone()
+    /// Returns a reference to this components unique id
+    pub fn id(&self) -> &Uuid {
+        &self.inner_ref().id
     }
 
     /// Destroys this component
@@ -722,8 +725,72 @@ impl<CD> ActorPathFactory for ComponentContext<CD>
         CD: ComponentDefinition + ActorRaw + Sized + 'static,
 {
     fn actor_path(&self) -> ActorPath {
-        let id = self.id();
+        let id = self.id().clone();
         ActorPath::Unique(UniquePath::with_system(self.system().system_path(), id))
+    }
+}
+
+struct ContextSystemHandle {
+    component: Arc<dyn CoreContainer>,
+}
+impl ContextSystemHandle {
+    fn from(component: Arc<dyn CoreContainer>) -> Self {
+        ContextSystemHandle { component }
+    }
+}
+impl SystemHandle for ContextSystemHandle {
+    fn create<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        self.component.system().create(f)
+    }
+
+    fn start<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static,
+    {
+        self.component.system().start(c)
+    }
+
+    fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static,
+    {
+        self.component.system().stop(c)
+    }
+
+    fn kill<C>(&self, c: Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static,
+    {
+        self.component.system().kill(c)
+    }
+
+    fn throughput(&self) -> usize {
+        self.component.system().throughput()
+    }
+
+    fn max_messages(&self) -> usize {
+        self.component.system().max_messages()
+    }
+
+    fn shutdown_async(&self) -> () {
+        self.component.system().shutdown_async()
+    }
+
+    fn system_path(&self) -> SystemPath {
+        self.component.system().system_path()
+    }
+
+    fn deadletter_ref(&self) -> ActorRef<Never> {
+        self.component.system().actor_ref()
+    }
+}
+impl Dispatching for ContextSystemHandle {
+    fn dispatcher_ref(&self) -> DispatcherRef {
+        self.component.system().dispatcher_ref()
     }
 }
 

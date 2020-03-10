@@ -1,6 +1,6 @@
+// only build this module on nightly
+#![cfg(nightly)]
 #![feature(const_in_array_repeat_expressions)]
-
-//pub const DEPTH: usize = 8;
 
 pub struct ByteSliceMap<V> {
     inner: MaybeTree<V>,

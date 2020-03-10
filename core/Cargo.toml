@@ -15,6 +15,8 @@ keywords = ["actor", "kompics", "component", "async"]
 categories = ["asynchronous", "concurrency", "network-programming"]
 license = "MIT"
 
+build = "build.rs"
+
 [badges]
 # Maintenance: `status` is required Available options are `actively-developed`,
 # `passively-maintained`, `as-is`, `none`, `experimental`, `looking-for-maintainer`
@@ -22,28 +24,29 @@ license = "MIT"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["serde","slog/max_level_trace", "slog/release_max_level_info", "ser_id_64"]
+default = ["serde","slog/max_level_debug", "slog/release_max_level_info", "ser_id_64"]
 silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
 low_latency = ["executors/ws-no-park"]
 ser_id_64 = []
 ser_id_32 = []
 ser_id_16 = []
 ser_id_8 = []
-thread_pinning = ["core_affinity"]
+thread_pinning = ["core_affinity", "executors/thread-pinning"]
+
 
 [dependencies]
 log = "0.4"
 kompact-component-derive = { version="0.9.0", path = "../macros/component-definition-derive/" }
 kompact-actor-derive = { version="0.9.0", path = "../macros/actor-derive/" }
-crossbeam-channel = "0.3"
-crossbeam-queue = "0.1"
-crossbeam-utils = "0.6"
+crossbeam-channel = "0.4"
+crossbeam-queue = "0.2"
+crossbeam-utils = "0.7"
+#arc-swap = "0.4"
 arc-swap = "0.3"
 synchronoise = "1.0"
 uuid = { version = "0.8", features = ["v4"] }
-time = "0.1"
 as_num = "0.2"
-num_cpus = "1.10"
+num_cpus = "1"
 oncemutex = "0.1.1"
 sequence_trie = "0.3"
 slog = {version = "2"}
@@ -66,7 +69,7 @@ mio = "0.6.20"
 iovec = "0.1.1" # Match MIOs Version
 
 [dependencies.executors]
-version = "0.5"
+version = "0.6"
 default_features = true
 #git = "https://github.com/Bathtor/rust-executors"
 #branch = "master"
@@ -83,3 +86,6 @@ default_features = true
 [dev-dependencies]
 #env_logger = "0.4"
 tempfile = "3.1"
+
+[build-dependencies]
+rustc_version = "0.2"

@@ -141,7 +141,7 @@ impl NetworkDispatcher {
 
     /// Create a new dispatcher with the given configuration
     ///
-    /// For better readability in combination with [system_components](KompactConfig::system_components), 
+    /// For better readability in combination with [system_components](KompactConfig::system_components),
     /// use [NetworkConfig::build](NetworkConfig::build) instead.
     pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
@@ -476,8 +476,8 @@ impl NetworkDispatcher {
     }
 
     fn actor_path(&mut self) -> ActorPath {
-        let uuid = self.ctx.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+        let uuid = self.ctx.id().clone();
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid))
     }
 }
 
@@ -689,7 +689,6 @@ mod dispatch_tests {
         let mut cfg = KompactConfig::new();
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, {
-            // shouldn't be able to bind on port 80 without root rights
             let net_config =
                 NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
             net_config.build()
@@ -712,7 +711,6 @@ mod dispatch_tests {
         let mut cfg2 = KompactConfig::new();
         println!("Configuring network");
         cfg2.system_components(DeadletterBox::new, {
-            // shouldn't be able to bind on port 80 without root rights
             let net_config =
                 NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port));
             net_config.build()
@@ -827,6 +825,7 @@ mod dispatch_tests {
         system.start(&pinger_unique);
         system.start(&pinger_named);
 
+        // TODO maybe we could do this a bit more reliable?
         thread::sleep(Duration::from_millis(7000));
 
         let pingfu = system.stop_notify(&pinger_unique);
@@ -880,6 +879,7 @@ mod dispatch_tests {
         system.start(&ponger);
         system.start(&pinger);
 
+        // TODO no sleeps!
         thread::sleep(Duration::from_millis(1000));
 
         let pingf = system.stop_notify(&pinger);
