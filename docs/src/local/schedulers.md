@@ -43,10 +43,10 @@ In order to use the `crossbeam_channel_pool` scheduler, we need to import the `k
 use kompact::executors;
 ```
 
-With that, all we need add is the following line of code, which selects the `ThreadPool` implementation from the `crossbeam_channel_pool` module, instead of the one from the `crossbeam_workstealing_pool` module, that is default.
+With that, all we need to add is the following line of code, which selects the `ThreadPool` implementation from the `crossbeam_channel_pool` module, instead of the one from the `crossbeam_workstealing_pool` module, that is default.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters_channel_pool.rs:77}}
+{{#rustdoc_include ../../examples/src/bin/counters_channel_pool.rs:76}}
 ```
 
 If we run this, again, we will see exactly (modulo event timing) the same output as when running on the larger pool with Kompact's default settings.

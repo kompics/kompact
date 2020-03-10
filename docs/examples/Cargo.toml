@@ -5,10 +5,13 @@ authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2018"
 
 [dependencies]
+slog = "2"
+slog-async = "2"
+slog-term = "2"
 
 [dependencies.kompact]
 path = "../../core/"
 default-features = true
 # features = ["silent_logging", "low_latency"]
-# features = ["silent_logging"]
+# features = ["silent_logging", "ser_id_8"]
 
