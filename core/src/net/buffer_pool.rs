@@ -1,7 +1,5 @@
 use crate::net::buffer::{BufferChunk, Chunk, DefaultChunk};
-
 use std::collections::VecDeque;
-use std::ops::DerefMut;
 
 pub const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
