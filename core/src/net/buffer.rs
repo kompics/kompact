@@ -8,6 +8,7 @@ use std::{
     pin::Pin,
     sync::Arc,
 };
+use std::io::Cursor;
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 1000;
@@ -65,11 +66,13 @@ impl BufferChunk {
     }
 
     /// Creates a BufferChunk using the given Chunk
-    pub fn from_chunk(chunk: Box<dyn Chunk>) -> Self {
-        BufferChunk {
-            chunk,
-            ref_count: Arc::new(0),
-            locked: false,
+    pub fn from_chunk(raw_chunk: *mut dyn Chunk) -> Self {
+        unsafe {
+            BufferChunk {
+                chunk: Box::from_raw(raw_chunk),
+                ref_count: Arc::new(0),
+                locked: false,
+            }
         }
     }
 
@@ -96,13 +99,15 @@ impl BufferChunk {
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
     /// the returned lease is a consumable Buf.
     pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease {
-        unsafe { ChunkLease::new(self.get_slice(from, to), self.get_lock()) }
+        let lock = self.get_lock();
+        unsafe { ChunkLease::new(self.get_slice(from, to), lock) }
     }
 
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
     /// the returned lease is a writable BufMut.
     pub fn get_free_lease(&mut self, from: usize, to: usize) -> ChunkLease {
-        unsafe { ChunkLease::new_unused(self.get_slice(from, to), self.get_lock()) }
+        let lock = self.get_lock();
+        unsafe { ChunkLease::new_unused(self.get_slice(from, to), lock) }
     }
 
     /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated
@@ -262,7 +267,6 @@ impl BufMut for EncodeBuffer {
                 self.buffer.chunk.len() - self.write_offset,
             ));
         }
-        //unsafe { mem::transmute(&mut *&(self.content).offset(self.written as isize)) }
     }
 
     fn put<T: super::Buf>(&mut self, mut src: T)
@@ -280,15 +284,12 @@ impl BufMut for EncodeBuffer {
 
         while src.has_remaining() {
             let l;
-
             unsafe {
                 let s = src.bytes();
                 let d = self.bytes_mut();
                 l = cmp::min(s.len(), d.len());
-
                 ptr::copy_nonoverlapping(s.as_ptr(), d.as_mut_ptr() as *mut u8, l);
             }
-
             src.advance(l);
             unsafe {
                 self.advance_mut(l);
@@ -358,11 +359,8 @@ impl DecodeBuffer {
             return None;
         }
         unsafe {
-            Some(
-                self.buffer
-                    .get_slice(self.write_offset, self.buffer.len())
-                    .into(),
-            )
+            //let mut slice = ;
+            IoVec::from_bytes_mut(self.buffer.get_slice(self.write_offset, self.buffer.len()))
         }
     }
 
@@ -387,6 +385,7 @@ impl DecodeBuffer {
     }
 
     /// Get the first 24 bytes of the DecodeBuffer, used for testing/debugging
+    /// get_slice does the bounds checking
     pub fn get_buffer_head(&mut self) -> &mut [u8] {
         unsafe {
             return self.buffer.get_slice(0, 24);
@@ -460,7 +459,7 @@ impl DecodeBuffer {
                         .buffer
                         .get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
                     self.read_offset += FRAME_HEAD_LEN;
-                    if let Ok(head) = FrameHead::decode_from(&mut slice.borrow()) {
+                    if let Ok(head) = FrameHead::decode_from(&mut Cursor::new(slice)) {
                         if head.content_length() == 0 {
                             //println!("Content len 0");
                             match head.frame_type() {
@@ -474,11 +473,8 @@ impl DecodeBuffer {
                         self.next_frame_head = Some(head);
                         return self.get_frame();
                     } else {
-                        // We are lost in the buffer, this is very bad
-                        println!(
-                            "Buffer split-off but not starting at a FrameHead: {:?}",
-                            &slice
-                        );
+                        // We are lost in the buffer, this is very bad, no recovery mechanism implemented, yet
+                        panic!("Buffers is misaligned, can't find a frame head, potential data-loss")
                     }
                 }
             }
@@ -491,7 +487,7 @@ impl DecodeBuffer {
 /// Can be used both as Buf of BufMut depending on what is needed.
 #[derive(Debug)]
 pub struct ChunkLease {
-    content: *mut [u8],
+    content: &'static mut [u8],
     written: usize,
     read: usize,
     capacity: usize,
@@ -540,7 +536,8 @@ impl ChunkLease {
     }
 
     /// This inserts a FrameHead at the head of the Chunklease, the ChunkLease should be padded manually
-    /// before this method is invoked, i.e. it does not create space for the head on its own.
+    /// before this method is invoked, i.e. it does not create space for the head on its own
+    /// Proper framing thus requires 1. pad(), 2 serialise into decodebuffer, 3. get frame, 4. insert_head
     pub(crate) fn insert_head(&mut self, head: FrameHead) {
         // Store the write pointer
         let written = self.written;
@@ -567,7 +564,6 @@ impl Buf for ChunkLease {
 
     fn advance(&mut self, cnt: usize) {
         self.read += cnt;
-        //unsafe {self.content.advance_mut(cnt);}
     }
 }
 
@@ -584,9 +580,6 @@ impl BufMut for ChunkLease {
         unsafe {
             let slice: &mut [u8] = &mut *self.content;
             mem::transmute(&mut slice[self.written..self.capacity])
-            //MaybeUninit::from()
-            //let ret: &mut [MaybeUninit<u8>] = &mut slice[self.read..self.capacity];
-            //ret
         }
     }
 }

@@ -9,7 +9,7 @@ const MAX_POOL_SIZE: usize = 10000;
 
 /// Methods required by a ChunkAllocator
 pub trait ChunkAllocator: Send + 'static {
-    fn get_chunk(&self) -> Box<dyn Chunk>;
+    fn get_chunk(&self) -> *mut dyn Chunk;
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
 }
 
@@ -21,8 +21,8 @@ pub trait ChunkAllocator: Send + 'static {
 pub(crate) struct DefaultAllocator {}
 
 impl ChunkAllocator for DefaultAllocator {
-    fn get_chunk(&self) -> Box<dyn Chunk> {
-        Box::new(DefaultChunk::new())
+    fn get_chunk(&self) -> *mut dyn Chunk {
+        Box::into_raw(Box::new(DefaultChunk::new()))
     }
 
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> () {

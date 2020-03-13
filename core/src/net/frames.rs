@@ -197,7 +197,7 @@ impl FrameHead {
         dst.put_u8(self.frame_type as u8);
     }
 
-    pub(crate) fn decode_from<B: Buf>(src: &mut B) -> Result<Self, FramingError> {
+    pub(crate) fn decode_from<B: Buf + ?Sized>(src: &mut B) -> Result<Self, FramingError> {
         // length_delimited's decoder will have parsed the length out of `src`, subtract that out
         if src.remaining() < (FRAME_HEAD_LEN) as usize {
             return Err(FramingError::BufferCapacity);
