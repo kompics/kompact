@@ -24,7 +24,6 @@ use crate::{
 };
 use arc_swap::ArcSwap;
 use futures::{self, Async, AsyncSink, Poll, StartSend};
-//use std::collections::HashMap;
 use fnv::FnvHashMap;
 use std::{io::ErrorKind, time::Duration};
 
@@ -176,21 +175,7 @@ impl NetworkDispatcher {
 
         bridge.set_dispatcher(dispatcher.clone());
         self.net_bridge = Some(bridge);
-        /*
-        if let Some(ref ex) = bridge.executor.as_ref() {
-            use futures::{Future, Stream};
-            ex.spawn(
-                events
-                    .map(|ev| DispatchEnvelope::Event(EventEnvelope::Network(ev)))
-                    .forward(dispatcher)
-                    .then(|_| Ok(())),
-            );
-        } else {
-            return Err(net::NetworkBridgeErr::Other(
-                "No executor found in network bridge; network events can not be handled"
-                    .to_string(),
-            ));
-        } */
+
         let queue_manager = QueueManager::new();
         self.queue_manager = Some(queue_manager);
         Ok(())
@@ -244,7 +229,6 @@ impl NetworkDispatcher {
     }
 
     fn on_event(&mut self, ev: EventEnvelope) {
-        //println!("Dispatch on_event");
         match ev {
             EventEnvelope::Network(ev) => match ev {
                 NetworkEvent::Connection(addr, conn_state) => {
@@ -262,7 +246,6 @@ impl NetworkDispatcher {
 
     fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) -> Result<(), NetworkBridgeErr> {
         use self::ConnectionState::*;
-        //println!("on_conn_state for addr {}", &addr);
         match state {
             Connected(ref mut _frame_sender) => {
                 info!(
@@ -609,15 +592,6 @@ impl futures::Sink for DynActorRef {
 #[cfg(test)]
 mod dispatch_tests {
     use super::{super::*, *};
-
-    // use crate::{
-    //     actors::{ActorPath, UniquePath},
-    //     component::{ComponentContext, Provide},
-    //     default_components::DeadletterBox,
-    //     lifecycle::{ControlEvent, ControlPort},
-    //     runtime::{KompactConfig, KompactSystem},
-    // };
-    //use crate::prelude::*;
     use crate::prelude::Any;
     use bytes::{Buf, BufMut};
     use std::{thread, time::Duration};
@@ -972,7 +946,6 @@ mod dispatch_tests {
         const SER_ID: SerId = Self::SID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<PingMsg, SerError> {
-            //println!("deserializing buf with remaining {} bytes", buf.remaining());
             if buf.remaining() < 9 {
                 return Err(SerError::InvalidData(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",
@@ -1042,8 +1015,6 @@ mod dispatch_tests {
                 ControlEvent::Start => {
                     self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
-                    //let target = self.target.clone();
-                    //let mut buf = self.ctx.inner_ref().
                     self.target.tell_serialised(PingMsg { i: 0 }, self);
                 }
                 _ => (),
@@ -1064,8 +1035,6 @@ mod dispatch_tests {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
-                        //let target = self.target.clone();
-                        //let buf = ;
                         self.target
                             .tell_serialised((PingMsg { i: pong.i + 1 }), self);
                     }
@@ -1113,7 +1082,6 @@ mod dispatch_tests {
                 ping: PingMsg [PingPongSer] => {
                     info!(self.ctx.log(), "Got msg {:?} from {:?}", ping, sender);
                     let pong = PongMsg { i: ping.i };
-                    //let mut buf = self.ctx.borrow_mut().get_buffer();
                     sender
                         .tell_serialised(pong, self)
                         .expect("PongMsg should serialise");

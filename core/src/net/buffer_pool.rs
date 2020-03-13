@@ -87,10 +87,8 @@ impl BufferPool {
         for _i in 0..self.returned.len() {
             if let Some(mut returned_buffer) = self.returned.pop_front() {
                 if returned_buffer.free() {
-                    //println!("Reclaimed a buffer!");
                     return Some(returned_buffer);
                 } else {
-                    //println!("Buffer reclaim attempt failed!");
                     self.returned.push_back(returned_buffer);
                 }
             }
@@ -103,7 +101,6 @@ impl BufferPool {
             return None;
         };
         self.pool_size += 1;
-        //println!("Increased pool size to {}", self.pool_size);
         Some(self.new_buffer())
     }
 

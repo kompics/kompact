@@ -253,20 +253,9 @@ impl Data {
         Data { payload }
     }
 
-    /*
-    pub fn with_raw_payload(raw_bytes: &[u8]) -> Self {
-        Data::new(Bytes::from(raw_bytes))
-    }
-    */
-
     pub(crate) fn encoded_len(&self) -> usize {
         self.payload.bytes().len()
     }
-
-    /*
-    pub fn payload_ref(&self) -> &Bytes {
-        &self.payload
-    }*/
 
     /// Consumes this frame and returns the raw payload buffer
     pub(crate) fn payload(self) -> ChunkLease {
