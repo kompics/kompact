@@ -29,21 +29,25 @@ mod ser_id {
             8
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
             self.get_u64()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
             self.put_u64(ser_id)
@@ -66,21 +70,25 @@ mod ser_id {
             4
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
-            self.get_u64()
+            self.get_u32()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
             self.put_u32(ser_id)
@@ -103,24 +111,28 @@ mod ser_id {
             2
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
-            self.get_u16_be()
+            self.get_u16()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
-            self.put_u16_be(ser_id)
+            self.put_u16(ser_id)
         }
     }
 }
@@ -140,21 +152,25 @@ mod ser_id {
             1
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
             self.get_u8()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
             self.put_u8(ser_id)
@@ -167,6 +183,7 @@ pub trait SerIdSize {
     /// The number of bytes in a concrete implementation of `SerId`.
     fn size(&self) -> usize;
 }
+
 pub use ser_id::*;
 
 /// A module with helper functions for serialisation tests
@@ -177,8 +194,8 @@ pub mod ser_test_helpers {
     ///
     /// This function panics if serialisation fails.
     pub fn just_serialise<S>(si: S, buf: &mut dyn BufMut) -> ()
-    where
-        S: Into<Box<dyn Serialisable>>,
+        where
+            S: Into<Box<dyn Serialisable>>,
     {
         let s: Box<dyn Serialisable> = si.into();
         s.serialise(buf).expect("Did not serialise correctly");
@@ -188,8 +205,8 @@ pub mod ser_test_helpers {
     ///
     /// This function panics if serialisation fails.
     pub fn test_serialise<S>(si: S) -> ()
-    where
-        S: Into<Box<dyn Serialisable>>,
+        where
+            S: Into<Box<dyn Serialisable>>,
     {
         let mut buf: Vec<u8> = Vec::new();
         just_serialise(si, &mut buf);
@@ -198,7 +215,6 @@ pub mod ser_test_helpers {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use bytes::BytesMut; //IntoBuf
 
@@ -208,6 +224,7 @@ mod tests {
     }
 
     struct T1Ser;
+
     impl Serialiser<Test1> for T1Ser {
         fn ser_id(&self) -> SerId {
             1
@@ -225,6 +242,7 @@ mod tests {
             Result::Ok(())
         }
     }
+
     impl Deserialiser<Test1> for T1Ser {
         const SER_ID: SerId = 1;
 

@@ -24,14 +24,14 @@ pub trait Chunk: Send {
 
 /// A Default Kompact Chunk
 pub(crate) struct DefaultChunk {
-    chunk: Pin<Box<[u8; BUFFER_SIZE]>>,
+    chunk: Box<[u8; BUFFER_SIZE]>,
 }
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
         let slice = ([0u8; BUFFER_SIZE]);
         DefaultChunk {
-            chunk: Pin::new(Box::new(slice)),
+            chunk: Box::new(slice),
         }
     }
 }
@@ -87,8 +87,9 @@ impl BufferChunk {
 
     /// Swaps the pointers of the two buffers such that they effectively switch place
     pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
-        std::mem::swap(self.get_chunk_mut(), other.get_chunk_mut());
-        std::mem::swap(self.get_lock_mut(), other.get_lock_mut());
+        std::mem::swap(self, other);
+        //std::mem::swap(self.get_chunk_mut(), other.get_chunk_mut());
+        //std::mem::swap(self.get_lock_mut(), other.get_lock_mut());
     }
 
     /// Returns a ChunkLease pointing to the subslice between `from` and `to`of the BufferChunk
@@ -219,7 +220,7 @@ impl EncodeBuffer {
             self.buffer.swap_buffer(&mut new_buffer);
             self.read_offset = 0;
             if let Some(chunk) = overflow {
-                self.put_slice(chunk.content);
+                self.put_slice(chunk.bytes());
                 //self.write_offset = chunk.remaining();
             } else {
                 self.write_offset = 0;
@@ -490,7 +491,7 @@ impl DecodeBuffer {
 /// Can be used both as Buf of BufMut depending on what is needed.
 #[derive(Debug)]
 pub struct ChunkLease {
-    content: &'static mut [u8],
+    content: *mut [u8],
     written: usize,
     read: usize,
     capacity: usize,
@@ -558,12 +559,18 @@ impl Buf for ChunkLease {
     }
 
     fn bytes(&self) -> &[u8] {
-        //&(self.content).offset(self.read as isize);
-        let ptr = self.content.as_ptr();
         unsafe {
-            let offset_ptr = ptr.offset(self.read as isize);
-            return std::slice::from_raw_parts(offset_ptr, self.capacity - self.read);
+            let slice: &[u8] = &*self.content;
+            &slice[self.read..self.capacity]
         }
+
+        /*
+            if let Some(ret) = self.content.as_ref() {
+                ret.
+            } else {
+                panic!("Failed to get bytes from ChunkLease with capacity {}, written {}, read {}", self.capacity, self.written, self.read);
+            }
+        } */
     }
 
     fn advance(&mut self, cnt: usize) {
@@ -582,14 +589,22 @@ impl BufMut for ChunkLease {
     }
 
     fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        let ptr = self.content.as_mut_ptr();
         unsafe {
-            let offset_ptr = ptr.offset(self.written as isize);
+            let slice: &mut [u8] = &mut *self.content;
+            mem::transmute(&mut slice[self.written..self.capacity])
+            //MaybeUninit::from()
+            //let ret: &mut [MaybeUninit<u8>] = &mut slice[self.read..self.capacity];
+            //ret
+        }
+        /*
+        unsafe {
+            let offset_ptr = self.content.offset(self.written as isize);
             return mem::transmute(std::slice::from_raw_parts_mut(
                 offset_ptr,
                 self.capacity - self.written,
             ));
         }
+        */
     }
 }
 
@@ -626,7 +641,7 @@ mod tests {
                 encode_buffer.put_slice(test_string.clone().as_bytes());
                 let chunk = encode_buffer.get_chunk();
                 assert_eq!(
-                    chunk.unwrap().content,
+                    chunk.unwrap().bytes(),
                     test_string.as_bytes(),
                     "cnt = {}",
                     cnt
@@ -649,6 +664,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
+        ls
         let mut encode_buffer = EncodeBuffer::new();
         use std::string::ToString;
         let mut test_string = "".to_string();

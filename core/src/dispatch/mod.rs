@@ -913,7 +913,7 @@ mod dispatch_tests {
     }
 
     impl Serialisable for PingMsg {
-        fn ser_id(&self) -> u64 {
+        fn ser_id(&self) -> SerId {
             42
         }
 
@@ -933,7 +933,7 @@ mod dispatch_tests {
     }
 
     impl Serialisable for PongMsg {
-        fn ser_id(&self) -> u64 {
+        fn ser_id(&self) -> SerId {
             42
         }
 

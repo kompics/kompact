@@ -176,7 +176,7 @@ impl NetworkThread {
                     //println!("error accepting stream:\n {:?}", e);
                 }
                 // Listen for more
-                let _ = self.poll.register(
+                let _ = self.poll.reregister(
                     &self.listener,
                     SERVER,
                     Ready::readable(),
@@ -188,7 +188,7 @@ impl NetworkThread {
                 self.dispatcher_set_readiness.set_readiness(Ready::empty())?;
                 self.receive_dispatch()?;
                 // Reregister polling
-                let _ = self.poll.register(
+                let _ = self.poll.reregister(
                     &self.dispatcher_registration,
                     DISPATCHER,
                     Ready::readable(),
@@ -492,7 +492,7 @@ impl NetworkThread {
                             self.poll.reregister(
                                 channel.stream(),
                                 channel.token.clone(),
-                                Ready::readable() | Ready::writable(),
+                                channel.pending_set,
                                 PollOpt::edge() | PollOpt::oneshot(),
                             );
                         }
@@ -505,15 +505,13 @@ impl NetworkThread {
                         self.request_stream(addr.clone())?;
                         if let Some(channel) = self.channel_map.get_mut(&addr) {
                             channel.enqueue_serialized(packet);
-                            let _ = channel.try_drain(); // Ignore errors at this point...
-                            if channel.has_remaining_output() {
-                                let _ = self.poll.register(
-                                    channel.stream(),
-                                    channel.token.clone(),
-                                    Ready::readable() | Ready::writable(),
-                                    PollOpt::edge() | PollOpt::oneshot(),
-                                );
-                            }
+                            let _ = channel.try_drain();
+                            let _ = self.poll.reregister(
+                                channel.stream(),
+                                channel.token.clone(),
+                                channel.pending_set,
+                                PollOpt::edge() | PollOpt::oneshot(),
+                            );
                         }
                     }
                 }
