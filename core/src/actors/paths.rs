@@ -339,7 +339,7 @@ impl ActorPath {
             from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
             Ok(())
         } else {
-            panic!("failed to get buffer!");
+            Err(SerError::BufferError("Could not get ChunkLease from Buffer".to_string()))
         }
     }
 

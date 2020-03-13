@@ -7,6 +7,8 @@ pub enum SerError {
     InvalidData(String),
     /// The data represents the wrong type, or an unknown type
     InvalidType(String),
+    /// The Buffer we're serializing into failed
+    BufferError(String),
     /// Any other kind of error
     Unknown(String),
 }
@@ -93,9 +95,9 @@ pub trait Serialisable: Send + Debug {
 /// Turns a pair of a [Serialiser](Serialiser) and value of it's type `T` into a
 /// heap-allocated [Serialisable](Serialisable)
 impl<T, S> From<(T, S)> for Box<dyn Serialisable>
-where
-    T: Send + Debug + 'static,
-    S: Serialiser<T> + 'static,
+    where
+        T: Send + Debug + 'static,
+        S: Serialiser<T> + 'static,
 {
     fn from(t: (T, S)) -> Self {
         let sv = SerialisableValue { v: t.0, ser: t.1 };
@@ -106,8 +108,8 @@ where
 /// Turns a stack-allocated [Serialisable](Serialisable) into a
 /// heap-allocated [Serialisable](Serialisable)
 impl<T> From<T> for Box<dyn Serialisable>
-where
-    T: Send + Debug + Serialisable + Sized + 'static,
+    where
+        T: Send + Debug + Serialisable + Sized + 'static,
 {
     fn from(t: T) -> Self {
         Box::new(t) as Box<dyn Serialisable>
@@ -116,18 +118,18 @@ where
 
 /// A data type equivalent to a pair of value and a serialiser for it
 struct SerialisableValue<T, S>
-where
-    T: Send + Debug,
-    S: Serialiser<T>,
+    where
+        T: Send + Debug,
+        S: Serialiser<T>,
 {
     pub v: T,
     pub ser: S,
 }
 
 impl<T, S> Serialisable for SerialisableValue<T, S>
-where
-    T: Send + Debug + 'static,
-    S: Serialiser<T>,
+    where
+        T: Send + Debug + 'static,
+        S: Serialiser<T>,
 {
     fn ser_id(&self) -> SerId {
         self.ser.ser_id()
@@ -148,9 +150,9 @@ where
 }
 
 impl<T, S> Debug for SerialisableValue<T, S>
-where
-    T: Send + Debug,
-    S: Serialiser<T>,
+    where
+        T: Send + Debug,
+        S: Serialiser<T>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(

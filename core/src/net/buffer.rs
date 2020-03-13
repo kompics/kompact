@@ -24,14 +24,14 @@ pub trait Chunk: Send {
 
 /// A Default Kompact Chunk
 pub(crate) struct DefaultChunk {
-    chunk: Box<[u8; BUFFER_SIZE]>,
+    chunk: [u8; BUFFER_SIZE],
 }
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
         let slice = ([0u8; BUFFER_SIZE]);
         DefaultChunk {
-            chunk: Box::new(slice),
+            chunk: slice,
         }
     }
 }
@@ -47,6 +47,7 @@ impl Chunk for DefaultChunk {
 }
 
 /// BufferChunk is a lockable pinned byte-slice
+/// All modifications to the Chunk goes through the get_slice method
 pub struct BufferChunk {
     chunk: Box<dyn Chunk>,
     ref_count: Arc<u8>,
@@ -394,7 +395,6 @@ impl DecodeBuffer {
 
     /// Safely swaps self.buffer with other
     pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
-        //println!("Swapping buffer");
         // Check if there's overflow in the buffer currently which needs to be copied
         if self.write_offset > self.read_offset {
             // We need to copy the bits from self.inner to other.inner before swapping
@@ -563,14 +563,6 @@ impl Buf for ChunkLease {
             let slice: &[u8] = &*self.content;
             &slice[self.read..self.capacity]
         }
-
-        /*
-            if let Some(ret) = self.content.as_ref() {
-                ret.
-            } else {
-                panic!("Failed to get bytes from ChunkLease with capacity {}, written {}, read {}", self.capacity, self.written, self.read);
-            }
-        } */
     }
 
     fn advance(&mut self, cnt: usize) {
@@ -596,15 +588,6 @@ impl BufMut for ChunkLease {
             //let ret: &mut [MaybeUninit<u8>] = &mut slice[self.read..self.capacity];
             //ret
         }
-        /*
-        unsafe {
-            let offset_ptr = self.content.offset(self.written as isize);
-            return mem::transmute(std::slice::from_raw_parts_mut(
-                offset_ptr,
-                self.capacity - self.written,
-            ));
-        }
-        */
     }
 }
 
@@ -664,7 +647,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
-        ls
         let mut encode_buffer = EncodeBuffer::new();
         use std::string::ToString;
         let mut test_string = "".to_string();
