@@ -13,6 +13,7 @@ use crate::net::frames::{FrameHead, FrameType, FRAME_HEAD_LEN};
 use bytes::Buf;
 
 use std::ops::DerefMut;
+use crate::net::buffer::EncodeBuffer;
 
 /// Transport protocol to use for delivering messages
 /// sent to an [ActorPath](ActorPath)
@@ -318,7 +319,7 @@ impl ActorPath {
         }
         //let mut buf = encode_buffer.deref_mut();
         let mut buf_ref = from.ctx().get_buffer().borrow_mut();
-        let buf = buf_ref.deref_mut();
+        let buf = &mut EncodeBuffer::get_buffer_encoder(buf_ref.deref_mut());
         // Reserve space for the header:
         buf.pad(FRAME_HEAD_LEN as usize);
 
@@ -327,7 +328,7 @@ impl ActorPath {
         buf.put_ser_id(m.ser_id()); // ser_id
         Serialisable::serialise(&m, buf)?; // data
 
-        if let Some(mut chunk_lease) = buf.get_chunk() {
+        if let Some(mut chunk_lease) = buf.get_chunk_lease() {
             // The length which a FrameHead tells does not include the size of the FrameHead itself
             let len = chunk_lease.remaining() - FRAME_HEAD_LEN as usize;
             chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));

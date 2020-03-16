@@ -145,6 +145,115 @@ impl BufferChunk {
     }
 }
 
+/// Instantiated Writer/Encoder for EncodeBuffer
+/// Provides the BufMut interface over an EnodeBuffer ensuring that the EncodeBuffer will be aligned
+/// after the BufferEncoder has been dropped.
+pub struct BufferEncoder<'a> {
+    encode_buffer: &'a mut EncodeBuffer,
+    write_start: usize,
+}
+
+impl<'a> BufferEncoder<'a> {
+    pub fn new(encode_buffer: &'a mut EncodeBuffer) -> Self {
+        // Check alignment, make sure we start aligned:
+        assert_eq!(encode_buffer.get_write_offset(), encode_buffer.get_read_offset());
+        let write_start = encode_buffer.get_write_offset();
+        BufferEncoder { encode_buffer, write_start }
+    }
+
+    pub(crate) fn pad(&mut self, cnt: usize) {
+        unsafe {
+            self.advance_mut(cnt);
+        }
+    }
+
+    pub fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
+        self.encode_buffer.get_chunk_lease()
+    }
+}
+
+/// Guarantees EncodeBuffer alignment whenever the BufferEncoder is dropped.
+impl<'a> Drop for BufferEncoder<'a> {
+    fn drop(&mut self) {
+        if self.encode_buffer.read_offset < self.encode_buffer.write_offset {
+            self.encode_buffer.advance(self.encode_buffer.write_offset - self.encode_buffer.read_offset)
+        }
+    }
+}
+
+impl<'a> BufMut for BufferEncoder<'a> {
+    fn remaining_mut(&self) -> usize {
+        self.encode_buffer.remaining()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        self.encode_buffer.write_offset += cnt;
+        if self.encode_buffer.remaining() < ENCODEBUFFER_MIN_REMAINING {
+            self.encode_buffer.swap_buffer();
+        }
+    }
+
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        unsafe {
+            let ptr = (&mut *self.encode_buffer.buffer.chunk).as_mut_ptr();
+            let offset_ptr = ptr.offset(self.encode_buffer.write_offset as isize);
+            return mem::transmute(std::slice::from_raw_parts_mut(
+                offset_ptr,
+                self.encode_buffer.buffer.len() - self.encode_buffer.write_offset,
+            ));
+        }
+    }
+
+    fn put<T: super::Buf>(&mut self, mut src: T)
+        where
+            Self: Sized,
+    {
+        assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
+        if self.remaining_mut() < src.remaining() {
+            // Not enough space in current chunk, need to swap it
+            self.encode_buffer.swap_buffer();
+        }
+
+        assert!(self.remaining_mut() >= src.remaining());
+
+        while src.has_remaining() {
+            let l;
+            unsafe {
+                let s = src.bytes();
+                let d = self.bytes_mut();
+                l = cmp::min(s.len(), d.len());
+                ptr::copy_nonoverlapping(s.as_ptr(), d.as_mut_ptr() as *mut u8, l);
+            }
+            src.advance(l);
+            unsafe {
+                self.advance_mut(l);
+            }
+        }
+    }
+
+    /// Override default impl to allow for large slices to be put in at a time
+    fn put_slice(&mut self, src: &[u8]) {
+        assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
+        let mut off = 0;
+        if self.remaining_mut() < src.len() {
+            // Not enough space in current chunk, need to swap it
+            self.encode_buffer.swap_buffer();
+        }
+
+        assert!(
+            self.remaining_mut() >= src.len(),
+            "EncodeBuffer trying to write too big of a slice, len: {}",
+            src.len()
+        );
+        unsafe {
+            let dst = self.bytes_mut();
+            println!("putting slice of len {}", src.len());
+            ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr() as *mut u8, src.len());
+            self.advance_mut(src.len());
+        }
+    }
+}
+
 /// Structure used by components to continuously extract leases from BufferChunks swapped with the internal/private BufferPool
 /// Provides a BufMut interface to a private BufferPool, such that data can be serialised into it
 /// continuously and ChunkLeases can be extracted for transfer of the serialised data.
@@ -175,28 +284,20 @@ impl EncodeBuffer {
         }
     }
 
-    /// Returns a writable ChunkLease of length `size` if the BufferPool has available Buffers to use.
-    pub fn get_buffer(&mut self, size: usize) -> Option<ChunkLease> {
-        if self.remaining() > size {
-            self.write_offset += size;
-            return Some(
-                self.buffer
-                    .get_free_lease(self.write_offset - size, self.write_offset),
-            );
-        } else {
-            if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
-                self.buffer.swap_buffer(&mut new_buffer);
-                self.buffer_pool.return_buffer(new_buffer);
-                self.write_offset = size;
-                return Some(self.buffer.get_free_lease(0, size));
-            }
-        }
-        None
+    pub fn advance(&mut self, cnt: usize) -> () {
+        self.read_offset += cnt;
     }
+
+    pub fn get_buffer_encoder(encode_buffer: &mut EncodeBuffer) -> BufferEncoder {
+        BufferEncoder::new(encode_buffer)
+    }
+
+    pub fn get_write_offset(&self) -> usize { self.write_offset }
+    pub fn get_read_offset(&self) -> usize { self.read_offset }
 
     /// Extracts the bytes between the read-pointer and the write-pointer and advances the read-pointer
     /// Ensures there's a minimum of ENCODEBUFFER_MIN_REMAINING left in the current buffer
-    pub fn get_chunk(&mut self) -> Option<ChunkLease> {
+    pub fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
         let cnt = self.write_offset - self.read_offset;
         if cnt > 0 {
             self.read_offset += cnt;
@@ -221,112 +322,23 @@ impl EncodeBuffer {
     /// Swap the current buffer with a fresh one from the private buffer_pool
     /// Copies any unread overflow and sets the write pointer accordingly
     pub fn swap_buffer(&mut self) {
-        let overflow = self.get_chunk();
+        let overflow = self.get_chunk_lease();
         if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
             self.buffer.swap_buffer(&mut new_buffer);
             self.read_offset = 0;
+            self.write_offset = 0;
             if let Some(chunk) = overflow {
-                self.put_slice(chunk.bytes());
-            } else {
-                self.write_offset = 0;
+                let len = chunk.bytes().len();
+                assert!(len < self.remaining());
+                unsafe {
+                    ptr::copy_nonoverlapping(chunk.bytes().as_ptr(), self.buffer.get_slice(0, len).as_mut_ptr(), len);
+                    self.write_offset = chunk.bytes().len();
+                }
             }
             // new_buffer has been swapped in-place, return it to the pool
             self.buffer_pool.return_buffer(new_buffer);
         } else {
             panic!("Trying to swap buffer but no free buffers found in the pool!")
-        }
-    }
-
-    /// This method advances the write_offset by cnt
-    /// Used to reserve space for FrameHeads, enables us to serialize without knowing the size beforehand
-    pub(crate) fn pad(&mut self, cnt: usize) {
-        self.write_offset += cnt;
-    }
-}
-
-impl BufMut for EncodeBuffer {
-    fn remaining_mut(&self) -> usize {
-        self.remaining()
-    }
-
-    unsafe fn advance_mut(&mut self, cnt: usize) {
-        //self.advance(cnt);
-        self.write_offset += cnt;
-        if self.remaining() < ENCODEBUFFER_MIN_REMAINING {
-            self.swap_buffer();
-        }
-    }
-
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        unsafe {
-            let ptr = (&mut *self.buffer.chunk).as_mut_ptr();
-            let offset_ptr = ptr.offset(self.write_offset as isize);
-            return mem::transmute(std::slice::from_raw_parts_mut(
-                offset_ptr,
-                self.buffer.len() - self.write_offset,
-            ));
-        }
-    }
-
-    fn put<T: super::Buf>(&mut self, mut src: T)
-        where
-            Self: Sized,
-    {
-        assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
-
-        if self.remaining_mut() < src.remaining() {
-            // Not enough space in current chunk, need to swap it
-            self.swap_buffer();
-        }
-
-        assert!(self.remaining_mut() >= src.remaining());
-
-        while src.has_remaining() {
-            let l;
-            unsafe {
-                let s = src.bytes();
-                let d = self.bytes_mut();
-                l = cmp::min(s.len(), d.len());
-                ptr::copy_nonoverlapping(s.as_ptr(), d.as_mut_ptr() as *mut u8, l);
-            }
-            src.advance(l);
-            unsafe {
-                self.advance_mut(l);
-            }
-        }
-    }
-
-    /// Override default impl to allow for large slices to be put in at a time
-    fn put_slice(&mut self, src: &[u8]) {
-        assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
-        let mut off = 0;
-
-        if self.remaining_mut() < src.len() {
-            // Not enough space in current chunk, need to swap it
-            self.swap_buffer();
-        }
-
-        assert!(
-            self.remaining_mut() >= src.len(),
-            "EncodeBuffer trying to write too big of a slice, len: {}",
-            src.len()
-        );
-
-        while off < src.len() {
-            let cnt;
-
-            unsafe {
-                let dst = self.bytes_mut();
-                cnt = cmp::min(dst.len(), src.len() - off);
-
-                ptr::copy_nonoverlapping(src[off..].as_ptr(), dst.as_mut_ptr() as *mut u8, cnt);
-
-                off += cnt;
-            }
-
-            unsafe {
-                self.advance_mut(cnt);
-            }
         }
     }
 }
@@ -593,33 +605,35 @@ mod tests {
     fn encode_buffer_overload() {
         // Instantiate an encode buffer with default values
         let mut encode_buffer = EncodeBuffer::new();
+        {
+            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
 
-        // Create a string that's bigger than the ENCODEBUFFER_MIN_REMAINING
-        use std::string::ToString;
-        let mut test_string = "".to_string();
-        for i in 0..=ENCODEBUFFER_MIN_REMAINING + 1 {
-            // Make sure the string isn't just the same char over and over again,
-            // Means we test for some more correctness in buffers
-            test_string.push((i.to_string()).chars().next().unwrap());
-        }
-        let mut cnt = 0;
+            // Create a string that's bigger than the ENCODEBUFFER_MIN_REMAINING
+            use std::string::ToString;
+            let mut test_string = "".to_string();
+            for i in 0..=ENCODEBUFFER_MIN_REMAINING + 1 {
+                // Make sure the string isn't just the same char over and over again,
+                // Means we test for some more correctness in buffers
+                test_string.push((i.to_string()).chars().next().unwrap());
+            }
+            let mut cnt = 0;
 
-        // Make sure we churn through all the initial buffers.
-        for _ in 0..=crate::net::buffer_pool::INITIAL_BUFFER_LEN + 1 {
-            // Make sure we fill up a chunk per iteration:
-            for _ in 0..=(BUFFER_SIZE / ENCODEBUFFER_MIN_REMAINING) + 1 {
-                encode_buffer.put_slice(test_string.clone().as_bytes());
-                let chunk = encode_buffer.get_chunk();
-                assert_eq!(
-                    chunk.unwrap().bytes(),
-                    test_string.as_bytes(),
-                    "cnt = {}",
-                    cnt
-                );
-                cnt += 1;
+            // Make sure we churn through all the initial buffers.
+            for _ in 0..=crate::net::buffer_pool::INITIAL_BUFFER_LEN + 1 {
+                // Make sure we fill up a chunk per iteration:
+                for _ in 0..=(BUFFER_SIZE / ENCODEBUFFER_MIN_REMAINING) + 1 {
+                    buffer_encoder.put_slice(test_string.clone().as_bytes());
+                    let chunk = buffer_encoder.get_chunk_lease();
+                    assert_eq!(
+                        chunk.unwrap().bytes(),
+                        test_string.as_bytes(),
+                        "cnt = {}",
+                        cnt
+                    );
+                    cnt += 1;
+                }
             }
         }
-
         // Check the buffer pool sizes
         assert_eq!(
             encode_buffer.buffer_pool.get_pool_sizes(),
@@ -635,13 +649,24 @@ mod tests {
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
         let mut encode_buffer = EncodeBuffer::new();
+        let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
         use std::string::ToString;
         let mut test_string = "".to_string();
         for i in 0..=BUFFER_SIZE + 10 {
-            // Make sure the string isn't just the same char over and over again,
-            // Means we test for some more correctness in buffers
             test_string.push((i.to_string()).chars().next().unwrap());
         }
-        encode_buffer.put(test_string.as_bytes());
+        buffer_encoder.put(test_string.as_bytes());
+    }
+
+    #[test]
+    fn aligned_after_drop() {
+        let mut encode_buffer = EncodeBuffer::new();
+        {
+            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
+            buffer_encoder.put_i32(16);
+        }
+        // Check the buffer pool sizes
+        assert_eq!(encode_buffer.write_offset, encode_buffer.read_offset);
+        assert_eq!(encode_buffer.write_offset, 4);
     }
 }
