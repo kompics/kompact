@@ -172,12 +172,10 @@ impl<'a> BufferEncoder<'a> {
     }
 }
 
-/// Guarantees EncodeBuffer alignment whenever the BufferEncoder is dropped.
+/// Make sure the read pointer is caught up to the write pointer for the next encoding.
 impl<'a> Drop for BufferEncoder<'a> {
     fn drop(&mut self) {
-        if self.encode_buffer.read_offset < self.encode_buffer.write_offset {
-            self.encode_buffer.advance(self.encode_buffer.write_offset - self.encode_buffer.read_offset)
-        }
+        self.encode_buffer.read_offset = self.encode_buffer.write_offset;
     }
 }
 
@@ -255,12 +253,8 @@ impl<'a> BufMut for BufferEncoder<'a> {
 }
 
 /// Structure used by components to continuously extract leases from BufferChunks swapped with the internal/private BufferPool
-/// Provides a BufMut interface to a private BufferPool, such that data can be serialised into it
-/// continuously and ChunkLeases can be extracted for transfer of the serialised data.
-/// buffer is automatically swapped with the BufferPool when:
-///     1. advance_mut results in less than ENCODEBUFFER_MIN_REMAINING
-///     2. put() is called and it won't fit.
-///     3. put_slice() is called and it won't fit.
+/// Using get_buffer_encoder() we get a BufferEncoder which implements BufMut interface for the underlying Chunks
+/// The BufferEncoder uses its lifetime and Drop impl to give compile-time safety for consecutive encoding attempts
 pub struct EncodeBuffer {
     buffer: BufferChunk,
     buffer_pool: BufferPool,
@@ -296,8 +290,8 @@ impl EncodeBuffer {
     pub fn get_read_offset(&self) -> usize { self.read_offset }
 
     /// Extracts the bytes between the read-pointer and the write-pointer and advances the read-pointer
-    /// Ensures there's a minimum of ENCODEBUFFER_MIN_REMAINING left in the current buffer
-    pub fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
+    /// Ensures there's a minimum of `ENCODEBUFFER_MIN_REMAINING` left in the current buffer which minimizes overflow during swap
+    pub(crate) fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
         let cnt = self.write_offset - self.read_offset;
         if cnt > 0 {
             self.read_offset += cnt;
@@ -315,13 +309,13 @@ impl EncodeBuffer {
     }
 
     /// Returns the remaining length of the current BufferChunk.
-    pub fn remaining(&self) -> usize {
+    pub(crate) fn remaining(&self) -> usize {
         self.buffer.len() - self.write_offset
     }
 
     /// Swap the current buffer with a fresh one from the private buffer_pool
     /// Copies any unread overflow and sets the write pointer accordingly
-    pub fn swap_buffer(&mut self) {
+    pub(crate) fn swap_buffer(&mut self) {
         let overflow = self.get_chunk_lease();
         if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
             self.buffer.swap_buffer(&mut new_buffer);
