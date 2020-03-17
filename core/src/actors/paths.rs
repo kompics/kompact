@@ -16,7 +16,7 @@ use uuid::Uuid;
 ///
 /// Dispatcher implementations are not required to implement all protocols.
 /// Check your concrete implementation, before selecting an arbitrary protocol.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Transport {
     /// Local reflection only, no network messages involved
@@ -122,7 +122,7 @@ impl From<AddrParseError> for PathParseError {
 /// The part of an [ActorPath](ActorPath) that refers to the [KompactSystem](KompactSystem)
 ///
 /// As a URI, a `SystemPath` looks like `"tcp://127.0.0.1:8080"`, for example.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SystemPath {
     protocol: Transport,
     // TODO address could be IPv4, IPv6, or a domain name (not supported yet)
@@ -238,7 +238,7 @@ impl<'a, 'b> ActorSource for DispatchingPath<'a, 'b> {
 /// It must also be [serialisable](Serialisable).
 #[derive(Clone, Debug)]
 #[repr(u8)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ActorPath {
     /// A unique actor path identifies a concrete instance of an actor
     ///
@@ -408,7 +408,7 @@ impl FromStr for ActorPath {
 /// replaced with a new instance of the same type.
 ///
 /// A unique path may look something like `"tcp://127.0.0.1:8080#1e555f40-de1d-4aee-8202-64fdc27edfa8"`, for example.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct UniquePath {
     system: SystemPath,
     id: Uuid,
@@ -499,7 +499,7 @@ impl SystemField for UniquePath {
 /// Named paths may be described hierarchically, similar to URLs.
 ///
 /// A named path may look something like `"tcp://127.0.0.1:8080/my-actor-group/my-actor"`, for example.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NamedPath {
     system: SystemPath,
     path: Vec<String>,

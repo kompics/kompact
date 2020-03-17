@@ -22,6 +22,39 @@ impl SerError {
     }
 }
 
+impl fmt::Display for SerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SerError::InvalidData(s) => write!(
+                f,
+                "The provided data was not appropriate for (de-)serialisation: {}",
+                s
+            ),
+            SerError::InvalidType(s) => write!(
+                f,
+                "The provided type was not appropriate for (de-)serialisation: {}",
+                s
+            ),
+            SerError::Unknown(s) => write!(f, "A serialisation error occurred: {}", s),
+        }
+    }
+}
+
+impl std::error::Error for SerError {}
+
+/// A trait that acts like a stable `TypeId` for serialisation
+///
+/// Requires ids to be assigned manually in some consistent fashion
+/// so they can be reliable compared between in different binaries and rust versions.
+///
+/// This trait is used with serialisers that can deal with a large number of types
+/// but require some internal differentiation, such as [Serde](kompact::serde_serialisers),
+/// for example.
+pub trait SerialisationId {
+    /// The serialisation id for this type
+    const SER_ID: SerId;
+}
+
 /// A trait for types that can serialise data of type `T`
 pub trait Serialiser<T>: Send {
     /// The serialisation id for this serialiser
@@ -91,6 +124,18 @@ pub trait Serialisable: Send + Debug {
 }
 
 /// Turns a pair of a [Serialiser](Serialiser) and value of it's type `T` into a
+/// stack-allocated [Serialisable](Serialisable)
+impl<T, S> From<(T, S)> for SerialisableValue<T, S>
+where
+    T: Send + Debug + 'static,
+    S: Serialiser<T> + 'static,
+{
+    fn from(t: (T, S)) -> Self {
+        SerialisableValue::from_tuple(t)
+    }
+}
+
+/// Turns a pair of a [Serialiser](Serialiser) and value of it's type `T` into a
 /// heap-allocated [Serialisable](Serialisable)
 impl<T, S> From<(T, S)> for Box<dyn Serialisable>
 where
@@ -98,7 +143,7 @@ where
     S: Serialiser<T> + 'static,
 {
     fn from(t: (T, S)) -> Self {
-        let sv = SerialisableValue { v: t.0, ser: t.1 };
+        let sv: SerialisableValue<T, S> = t.into();
         Box::new(sv) as Box<dyn Serialisable>
     }
 }
@@ -115,13 +160,28 @@ where
 }
 
 /// A data type equivalent to a pair of value and a serialiser for it
-struct SerialisableValue<T, S>
+pub struct SerialisableValue<T, S>
 where
     T: Send + Debug,
     S: Serialiser<T>,
 {
     v: T,
     ser: S,
+}
+impl<T, S> SerialisableValue<T, S>
+where
+    T: Send + Debug + 'static,
+    S: Serialiser<T>,
+{
+    /// Create a new Serialisable type from a `T` and a `Serialiser` for `T`
+    pub fn new(v: T, ser: S) -> Self {
+        SerialisableValue { v, ser }
+    }
+
+    /// Create a new `Serialisable` type from a pair of `T` and a `Serialiser` for `T`
+    pub fn from_tuple(t: (T, S)) -> Self {
+        Self::new(t.0, t.1)
+    }
 }
 
 impl<T, S> Serialisable for SerialisableValue<T, S>

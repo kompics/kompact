@@ -20,7 +20,8 @@
 	- [Logging](local/logging.md)
 	- [Configuration](local/configuration.md)
 - [Distributed Kompact](distributed/index.md)
-	- [Network Ping Pong](distributed/netpingpong.md)
-	- [Serialisation](distributed/serialisation/md)
+	- [Basic Communication](distributed/basiccommunication.md)
+	- [Named Services](distributed/namedservices.md)
+	- [Serialisation](distributed/serialisation.md)
 
 [Project Info](project.md)

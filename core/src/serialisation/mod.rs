@@ -11,8 +11,16 @@ mod default_serialisers;
 #[cfg(feature = "protobuf")]
 pub mod protobuf_serialisers;
 pub mod ser_helpers;
+#[cfg(feature = "serde_support")]
+pub mod serde_serialisers;
 
 pub use self::{core::*, default_serialisers::*};
+
+/// A trait that allows to determine the number of bytes in a `SerId`.
+pub trait SerIdSize {
+    /// The number of bytes in a concrete implementation of `SerId`.
+    fn size(&self) -> usize;
+}
 
 #[cfg(feature = "ser_id_64")]
 mod ser_id {
@@ -160,12 +168,6 @@ mod ser_id {
             self.put_u8(ser_id)
         }
     }
-}
-
-/// A trait that allows to determine the number of bytes in a `SerId`.
-pub trait SerIdSize {
-    /// The number of bytes in a concrete implementation of `SerId`.
-    fn size(&self) -> usize;
 }
 pub use ser_id::*;
 

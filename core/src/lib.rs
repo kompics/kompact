@@ -49,6 +49,9 @@ pub use core_affinity::{get_core_ids, CoreId};
 // Protocol buffers serialisation support
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
+// Serde serialisation support
+#[cfg(feature = "serde_support")]
+pub use self::serialisation::serde_serialisers;
 use self::{
     actors::*,
     component::*,
