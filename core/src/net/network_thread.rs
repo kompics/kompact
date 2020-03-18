@@ -262,46 +262,51 @@ impl NetworkThread {
         Ok(())
     }
 
-    fn rename(&mut self, token: Token, addr: SocketAddr) -> () {
+    fn rename(&mut self, token: Token, hello_addr: SocketAddr) -> () {
         if let Some(registered_addr) = self.token_map.remove(&token) {
             info!(
                 self.log,
-                "NetworkThread {} got Hello({}) from {}", self.addr, &addr, &registered_addr
+                "NetworkThread {} got Hello({}) from {}", self.addr, &hello_addr, &registered_addr
             );
-            if addr == registered_addr {
+            if hello_addr == registered_addr {
                 // The channel is already correct, we update state at the end
             } else {
-                if let Some(mut channel) = self.channel_map.remove(&addr) {
+                // Make sure we only have one channel and that it's registered with the hello_addr
+                if let Some(mut channel) = self.channel_map.remove(&hello_addr) {
+                    // There's a channel registered with the hello_addr
+
                     if let Some(mut other_channel) = self.channel_map.remove(&registered_addr) {
-                        // We already have a channel for the "Hello_addr", this is not great.
-                        // Merge the connections into one
+                        // There's another channel, we received a Hello message on a different channel.
+                        // This is not good. We need to merge the two connections into one.
                         info!(
                             self.log,
                             "NetworkThread {} merging {} into {}",
                             self.addr,
                             &registered_addr,
-                            &addr
+                            &hello_addr
                         );
+                        // Merge will check the SocketAddr of the two systems and uniformly decide which to keep in &channel
                         channel.merge(&mut other_channel);
-                        self.channel_map.insert(addr, channel);
+                        self.channel_map.insert(hello_addr, channel);
                     } else {
-                        self.channel_map.insert(addr, channel);
+                        // Expected case, no merge needed
+                        self.channel_map.insert(hello_addr, channel);
                     }
                 } else if let Some(channel) = self.channel_map.remove(&registered_addr) {
                     // Re-insert the channel with different key
-                    self.channel_map.insert(addr, channel);
+                    self.channel_map.insert(hello_addr, channel);
                 }
             }
 
             // Make sure that the channel is registered correctly and in Connected State.
-            if let Some(channel) = self.channel_map.get_mut(&addr) {
-                channel.state = ConnectionState::Connected(addr);
+            if let Some(channel) = self.channel_map.get_mut(&hello_addr) {
+                channel.state = ConnectionState::Connected(hello_addr);
                 channel.token = token.clone();
-                self.token_map.insert(token, addr);
+                self.token_map.insert(token, hello_addr);
                 //println!("Telling dispatcher about the Connected peer!");
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
+                        NetworkEvent::Connection(hello_addr, ConnectionState::Connected(hello_addr)),
                     )));
             }
         } else {
@@ -581,35 +586,38 @@ pub(crate) fn broken_pipe(err: &io::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
-    /* #[test]
-    fn network_thread_no_local_poll1() -> () {
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
-        let (registration, network_thread_registration) = Registration::new2();
-        network_thread_registration.set_readiness(Ready::empty());
-        let (sender, receiver) = channel();
-        let actor_store = ActorStore::new();
-        let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
-        let mut network_thread = NetworkThread::new(
-            //KompactLogger::new(),
-            addr,
-            lookup.clone(),
-            registration,
-            network_thread_registration.clone(),
-            receiver,
-        );
-        thread::spawn(move || {
-            network_thread.run();
-        });
-        //println!("network_thread spawned");
-        thread::sleep(Duration::from_secs(1));
-        //println!("setting readiness");
-        network_thread_registration.set_readiness(Ready::readable());
-        thread::sleep(Duration::from_secs(1));
-        //println!("clearing readiness");
-        network_thread_registration.set_readiness(Ready::empty());
-        thread::sleep(Duration::from_secs(1));
-        //println!("setting readiness again");
-        network_thread_registration.set_readiness(Ready::readable());
-        thread::sleep(Duration::from_secs(1));
-    } */
+    /*
+    use super::*;
+        #[test]
+        fn merge_connections() -> () {
+            // This triggers an automatic merging on network thread 1.
+
+            // Set-up the thrbrew ead
+            let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
+            let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
+            let (registration, network_thread_registration) = Registration::new2();
+            //network_thread_registration.set_readiness(Ready::empty());
+            let (input_queue_1_sender, input_queue_1_receiver) = channel();
+            let (dispatch_shutdown_sender, _) = channel();
+            let actor_store = ActorStore::new();
+            let dispatcher = NetworkDispatcher::new();
+            let dispatcher_ref = dispatcher.actor_ref().hold().expect("Self can hardly be deallocated!");
+
+            let mut network_thread = NetworkThread::new(
+                log: KompactLogger::new(),
+                addr1,
+                lookup.clone(),
+                dispatcher_registration: registration,
+                network_thread_registration.clone(),
+                input_queue: input_queue_1_receiver,
+                network_thread_sender: Sender<bool>::new(),
+                dispatcher_ref,
+            );
+
+            thread::spawn(move || {
+                network_thread.run();
+            });
+
+            // Create another NetworkThread which we run manually:
+        } */
 }

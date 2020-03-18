@@ -232,7 +232,6 @@ impl<'a> BufMut for BufferEncoder<'a> {
     /// Override default impl to allow for large slices to be put in at a time
     fn put_slice(&mut self, src: &[u8]) {
         assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
-        let mut off = 0;
         if self.remaining_mut() < src.len() {
             // Not enough space in current chunk, need to swap it
             self.encode_buffer.swap_buffer();

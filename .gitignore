@@ -41,3 +41,5 @@ local.properties
 # File-based project format
 *.iws
 
+# protobuffer install script generates these
+protoc3/
