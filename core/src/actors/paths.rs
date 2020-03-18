@@ -359,6 +359,18 @@ impl From<(SystemPath, Uuid)> for ActorPath {
     }
 }
 
+impl From<UniquePath> for ActorPath {
+    fn from(p: UniquePath) -> ActorPath {
+        ActorPath::Unique(p)
+    }
+}
+
+impl From<NamedPath> for ActorPath {
+    fn from(p: NamedPath) -> ActorPath {
+        ActorPath::Named(p)
+    }
+}
+
 const PATH_SEP: &'static str = "/";
 const UNIQUE_PATH_SEP: &'static str = "#";
 

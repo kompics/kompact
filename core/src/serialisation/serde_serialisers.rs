@@ -29,7 +29,8 @@ where
     }
 
     fn size_hint(&self) -> Option<usize> {
-        Some(2 * std::mem::size_of::<T>() + serialisation_ids::SERDE.size()) // best guess
+        // TODO remove this random number shit! It's just a hack until buffers correctly resize again (Adam's PR)
+        Some(std::mem::size_of::<T>() + 1024) // best guess
     }
 
     fn serialise(&self, v: &T, buf: &mut dyn BufMut) -> Result<(), SerError> {
@@ -636,7 +637,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
         let len_u64 = self.buffer.get_u64_be();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
-        // If you need different guarantees, write a different String serde implementation, that fulfills them
+        // If you need different guarantees, write a different serde implementation, that fulfills them
         let mut data: Vec<u8> = Vec::with_capacity(len);
         data.resize(len, 0u8);
         self.buffer.copy_to_slice(data.as_mut_slice());
@@ -920,6 +921,48 @@ impl<'a, 'de: 'a> VariantAccess<'de> for &'a mut BufDeserializer<'de> {
     }
 }
 
+impl SerialisationId for ActorPath {
+    const SER_ID: SerId = <ActorPath as Deserialiser<ActorPath>>::SER_ID;
+}
+impl Serialize for ActorPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let size = self.size_hint().unwrap_or(0);
+        let mut buf: Vec<u8> = Vec::with_capacity(size);
+        ActorPath::serialise(self, &mut buf).map_err(|e| ser::Error::custom(e))?;
+        serializer.serialize_bytes(&buf)
+    }
+}
+struct ActorPathVisitor;
+impl<'de> Visitor<'de> for ActorPathVisitor {
+    type Value = ActorPath;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a byte serialised ActorPath")
+    }
+
+    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        // TODO just use the slice once Adam's branch is merged
+        //let slice: &[u8] = &value;
+        let mut cursor = std::io::Cursor::new(value);
+        let path = ActorPath::deserialise(&mut cursor).map_err(|e| de::Error::custom(e))?;
+        Ok(path)
+    }
+}
+impl<'de> Deserialize<'de> for ActorPath {
+    fn deserialize<D>(deserializer: D) -> Result<ActorPath, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_byte_buf(ActorPathVisitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -995,5 +1038,12 @@ mod tests {
             let ser = ser_deser_roundtrip(expected.clone()).unwrap();
             assert_eq!(expected, ser);
         }
+    }
+
+    #[test]
+    fn test_actorpath() {
+        let expected: ActorPath = doctest_helpers::TEST_PATH.parse().unwrap();
+        let ser = ser_deser_roundtrip(expected.clone()).unwrap();
+        assert_eq!(expected, ser);
     }
 }

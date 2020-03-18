@@ -267,7 +267,7 @@ where
 
     #[inline(always)]
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        let sender = msg.sender().clone();
+        let sender = msg.sender().clone(); // TODO this is ugly for a very common case...fix this!
         match msg.try_deserialise::<_, <Self as NetworkActor>::Deserialiser>() {
             Ok(m) => self.receive(Some(sender), m),
             Err(e) => self.on_error(e),
