@@ -245,7 +245,6 @@ impl<'a> BufMut for BufferEncoder<'a> {
         );
         unsafe {
             let dst = self.bytes_mut();
-            println!("putting slice of len {}", src.len());
             ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr() as *mut u8, src.len());
             self.advance_mut(src.len());
         }
