@@ -586,38 +586,174 @@ pub(crate) fn broken_pipe(err: &io::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
-    /*
     use super::*;
-        #[test]
-        fn merge_connections() -> () {
-            // This triggers an automatic merging on network thread 1.
+    use std::net::{IpAddr, Ipv4Addr};
+    use crate::dispatch::{NetworkConfig, NetworkDispatcher};
+    use std::time::Duration;
 
-            // Set-up the thrbrew ead
-            let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
-            let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
-            let (registration, network_thread_registration) = Registration::new2();
-            //network_thread_registration.set_readiness(Ready::empty());
-            let (input_queue_1_sender, input_queue_1_receiver) = channel();
-            let (dispatch_shutdown_sender, _) = channel();
-            let actor_store = ActorStore::new();
-            let dispatcher = NetworkDispatcher::new();
-            let dispatcher_ref = dispatcher.actor_ref().hold().expect("Self can hardly be deallocated!");
+    fn setup_two_threads(addr1: SocketAddr, addr2: SocketAddr) -> (NetworkThread, Sender<DispatchEvent>, NetworkThread, Sender<DispatchEvent>) {
+        let mut cfg = KompactConfig::new();
+        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        let system = cfg.build().expect("KompactSystem");
 
-            let mut network_thread = NetworkThread::new(
-                log: KompactLogger::new(),
-                addr1,
-                lookup.clone(),
-                dispatcher_registration: registration,
-                network_thread_registration.clone(),
-                input_queue: input_queue_1_receiver,
-                network_thread_sender: Sender<bool>::new(),
-                dispatcher_ref,
-            );
+        // Set-up the the threads arguments
+        let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
+        let (registration1, network_thread_registration1) = Registration::new2();
+        let (registration2, network_thread_registration2) = Registration::new2();
+        //network_thread_registration.set_readiness(Ready::empty());
+        let (input_queue_1_sender, input_queue_1_receiver) = channel();
+        let (input_queue_2_sender, input_queue_2_receiver) = channel();
+        let (dispatch_shutdown_sender1, _) = channel();
+        let (dispatch_shutdown_sender2, _) = channel();
+        let actor_store = ActorStore::new();
+        let logger = system.logger().clone();
+        let dispatcher_ref = system.dispatcher_ref();
 
-            thread::spawn(move || {
-                network_thread.run();
-            });
+        // Set up the two network threads
+        let mut network_thread1 = NetworkThread::new(
+            logger.clone(),
+            addr1.clone(),
+            lookup.clone(),
+            registration1,
+            network_thread_registration1.clone(),
+            input_queue_1_receiver,
+            dispatch_shutdown_sender1,
+            dispatcher_ref.clone(),
+        );
 
-            // Create another NetworkThread which we run manually:
-        } */
+        let mut network_thread2 = NetworkThread::new(
+            logger.clone(),
+            addr2.clone(),
+            lookup.clone(),
+            registration2,
+            network_thread_registration2.clone(),
+            input_queue_2_receiver,
+            dispatch_shutdown_sender2,
+            dispatcher_ref.clone(),
+        );
+
+        (network_thread1, input_queue_1_sender, network_thread2, input_queue_2_sender)
+    }
+
+    #[test]
+    fn merge_connections() -> () {
+        // This triggers an automatic merging on network thread 1.
+
+        let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
+        let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7780);
+
+        let (mut network_thread1, mut input_queue_1_sender, mut network_thread2, mut input_queue_2_sender) = setup_two_threads(addr1.clone(), addr2.clone());
+
+        // Tell both to connect to each-other before they start running:
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2.clone()));
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1.clone()));
+
+        // Let both handle the connect event:
+        network_thread1.receive_dispatch();
+        network_thread2.receive_dispatch();
+
+        // Wait for the connect requests to reach destination:
+        thread::sleep(Duration::from_millis(500));
+
+        // Accept requested streams
+        network_thread1.accept_stream();
+        network_thread2.accept_stream();
+
+        // Wait for Hello to reach destination:
+        thread::sleep(Duration::from_millis(500));
+
+        // We need to make sure the TCP buffers are actually flushing the messages. Give both channels two cycles to finnish
+        // Cycle one Requested channels
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+
+        // Cycle one Accepted channels:
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+
+        // Cycle two Requested channels
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+
+        // Cycle two Accepted channels:
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+
+        // Now we can inspect the Network channels, both only have one channel:
+        assert_eq!(network_thread1.channel_map.len(), 1);
+        assert_eq!(network_thread2.channel_map.len(), 1);
+
+        // Now assert that they've kept the same channel:
+        assert_eq!(network_thread1.channel_map.drain().next().unwrap().1.stream().local_addr().unwrap(),
+                   network_thread2.channel_map.drain().next().unwrap().1.stream().peer_addr().unwrap());
+    }
+
+    #[test]
+    fn merge_connections() -> () {
+        // This triggers an automatic merging on network thread 1.
+
+        let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
+        let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7780);
+
+        let (mut network_thread1, mut input_queue_1_sender, mut network_thread2, mut input_queue_2_sender) = setup_two_threads(addr1.clone(), addr2.clone());
+
+        // Tell both to connect to each-other before they start running:
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2.clone()));
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1.clone()));
+
+        // Let both handle the connect event:
+        network_thread1.receive_dispatch();
+        network_thread2.receive_dispatch();
+
+        // Wait for the connect requests to reach destination:
+        thread::sleep(Duration::from_millis(500));
+
+        // Accept requested streams
+        network_thread1.accept_stream();
+        network_thread2.accept_stream();
+
+        // Wait for Hello to reach destination:
+        thread::sleep(Duration::from_millis(500));
+
+        // We need to make sure the TCP buffers are actually flushing the messages. Give both channels two cycles to finnish
+        // Cycle one Requested channels
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+
+        // Cycle one Accepted channels:
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+
+        // Cycle two Requested channels
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        thread::sleep(Duration::from_millis(100));
+
+        // Cycle two Accepted channels:
+        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        thread::sleep(Duration::from_millis(100));
+
+        // Now we can inspect the Network channels, both only have one channel:
+        assert_eq!(network_thread1.channel_map.len(), 1);
+        assert_eq!(network_thread2.channel_map.len(), 1);
+
+        // Now assert that they've kept the same channel:
+        assert_eq!(network_thread1.channel_map.drain().next().unwrap().1.stream().local_addr().unwrap(),
+                   network_thread2.channel_map.drain().next().unwrap().1.stream().peer_addr().unwrap());
+    }
 }
