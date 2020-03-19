@@ -150,15 +150,13 @@ impl BufferChunk {
 /// after the BufferEncoder has been dropped.
 pub struct BufferEncoder<'a> {
     encode_buffer: &'a mut EncodeBuffer,
-    write_start: usize,
 }
 
 impl<'a> BufferEncoder<'a> {
     pub fn new(encode_buffer: &'a mut EncodeBuffer) -> Self {
         // Check alignment, make sure we start aligned:
         assert_eq!(encode_buffer.get_write_offset(), encode_buffer.get_read_offset());
-        let write_start = encode_buffer.get_write_offset();
-        BufferEncoder { encode_buffer, write_start }
+        BufferEncoder { encode_buffer }
     }
 
     pub(crate) fn pad(&mut self, cnt: usize) {

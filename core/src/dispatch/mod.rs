@@ -1015,7 +1015,7 @@ mod dispatch_tests {
                 ControlEvent::Start => {
                     self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
-                    self.target.tell_serialised(PingMsg { i: 0 }, self);
+                    let _ = self.target.tell_serialised(PingMsg { i: 0 }, self);
                 }
                 _ => (),
             }
@@ -1035,7 +1035,7 @@ mod dispatch_tests {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
-                        self.target
+                        let _ = self.target
                             .tell_serialised((PingMsg { i: pong.i + 1 }), self);
                     }
                 }
