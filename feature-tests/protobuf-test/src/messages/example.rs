@@ -24,8 +24,9 @@ use protobuf::ProtobufEnum as ProtobufEnum_imported_for_functions;
 
 /// Generated files are compatible only with the same version
 /// of protobuf runtime.
-// const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_2_10_2;
-#[derive(PartialEq, Clone, Default)]
+// const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_2_10_1;
+
+#[derive(PartialEq,Clone,Default)]
 pub struct SearchRequest {
     // message fields
     pub query: ::std::string::String,
@@ -115,24 +116,24 @@ impl ::protobuf::Message for SearchRequest {
             match field_number {
                 1 => {
                     ::protobuf::rt::read_singular_proto3_string_into(wire_type, is, &mut self.query)?;
-                }
+                },
                 2 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
                         return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
                     }
                     let tmp = is.read_int32()?;
                     self.page_number = tmp;
-                }
+                },
                 3 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
                         return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
                     }
                     let tmp = is.read_int32()?;
                     self.result_per_page = tmp;
-                }
+                },
                 _ => {
                     ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
-                }
+                },
             };
         }
         ::std::result::Result::Ok(())
@@ -226,7 +227,7 @@ impl ::protobuf::Message for SearchRequest {
                 ::protobuf::reflect::MessageDescriptor::new::<SearchRequest>(
                     "SearchRequest",
                     fields,
-                    file_descriptor_proto(),
+                    file_descriptor_proto()
                 )
             })
         }
@@ -264,7 +265,7 @@ impl ::protobuf::reflect::ProtobufValue for SearchRequest {
     }
 }
 
-#[derive(PartialEq, Clone, Default)]
+#[derive(PartialEq,Clone,Default)]
 pub struct SearchResponse {
     // message fields
     pub results: ::protobuf::RepeatedField<::std::string::String>,
@@ -321,10 +322,10 @@ impl ::protobuf::Message for SearchResponse {
             match field_number {
                 1 => {
                     ::protobuf::rt::read_repeated_string_into(wire_type, is, &mut self.results)?;
-                }
+                },
                 _ => {
                     ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
-                }
+                },
             };
         }
         ::std::result::Result::Ok(())
@@ -396,7 +397,7 @@ impl ::protobuf::Message for SearchResponse {
                 ::protobuf::reflect::MessageDescriptor::new::<SearchResponse>(
                     "SearchResponse",
                     fields,
-                    file_descriptor_proto(),
+                    file_descriptor_proto()
                 )
             })
         }
