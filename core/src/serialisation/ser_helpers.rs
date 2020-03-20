@@ -16,8 +16,6 @@ use crate::{
 };
 use crate::net::frames::FRAME_HEAD_LEN;
 
-//IntoBuf
-//use bytes::buf::ext::BufExt;
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
 /// It allocates a new [BytesMut](bytes::BytesMut)
