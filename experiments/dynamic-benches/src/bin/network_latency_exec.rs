@@ -1,5 +1,5 @@
-use dynamic_benches::network_latency::as_binary;
+//use dynamic_benches::network_latency::as_binary;
 
 fn main() {
-    as_binary();
+    //  as_binary();
 }

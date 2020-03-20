@@ -27,7 +27,7 @@ fn final_clone_bench(c: &mut Criterion) {
         g.bench_with_input(
             BenchmarkId::new("for_each_with", data_size),
             data_size,
-            |b, &size| tests::bench_clone_while(b, size),
+            |b, &size| tests::bench_clone_for_each_with(b, size),
         );
     }
     g.finish();
@@ -37,6 +37,7 @@ fn final_clone_bench(c: &mut Criterion) {
 pub struct ExpensiveClone {
     data: Vec<u64>,
 }
+
 impl ExpensiveClone {
     pub fn medium() -> ExpensiveClone {
         let data: Vec<u64> = (0u64..1024u64).collect();

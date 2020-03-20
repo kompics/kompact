@@ -110,6 +110,7 @@ impl<V> RadixTree<V> {
         }
     }
 
+    #[allow(unused_assignments)]
     fn insert(&mut self, key: &[u8], value: V) -> Option<V> {
         let mut must_grow_pos: Option<usize> = None;
         match self {
@@ -215,10 +216,12 @@ mod tests {
 
     //const TEST_DATA: [(u64, &'static str); 8] =
     const TEST_SIZE: usize = 100;
+
     fn int_to_key(i: usize) -> [u8; 8] {
         let key: [u8; 8] = unsafe { std::mem::transmute(i * 100) };
         key
     }
+
     fn key_to_value(key: [u8; 8]) -> String {
         let i: usize = unsafe { std::mem::transmute(key) };
         format!("{}", i)
