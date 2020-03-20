@@ -28,7 +28,7 @@ We also need to alter our leader elector a bit. First it needs to know the actor
 
 ## Behaviours
 
-The behaviour of the bootstrap server is very simple. Whenever it gets a `CheckIn`, it adds the source of the message to its process set and then broadcasts the new process set to every process in the set. We will use the `NetworkActor` trait to implement the actor part here instead of `Actor`. `NetworkActor` is a convenience trait for actors that handle the same set of messages locally and remotely and ignore all other remote messages. It handles the deserialisation part for us, but we must tell it both the `Message` type and the `Deserialiser` type to use. Of course, in this case we don't actually do anything for local messages, since we need the sender and local messages don't have it.
+The behaviour of the bootstrap server is very simple. Whenever it gets a `CheckIn`, it adds the source of the message to its process set and then broadcasts the new process set to every process in the set. We will use the `NetworkActor` trait to implement the actor part here instead of `Actor`. `NetworkActor` is a convenience trait for actors that handle the same set of messages locally and remotely and ignore all other remote messages. It handles the deserialisation part for us, but we must tell it both the `Message` type and the `Deserialiser` type to use. Of course, in this case we don't actually do anything for local messages, since we need the sender and local messages don't have one.
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:35:55}}
@@ -40,7 +40,7 @@ We must also make some small changes to the behaviour of the leader elector itse
 {{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:131}}
 ```
 
-We also have to change how we handle `UpdatesProcesses` slightly, since they are now coming in over the network. We thus have to move the code from `receive_local` to `receive_network`. But now we have two different possible network messages we could deserialise whenever we get a `NetMessage`: It could either be a `Heartbeat` or an `UpdateProcesses`. Since trying through them individually one by one is somewhat inefficient, what we really want is something like this:
+We also have to change how we handle `UpdateProcesses` slightly, since they are now coming in over the network. We thus have to move the code from `receive_local` to `receive_network`. But now we have two different possible network messages we could deserialise whenever we get a `NetMessage`: It could either be a `Heartbeat` or an `UpdateProcesses`. Since trying through them individually one by one is somewhat inefficient, what we really want is something like this:
 
 ```rust,edition2018,no_run,noplaypen
 match msg.ser_id() {

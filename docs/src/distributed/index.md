@@ -33,8 +33,8 @@ That means that once the target component is destroyed (due to a fault, for exam
 
 ### Named Paths
 
-The `ActorPath::Named` variant is more flexible than a unique path, in that it can be reassigned later. It also allows the specification of an actual path, that is a sequence of stringss, which could be hierarchical like in a filesystem. This opens up the possibilities for things like broadcast or routing semantics over path subtrees, for example.
+The `ActorPath::Named` variant is more flexible than a unique path, in that it can be reassigned later. It also allows the specification of an actual path, that is a sequence of strings, which could be hierarchical like in a filesystem. This opens up the possibilities for things like broadcast or routing semantics over path subtrees, for example.
 
-In human-readable format a named path is represented by a system path followed by a sequence of strings beginning with and separated by forward slash (`/`) characters, just like a unix filesystem path would.
+In human-readable format a named path is represented by a system path followed by a sequence of strings beginning with and separated by forward slash (`/`) characters, just like a unix filesystem path would, e.g.: `tcp://127.0.0.1:63482/my-service/instance1`
 
 Multiple named paths can be registered to the same component.
