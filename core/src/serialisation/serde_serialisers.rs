@@ -89,17 +89,17 @@ impl<'a> Serializer for BufSerializer<'a> {
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_i16_be(v);
+        self.buffer.put_i16(v);
         Ok(())
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_i32_be(v);
+        self.buffer.put_i32(v);
         Ok(())
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_i64_be(v);
+        self.buffer.put_i64(v);
         Ok(())
     }
 
@@ -109,39 +109,39 @@ impl<'a> Serializer for BufSerializer<'a> {
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_u16_be(v);
+        self.buffer.put_u16(v);
         Ok(())
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_u32_be(v);
+        self.buffer.put_u32(v);
         Ok(())
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_u64_be(v);
+        self.buffer.put_u64(v);
         Ok(())
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_f32_be(v);
+        self.buffer.put_f32(v);
         Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_f64_be(v);
+        self.buffer.put_f64(v);
         Ok(())
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
         let num: u32 = v as u32;
-        self.buffer.put_u32_be(num);
+        self.buffer.put_u32(num);
         Ok(())
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         let len = v.len();
-        self.buffer.put_u64_be(len as u64);
+        self.buffer.put_u64(len as u64);
         let bytes = v.as_bytes();
         self.buffer.put_slice(bytes);
         Ok(())
@@ -149,7 +149,7 @@ impl<'a> Serializer for BufSerializer<'a> {
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         let len = v.len();
-        self.buffer.put_u64_be(len as u64);
+        self.buffer.put_u64(len as u64);
         self.buffer.put_slice(v);
         Ok(())
     }
@@ -181,7 +181,7 @@ impl<'a> Serializer for BufSerializer<'a> {
         variant_index: u32,
         _variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        self.buffer.put_u32_be(variant_index);
+        self.buffer.put_u32(variant_index);
         Ok(())
     }
 
@@ -211,7 +211,7 @@ impl<'a> Serializer for BufSerializer<'a> {
     where
         T: ?Sized + Serialize,
     {
-        self.buffer.put_u32_be(variant_index);
+        self.buffer.put_u32(variant_index);
         value.serialize(self)
     }
 
@@ -228,7 +228,7 @@ impl<'a> Serializer for BufSerializer<'a> {
         let len = len.ok_or(SerError::InvalidData(
             "Sequence length must be known ahead of time!".into(),
         ))?;
-        self.buffer.put_u64_be(len as u64);
+        self.buffer.put_u64(len as u64);
         Ok(self)
     }
 
@@ -256,7 +256,7 @@ impl<'a> Serializer for BufSerializer<'a> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant, SerError> {
-        self.buffer.put_u32_be(variant_index);
+        self.buffer.put_u32(variant_index);
         Ok(self)
     }
 
@@ -265,7 +265,7 @@ impl<'a> Serializer for BufSerializer<'a> {
         let len = len.ok_or(SerError::InvalidData(
             "Map length must be known ahead of time!".into(),
         ))?;
-        self.buffer.put_u64_be(len as u64);
+        self.buffer.put_u64(len as u64);
         Ok(self)
     }
 
@@ -289,7 +289,7 @@ impl<'a> Serializer for BufSerializer<'a> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, SerError> {
-        self.buffer.put_u32_be(variant_index);
+        self.buffer.put_u32(variant_index);
         Ok(self)
     }
 }
@@ -518,7 +518,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_i16_be();
+        let num = self.buffer.get_i16();
         visitor.visit_i16(num)
     }
 
@@ -526,7 +526,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_i32_be();
+        let num = self.buffer.get_i32();
         visitor.visit_i32(num)
     }
 
@@ -534,7 +534,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_i64_be();
+        let num = self.buffer.get_i64();
         visitor.visit_i64(num)
     }
 
@@ -550,7 +550,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_u16_be();
+        let num = self.buffer.get_u16();
         visitor.visit_u16(num)
     }
 
@@ -558,7 +558,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_u32_be();
+        let num = self.buffer.get_u32();
         visitor.visit_u32(num)
     }
 
@@ -566,7 +566,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_u64_be();
+        let num = self.buffer.get_u64();
         visitor.visit_u64(num)
     }
 
@@ -574,7 +574,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_f32_be();
+        let num = self.buffer.get_f32();
         visitor.visit_f32(num)
     }
 
@@ -582,7 +582,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_f64_be();
+        let num = self.buffer.get_f64();
         visitor.visit_f64(num)
     }
 
@@ -590,7 +590,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let num = self.buffer.get_u32_be();
+        let num = self.buffer.get_u32();
         let v = std::char::from_u32(num).ok_or(SerError::Unknown(format!(
             "Number {} does not represent a valid char!",
             num
@@ -611,7 +611,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len_u64 = self.buffer.get_u64_be();
+        let len_u64 = self.buffer.get_u64();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
         // If you need different guarantees, write a different String serde implementation, that fulfills them
@@ -634,7 +634,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len_u64 = self.buffer.get_u64_be();
+        let len_u64 = self.buffer.get_u64();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
         // If you need different guarantees, write a different serde implementation, that fulfills them
@@ -697,7 +697,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len_u64 = self.buffer.get_u64_be();
+        let len_u64 = self.buffer.get_u64();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         visitor.visit_seq(self.counting(len))
     }
@@ -731,7 +731,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len_u64 = self.buffer.get_u64_be();
+        let len_u64 = self.buffer.get_u64();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         visitor.visit_map(self.counting(len))
     }
@@ -966,7 +966,7 @@ impl<'de> Deserialize<'de> for ActorPath {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::{BytesMut, IntoBuf};
+    use bytes::BytesMut;
 
     #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
     struct Test {
@@ -999,7 +999,7 @@ mod tests {
             panic!("Unit serialiser should have produced a size hint");
         };
         serialisable.serialise(&mut mbuf).expect("serialise");
-        let mut buf = mbuf.into_buf();
+        let mut buf = mbuf.freeze();
         Serde::deserialise(&mut buf)
     }
 

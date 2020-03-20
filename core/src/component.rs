@@ -13,10 +13,12 @@ use std::{
 use uuid::Uuid;
 //use oncemutex::OnceMutex;
 use hocon::Hocon;
-use std::cell::UnsafeCell;
+use std::cell::{RefCell, UnsafeCell};
 
 use super::*;
 use crate::{actors::TypedMsgQueue, messaging::PathResolvable, supervision::*};
+
+use crate::net::buffer::EncodeBuffer;
 
 /// A trait for abstracting over structures that contain a component core
 ///
@@ -57,7 +59,8 @@ pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     msg_queue: Arc<TypedMsgQueue<C::Message>>,
     skip: AtomicUsize,
     state: AtomicUsize,
-    supervisor: Option<ProvidedRef<SupervisionPort>>, // system components don't have supervision
+    supervisor: Option<ProvidedRef<SupervisionPort>>,
+    // system components don't have supervision
     logger: KompactLogger,
 }
 
@@ -512,6 +515,7 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
+    buffer: Option<RefCell<EncodeBuffer>>,
     config: Arc<Hocon>,
     id: Uuid,
 }
@@ -536,6 +540,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             component: Arc::downgrade(&c),
             logger: c.logger().new(o!("ctype" => CD::type_name())),
             actor_ref: c.actor_ref(),
+            buffer: None,
             config: system.config_owned(),
             id,
         };
@@ -682,6 +687,25 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     pub fn suicide(&self) -> () {
         self.component().control_port().enqueue(ControlEvent::Kill);
     }
+
+    /// Initializes a buffer pool which [tell_serialised(ActorPath::tell_serialised) can use.
+    pub fn initialize_pool(&mut self) -> () {
+        self.inner_mut().buffer = Some(RefCell::new(EncodeBuffer::new()));
+    }
+
+    /// Get a reference to the interior EncodeBuffer without retaining a self borrow
+    /// initializes the private pool if it has not already been initialized
+    pub fn get_buffer(&self) -> &RefCell<EncodeBuffer> {
+        //self.inner_mut().get_buffer(size)
+        {
+            if let Some(buffer) = &self.inner_ref().buffer {
+                return buffer;
+            }
+        }
+        panic!("Failure");
+        //self.initialize_pool();
+        //self.get_buffer()
+    }
 }
 
 impl<CD> ActorRefFactory for ComponentContext<CD>
@@ -708,11 +732,13 @@ where
 struct ContextSystemHandle {
     component: Arc<dyn CoreContainer>,
 }
+
 impl ContextSystemHandle {
     fn from(component: Arc<dyn CoreContainer>) -> Self {
         ContextSystemHandle { component }
     }
 }
+
 impl SystemHandle for ContextSystemHandle {
     fn create<C, F>(&self, f: F) -> Arc<Component<C>>
     where
@@ -763,6 +789,7 @@ impl SystemHandle for ContextSystemHandle {
         self.component.system().actor_ref()
     }
 }
+
 impl Dispatching for ContextSystemHandle {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.component.system().dispatcher_ref()
@@ -825,6 +852,7 @@ pub trait ComponentLogging {
     /// See [log](ComponentContext::log) for more details.
     fn log(&self) -> &KompactLogger;
 }
+
 impl<CD> ComponentLogging for CD
 where
     CD: ComponentDefinition + 'static,
@@ -913,6 +941,7 @@ where
         self.on_definition(|cd| ProvideRef::connect_to_required(cd, req))
     }
 }
+
 impl<P, CD> LockingRequireRef<P> for Arc<Component<CD>>
 where
     P: Port + 'static,
@@ -1015,6 +1044,7 @@ impl ComponentCore {
 //unsafe impl<C: ComponentDefinition + Sized> Sync for Component<C> {}
 
 unsafe impl Send for ComponentCore {}
+
 unsafe impl Sync for ComponentCore {}
 
 #[cfg(test)]
@@ -1064,6 +1094,7 @@ mod tests {
     fn is_send<T: Send>(_v: &T) -> () {
         // ignore
     }
+
     // Just a way to force the compiler to infer Sync for T
     fn is_sync<T: Sync>(_v: &T) -> () {
         // ignore

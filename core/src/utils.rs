@@ -322,7 +322,10 @@ macro_rules! ignore_indications {
 }
 
 /// Additional iterator functions
-pub trait IterExtras: Iterator {
+pub trait IterExtras: Iterator + Sized {
+    // this variant requires #![feature(unsized_locals)]
+    //pub trait IterExtras: Iterator {
+
     /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
     ///
     /// Behaves like `iterator.for_each(|item| f(item, t.clone()))`, except that it avoids cloning
@@ -348,7 +351,9 @@ pub trait IterExtras: Iterator {
         }
     }
 }
-impl<T: ?Sized> IterExtras for T where T: Iterator {}
+impl<T: Sized> IterExtras for T where T: Iterator {}
+// this variant requires #![feature(unsized_locals)]
+//impl<T: ?Sized> IterExtras for T where T: Iterator {}
 
 #[cfg(test)]
 mod tests {

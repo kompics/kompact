@@ -326,6 +326,43 @@ impl KompactConfig {
         self
     }
 
+    /// Set a particular set of system components
+    ///
+    /// This function works just like [system_components](KompactConfig::system_components),
+    /// except that it assigns the dispatcher is pinned to its own thread using
+    /// [create_dedicated_pinned_unsupervised](KompactSystem::create_dedicated_pinned_unsupervised).
+    #[cfg(feature = "thread_pinning")]
+    pub fn system_components_with_dedicated_dispatcher_pinned<B, C, FB, FC>(
+        &mut self,
+        deadletter_fn: FB,
+        dispatcher_fn: FC,
+        dispatcher_core: CoreId,
+    ) -> &mut Self
+    where
+        B: ComponentDefinition + ActorRaw<Message = Never> + Sized + 'static,
+        C: ComponentDefinition
+            + ActorRaw<Message = DispatchEnvelope>
+            + Sized
+            + 'static
+            + Dispatcher,
+        FB: Fn(Promise<()>) -> B + 'static,
+        FC: Fn(Promise<()>) -> C + 'static,
+    {
+        let sb = move |system: &KompactSystem, dead_prom: Promise<()>, disp_prom: Promise<()>| {
+            let deadletter_box = system.create_unsupervised(|| deadletter_fn(dead_prom));
+            let dispatcher = system
+                .create_dedicated_pinned_unsupervised(|| dispatcher_fn(disp_prom), dispatcher_core);
+
+            let cc = CustomComponents {
+                deadletter_box,
+                dispatcher,
+            };
+            Box::new(cc) as Box<dyn SystemComponents>
+        };
+        self.sc_builder = Rc::new(sb);
+        self
+    }
+
     /// Set the logger implementation to use
     pub fn logger(&mut self, logger: KompactLogger) -> &mut Self {
         self.root_logger = Some(logger);

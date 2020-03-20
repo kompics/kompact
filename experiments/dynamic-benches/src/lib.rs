@@ -1,4 +1,6 @@
-#![feature(test)]
+#![cfg_attr(nightly, feature(test))]
+
+#[cfg(nightly)]
 extern crate test;
 
 pub mod actorrefs;

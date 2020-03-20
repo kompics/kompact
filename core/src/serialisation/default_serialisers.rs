@@ -55,7 +55,7 @@ impl Serialisable for String {
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         let slice = self.as_bytes();
         let len_u64 = slice.len() as u64;
-        buf.put_u64_be(len_u64);
+        buf.put_u64(len_u64);
         buf.put_slice(slice);
         Ok(())
     }
@@ -68,7 +68,7 @@ impl Deserialiser<String> for String {
     const SER_ID: SerId = serialisation_ids::STR;
 
     fn deserialise(buf: &mut dyn Buf) -> Result<String, SerError> {
-        let len_u64 = buf.get_u64_be();
+        let len_u64 = buf.get_u64();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
         // If you need different guarantees, write a different String serde implementation, that fulfills them
@@ -90,7 +90,7 @@ impl Serialisable for u64 {
     }
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-        buf.put_u64_be(*self);
+        buf.put_u64(*self);
         Ok(())
     }
 
@@ -102,7 +102,7 @@ impl Deserialiser<u64> for u64 {
     const SER_ID: SerId = serialisation_ids::U64;
 
     fn deserialise(buf: &mut dyn Buf) -> Result<u64, SerError> {
-        let num = buf.get_u64_be();
+        let num = buf.get_u64();
         Ok(num)
     }
 }
@@ -135,7 +135,7 @@ impl Deserialiser<()> for () {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::{BytesMut, IntoBuf};
+    use bytes::BytesMut;
 
     #[test]
     fn test_string_serialisation() {
@@ -146,7 +146,7 @@ mod tests {
             BytesMut::with_capacity(16)
         };
         test_str.serialise(&mut mbuf).expect("serialise");
-        let mut buf = mbuf.into_buf();
+        let mut buf = mbuf.freeze();
         let res = String::deserialise(&mut buf);
         match res {
             Ok(test_str_res) => assert_eq!(test_str, test_str_res),
@@ -163,7 +163,7 @@ mod tests {
             BytesMut::with_capacity(4)
         };
         test_num.serialise(&mut mbuf).expect("serialise");
-        let mut buf = mbuf.into_buf();
+        let mut buf = mbuf.freeze();
         let res = u64::deserialise(&mut buf);
         match res {
             Ok(test_num_res) => assert_eq!(test_num, test_num_res),
@@ -180,7 +180,7 @@ mod tests {
             panic!("Unit serialiser should have produced a size hint");
         };
         test_num.serialise(&mut mbuf).expect("serialise");
-        let mut buf = mbuf.into_buf();
+        let mut buf = mbuf.freeze();
         let res = <()>::deserialise(&mut buf);
         match res {
             Ok(test_num_res) => assert_eq!(test_num, test_num_res),

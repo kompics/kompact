@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use super::*;
 
-/// A factory trait to produce instances of `TimerRef`(timer::TimerRef)
+/// A factory trait to produce instances of [TimerRef](timer::TimerRef)
 pub trait TimerRefFactory {
     /// Returns the timer reference for associated with this factory
     fn timer_ref(&self) -> timer::TimerRef;
@@ -25,7 +25,8 @@ pub trait TimerRefFactory {
 pub struct ScheduledTimer(Uuid);
 
 impl ScheduledTimer {
-    fn from_uuid(id: Uuid) -> ScheduledTimer {
+    /// Create a `ScheduledTimer` from a [Uuid](Uuid) handle
+    pub fn from_uuid(id: Uuid) -> ScheduledTimer {
         ScheduledTimer(id)
     }
 }

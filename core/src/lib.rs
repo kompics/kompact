@@ -38,10 +38,7 @@
 
 #![deny(missing_docs)]
 #![allow(unused_parens)]
-#![feature(specialization)]
-#![feature(unsized_locals)]
-#![feature(drain_filter)]
-#![feature(never_type)]
+#![cfg_attr(nightly, feature(never_type))]
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
@@ -100,7 +97,18 @@ mod utils;
 ///
 /// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
 /// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
+#[cfg(nightly)]
 pub type Never = !;
+
+/// A more readable placeholder for a stable Never (`!`) type.
+///
+/// Only nightly this defaults to `!` and will eventually be replaced with that once `never_type` stabilises.
+///
+/// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
+/// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
+#[cfg(not(nightly))]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum Never {}
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
@@ -111,7 +119,7 @@ pub mod prelude {
         convert::{From, Into},
     };
 
-    pub use bytes::{Buf, BufMut, IntoBuf};
+    pub use bytes::{Buf, BufMut}; // IntoBuf
 
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
@@ -160,6 +168,7 @@ pub mod prelude {
             RequireRef,
         },
         lifecycle::{ControlEvent, ControlPort},
+        net::{buffer::*, buffer_pool::*},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         Never,
@@ -217,6 +226,7 @@ pub mod doctest_helpers {
 
     /// A test port
     pub struct TestPort;
+
     impl Port for TestPort {
         type Indication = Never;
         type Request = Never;
@@ -228,6 +238,7 @@ pub mod doctest_helpers {
         ctx: ComponentContext<Self>,
         test_port: ProvidedPort<TestPort, Self>,
     }
+
     impl TestComponent1 {
         /// Create a new test component
         pub fn new() -> TestComponent1 {
@@ -250,6 +261,7 @@ pub mod doctest_helpers {
         ctx: ComponentContext<Self>,
         test_port: RequiredPort<TestPort, Self>,
     }
+
     impl TestComponent2 {
         /// Create a new test component
         pub fn new() -> TestComponent2 {
@@ -507,6 +519,7 @@ mod tests {
             .shutdown()
             .expect("Kompact didn't shut down properly");
     }
+
     #[derive(ComponentDefinition)]
     struct DedicatedComponent {
         ctx: ComponentContext<Self>,
@@ -925,6 +938,7 @@ mod tests {
     struct Stopper {
         ctx: ComponentContext<Self>,
     }
+
     impl Stopper {
         fn new() -> Stopper {
             Stopper {
@@ -932,6 +946,7 @@ mod tests {
             }
         }
     }
+
     impl Provide<ControlPort> for Stopper {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
@@ -956,6 +971,7 @@ mod tests {
         ctx: ComponentContext<Self>,
         test_value: Option<i64>,
     }
+
     impl ConfigComponent {
         fn new() -> ConfigComponent {
             ConfigComponent {
@@ -964,6 +980,7 @@ mod tests {
             }
         }
     }
+
     impl Provide<ControlPort> for ConfigComponent {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {

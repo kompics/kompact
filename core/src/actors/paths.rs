@@ -1,10 +1,14 @@
 use super::*;
-use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable, Serialised};
+use crate::{
+    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable},
+    net::buffer::EncodeBuffer,
+};
 use std::{
-    convert::{TryFrom, TryInto},
+    convert::TryFrom,
     error::Error,
     fmt::{self, Debug},
     net::{AddrParseError, IpAddr, SocketAddr},
+    ops::DerefMut,
     str::FromStr,
 };
 use uuid::Uuid;
@@ -69,11 +73,13 @@ impl FromStr for Transport {
 /// Error type for parsing the [Transport](Transport) from a string
 #[derive(Clone, Debug)]
 pub struct TransportParseError(());
+
 impl fmt::Display for TransportParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str(&self.to_string())
     }
 }
+
 impl Error for TransportParseError {
     fn description(&self) -> &str {
         "Transport must be one of [local,tcp,udp]"
@@ -90,11 +96,13 @@ pub enum PathParseError {
     /// The network address was invalid
     Addr(AddrParseError),
 }
+
 impl fmt::Display for PathParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str(&self.to_string())
     }
 }
+
 impl Error for PathParseError {
     fn description(&self) -> &str {
         "Path could not be parsed"
@@ -108,11 +116,13 @@ impl Error for PathParseError {
         }
     }
 }
+
 impl From<TransportParseError> for PathParseError {
     fn from(e: TransportParseError) -> PathParseError {
         PathParseError::Transport(e)
     }
 }
+
 impl From<AddrParseError> for PathParseError {
     fn from(e: AddrParseError) -> PathParseError {
         PathParseError::Addr(e)
@@ -219,11 +229,13 @@ pub struct DispatchingPath<'a, 'b> {
     path: &'a ActorPath,
     ctx: &'b dyn Dispatching,
 }
+
 impl<'a, 'b> Dispatching for DispatchingPath<'a, 'b> {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx.dispatcher_ref()
     }
 }
+
 impl<'a, 'b> ActorSource for DispatchingPath<'a, 'b> {
     fn path_resolvable(&self) -> PathResolvable {
         PathResolvable::Path(self.path.clone())
@@ -292,19 +304,28 @@ impl ActorPath {
         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
     }
 
-    /// Same as [tell](ActorPath::tell), but serialises eagerly
-    pub fn tell_ser<S, B, E>(&self, m: B, from: &S) -> Result<(), E>
+    /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
+    pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
     where
-        S: ActorSource,
-        B: TryInto<Serialised, Error = E>,
+        CD: ComponentDefinition + Sized + 'static,
+        B: Serialisable + 'static,
     {
-        let msg: Serialised = m.try_into()?;
-        let src = from.path_resolvable();
-        let dst = self.clone();
+        if self.protocol() == Transport::LOCAL {
+            // No need to serialize!
+            self.tell(m, from);
+            return Ok(());
+        }
+        //let mut buf = encode_buffer.deref_mut();
+        let mut buf_ref = from.ctx().get_buffer().borrow_mut();
+        let buf = &mut EncodeBuffer::get_buffer_encoder(buf_ref.deref_mut());
+
+        let chunk_lease =
+            crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, buf)?;
+
         let env = DispatchEnvelope::Msg {
-            src,
-            dst,
-            msg: DispatchData::Eager(msg),
+            src: from.path_resolvable(),
+            dst: self.clone(),
+            msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
         };
         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
         Ok(())
@@ -623,10 +644,8 @@ impl FromStr for NamedPath {
 //         PathResolvable::Path(self.path.clone())
 //     }
 // }
-
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     const PATH: &'static str = "local://127.0.0.1:0/test_actor";
@@ -641,6 +660,7 @@ mod tests {
         let ap2: ActorPath = s.parse().expect("a proper path");
         assert_eq!(ap, ap2);
     }
+
     #[test]
     fn actor_path_unique_strings() {
         let ref1 = ActorPath::Unique(UniquePath::new(
@@ -656,6 +676,7 @@ mod tests {
         assert_eq!(ref1, ref1_deser);
         assert_eq!(ref1, ref1_deser2);
     }
+
     #[test]
     fn actor_path_named_strings() {
         let ref1 = ActorPath::Named(NamedPath::new(

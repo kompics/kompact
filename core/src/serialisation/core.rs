@@ -7,6 +7,8 @@ pub enum SerError {
     InvalidData(String),
     /// The data represents the wrong type, or an unknown type
     InvalidType(String),
+    /// The Buffer we're serializing into failed
+    BufferError(String),
     /// Any other kind of error
     Unknown(String),
 }
@@ -25,6 +27,9 @@ impl SerError {
 impl fmt::Display for SerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            SerError::BufferError(s) => {
+                write!(f, "An issue occurred with the serialisation buffers: {}", s)
+            }
             SerError::InvalidData(s) => write!(
                 f,
                 "The provided data was not appropriate for (de-)serialisation: {}",
@@ -165,8 +170,10 @@ where
     T: Send + Debug,
     S: Serialiser<T>,
 {
-    v: T,
-    ser: S,
+    /// The value to be serialised
+    pub v: T,
+    /// The serialise to use
+    pub ser: S,
 }
 impl<T, S> SerialisableValue<T, S>
 where

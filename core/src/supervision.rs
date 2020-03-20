@@ -67,9 +67,15 @@ impl ComponentSupervisor {
         S: Fn(&ListenEvent) -> bool,
     {
         if let Some(l) = self.listeners.get_mut(id) {
-            let mut selected = l
-                .drain_filter(|entry| selector(&entry.0))
-                .collect::<Vec<_>>();
+            let (mut selected, mut unselected): (
+                Vec<(ListenEvent, Promise<()>)>,
+                Vec<(ListenEvent, Promise<()>)>,
+            ) = l.drain(..).partition(|entry| selector(&entry.0));
+            std::mem::swap(l, &mut unselected);
+            // requires #![feature(drain_filter)]
+            // let mut selected = l
+            //     .drain_filter(|entry| selector(&entry.0))
+            //     .collect::<Vec<_>>();
             for (_, p) in selected.drain(..) {
                 p.fulfill(()).unwrap_or_else(|e| {
                     error!(self.ctx.log(), "Could not notify listeners: {:?}", e)

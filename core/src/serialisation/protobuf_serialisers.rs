@@ -1,6 +1,7 @@
 //! Provides serialisation support for protocol buffers
 use super::*;
 
+use bytes::buf::BufMutExt;
 use protobuf::{Message, ProtobufError};
 
 /// Kompact serialisation marker for protobuf messages

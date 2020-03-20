@@ -60,7 +60,7 @@ impl Serialisable for UpdateProcesses {
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         let len = self.0.len() as u64;
-        buf.put_u64_be(len);
+        buf.put_u64(len);
         for path in self.0.iter() {
             path.serialise(buf)?;
         }
@@ -75,7 +75,7 @@ impl Deserialiser<UpdateProcesses> for UpdateProcesses {
     const SER_ID: SerId = 3456;
 
     fn deserialise(buf: &mut dyn Buf) -> Result<UpdateProcesses, SerError> {
-        let len_u64 = buf.get_u64_be();
+        let len_u64 = buf.get_u64();
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         let mut data: Vec<ActorPath> = Vec::with_capacity(len);
         for _i in 0..len {
@@ -103,9 +103,8 @@ impl BootstrapServer {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
         self.processes.iter().for_each(|process| {
-            // process.tell_pooled(msg, self);
             process
-                .tell_ser(&msg as &dyn Serialisable, self)
+                .tell_serialised(msg.clone(), self)
                 .unwrap_or_else(|e| warn!(self.log(), "Error during serialisation: {}", e));
         });
     }

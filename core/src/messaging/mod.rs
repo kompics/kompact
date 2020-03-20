@@ -2,13 +2,19 @@
 
 use crate::{
     actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
-    net::events::NetworkEvent,
+    net::{buffer::BufferEncoder, events::NetworkEvent},
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
     utils,
 };
-use bytes::{Bytes, IntoBuf};
+use bytes::{Buf, Bytes};
 use std::{any::Any, convert::TryFrom};
 use uuid::Uuid;
+
+use crate::{
+    net::{buffer::ChunkLease, frames::FRAME_HEAD_LEN},
+    serialisation::ser_helpers::deserialise_msg,
+};
+use std::ops::Deref;
 
 pub mod framing;
 
@@ -33,10 +39,11 @@ pub mod framing;
 #[derive(Debug)]
 pub struct NetMessage {
     ser_id: SerId,
-    sender: ActorPath,
-    receiver: ActorPath,
+    pub(crate) sender: ActorPath,
+    pub(crate) receiver: ActorPath,
     data: HeapOrSer,
 }
+
 /// Holder for data that is either heap-allocated or
 /// or serialised.
 #[derive(Debug)]
@@ -45,7 +52,10 @@ pub enum HeapOrSer {
     Boxed(Box<dyn Any + Send + 'static>),
     /// Data is serialised and must be [deserialised](Deserialiser::deserialise)
     Serialised(bytes::Bytes),
+    /// Data is serialised in a pooled buffer and must be [deserialised](Deserialiser::deserialise)
+    Pooled(ChunkLease),
 }
+
 impl NetMessage {
     /// Create a network message with heap-allocated data
     pub fn with_box(
@@ -74,6 +84,22 @@ impl NetMessage {
             sender,
             receiver,
             data: HeapOrSer::Serialised(data),
+        }
+    }
+
+    /// Create a network message with a ChunkLease, pooled buffers.
+    /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[net::frames].
+    pub fn with_chunk(
+        ser_id: SerId,
+        sender: ActorPath,
+        receiver: ActorPath,
+        data: ChunkLease,
+    ) -> NetMessage {
+        NetMessage {
+            ser_id,
+            sender,
+            receiver,
+            data: HeapOrSer::Pooled(data),
         }
     }
 
@@ -182,8 +208,11 @@ impl NetMessage {
                 .downcast::<T>()
                 .map(|b| *b)
                 .map_err(|b| UnpackError::NoCast(Self::with_box(ser_id, sender, receiver, b))),
-            HeapOrSer::Serialised(buf) => {
-                D::deserialise(&mut buf.into_buf()).map_err(|e| UnpackError::DeserError(e))
+            HeapOrSer::Serialised(mut bytes) => {
+                D::deserialise(&mut bytes).map_err(|e| UnpackError::DeserError(e))
+            }
+            HeapOrSer::Pooled(mut chunk) => {
+                D::deserialise(&mut chunk).map_err(|e| UnpackError::DeserError(e))
             }
         }
     }
@@ -244,6 +273,7 @@ pub struct RegistrationEnvelope {
     /// An optional feedback promise, which returns the newly registered actor path or an error
     pub promise: Option<utils::Promise<Result<ActorPath, RegistrationError>>>,
 }
+
 // old variant
 // pub enum RegistrationEnvelope {
 //     Register(
@@ -288,6 +318,7 @@ pub struct Serialised {
     /// The serialised bytes
     pub data: Bytes,
 }
+
 impl TryFrom<(SerId, Bytes)> for Serialised {
     type Error = SerError;
 
@@ -298,6 +329,7 @@ impl TryFrom<(SerId, Bytes)> for Serialised {
         })
     }
 }
+
 impl<T, S> TryFrom<(&T, &S)> for Serialised
 where
     T: std::fmt::Debug,
@@ -344,15 +376,26 @@ impl<E> TryFrom<Result<Serialised, E>> for Serialised {
 pub enum DispatchData {
     /// Lazily serialised variant – must still be serialised by the dispatcher or networking system
     Lazy(Box<dyn Serialisable>),
-    /// Already serialised data
-    Eager(Serialised),
+    /// Should be serialised and [framed](net::frames).
+    Serialised((ChunkLease, SerId)),
 }
+
+// TODO: Move framing from the pooled data creation to the Network dispatcher!
+/// Wrapper used to wrap framed values for transfer to the Network thread
+#[derive(Debug)]
+pub enum SerializedFrame {
+    /// Variant for Bytes allocated anywhere
+    Bytes(Bytes),
+    /// Variant for the Pooled buffers
+    Chunk(ChunkLease),
+}
+
 impl DispatchData {
     /// The serialisation id associated with the data
     pub fn ser_id(&self) -> SerId {
         match self {
             DispatchData::Lazy(ser) => ser.ser_id(),
-            DispatchData::Eager(ser) => ser.ser_id,
+            DispatchData::Serialised((_chunk, ser_id)) => *ser_id,
         }
     }
 
@@ -369,19 +412,27 @@ impl DispatchData {
                     Err(ser) => crate::serialisation::ser_helpers::serialise_to_msg(src, dst, ser),
                 }
             }
-            DispatchData::Eager(ser) => Ok(NetMessage::with_bytes(ser.ser_id, src, dst, ser.data)),
+            DispatchData::Serialised((mut chunk, _ser_id)) => {
+                // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
+                chunk.advance(FRAME_HEAD_LEN as usize);
+                //println!("to_local (from: {:?}; to: {:?})", src, dst);
+                Ok(deserialise_msg(chunk).expect("s11n errors"))
+            }
         }
     }
 
     /// Try to serialise this to data to bytes for remote delivery
-    pub fn to_serialised(self, src: ActorPath, dst: ActorPath) -> Result<Bytes, SerError> {
+    pub fn to_serialised(
+        self,
+        src: ActorPath,
+        dst: ActorPath,
+        buf: &mut BufferEncoder,
+    ) -> Result<SerializedFrame, SerError> {
         match self {
-            DispatchData::Lazy(ser) => {
-                crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser)
-            }
-            DispatchData::Eager(ser) => {
-                crate::serialisation::ser_helpers::embed_in_msg(&src, &dst, ser)
-            }
+            DispatchData::Lazy(ser) => Ok(SerializedFrame::Chunk(
+                crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser.deref(), buf)?,
+            )),
+            DispatchData::Serialised((chunk, _ser_id)) => Ok(SerializedFrame::Chunk(chunk)),
         }
     }
 }
@@ -542,9 +593,9 @@ macro_rules! match_deser {
 #[cfg(test)]
 mod deser_macro_tests {
     use super::*;
-    use crate::serialisation::Serialiser;
+    use crate::{net::buffer::BufferChunk, serialisation::Serialiser};
     use bytes::{Buf, BufMut};
-    use std::str::FromStr;
+    use std::{str::FromStr, sync::Arc};
 
     #[test]
     fn simple_macro_test() {
@@ -663,7 +714,6 @@ mod deser_macro_tests {
             (msg_b, BSer).into(),
         )
         .expect("MsgB should serialise!");
-
         assert!(f(msg_a_ser).is_a());
         assert!(f(msg_b_ser).is_b());
     }
@@ -683,6 +733,7 @@ mod deser_macro_tests {
         A(MsgA),
         B(MsgB),
     }
+
     impl EitherAOrB {
         fn is_a(&self) -> bool {
             match self {
@@ -700,6 +751,7 @@ mod deser_macro_tests {
     struct MsgA {
         index: u64,
     }
+
     impl MsgA {
         const SERID: SerId = 42;
 
@@ -707,6 +759,7 @@ mod deser_macro_tests {
             MsgA { index }
         }
     }
+
     impl Serialisable for MsgA {
         fn ser_id(&self) -> SerId {
             Self::SERID
@@ -717,7 +770,7 @@ mod deser_macro_tests {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -725,6 +778,7 @@ mod deser_macro_tests {
             Ok(self)
         }
     }
+
     impl Deserialiser<MsgA> for MsgA {
         const SER_ID: SerId = Self::SERID;
 
@@ -734,7 +788,7 @@ mod deser_macro_tests {
                     "Less than 8bytes remaining in buffer!".to_string(),
                 ));
             }
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             let msg = MsgA { index };
             Ok(msg)
         }
@@ -744,6 +798,7 @@ mod deser_macro_tests {
     struct MsgB {
         flag: bool,
     }
+
     impl MsgB {
         const SERID: SerId = 43;
 
@@ -751,7 +806,9 @@ mod deser_macro_tests {
             MsgB { flag }
         }
     }
+
     struct BSer;
+
     impl Serialiser<MsgB> for BSer {
         fn ser_id(&self) -> SerId {
             MsgB::SERID
@@ -767,6 +824,7 @@ mod deser_macro_tests {
             Ok(())
         }
     }
+
     impl Deserialiser<MsgB> for BSer {
         const SER_ID: SerId = MsgB::SERID;
 
