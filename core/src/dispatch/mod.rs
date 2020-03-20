@@ -20,7 +20,8 @@ use crate::{
         RegistrationEnvelope,
         RegistrationError,
     },
-    net::{events::NetworkEvent, ConnectionState, NetworkBridgeErr},
+    net::{events::NetworkEvent, ConnectionState, NetworkBridgeErr,
+          buffer::{EncodeBuffer, BufferEncoder}},
 };
 use arc_swap::ArcSwap;
 use futures::{self, Async, AsyncSink, Poll, StartSend};
@@ -113,6 +114,7 @@ pub struct NetworkDispatcher {
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
     notify_ready: Option<Promise<()>>,
+    encode_buffer: EncodeBuffer,
 }
 
 impl NetworkDispatcher {
@@ -144,6 +146,7 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
         let reaper = lookup::gc::ActorRefReaper::default();
+        let encode_buffer = crate::net::buffer::EncodeBuffer::new();
 
         NetworkDispatcher {
             ctx: ComponentContext::new(),
@@ -154,6 +157,7 @@ impl NetworkDispatcher {
             queue_manager: None,
             reaper,
             notify_ready: Some(notify_ready),
+            encode_buffer,
         }
     }
 
@@ -329,7 +333,8 @@ impl NetworkDispatcher {
     /// is available.
     fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
-        let serialized = msg.to_serialised(src, dst)?;
+        let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
+        let serialized = msg.to_serialised(src, dst, buf)?;
 
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
@@ -739,7 +744,84 @@ mod dispatch_tests {
     /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
     /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
     /// messages.
-    fn remote_delivery_to_registered_actors() {
+    fn remote_delivery_to_registered_actors_eager() {
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
+        let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+
+        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            remote.system_path(),
+            vec!["custom_name".into()],
+        ));
+
+        let unique_path = ActorPath::Unique(UniquePath::with_system(
+            remote.system_path(),
+            ponger_unique.id().clone(),
+        ));
+
+        let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new_eager(unique_path));
+        let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new_eager(named_path));
+
+        piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(7000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_unique.on_definition(|c| {
+            println!("pinger uniq count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors_lazy() {
         let (system, remote) = {
             let system = || {
                 let mut cfg = KompactConfig::new();
@@ -997,6 +1079,7 @@ mod dispatch_tests {
         ctx: ComponentContext<PingerAct>,
         target: ActorPath,
         count: u64,
+        eager: bool,
     }
 
     impl PingerAct {
@@ -1005,6 +1088,15 @@ mod dispatch_tests {
                 ctx: ComponentContext::new(),
                 target,
                 count: 0,
+                eager: false,
+            }
+        }
+        fn new_eager(target: ActorPath) -> PingerAct {
+            PingerAct {
+                ctx: ComponentContext::new(),
+                target,
+                count: 0,
+                eager: true,
             }
         }
     }
@@ -1015,7 +1107,11 @@ mod dispatch_tests {
                 ControlEvent::Start => {
                     self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
-                    let _ = self.target.tell_serialised(PingMsg { i: 0 }, self);
+                    if self.eager {
+                        self.target.tell_serialised(PingMsg { i: 0 }, self);
+                    } else {
+                        self.target.tell(PingMsg { i: 0 }, self);
+                    }
                 }
                 _ => (),
             }
@@ -1035,8 +1131,12 @@ mod dispatch_tests {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
-                        let _ = self.target
-                            .tell_serialised((PingMsg { i: pong.i + 1 }), self);
+                        if self.eager {
+                            self.target
+                                .tell_serialised((PingMsg { i: pong.i + 1 }), self);
+                        } else {
+                            self.target.tell((PingMsg { i: pong.i + 1 }), self);
+                        }
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
@@ -1047,12 +1147,20 @@ mod dispatch_tests {
     #[derive(ComponentDefinition)]
     struct PongerAct {
         ctx: ComponentContext<PongerAct>,
+        eager: bool,
     }
 
     impl PongerAct {
         fn new() -> PongerAct {
             PongerAct {
                 ctx: ComponentContext::new(),
+                eager: false,
+            }
+        }
+        fn new_eager() -> PongerAct {
+            PongerAct {
+                ctx: ComponentContext::new(),
+                eager: true,
             }
         }
     }
@@ -1082,9 +1190,13 @@ mod dispatch_tests {
                 ping: PingMsg [PingPongSer] => {
                     info!(self.ctx.log(), "Got msg {:?} from {:?}", ping, sender);
                     let pong = PongMsg { i: ping.i };
-                    sender
-                        .tell_serialised(pong, self)
-                        .expect("PongMsg should serialise");
+                    if self.eager {
+                        sender
+                            .tell_serialised(pong, self)
+                            .expect("PongMsg should serialise");
+                    } else {
+                        sender.tell(pong, self);
+                    }
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
             }}

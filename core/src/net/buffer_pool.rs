@@ -1,13 +1,16 @@
 use crate::net::buffer::{BufferChunk, Chunk, DefaultChunk};
 use std::collections::VecDeque;
 
+/// The number of Buffers each pool will Pre-allocate
 pub const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
 
 
 /// Methods required by a ChunkAllocator
 pub trait ChunkAllocator: Send + 'static {
+    /// ChunkAllocators deliver Chunk by raw pointers
     fn get_chunk(&self) -> *mut dyn Chunk;
+    /// This method tells the allocator that the Chunk may be de-allocated
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
 }
 

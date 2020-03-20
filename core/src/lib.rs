@@ -168,6 +168,10 @@ pub mod prelude {
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         Never,
+        net::{
+            buffer_pool::*,
+            buffer::*,
+        },
     };
 
     pub use crate::{
@@ -222,6 +226,7 @@ pub mod doctest_helpers {
 
     /// A test port
     pub struct TestPort;
+
     impl Port for TestPort {
         type Indication = Never;
         type Request = Never;
@@ -233,6 +238,7 @@ pub mod doctest_helpers {
         ctx: ComponentContext<Self>,
         test_port: ProvidedPort<TestPort, Self>,
     }
+
     impl TestComponent1 {
         /// Create a new test component
         pub fn new() -> TestComponent1 {
@@ -255,6 +261,7 @@ pub mod doctest_helpers {
         ctx: ComponentContext<Self>,
         test_port: RequiredPort<TestPort, Self>,
     }
+
     impl TestComponent2 {
         /// Create a new test component
         pub fn new() -> TestComponent2 {
@@ -499,6 +506,7 @@ mod tests {
             .shutdown()
             .expect("Kompact didn't shut down properly");
     }
+
     #[derive(ComponentDefinition)]
     struct DedicatedComponent {
         ctx: ComponentContext<Self>,
@@ -917,6 +925,7 @@ mod tests {
     struct Stopper {
         ctx: ComponentContext<Self>,
     }
+
     impl Stopper {
         fn new() -> Stopper {
             Stopper {
@@ -924,6 +933,7 @@ mod tests {
             }
         }
     }
+
     impl Provide<ControlPort> for Stopper {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
@@ -948,6 +958,7 @@ mod tests {
         ctx: ComponentContext<Self>,
         test_value: Option<i64>,
     }
+
     impl ConfigComponent {
         fn new() -> ConfigComponent {
             ConfigComponent {
@@ -956,6 +967,7 @@ mod tests {
             }
         }
     }
+
     impl Provide<ControlPort> for ConfigComponent {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {

@@ -8,10 +8,6 @@ use std::{
     str::FromStr,
 };
 use uuid::Uuid;
-
-use crate::net::frames::{FrameHead, FrameType, FRAME_HEAD_LEN};
-use bytes::Buf;
-
 use std::ops::DerefMut;
 use crate::net::buffer::EncodeBuffer;
 
@@ -320,28 +316,16 @@ impl ActorPath {
         //let mut buf = encode_buffer.deref_mut();
         let mut buf_ref = from.ctx().get_buffer().borrow_mut();
         let buf = &mut EncodeBuffer::get_buffer_encoder(buf_ref.deref_mut());
-        // Reserve space for the header:
-        buf.pad(FRAME_HEAD_LEN as usize);
 
-        from.actor_path().serialise(buf)?; // src
-        self.clone().serialise(buf)?; // dst
-        buf.put_ser_id(m.ser_id()); // ser_id
-        Serialisable::serialise(&m, buf)?; // data
+        let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, buf)?;
 
-        if let Some(mut chunk_lease) = buf.get_chunk_lease() {
-            // The length which a FrameHead tells does not include the size of the FrameHead itself
-            let len = chunk_lease.remaining() - FRAME_HEAD_LEN as usize;
-            chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
-            let env = DispatchEnvelope::Msg {
-                src: from.path_resolvable(),
-                dst: self.clone(),
-                msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
-            };
-            from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-            Ok(())
-        } else {
-            Err(SerError::BufferError("Could not get ChunkLease from Buffer".to_string()))
-        }
+        let env = DispatchEnvelope::Msg {
+            src: from.path_resolvable(),
+            dst: self.clone(),
+            msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+        };
+        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+        Ok(())
     }
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
