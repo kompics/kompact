@@ -1,9 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use kompact::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Ping;
+
 pub const PING: Ping = Ping;
+
 impl From<Ping> for &'static Ping {
     fn from(_p: Ping) -> Self {
         &PING
@@ -11,6 +13,7 @@ impl From<Ping> for &'static Ping {
 }
 
 struct TestPort;
+
 impl Port for TestPort {
     type Indication = ();
     type Request = &'static Ping;
@@ -21,6 +24,7 @@ pub struct TestActor {
     ctx: ComponentContext<Self>,
     testp: ProvidedPort<TestPort, Self>,
 }
+
 impl TestActor {
     pub fn new() -> TestActor {
         TestActor {
@@ -55,7 +59,9 @@ impl Actor for TestActor {
 }
 
 pub struct PingSer;
+
 pub const PING_SER: PingSer = PingSer {};
+
 impl Serialiser<Ping> for PingSer {
     fn ser_id(&self) -> SerId {
         42 // because why not^^
@@ -198,6 +204,7 @@ mod tests {
         sys.shutdown().expect("System didn't shut down :(");
     }
 
+    #[allow(dead_code)]
     pub fn bench_tell_actor_path(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::new();

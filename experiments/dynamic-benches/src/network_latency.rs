@@ -1,12 +1,4 @@
-use criterion::{
-    black_box,
-    criterion_group,
-    criterion_main,
-    Bencher,
-    BenchmarkId,
-    Criterion,
-    Throughput,
-};
+use criterion::{criterion_group, criterion_main, Bencher, BenchmarkId, Criterion, Throughput};
 use std::time::{Duration, Instant};
 //use kompact::*;
 use kompact::prelude::*;
@@ -43,6 +35,7 @@ pub fn kompact_network_throughput(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Pong Throughput with Pipelining");
     g.throughput(Throughput::Elements(2 * MSG_COUNT));
     for pipeline in [1u64, 10u64, 100u64, 1000u64].iter() {
+        //...[1u64, ...
         g.bench_with_input(
             BenchmarkId::from_parameter(pipeline),
             pipeline,
@@ -289,6 +282,7 @@ pub struct Run {
     num_iterations: u64,
     promise: KPromise<Duration>,
 }
+
 impl Run {
     pub fn new(num_iterations: u64, promise: KPromise<Duration>) -> Run {
         Run {
@@ -297,6 +291,7 @@ impl Run {
         }
     }
 }
+
 impl Clone for Run {
     fn clone(&self) -> Self {
         unimplemented!("Shouldn't be invoked in this experiment!");
@@ -304,6 +299,7 @@ impl Clone for Run {
 }
 
 pub struct ExperimentPort;
+
 impl Port for ExperimentPort {
     type Indication = ();
     type Request = Run;
@@ -322,6 +318,7 @@ pub mod pppipelinestatic {
         done: Option<KPromise<Duration>>,
         start: Instant,
     }
+
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
@@ -339,10 +336,12 @@ pub mod pppipelinestatic {
             self.experiment_port.share()
         }
     }
+
     impl Provide<ControlPort> for Pinger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -351,6 +350,7 @@ pub mod pppipelinestatic {
             }
         }
     }
+
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> () {
             trace!(
@@ -364,10 +364,11 @@ pub mod pppipelinestatic {
             self.start = Instant::now();
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
-                self.ponger.tell(Ping::EVENT, self);
+                self.ponger.tell_serialised(Ping::EVENT, self);
             }
         }
     }
+
     impl Actor for Pinger {
         type Message = Never;
 
@@ -400,6 +401,7 @@ pub mod pppipelinestatic {
     pub struct Ponger {
         ctx: ComponentContext<Self>,
     }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -407,10 +409,12 @@ pub mod pppipelinestatic {
             }
         }
     }
+
     impl Provide<ControlPort> for Ponger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -419,6 +423,7 @@ pub mod pppipelinestatic {
             }
         }
     }
+
     impl Actor for Ponger {
         type Message = Never;
 
@@ -432,7 +437,7 @@ pub mod pppipelinestatic {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::EVENT, self);
+                    sender.tell_serialised(Pong::EVENT, self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -444,10 +449,12 @@ pub mod pppipelinestatic {
 
     #[derive(Debug, Clone, Copy)]
     pub struct Ping;
+
     impl Ping {
         pub const EVENT: Ping = Ping {};
         pub const SERID: SerId = 42;
     }
+
     impl Serialisable for Ping {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -466,6 +473,7 @@ pub mod pppipelinestatic {
             Ok(self)
         }
     }
+
     impl Deserialiser<Ping> for Ping {
         const SER_ID: SerId = Ping::SERID;
 
@@ -476,10 +484,12 @@ pub mod pppipelinestatic {
 
     #[derive(Debug, Clone, Copy)]
     pub struct Pong;
+
     impl Pong {
         pub const EVENT: Pong = Pong {};
         pub const SERID: SerId = 43;
     }
+
     impl Serialisable for Pong {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -498,6 +508,7 @@ pub mod pppipelinestatic {
             Ok(self)
         }
     }
+
     impl Deserialiser<Pong> for Pong {
         const SER_ID: SerId = Pong::SERID;
 
@@ -520,6 +531,7 @@ pub mod pppipelineindexed {
         done: Option<KPromise<Duration>>,
         start: Instant,
     }
+
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
@@ -537,10 +549,12 @@ pub mod pppipelineindexed {
             self.experiment_port.share()
         }
     }
+
     impl Provide<ControlPort> for Pinger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -549,6 +563,7 @@ pub mod pppipelineindexed {
             }
         }
     }
+
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> () {
             trace!(
@@ -563,10 +578,12 @@ pub mod pppipelineindexed {
 
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
-                self.ponger.tell(Ping::new(self.remaining_send), self);
+                self.ponger
+                    .tell_serialised(Ping::new(self.remaining_send), self);
             }
         }
     }
+
     impl Actor for Pinger {
         type Message = Never;
 
@@ -599,6 +616,7 @@ pub mod pppipelineindexed {
     pub struct Ponger {
         ctx: ComponentContext<Self>,
     }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -606,10 +624,12 @@ pub mod pppipelineindexed {
             }
         }
     }
+
     impl Provide<ControlPort> for Ponger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -618,6 +638,7 @@ pub mod pppipelineindexed {
             }
         }
     }
+
     impl Actor for Ponger {
         type Message = Never;
 
@@ -631,7 +652,7 @@ pub mod pppipelineindexed {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::new(ping.index), self);
+                    sender.tell_serialised(Pong::new(ping.index), self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -645,6 +666,7 @@ pub mod pppipelineindexed {
     pub struct Ping {
         index: u64,
     }
+
     impl Ping {
         pub const SERID: SerId = 42;
 
@@ -652,6 +674,7 @@ pub mod pppipelineindexed {
             Ping { index }
         }
     }
+
     impl Serialisable for Ping {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -663,7 +686,7 @@ pub mod pppipelineindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -671,11 +694,12 @@ pub mod pppipelineindexed {
             Ok(self)
         }
     }
+
     impl Deserialiser<Ping> for Ping {
         const SER_ID: SerId = Ping::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Ping, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Ping::new(index))
         }
     }
@@ -684,6 +708,7 @@ pub mod pppipelineindexed {
     pub struct Pong {
         index: u64,
     }
+
     impl Pong {
         pub const SERID: SerId = 43;
 
@@ -691,6 +716,7 @@ pub mod pppipelineindexed {
             Pong { index }
         }
     }
+
     impl Serialisable for Pong {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -702,7 +728,7 @@ pub mod pppipelineindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -710,11 +736,12 @@ pub mod pppipelineindexed {
             Ok(self)
         }
     }
+
     impl Deserialiser<Pong> for Pong {
         const SER_ID: SerId = Pong::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Pong, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Pong::new(index))
         }
     }
@@ -732,6 +759,7 @@ pub mod ppstatic {
         done: Option<KPromise<Duration>>,
         start: Instant,
     }
+
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
@@ -748,10 +776,12 @@ pub mod ppstatic {
             self.experiment_port.share()
         }
     }
+
     impl Provide<ControlPort> for Pinger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -760,6 +790,7 @@ pub mod ppstatic {
             }
         }
     }
+
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> () {
             trace!(
@@ -770,9 +801,10 @@ pub mod ppstatic {
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
-            self.ponger.tell(Ping::EVENT, self);
+            self.ponger.tell_serialised(Ping::EVENT, self);
         }
     }
+
     impl Actor for Pinger {
         type Message = Never;
 
@@ -788,7 +820,7 @@ pub mod ppstatic {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
-                        sender.tell(Ping::EVENT, self);
+                        sender.tell_serialised(Ping::EVENT, self);
                     } else {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
@@ -808,6 +840,7 @@ pub mod ppstatic {
     pub struct Ponger {
         ctx: ComponentContext<Self>,
     }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -815,10 +848,12 @@ pub mod ppstatic {
             }
         }
     }
+
     impl Provide<ControlPort> for Ponger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -827,6 +862,7 @@ pub mod ppstatic {
             }
         }
     }
+
     impl Actor for Ponger {
         type Message = Never;
 
@@ -838,9 +874,9 @@ pub mod ppstatic {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender().clone();
             match msg.try_deserialise::<Ping, Ping>() {
-                Ok(ping) => {
+                Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::EVENT, self);
+                    sender.tell_serialised(Pong::EVENT, self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -852,10 +888,12 @@ pub mod ppstatic {
 
     #[derive(Debug, Clone, Copy)]
     pub struct Ping;
+
     impl Ping {
         pub const EVENT: Ping = Ping {};
         pub const SERID: SerId = 42;
     }
+
     impl Serialisable for Ping {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -874,6 +912,7 @@ pub mod ppstatic {
             Ok(self)
         }
     }
+
     impl Deserialiser<Ping> for Ping {
         const SER_ID: SerId = Ping::SERID;
 
@@ -884,10 +923,12 @@ pub mod ppstatic {
 
     #[derive(Debug, Clone, Copy)]
     pub struct Pong;
+
     impl Pong {
         pub const EVENT: Pong = Pong {};
         pub const SERID: SerId = 43;
     }
+
     impl Serialisable for Pong {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -906,6 +947,7 @@ pub mod ppstatic {
             Ok(self)
         }
     }
+
     impl Deserialiser<Pong> for Pong {
         const SER_ID: SerId = Pong::SERID;
 
@@ -957,6 +999,7 @@ pub mod ppstatic {
         impl Provide<ControlPort> for Pinger {
             fn handle(&mut self, _event: ControlEvent) -> () {
                 // ignore
+                self.ctx.initialize_pool();
             }
         }
 
@@ -972,7 +1015,7 @@ pub mod ppstatic {
                 self.start = Instant::now();
                 let mut pipelined: u64 = 0;
                 while (pipelined < self.pipeline) && (self.sent_count < self.count) {
-                    self.ponger.tell(Ping::EVENT, self);
+                    self.ponger.tell_serialised(Ping::EVENT, self);
                     self.sent_count += 1;
                     pipelined += 1;
                 }
@@ -993,7 +1036,7 @@ pub mod ppstatic {
                         self.recv_count += 1;
                         if self.recv_count < self.count {
                             if self.sent_count < self.count {
-                                self.ponger.tell(Ping::EVENT, self);
+                                self.ponger.tell_serialised(Ping::EVENT, self);
                                 self.sent_count += 1;
                             }
                         } else {
@@ -1004,7 +1047,7 @@ pub mod ppstatic {
                                 let mut pipelined: u64 = 0;
                                 while (pipelined < self.pipeline) && (self.sent_count < self.count)
                                 {
-                                    self.ponger.tell(Ping::EVENT, self);
+                                    self.ponger.tell_serialised(Ping::EVENT, self);
                                     self.sent_count += 1;
                                     pipelined += 1;
                                 }
@@ -1046,6 +1089,7 @@ pub mod ppstatic {
         impl Provide<ControlPort> for Ponger {
             fn handle(&mut self, _event: ControlEvent) -> () {
                 // ignore
+                self.ctx.initialize_pool();
             }
         }
 
@@ -1060,9 +1104,9 @@ pub mod ppstatic {
                 trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
                 let sender = msg.sender().clone();
                 match msg.try_deserialise::<Ping, Ping>() {
-                    Ok(ping) => {
+                    Ok(_ping) => {
                         trace!(self.ctx.log(), "Ponger got Ping!");
-                        sender.tell(Pong::EVENT, self);
+                        sender.tell_serialised(Pong::EVENT, self);
                     }
                     Err(e) => {
                         error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -1086,6 +1130,7 @@ pub mod ppindexed {
         done: Option<KPromise<Duration>>,
         start: Instant,
     }
+
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
@@ -1102,10 +1147,12 @@ pub mod ppindexed {
             self.experiment_port.share()
         }
     }
+
     impl Provide<ControlPort> for Pinger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -1114,6 +1161,7 @@ pub mod ppindexed {
             }
         }
     }
+
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> () {
             trace!(
@@ -1124,9 +1172,10 @@ pub mod ppindexed {
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
-            self.ponger.tell(Ping::new(self.remaining), self);
+            self.ponger.tell_serialised(Ping::new(self.remaining), self);
         }
     }
+
     impl Actor for Pinger {
         type Message = Never;
 
@@ -1141,7 +1190,7 @@ pub mod ppindexed {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
-                        self.ponger.tell(Ping::new(self.remaining), self);
+                        self.ponger.tell_serialised(Ping::new(self.remaining), self);
                     } else {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
@@ -1161,6 +1210,7 @@ pub mod ppindexed {
     pub struct Ponger {
         ctx: ComponentContext<Self>,
     }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -1168,10 +1218,12 @@ pub mod ppindexed {
             }
         }
     }
+
     impl Provide<ControlPort> for Ponger {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
+                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -1180,6 +1232,7 @@ pub mod ppindexed {
             }
         }
     }
+
     impl Actor for Ponger {
         type Message = Never;
 
@@ -1193,7 +1246,7 @@ pub mod ppindexed {
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell(Pong::new(ping.index), self);
+                    sender.tell_serialised(Pong::new(ping.index), self);
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -1207,6 +1260,7 @@ pub mod ppindexed {
     pub struct Ping {
         index: u64,
     }
+
     impl Ping {
         pub const SERID: SerId = 42;
 
@@ -1214,6 +1268,7 @@ pub mod ppindexed {
             Ping { index }
         }
     }
+
     impl Serialisable for Ping {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -1225,7 +1280,7 @@ pub mod ppindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -1233,11 +1288,12 @@ pub mod ppindexed {
             Ok(self)
         }
     }
+
     impl Deserialiser<Ping> for Ping {
         const SER_ID: SerId = Ping::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Ping, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Ping::new(index))
         }
     }
@@ -1246,6 +1302,7 @@ pub mod ppindexed {
     pub struct Pong {
         index: u64,
     }
+
     impl Pong {
         pub const SERID: SerId = 43;
 
@@ -1253,6 +1310,7 @@ pub mod ppindexed {
             Pong { index }
         }
     }
+
     impl Serialisable for Pong {
         #[inline(always)]
         fn ser_id(&self) -> SerId {
@@ -1264,7 +1322,7 @@ pub mod ppindexed {
         }
 
         fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(self.index);
+            buf.put_u64(self.index);
             Ok(())
         }
 
@@ -1272,11 +1330,12 @@ pub mod ppindexed {
             Ok(self)
         }
     }
+
     impl Deserialiser<Pong> for Pong {
         const SER_ID: SerId = Pong::SERID;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Pong, SerError> {
-            let index = buf.get_u64_be();
+            let index = buf.get_u64();
             Ok(Pong::new(index))
         }
     }

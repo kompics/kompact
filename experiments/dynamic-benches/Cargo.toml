@@ -4,8 +4,6 @@ version = "0.1.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2018"
 
-build = "build.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -20,14 +18,15 @@ criterion = {version = "0.3"}
 
 [dependencies.kompact]
 path = "../../core/"
-default-features = false
-#features = ["silent_logging"]
+# default-features = true
 # features = ["silent_logging", "low_latency"]
-features = ["silent_logging", "thread_pinning", "ser_id_64"]
+features = ["silent_logging"]
 
 [dependencies.datastructures]
 path = "../datastructures"
 
+[build-dependencies]
+rustc_version = "0.2"
 
 #[dev-dependencies]
 #criterion = {version = "0.3", features=['real_blackbox']}
@@ -51,6 +50,3 @@ harness = false
 name = "loop_opts"
 path = "src/loop_opts.rs"
 harness = false
-
-[build-dependencies]
-rustc_version = "0.2"

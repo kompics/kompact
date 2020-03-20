@@ -29,24 +29,28 @@ mod ser_id {
             8
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
-            self.get_u64_be()
+            self.get_u64()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
-            self.put_u64_be(ser_id)
+            self.put_u64(ser_id)
         }
     }
 }
@@ -66,24 +70,28 @@ mod ser_id {
             4
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
-            self.get_u32_be()
+            self.get_u32()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
-            self.put_u32_be(ser_id)
+            self.put_u32(ser_id)
         }
     }
 }
@@ -103,24 +111,28 @@ mod ser_id {
             2
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
-            self.get_u16_be()
+            self.get_u16()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
-            self.put_u16_be(ser_id)
+            self.put_u16(ser_id)
         }
     }
 }
@@ -140,21 +152,25 @@ mod ser_id {
             1
         }
     }
+
     /// A trait to retrieve a `SerId` from a buffer.
     pub trait SerIdBuf {
         /// Deserialises a `SerId` from this buffer.
         fn get_ser_id(&mut self) -> SerId;
     }
+
     /// A trait to put a `SerId` into a mutable buffer.
     pub trait SerIdBufMut {
         /// Serialises a `SerId` into this buffer.
         fn put_ser_id(&mut self, ser_id: SerId) -> ();
     }
+
     impl<B: Buf> SerIdBuf for B {
         fn get_ser_id(&mut self) -> SerId {
             self.get_u8()
         }
     }
+
     impl<B: BufMut> SerIdBufMut for B {
         fn put_ser_id(&mut self, ser_id: SerId) -> () {
             self.put_u8(ser_id)
@@ -167,6 +183,7 @@ pub trait SerIdSize {
     /// The number of bytes in a concrete implementation of `SerId`.
     fn size(&self) -> usize;
 }
+
 pub use ser_id::*;
 
 /// A module with helper functions for serialisation tests
@@ -177,8 +194,8 @@ pub mod ser_test_helpers {
     ///
     /// This function panics if serialisation fails.
     pub fn just_serialise<S>(si: S, buf: &mut dyn BufMut) -> ()
-    where
-        S: Into<Box<dyn Serialisable>>,
+        where
+            S: Into<Box<dyn Serialisable>>,
     {
         let s: Box<dyn Serialisable> = si.into();
         s.serialise(buf).expect("Did not serialise correctly");
@@ -188,8 +205,8 @@ pub mod ser_test_helpers {
     ///
     /// This function panics if serialisation fails.
     pub fn test_serialise<S>(si: S) -> ()
-    where
-        S: Into<Box<dyn Serialisable>>,
+        where
+            S: Into<Box<dyn Serialisable>>,
     {
         let mut buf: Vec<u8> = Vec::new();
         just_serialise(si, &mut buf);
@@ -198,9 +215,8 @@ pub mod ser_test_helpers {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use bytes::{BytesMut, IntoBuf};
+    use bytes::BytesMut; //IntoBuf
 
     #[derive(PartialEq, Debug, Clone)]
     struct Test1 {
@@ -208,6 +224,7 @@ mod tests {
     }
 
     struct T1Ser;
+
     impl Serialiser<Test1> for T1Ser {
         fn ser_id(&self) -> SerId {
             1
@@ -218,18 +235,19 @@ mod tests {
         }
 
         fn serialise(&self, v: &Test1, buf: &mut dyn BufMut) -> Result<(), SerError> {
-            buf.put_u64_be(v.i);
+            buf.put_u64(v.i);
             for i in 0..10 {
-                buf.put_u64_be(i);
+                buf.put_u64(i);
             }
             Result::Ok(())
         }
     }
+
     impl Deserialiser<Test1> for T1Ser {
         const SER_ID: SerId = 1;
 
         fn deserialise(buf: &mut dyn Buf) -> Result<Test1, SerError> {
-            let i = buf.get_u64_be();
+            let i = buf.get_u64();
             Result::Ok(Test1 { i })
         }
     }
@@ -266,7 +284,7 @@ mod tests {
             .serialise(&t1, &mut mbuf)
             .expect("should have serialised!");
         //println!("Serialised bytes: {:?}", mbuf);
-        let mut buf = mbuf.into_buf();
+        let mut buf = mbuf.freeze();
         let t1_res = T1Ser::deserialise(&mut buf);
         match t1_res {
             Ok(t2) => assert_eq!(t1c, t2),
