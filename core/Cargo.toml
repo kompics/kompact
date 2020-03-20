@@ -24,7 +24,7 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["serde_support","slog/max_level_trace", "slog/release_max_level_info", "ser_id_64"]
+default = ["serde_support","slog/max_level_debug", "slog/release_max_level_info", "ser_id_64"]
 silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
 low_latency = ["executors/ws-no-park"]
 ser_id_64 = []
