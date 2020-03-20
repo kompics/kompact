@@ -339,13 +339,15 @@ impl NetworkThread {
         if let Some(channel) = self.channel_map.get_mut(&addr) {
             match channel.try_drain() {
                 Err(ref err) if broken_pipe(err) => {
-                    println!("BROKEN PIPE WRITE");
+                    // TODO Adam do something useful
+                    //println!("BROKEN PIPE WRITE");
                 }
                 Ok(n) => {
                     self.sent_bytes = self.sent_bytes + n as u64;
                 }
                 Err(e) => {
-                    println!("Error while sending! {:?}", e);
+                    // TODO Adam do something useful
+                    //println!("Error while sending! {:?}", e);
                 }
             }
         }
@@ -413,10 +415,11 @@ impl NetworkThread {
                             let envelope = deserialise_msg(buf).expect("s11n errors");
                             match lease_lookup.get_by_actor_path(envelope.receiver()) {
                                 None => {
-                                    println!(
-                                        "Could not find actor reference for destination: {:?}",
-                                        envelope.receiver()
-                                    );
+                                    // TODO Adam do something useful
+                                    // println!(
+                                    //     "Could not find actor reference for destination: {:?}",
+                                    //     envelope.receiver()
+                                    // );
                                 }
                                 Some(actor) => {
                                     actor.enqueue(envelope);
