@@ -12,7 +12,9 @@ fnv = "1.0"
 fxhash = "0.2.1"
 synchronoise = "1.0"
 panoradix = "0.6"
-criterion = {version = "0.3", features=['real_blackbox']}
+criterion = {version = "0.3"}
+# only works on nightly
+#criterion = {version = "0.3", features=["real_blackbox"]}
 
 [dependencies.kompact]
 path = "../../core/"
@@ -26,8 +28,8 @@ path = "../datastructures"
 [build-dependencies]
 rustc_version = "0.2"
 
-[dev-dependencies]
-criterion = {version = "0.3", features=['real_blackbox']}
+#[dev-dependencies]
+#criterion = {version = "0.3", features=['real_blackbox']}
 
 [[bench]]
 name = "network_latency"
