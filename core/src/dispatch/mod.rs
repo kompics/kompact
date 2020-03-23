@@ -674,6 +674,7 @@ mod dispatch_tests {
         });
         println!("Starting 2nd KompactSystem");
         let system2 = cfg2.build().expect("KompactSystem");
+        thread::sleep(Duration::from_millis(100));
         println!("2nd KompactSystem started just fine.");
         let named_path2 = ActorPath::Named(NamedPath::with_system(
             system2.system_path(),

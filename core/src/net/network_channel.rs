@@ -123,20 +123,6 @@ impl TcpChannel {
         }
     }
 
-    /*
-    pub fn close(&mut self) -> () {
-        let bye = Frame::Bye();
-        let mut bye_bytes = BytesMut::with_capacity(hello.encoded_len());
-        //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
-        if let Ok(()) = bye.encode_into(&mut bye_bytes) {
-            self.outbound_queue.push_back(SerializedFrame::Bytes(bye_bytes.freeze()));
-            self.try_drain();
-        } else {
-            panic!("Unable to send hello bytes, failed to encode!");
-        }
-
-    }*/
-
     pub fn graceful_shutdown(&mut self) -> () {
         let bye = Frame::Bye();
         let mut bye_bytes = BytesMut::with_capacity(bye.encoded_len());
@@ -144,9 +130,10 @@ impl TcpChannel {
         if let Ok(()) = bye.encode_into(&mut bye_bytes) {
             self.outbound_queue
                 .push_back(SerializedFrame::Bytes(bye_bytes.freeze()));
-            let _ = self.try_drain(); // If we fail to drain it we kill it anyway...
+            let _ = self.try_drain(); // Try to drain outgoing
+            let _ = self.receive(); // Try to drain incoming
         } else {
-            panic!("Unable to send hello bytes, failed to encode!");
+            panic!("Unable to send bye bytes, failed to encode!");
         }
         self.shutdown();
     }
