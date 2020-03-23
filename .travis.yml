@@ -9,7 +9,7 @@ script:
   - cargo test --verbose --all
   - mdbook build docs
   - cd core
-  - ./test-feature-matrix.s
+  - ./test-feature-matrix.sh
 
 # make sure protobuf library and mdbook are installed for build to succeed
 before_install:
