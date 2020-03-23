@@ -32,7 +32,9 @@ const DISPATCHER: Token = Token(usize::MAX - 1);
 const MAX_POLL_EVENTS: usize = 1024;
 /// How many times to retry on interrupt before we give up
 pub const MAX_INTERRUPTS: i32 = 9;
+// We do retries when we fail to bind a socket listener during boot-up:
 const MAX_BIND_RETRIES: usize = 5;
+const BIND_RETRY_INTERVAL: u64 = 1000;
 
 /// Thread structure responsible for driving the Network IO
 pub struct NetworkThread {
@@ -549,7 +551,7 @@ fn bind_with_retries(addr: &SocketAddr, retries: usize, log: &KompactLogger) -> 
             if retries > 0 {
                 debug!(log, "Failed to bind to addr {}, will retry {} more times, error was: {:?}", addr, retries, e);
                 // Lets give cleanup some time to do it's thing before we retry
-                thread::sleep(Duration::from_millis(100));
+                thread::sleep(Duration::from_millis(BIND_RETRY_INTERVAL));
                 bind_with_retries(addr, retries - 1, log)
             } else {
                 Err(e)

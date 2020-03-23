@@ -687,6 +687,61 @@ mod dispatch_tests {
             .expect("2nd KompicsSystem failed to shut down!");
     }
 
+    /// This is similar to network_cleanup test that will trigger a failed binding.
+    /// The retry should occur when system2 is building and should succeed after system1 is killed.
+    #[test]
+    fn network_cleanup_with_timeout() {
+        let mut cfg = KompactConfig::new();
+        println!("Configuring network");
+        cfg.system_components(DeadletterBox::new, {
+            let net_config =
+                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+            net_config.build()
+        });
+        println!("Starting KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
+        println!("KompactSystem started just fine.");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        let port = system.system_path().port();
+        println!("Got port: {}", port);
+
+        thread::Builder::new()
+            .name("System1 Killer".to_string())
+            .spawn(move || {
+                thread::sleep(Duration::from_millis(100));
+                println!("Shutting down first system...");
+                system
+                    .shutdown()
+                    .expect("KompicsSystem failed to shut down!");
+                println!("System shut down.");
+            });
+
+        let mut cfg2 = KompactConfig::new();
+        println!("Configuring network");
+        cfg2.system_components(DeadletterBox::new, {
+            let net_config =
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port));
+            net_config.build()
+        });
+        println!("Starting 2nd KompactSystem");
+        let system2 = cfg2.build().expect("KompactSystem");
+        thread::sleep(Duration::from_millis(100));
+        println!("2nd KompactSystem started just fine.");
+        let named_path2 = ActorPath::Named(NamedPath::with_system(
+            system2.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        assert_eq!(named_path, named_path2);
+        system2
+            .shutdown()
+            .expect("2nd KompicsSystem failed to shut down!");
+    }
+
     #[test]
     fn test_system_path_timing() {
         let mut cfg = KompactConfig::new();
