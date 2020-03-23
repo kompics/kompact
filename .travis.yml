@@ -7,9 +7,9 @@ cache: cargo
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
-  - cd core
-  - ./test-feature-matrix.sh
   - mdbook build docs
+  - cd core
+  - ./test-feature-matrix.s
 
 # make sure protobuf library and mdbook are installed for build to succeed
 before_install:
