@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+// ANCHOR: zstser
 struct ZSTSerialiser<T>(T)
 where
     T: Send + Sync + Default + Copy + SerialisationId;
@@ -43,7 +44,9 @@ impl SerialisationId for CheckIn {
     const SER_ID: SerId = 2345;
 }
 static CHECK_IN_SER: ZSTSerialiser<CheckIn> = ZSTSerialiser(CheckIn);
+// ANCHOR_END: zstser
 
+// ANCHOR: serialisable
 #[derive(Debug, Clone)]
 struct UpdateProcesses(Vec<ActorPath>);
 
@@ -53,9 +56,7 @@ impl Serialisable for UpdateProcesses {
     }
 
     fn size_hint(&self) -> Option<usize> {
-        //Some(8)
-        // TODO remove this random number shit! It's just a hack until buffers correctly resize again (Adam's PR)
-        Some(1024)
+        Some(8)
     }
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
@@ -85,6 +86,7 @@ impl Deserialiser<UpdateProcesses> for UpdateProcesses {
         Ok(UpdateProcesses(data))
     }
 }
+// ANCHOR_END: serialisable
 
 #[derive(ComponentDefinition)]
 struct BootstrapServer {
@@ -99,17 +101,28 @@ impl BootstrapServer {
         }
     }
 
+    // ANCHOR: tell_serialised
     fn broadcast_processess(&self) -> () {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
+
         self.processes.iter().for_each(|process| {
             process
                 .tell_serialised(msg.clone(), self)
                 .unwrap_or_else(|e| warn!(self.log(), "Error during serialisation: {}", e));
         });
     }
+    // ANCHOR_END: tell_serialised
 }
-ignore_control!(BootstrapServer);
+//ignore_control!(BootstrapServer);
+impl Provide<ControlPort> for BootstrapServer {
+    fn handle(&mut self, event: ControlEvent) -> () {
+        match event {
+            ControlEvent::Start => self.ctx.initialize_pool(),
+            _ => (), // ignore
+        }
+    }
+}
 impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;
     type Message = CheckIn;
@@ -186,18 +199,22 @@ impl EventualLeaderElector {
         }
     }
 
+    // ANCHOR: send_heartbeats
     fn send_heartbeats(&self) -> () {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
     }
+    // ANCHOR_END: send_heartbeats
 }
 
 impl Provide<ControlPort> for EventualLeaderElector {
     fn handle(&mut self, event: ControlEvent) -> () {
         match event {
             ControlEvent::Start => {
+                // ANCHOR: tell_checkin
                 self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
+                // ANCHOR_END: tell_checkin
 
                 self.period = self.ctx.config()["omega"]["initial-period"]
                     .as_duration()
@@ -230,6 +247,7 @@ impl Actor for EventualLeaderElector {
         unreachable!();
     }
 
+    // ANCHOR: receive_network
     fn receive_network(&mut self, msg: NetMessage) -> () {
         let sender = msg.sender().clone();
 
@@ -248,6 +266,7 @@ impl Actor for EventualLeaderElector {
             },
         });
     }
+    // ANCHOR_END: receive_network
 }
 
 pub fn main() {
