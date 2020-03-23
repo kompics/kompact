@@ -1,7 +1,7 @@
 # Getting Started
 
 ## Setting up Rust
-Kompact currently requires a *nightly* version of the rust toolchain, and will continue to rely on nightlies until it hits version `1.0`.
+It is recommmended to run Kompact on a *nightly* version of the rust toolchain, but since `0.9` it also runs alright on stable Rust.
 
 We recommend using the [rustup](https://rustup.rs/) tool to easily install the latest nightly version of rust and keep it updated. Instructions should be on screen once rustup is downloaded.
 

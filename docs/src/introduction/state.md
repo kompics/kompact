@@ -18,7 +18,7 @@ First we need to set up the message types and ports:
 ```
 
 We will use the same types both for the port and actor communication, so `CountMe` and `CurrentCount` are both events and messages.
-Since we want to provide a counter *service*, we'll say that `CountMe` is going to be a *request* on the `CounterPort`, and `CurrentCount` is considered an implementation. We could also design things the other way around, but this way it matches better with our "service" metaphor.
+Since we want to provide a counter *service*, we'll say that `CountMe` is going to be a *request* on the `CounterPort`, and `CurrentCount` is considered an *indication*. We could also design things the other way around, but this way it matches better with our "service" metaphor.
 
 ### State
 
