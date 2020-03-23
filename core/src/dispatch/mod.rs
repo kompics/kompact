@@ -31,6 +31,8 @@ use std::{io::ErrorKind, time::Duration};
 pub mod lookup;
 pub mod queue_manager;
 
+const MAX_RETRY_ATTEMPTS: u8 = 10;
+
 /// Configuration builder for the network dispatcher
 ///
 /// # Example
@@ -110,11 +112,13 @@ pub struct NetworkDispatcher {
     /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
     /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
-    queue_manager: Option<QueueManager>,
+    queue_manager: QueueManager,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
     notify_ready: Option<Promise<()>>,
     encode_buffer: EncodeBuffer,
+    /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
+    retry_map: FnvHashMap<SocketAddr, u8>,
 }
 
 impl NetworkDispatcher {
@@ -154,10 +158,11 @@ impl NetworkDispatcher {
             cfg,
             lookup,
             net_bridge: None,
-            queue_manager: None,
+            queue_manager: QueueManager::new(),
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
+            retry_map: FnvHashMap::default(),
         }
     }
 
@@ -179,9 +184,6 @@ impl NetworkDispatcher {
 
         bridge.set_dispatcher(dispatcher.clone());
         self.net_bridge = Some(bridge);
-
-        let queue_manager = QueueManager::new();
-        self.queue_manager = Some(queue_manager);
         Ok(())
     }
 
@@ -194,9 +196,6 @@ impl NetworkDispatcher {
     }
 
     fn do_stop(&mut self, _cleanup: bool) -> () {
-        if let Some(manager) = self.queue_manager.take() {
-            manager.stop();
-        }
         if let Some(bridge) = self.net_bridge.take() {
             if let Err(e) = bridge.stop() {
                 error!(
@@ -212,6 +211,25 @@ impl NetworkDispatcher {
             // First time running; mark as scheduled and jump straight to scheduling
             self.reaper.schedule();
         } else {
+            // First check the retry_map if we should re-request connections
+            let drain = self.retry_map.clone();
+            self.retry_map.clear();
+            for (addr, retry) in drain {
+                if retry < MAX_RETRY_ATTEMPTS {
+                    // Make sure we will re-request connection later
+                    self.retry_map.insert(addr.clone(), 0);
+                    if let Some(bridge) = &self.net_bridge {
+                        // Do connection attempt
+                        info!(self.ctx().log(), "Dispatcher retrying connection to host {}", addr);
+                        bridge.connect(Transport::TCP, addr).unwrap();
+                    }
+                } else {
+                    // Too many retries, give up on the connection.
+                    info!(self.ctx().log(), "Dispatcher giving up on remote host {}, dropping queues", addr);
+                    self.queue_manager.drop_queue(&addr);
+                    self.connections.remove(&addr);
+                }
+            }
             // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly
             let num_reaped = self.reaper.run(&self.lookup);
             if num_reaped == 0 {
@@ -244,6 +262,10 @@ impl NetworkDispatcher {
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
                 }
+                NetworkEvent::RejectedFrame(addr, frame) => {
+                    // These are messages which we routed to a network-thread before they lost the connection.
+                    self.queue_manager.enqueue_priority_frame(frame, addr);
+                }
             },
         }
     }
@@ -256,26 +278,22 @@ impl NetworkDispatcher {
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
                 );
-                if let Some(ref mut qm) = self.queue_manager {
-                    if qm.has_frame(&addr) {
-                        // Drain as much as possible
-                        while let Some(frame) = qm.pop_frame(&addr) {
-                            if let Some(bridge) = &self.net_bridge {
-                                //println!("Sending queued frame to newly established connection");
-                                bridge.route(addr, frame)?;
-                            }
-                            /*if let Err(err) = frame_sender.unbounded_send(frame) {
-                                // TODO the underlying channel has been dropped,
-                                // indicating that the entire connection is, in fact, not Connected
-                                qm.enqueue_frame(err.into_inner(), addr.clone());
-                                break;
-                            }*/
+                let _ = self.retry_map.remove(&addr);
+                if self.queue_manager.has_frame(&addr) {
+                    // Drain as much as possible
+                    while let Some(frame) = self.queue_manager.pop_frame(&addr) {
+                        if let Some(bridge) = &self.net_bridge {
+                            //println!("Sending queued frame to newly established connection");
+                            bridge.route(addr, frame)?;
                         }
                     }
                 }
             }
             Closed => {
                 warn!(self.ctx().log(), "connection closed for {:?}", addr);
+                if let Some(retries) = self.retry_map.get(&addr) {} else {
+                    self.retry_map.insert(addr.clone(), 0); // Make sure we try to re-establish the connection
+                }
             }
             Error(ref err) => {
                 match err {
@@ -339,18 +357,17 @@ impl NetworkDispatcher {
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
-            ConnectionState::New | ConnectionState::Closed => {
+            ConnectionState::New => {
                 //println!("route_remote found New or Closed state");
                 debug!(
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
                 );
-                self.queue_manager
-                    .as_mut()
-                    .map(|ref mut q| q.enqueue_frame(serialized, addr));
+                self.queue_manager.enqueue_frame(serialized, addr);
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
+                    self.retry_map.insert(addr.clone(), 0); // Make sure we will re-request connection later
                     bridge.connect(Transport::TCP, addr).unwrap();
                     Some(ConnectionState::Initializing)
                 } else {
@@ -359,34 +376,31 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Connected(_) => {
-                //println!("route_remote found Connected state");
-                if let Some(ref mut qm) = self.queue_manager {
-                    if qm.has_frame(&addr) {
-                        qm.enqueue_frame(serialized, addr.clone());
+                if self.queue_manager.has_frame(&addr) {
+                    self.queue_manager.enqueue_frame(serialized, addr.clone());
 
-                        if let Some(bridge) = &self.net_bridge {
-                            while let Some(frame) = qm.pop_frame(&addr) {
-                                bridge.route(addr, frame)?;
-                            }
+                    if let Some(bridge) = &self.net_bridge {
+                        while let Some(frame) = self.queue_manager.pop_frame(&addr) {
+                            bridge.route(addr, frame)?;
                         }
-                        None
-                    } else {
-                        // Send frame
-                        if let Some(bridge) = &self.net_bridge {
-                            bridge.route(addr, serialized)?;
-                        }
-                        None
                     }
+                    None
                 } else {
-                    // No queue manager available! Should we even allow this state?
+                    // Send frame
+                    if let Some(bridge) = &self.net_bridge {
+                        bridge.route(addr, serialized)?;
+                    }
                     None
                 }
             }
             ConnectionState::Initializing => {
                 debug!(self.ctx.log(), "Connection is initializing; queuing frame");
-                self.queue_manager
-                    .as_mut()
-                    .map(|ref mut q| q.enqueue_frame(serialized, addr));
+                self.queue_manager.enqueue_frame(serialized, addr);
+                None
+            }
+            ConnectionState::Closed => {
+                // Enqueue the Frame. The connection will sort itself out or drop the queue eventually
+                self.queue_manager.enqueue_frame(serialized, addr.clone());
                 None
             }
             _ => None,

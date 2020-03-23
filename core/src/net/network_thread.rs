@@ -229,6 +229,10 @@ impl NetworkThread {
                         if let Some(channel) = self.channel_map.remove(&addr) {
                             self.poll.deregister(channel.stream());
                         }
+                        // Tell the dispatcher that we've closed the connection
+                        self.dispatcher_ref.tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                            NetworkEvent::Connection(addr, ConnectionState::Closed),
+                        )));
                         return Ok(());
                     }
                     if swap_buffer {
@@ -404,28 +408,35 @@ impl NetworkThread {
         return ret;
     }
 
-    fn request_stream(&mut self, addr: SocketAddr) -> io::Result<bool> {
+    fn request_stream(&mut self, addr: SocketAddr) -> io::Result<()> {
         // Make sure we never request request a stream to someone we already have a connection to
         // Async communication with the dispatcher can lead to this
         if let Some(_) = self.channel_map.get(&addr) {
             // We already have a connection set-up
             // the connection request must have been sent before the channel was initialized
             info!(self.log, "NetworkThread {} asked to request connection to already connected host {}", self.addr, &addr);
-            return Ok(true);
+            return Ok(());
         }
         info!(self.log, "NetworkThread {} requesting connection to {}", self.addr, &addr);
-        let stream = TcpStream::connect(&addr)?;
-        self.store_stream(stream, &addr)?;
-        Ok(true)
+        match TcpStream::connect(&addr) {
+            Ok(stream) => {
+                self.store_stream(stream, &addr)?;
+                Ok(())
+            }
+            Err(e) => {
+                info!(self.log, "NetworkThread {} failed to connect to remote host {}, error: {:?}", addr, &addr, e);
+                Ok(())
+            }
+        }
     }
 
     #[allow(irrefutable_let_patterns)]
-    fn accept_stream(&mut self) -> io::Result<bool> {
+    fn accept_stream(&mut self) -> io::Result<()> {
         while let (stream, addr) = (self.listener.as_ref().unwrap()).accept()? {
             info!(self.log, "NetworkThread {} accepting connection from {}", self.addr, &addr);
             self.store_stream(stream, &addr)?;
         }
-        Ok(true)
+        Ok(())
     }
 
     fn store_stream(&mut self, stream: TcpStream, addr: &SocketAddr) -> io::Result<()> {
@@ -449,15 +460,15 @@ impl NetworkThread {
         }
     }
 
-    fn receive_dispatch(&mut self) -> io::Result<bool> {
+    fn receive_dispatch(&mut self) -> io::Result<()> {
         while let Ok(event) = self.input_queue.try_recv() {
             match event {
-                DispatchEvent::Send(addr, packet) => {
+                DispatchEvent::Send(addr, frame) => {
                     self.sent_msgs += 1;
                     // Get the token corresponding to the connection
                     if let Some(channel) = self.channel_map.get_mut(&addr) {
                         // The stream is already set-up, buffer the package and wait for writable event
-                        channel.enqueue_serialized(packet);
+                        channel.enqueue_serialized(frame);
                         if let Err(e) = channel.try_drain() {
                             if broken_pipe(&e) {
                                 self.channel_map.remove(&addr);
@@ -479,18 +490,9 @@ impl NetworkThread {
                         }
                     } else {
                         // The stream isn't set-up, request connection, set-it up and try to send the message
-                        info!(self.log, "Dispatch trying to route to unrecognized address {}", addr);
-                        self.request_stream(addr.clone())?;
-                        if let Some(channel) = self.channel_map.get_mut(&addr) {
-                            channel.enqueue_serialized(packet);
-                            let _ = channel.try_drain();
-                            let _ = self.poll.reregister(
-                                channel.stream(),
-                                channel.token.clone(),
-                                channel.pending_set,
-                                PollOpt::edge() | PollOpt::oneshot(),
-                            );
-                        }
+                        debug!(self.log, "Dispatch trying to route to unrecognized address {}, rejecting the message", addr);
+                        self.dispatcher_ref.tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                            NetworkEvent::RejectedFrame(addr.clone(), frame))));
                     }
                 }
                 DispatchEvent::Stop() => {
@@ -505,7 +507,7 @@ impl NetworkThread {
                 }
             }
         }
-        Ok(true)
+        Ok(())
     }
 
     fn stop(&mut self) -> () {

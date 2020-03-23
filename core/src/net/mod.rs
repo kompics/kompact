@@ -53,6 +53,8 @@ pub mod events {
         Connection(SocketAddr, ConnectionState),
         /// Data was received
         Data(Frame),
+        /// The NetworkThread lost connection to the remote host and rejects the frame
+        RejectedFrame(SocketAddr, SerializedFrame),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
@@ -237,13 +239,11 @@ impl Bridge {
     /// # Side effects
     /// When the connection is successul:
     ///     - a `ConnectionState::Connected` is dispatched on the network bridge event queue
-    //     - a new task is spawned on the Tokio runtime for driving the TCP connection's  I/O
+    //      - NetworkThread will listen for incoming messages and write outgoing messages on the channel
     ///
     /// # Errors
-    /// If the provided protocol is not supported or if the Tokio runtime's executor has not been
-    /// set.
-    pub fn connect(&mut self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
-        //println!("bridge bound to {} connecting to addr {}, ", self.bound_addr.unwrap(), addr);
+    /// If the provided protocol is not supported
+    pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         match proto {
             Transport::TCP => {
                 self.network_input_queue
