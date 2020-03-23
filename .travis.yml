@@ -22,7 +22,7 @@ deploy:
   provider: pages
   skip-cleanup: true
   github-token: $GITHUB_TOKEN
-  local-dir: docs/book
+  local-dir: docs/book/html
   keep-history: false
   on:
     branch: tutorial
