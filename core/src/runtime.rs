@@ -212,7 +212,18 @@ impl KompactConfig {
     /// Set a particular scheduler implementation
     ///
     /// Takes a function `f` from the number of threads to a concrete scheduler implementation as argument.
-    pub fn scheduler<E, F>(&mut self, f: F) -> &mut Self
+    pub fn scheduler<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn(usize) -> Box<dyn Scheduler> + 'static,
+    {
+        self.scheduler_builder = Rc::new(f);
+        self
+    }
+
+    /// Set a particular scheduler implementation based on an [executor](executors::core::Executor)
+    ///
+    /// Takes a function `f` from the number of threads to a concrete executor as argument.
+    pub fn executor<E, F>(&mut self, f: F) -> &mut Self
     where
         E: Executor + Sync + 'static,
         F: Fn(usize) -> E + 'static,

@@ -23,6 +23,7 @@
 //!            match event {
 //!                ControlEvent::Start => {
 //!                    info!(self.ctx.log(), "Hello World!");
+//!                    self.ctx().system().shutdown_async();
 //!                }
 //!                _ => (), // ignore other control events
 //!            }
@@ -31,9 +32,8 @@
 //!
 //! let system = KompactConfig::default().build().expect("system");
 //! let component = system.create(HelloWorldComponent::new);
-//! let start_future = system.start_notify(&component);
-//! start_future.wait();
-//! system.shutdown().expect("shutdown");
+//! system.start(&component);
+//! system.await_termination();
 //! ```
 
 #![deny(missing_docs)]
@@ -46,6 +46,9 @@ pub use core_affinity::{get_core_ids, CoreId};
 // Protocol buffers serialisation support
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
+// Serde serialisation support
+#[cfg(feature = "serde_support")]
+pub use self::serialisation::serde_serialisers;
 use self::{
     actors::*,
     component::*,
@@ -99,13 +102,12 @@ pub type Never = !;
 
 /// A more readable placeholder for a stable Never (`!`) type.
 ///
-/// Only nightly this defaults to `!` and will eventually be replaced with that once `never_type` stabilises.
+/// On nightly this defaults to `!` and will eventually be replaced with that once `never_type` stabilises.
 ///
 /// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
 /// This way the compiler should correctly identify any handlers enforced to be implemented by the API as dead code and eliminate them, resulting in smaller code sizes.
 #[cfg(not(nightly))]
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-pub enum Never {}
+pub type Never = std::convert::Infallible;
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
@@ -121,7 +123,7 @@ pub mod prelude {
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
-    pub use crate::{ignore_control, match_deser};
+    pub use crate::{ignore_control, ignore_indications, ignore_requests, match_deser};
 
     pub use crate::{
         actors::{
@@ -165,13 +167,10 @@ pub mod prelude {
             RequireRef,
         },
         lifecycle::{ControlEvent, ControlPort},
+        net::{buffer::*, buffer_pool::*},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         Never,
-        net::{
-            buffer_pool::*,
-            buffer::*,
-        },
     };
 
     pub use crate::{
@@ -458,7 +457,20 @@ mod tests {
         let mut settings = KompactConfig::new();
         settings
             .threads(4)
-            .scheduler(|t| executors::crossbeam_channel_pool::ThreadPool::new(t));
+            .executor(move |t| executors::crossbeam_channel_pool::ThreadPool::new(t));
+        let system = settings.build().expect("KompactSystem");
+        test_with_system(system);
+    }
+
+    #[test]
+    fn custom_scheduler() {
+        //let pool = ThreadPool::new(2);
+        let mut settings = KompactConfig::new();
+        settings.threads(2).scheduler(move |t| {
+            crate::runtime::ExecutorScheduler::from(
+                executors::crossbeam_channel_pool::ThreadPool::new(t),
+            )
+        });
         let system = settings.build().expect("KompactSystem");
         test_with_system(system);
     }

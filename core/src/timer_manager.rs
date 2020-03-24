@@ -21,7 +21,7 @@ pub trait TimerRefFactory {
 ///
 /// Instances are returned from functions that schedule timers, such as
 /// [schedule_once](Timer::schedule_once) and [schedule_periodic](Timer::schedule_periodic).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScheduledTimer(Uuid);
 
 impl ScheduledTimer {
@@ -80,7 +80,7 @@ pub trait Timer<C: ComponentDefinition> {
     /// ```
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, Uuid) + Send + 'static;
+        F: FnOnce(&mut C, ScheduledTimer) + Send + 'static;
 
     /// Schedule the `action` to be run every `timeout` time units
     ///
@@ -148,7 +148,7 @@ pub trait Timer<C: ComponentDefinition> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, Uuid) + Send + 'static;
+        F: Fn(&mut C, ScheduledTimer) + Send + 'static;
 
     /// Cancel the timer indicated by the `handle`
     ///
@@ -219,12 +219,12 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, Uuid) + Send + 'static,
+        F: FnOnce(&mut C, ScheduledTimer) + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::OneShot {
             _id: id,
-            action: Box::new(action),
+            action: Box::new(move |new_self, id| action(new_self, ScheduledTimer::from_uuid(id))),
         };
         self.handles.insert(id, handle);
         let tar = self.new_ref(component);
@@ -242,12 +242,12 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, Uuid) + Send + 'static,
+        F: Fn(&mut C, ScheduledTimer) + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::Periodic {
             _id: id,
-            action: Rc::new(action),
+            action: Rc::new(move |new_self, id| action(new_self, ScheduledTimer::from_uuid(id))),
         };
         self.handles.insert(id, handle);
         let tar = self.new_ref(component);

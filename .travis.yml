@@ -3,20 +3,26 @@ rust:
   - stable
   - beta
   - nightly
-# matrix:
-#   allow_failures:
-#     - rust: stable
-#     - rust: beta
-#   fast_finish: true
 cache: cargo
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
+  - mdbook build docs
   - cd core
   - ./test-feature-matrix.sh
-# need be superuser so as to successfully compile & install protobuf library
-#sudo: true
 
-# make sure protobuf library is installed for build to succeed
+# make sure protobuf library and mdbook are installed for build to succeed
 before_install:
   - ./travis_install_protobuf.sh
+  - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
+  - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.3" mdbook)
+  - cargo install-update -a
+
+deploy:
+  provider: pages
+  cleanup: true
+  token: $GITHUB_TOKEN
+  local_dir: docs/book/html
+  keep_history: false
+  on:
+    branch: tutorial

@@ -255,6 +255,8 @@ where
 ///
 /// Use this in components that do not require any special treatment of control events.
 ///
+/// # Example
+///
 /// To ignore control events for a component `TestComponent`, write:
 /// ```ignore
 /// ignore_control!(TestComponent);
@@ -262,8 +264,57 @@ where
 #[macro_export]
 macro_rules! ignore_control {
     ($component:ty) => {
-        impl Provide<ControlPort> for $component {
-            fn handle(&mut self, _event: ControlEvent) -> () {
+        ignore_requests!(ControlPort, $component);
+    };
+}
+// macro_rules! ignore_control {
+//     ($component:ty) => {
+//         impl Provide<ControlPort> for $component {
+//             fn handle(&mut self, _event: ControlEvent) -> () {
+//                 () // ignore all
+//             }
+//         }
+//     };
+// }
+
+/// A macro that provides an empty implementation of the provided handler for the given `$port` on the given `$component`
+///
+/// Use this in components that do not require any treatment of requests on `$port`, for example
+/// where `$port::Request` is the uninhabited `Never` type.
+///
+/// # Example
+///
+/// To ignore requests on a port `TestPort` for a component `TestComponent`, write:
+/// ```ignore
+/// ignore_requests!(TestPort, TestComponent);
+/// ```
+#[macro_export]
+macro_rules! ignore_requests {
+    ($port:ty, $component:ty) => {
+        impl Provide<$port> for $component {
+            fn handle(&mut self, _event: <$port as Port>::Request) -> () {
+                () // ignore all
+            }
+        }
+    };
+}
+
+/// A macro that provides an empty implementation of the required handler for the given `$port` on the given `$component`
+///
+/// Use this in components that do not require any treatment of indications on `$port`, for example
+/// where `$port::Indication` is the uninhabited `Never` type.
+///
+/// # Example
+///
+/// To ignore indications on a port `TestPort` for a component `TestComponent`, write:
+/// ```ignore
+/// ignore_indications!(TestPort, TestComponent);
+/// ```
+#[macro_export]
+macro_rules! ignore_indications {
+    ($port:ty, $component:ty) => {
+        impl Require<$port> for $component {
+            fn handle(&mut self, _event: <$port as Port>::Indication) -> () {
                 () // ignore all
             }
         }

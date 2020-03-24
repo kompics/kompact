@@ -11,10 +11,12 @@ use crate::{
 use bytes::{buf::BufExt, Buf, BufMut, Bytes, BytesMut};
 
 use crate::{
-    net::{buffer::BufferEncoder, frames::{FrameHead, FrameType}},
+    net::{
+        buffer::BufferEncoder,
+        frames::{FrameHead, FrameType, FRAME_HEAD_LEN},
+    },
     serialisation::ser_id::SerIdBufMut,
 };
-use crate::net::frames::FRAME_HEAD_LEN;
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -69,8 +71,8 @@ pub fn serialise_to_chunk_msg(
 /// according to the message's size hint.
 /// The message's serialised data is then stored in this buffer.
 pub fn serialise_to_serialised<S>(ser: &S) -> Result<Serialised, SerError>
-    where
-        S: Serialisable + ?Sized,
+where
+    S: Serialisable + ?Sized,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -89,9 +91,9 @@ pub fn serialise_to_serialised<S>(ser: &S) -> Result<Serialised, SerError>
 /// according to the message's size hint.
 /// The message's serialised data is then stored in this buffer.
 pub fn serialiser_to_serialised<T, S>(t: &T, ser: &S) -> Result<Serialised, SerError>
-    where
-        T: std::fmt::Debug,
-        S: Serialiser<T> + ?Sized,
+where
+    T: std::fmt::Debug,
+    S: Serialiser<T> + ?Sized,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);
@@ -126,8 +128,9 @@ pub fn serialise_msg<B>(
     msg: &B,
     buf: &mut BufferEncoder,
 ) -> Result<ChunkLease, SerError>
-    where
-        B: Serialisable + ?Sized, {
+where
+    B: Serialisable + ?Sized,
+{
     // Reserve space for the header:
     buf.pad(FRAME_HEAD_LEN as usize);
 
@@ -141,9 +144,7 @@ pub fn serialise_msg<B>(
             chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
             Ok(chunk_lease)
         }
-        None => {
-            Err(SerError::BufferError("Could not get chunk".to_string()))
-        }
+        None => Err(SerError::BufferError("Could not get chunk".to_string())),
     }
 }
 /*

@@ -11,8 +11,16 @@ mod default_serialisers;
 #[cfg(feature = "protobuf")]
 pub mod protobuf_serialisers;
 pub mod ser_helpers;
+#[cfg(feature = "serde_support")]
+pub mod serde_serialisers;
 
 pub use self::{core::*, default_serialisers::*};
+
+/// A trait that allows to determine the number of bytes in a `SerId`.
+pub trait SerIdSize {
+    /// The number of bytes in a concrete implementation of `SerId`.
+    fn size(&self) -> usize;
+}
 
 #[cfg(feature = "ser_id_64")]
 mod ser_id {
@@ -178,12 +186,6 @@ mod ser_id {
     }
 }
 
-/// A trait that allows to determine the number of bytes in a `SerId`.
-pub trait SerIdSize {
-    /// The number of bytes in a concrete implementation of `SerId`.
-    fn size(&self) -> usize;
-}
-
 pub use ser_id::*;
 
 /// A module with helper functions for serialisation tests
@@ -194,8 +196,8 @@ pub mod ser_test_helpers {
     ///
     /// This function panics if serialisation fails.
     pub fn just_serialise<S>(si: S, buf: &mut dyn BufMut) -> ()
-        where
-            S: Into<Box<dyn Serialisable>>,
+    where
+        S: Into<Box<dyn Serialisable>>,
     {
         let s: Box<dyn Serialisable> = si.into();
         s.serialise(buf).expect("Did not serialise correctly");
@@ -205,8 +207,8 @@ pub mod ser_test_helpers {
     ///
     /// This function panics if serialisation fails.
     pub fn test_serialise<S>(si: S) -> ()
-        where
-            S: Into<Box<dyn Serialisable>>,
+    where
+        S: Into<Box<dyn Serialisable>>,
     {
         let mut buf: Vec<u8> = Vec::new();
         just_serialise(si, &mut buf);

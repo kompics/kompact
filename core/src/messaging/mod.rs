@@ -2,7 +2,7 @@
 
 use crate::{
     actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
-    net::{events::NetworkEvent, buffer::BufferEncoder},
+    net::{buffer::BufferEncoder, events::NetworkEvent},
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
     utils,
 };
@@ -142,8 +142,8 @@ impl NetMessage {
     /// }
     /// ```
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         if self.ser_id == D::SER_ID {
             self.try_deserialise_unchecked::<T, D>()
@@ -194,8 +194,8 @@ impl NetMessage {
     /// The [match_deser](match_deser!) macro generates code that is approximately equivalent to the example above
     /// with some nicer syntax.
     pub fn try_deserialise_unchecked<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         let NetMessage {
             ser_id,
@@ -331,9 +331,9 @@ impl TryFrom<(SerId, Bytes)> for Serialised {
 }
 
 impl<T, S> TryFrom<(&T, &S)> for Serialised
-    where
-        T: std::fmt::Debug,
-        S: Serialiser<T>,
+where
+    T: std::fmt::Debug,
+    S: Serialiser<T>,
 {
     type Error = SerError;
 
@@ -429,12 +429,10 @@ impl DispatchData {
         buf: &mut BufferEncoder,
     ) -> Result<SerializedFrame, SerError> {
         match self {
-            DispatchData::Lazy(ser) => {
-                Ok(SerializedFrame::Chunk(crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser.deref(), buf)?))
-            }
-            DispatchData::Serialised((chunk, _ser_id)) => {
-                Ok(SerializedFrame::Chunk(chunk))
-            }
+            DispatchData::Lazy(ser) => Ok(SerializedFrame::Chunk(
+                crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser.deref(), buf)?,
+            )),
+            DispatchData::Serialised((chunk, _ser_id)) => Ok(SerializedFrame::Chunk(chunk)),
         }
     }
 }
@@ -696,8 +694,8 @@ mod deser_macro_tests {
     }
 
     fn simple_macro_test_impl<F>(f: F)
-        where
-            F: Fn(NetMessage) -> EitherAOrB,
+    where
+        F: Fn(NetMessage) -> EitherAOrB,
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
@@ -709,20 +707,20 @@ mod deser_macro_tests {
             ap.clone(),
             Box::new(msg_a),
         )
-            .expect("MsgA should serialise!");
+        .expect("MsgA should serialise!");
         let msg_b_ser = crate::serialisation::ser_helpers::serialise_to_msg(
             ap.clone(),
             ap.clone(),
             (msg_b, BSer).into(),
         )
-            .expect("MsgB should serialise!");
+        .expect("MsgB should serialise!");
         assert!(f(msg_a_ser).is_a());
         assert!(f(msg_b_ser).is_b());
     }
 
     fn simple_macro_test_err_impl<F>(f: F)
-        where
-            F: Fn(NetMessage) -> EitherAOrB,
+    where
+        F: Fn(NetMessage) -> EitherAOrB,
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 

@@ -87,7 +87,7 @@ impl Frame {
             Frame::CreditUpdate(ref frame) => frame.encode_into(dst),
             Frame::Data(ref frame) => frame.encode_into(dst),
             Frame::Hello(ref frame) => frame.encode_into(dst),
-            Frame::Bye() => Ok(())
+            Frame::Bye() => Ok(()),
         }
     }
 

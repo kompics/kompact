@@ -4,7 +4,7 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 use net::events::NetworkEvent;
 
-use std::{net::SocketAddr, sync::Arc, thread, io};
+use std::{io, net::SocketAddr, sync::Arc, thread};
 
 use crate::{
     messaging::SerializedFrame,
@@ -12,7 +12,7 @@ use crate::{
 };
 use bytes::{Buf, BufMut, BytesMut};
 use mio::{Ready, Registration, SetReadiness};
-use std::sync::mpsc::{channel, Receiver as Recv, Sender, SendError, RecvError};
+use std::sync::mpsc::{channel, Receiver as Recv, RecvError, SendError, Sender};
 
 #[allow(missing_docs)]
 pub mod buffer;
@@ -179,7 +179,8 @@ impl Bridge {
             .name("network_thread".to_string())
             .spawn(move || {
                 network_thread.run();
-            }) {
+            })
+        {
             panic!("Failed to start a Network Thread, error: {:?}", e);
         }
         (bridge, bound_addr)
@@ -207,7 +208,11 @@ impl Bridge {
     }
 
     /// Forwards `serialized` to the NetworkThread and makes sure that it will wake up.
-    pub fn route(&self, addr: SocketAddr, serialized: SerializedFrame) -> Result<(), NetworkBridgeErr> {
+    pub fn route(
+        &self,
+        addr: SocketAddr,
+        serialized: SerializedFrame,
+    ) -> Result<(), NetworkBridgeErr> {
         match serialized {
             SerializedFrame::Bytes(bytes) => {
                 let size = FrameHead::encoded_len() + bytes.len();
@@ -266,7 +271,6 @@ pub enum NetworkBridgeErr {
     Thread(String),
     /// Something else went wrong
     Other(String),
-
 }
 
 impl<T> From<SendError<T>> for NetworkBridgeErr {

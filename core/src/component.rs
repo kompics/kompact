@@ -191,8 +191,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     /// This method will attempt to lock the mutex, and then apply `f` to the component definition
     /// inside the guard.
     pub fn on_definition<T, F>(&self, f: F) -> T
-        where
-            F: FnOnce(&mut C) -> T,
+    where
+        F: FnOnce(&mut C) -> T,
     {
         let mut cd = self.definition.lock().unwrap();
         f(cd.deref_mut())
@@ -326,8 +326,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 }
 
 impl<CD> ActorRefFactory for Arc<Component<CD>>
-    where
-        CD: ComponentDefinition + ActorRaw + 'static,
+where
+    CD: ComponentDefinition + ActorRaw + 'static,
 {
     type Message = CD::Message;
 
@@ -350,8 +350,8 @@ impl<CD> ActorRefFactory for Arc<Component<CD>>
 // }
 
 impl<CD> ActorRefFactory for CD
-    where
-        CD: ComponentDefinition + ActorRaw + 'static,
+where
+    CD: ComponentDefinition + ActorRaw + 'static,
 {
     type Message = CD::Message;
 
@@ -361,8 +361,8 @@ impl<CD> ActorRefFactory for CD
 }
 
 impl<CD> Dispatching for CD
-    where
-        CD: ComponentDefinition + 'static,
+where
+    CD: ComponentDefinition + 'static,
 {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx().dispatcher_ref()
@@ -370,8 +370,8 @@ impl<CD> Dispatching for CD
 }
 
 impl<CD> ActorSource for CD
-    where
-        CD: ComponentDefinition + 'static,
+where
+    CD: ComponentDefinition + 'static,
 {
     fn path_resolvable(&self) -> PathResolvable {
         PathResolvable::ActorId(self.ctx().id().clone())
@@ -379,8 +379,8 @@ impl<CD> ActorSource for CD
 }
 
 impl<CD> ActorPathFactory for CD
-    where
-        CD: ComponentDefinition + 'static,
+where
+    CD: ComponentDefinition + 'static,
 {
     fn actor_path(&self) -> ActorPath {
         self.ctx().actor_path()
@@ -388,12 +388,12 @@ impl<CD> ActorPathFactory for CD
 }
 
 impl<CD> Timer<CD> for CD
-    where
-        CD: ComponentDefinition + 'static,
+where
+    CD: ComponentDefinition + 'static,
 {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
-        where
-            F: FnOnce(&mut CD, Uuid) + Send + 'static,
+    where
+        F: FnOnce(&mut CD, ScheduledTimer) + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -407,8 +407,8 @@ impl<CD> Timer<CD> for CD
         period: Duration,
         action: F,
     ) -> ScheduledTimer
-        where
-            F: Fn(&mut CD, Uuid) + Send + 'static,
+    where
+        F: Fn(&mut CD, ScheduledTimer) + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -530,8 +530,8 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     ///
     /// This *must* be invoked from [setup](ComponentDefinition::setup).
     pub fn initialise(&mut self, c: Arc<Component<CD>>) -> ()
-        where
-            CD: ComponentDefinition + 'static,
+    where
+        CD: ComponentDefinition + 'static,
     {
         let system = c.system();
         let id = c.id().clone();
@@ -709,8 +709,8 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
 }
 
 impl<CD> ActorRefFactory for ComponentContext<CD>
-    where
-        CD: ComponentDefinition + ActorRaw + Sized + 'static,
+where
+    CD: ComponentDefinition + ActorRaw + Sized + 'static,
 {
     type Message = CD::Message;
 
@@ -720,8 +720,8 @@ impl<CD> ActorRefFactory for ComponentContext<CD>
 }
 
 impl<CD> ActorPathFactory for ComponentContext<CD>
-    where
-        CD: ComponentDefinition + ActorRaw + Sized + 'static,
+where
+    CD: ComponentDefinition + ActorRaw + Sized + 'static,
 {
     fn actor_path(&self) -> ActorPath {
         let id = self.id().clone();
@@ -741,30 +741,30 @@ impl ContextSystemHandle {
 
 impl SystemHandle for ContextSystemHandle {
     fn create<C, F>(&self, f: F) -> Arc<Component<C>>
-        where
-            F: FnOnce() -> C,
-            C: ComponentDefinition + 'static,
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
     {
         self.component.system().create(f)
     }
 
     fn start<C>(&self, c: &Arc<Component<C>>) -> ()
-        where
-            C: ComponentDefinition + 'static,
+    where
+        C: ComponentDefinition + 'static,
     {
         self.component.system().start(c)
     }
 
     fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
-        where
-            C: ComponentDefinition + 'static,
+    where
+        C: ComponentDefinition + 'static,
     {
         self.component.system().stop(c)
     }
 
     fn kill<C>(&self, c: Arc<Component<C>>) -> ()
-        where
-            C: ComponentDefinition + 'static,
+    where
+        C: ComponentDefinition + 'static,
     {
         self.component.system().kill(c)
     }
@@ -810,8 +810,8 @@ impl Dispatching for ContextSystemHandle {
 /// component's ports. It is generally recommended to do so as well, when not
 /// using the derive macro, as it enables some rather convenient APIs.
 pub trait ComponentDefinition: Provide<ControlPort> + ActorRaw + Send
-    where
-        Self: Sized,
+where
+    Self: Sized,
 {
     /// Prepare the component for being run
     ///
@@ -854,8 +854,8 @@ pub trait ComponentLogging {
 }
 
 impl<CD> ComponentLogging for CD
-    where
-        CD: ComponentDefinition + 'static,
+where
+    CD: ComponentDefinition + 'static,
 {
     fn log(&self) -> &KompactLogger {
         self.ctx().log()
@@ -929,9 +929,9 @@ pub trait LockingRequireRef<P: Port + 'static> {
 }
 
 impl<P, CD> LockingProvideRef<P> for Arc<Component<CD>>
-    where
-        P: Port + 'static,
-        CD: ComponentDefinition + Provide<P> + ProvideRef<P>,
+where
+    P: Port + 'static,
+    CD: ComponentDefinition + Provide<P> + ProvideRef<P>,
 {
     fn provided_ref(&self) -> ProvidedRef<P> {
         self.on_definition(|cd| ProvideRef::provided_ref(cd))
@@ -943,9 +943,9 @@ impl<P, CD> LockingProvideRef<P> for Arc<Component<CD>>
 }
 
 impl<P, CD> LockingRequireRef<P> for Arc<Component<CD>>
-    where
-        P: Port + 'static,
-        CD: ComponentDefinition + Require<P> + RequireRef<P>,
+where
+    P: Port + 'static,
+    CD: ComponentDefinition + Require<P> + RequireRef<P>,
 {
     fn required_ref(&self) -> RequiredRef<P> {
         self.on_definition(|cd| RequireRef::required_ref(cd))

@@ -1,15 +1,17 @@
 use super::*;
-use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable};
+use crate::{
+    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable},
+    net::buffer::EncodeBuffer,
+};
 use std::{
     convert::TryFrom,
     error::Error,
     fmt::{self, Debug},
     net::{AddrParseError, IpAddr, SocketAddr},
+    ops::DerefMut,
     str::FromStr,
 };
 use uuid::Uuid;
-use std::ops::DerefMut;
-use crate::net::buffer::EncodeBuffer;
 
 /// Transport protocol to use for delivering messages
 /// sent to an [ActorPath](ActorPath)
@@ -18,7 +20,7 @@ use crate::net::buffer::EncodeBuffer;
 ///
 /// Dispatcher implementations are not required to implement all protocols.
 /// Check your concrete implementation, before selecting an arbitrary protocol.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Transport {
     /// Local reflection only, no network messages involved
@@ -130,7 +132,7 @@ impl From<AddrParseError> for PathParseError {
 /// The part of an [ActorPath](ActorPath) that refers to the [KompactSystem](KompactSystem)
 ///
 /// As a URI, a `SystemPath` looks like `"tcp://127.0.0.1:8080"`, for example.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SystemPath {
     protocol: Transport,
     // TODO address could be IPv4, IPv6, or a domain name (not supported yet)
@@ -248,7 +250,7 @@ impl<'a, 'b> ActorSource for DispatchingPath<'a, 'b> {
 /// It must also be [serialisable](Serialisable).
 #[derive(Clone, Debug)]
 #[repr(u8)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ActorPath {
     /// A unique actor path identifies a concrete instance of an actor
     ///
@@ -287,9 +289,9 @@ impl ActorPath {
     /// that `m` will definitely go over the network, you can use
     /// [tell_ser](ActorPath::tell_ser) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
-        where
-            S: ActorSource,
-            B: Into<Box<dyn Serialisable>>,
+    where
+        S: ActorSource,
+        B: Into<Box<dyn Serialisable>>,
     {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
@@ -304,9 +306,9 @@ impl ActorPath {
 
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
-        where
-            CD: ComponentDefinition + Sized + 'static,
-            B: Serialisable + 'static,
+    where
+        CD: ComponentDefinition + Sized + 'static,
+        B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
@@ -317,7 +319,8 @@ impl ActorPath {
         let mut buf_ref = from.ctx().get_buffer().borrow_mut();
         let buf = &mut EncodeBuffer::get_buffer_encoder(buf_ref.deref_mut());
 
-        let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, buf)?;
+        let chunk_lease =
+            crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, buf)?;
 
         let env = DispatchEnvelope::Msg {
             src: from.path_resolvable(),
@@ -377,6 +380,18 @@ impl From<(SystemPath, Uuid)> for ActorPath {
     }
 }
 
+impl From<UniquePath> for ActorPath {
+    fn from(p: UniquePath) -> ActorPath {
+        ActorPath::Unique(p)
+    }
+}
+
+impl From<NamedPath> for ActorPath {
+    fn from(p: NamedPath) -> ActorPath {
+        ActorPath::Named(p)
+    }
+}
+
 const PATH_SEP: &'static str = "/";
 const UNIQUE_PATH_SEP: &'static str = "#";
 
@@ -426,7 +441,7 @@ impl FromStr for ActorPath {
 /// replaced with a new instance of the same type.
 ///
 /// A unique path may look something like `"tcp://127.0.0.1:8080#1e555f40-de1d-4aee-8202-64fdc27edfa8"`, for example.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct UniquePath {
     system: SystemPath,
     id: Uuid,
@@ -517,7 +532,7 @@ impl SystemField for UniquePath {
 /// Named paths may be described hierarchically, similar to URLs.
 ///
 /// A named path may look something like `"tcp://127.0.0.1:8080/my-actor-group/my-actor"`, for example.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NamedPath {
     system: SystemPath,
     path: Vec<String>,

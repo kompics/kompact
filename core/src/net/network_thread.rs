@@ -96,19 +96,21 @@ impl NetworkThread {
             let actual_addr = listener.local_addr().expect("could not get real addr");
             // Set up polling for the Dispatcher and the listener.
             let poll = Poll::new().expect("failed to create Poll instance in NetworkThread");
-            let _ = poll.register(
-                &listener,
-                SERVER,
-                Ready::readable(),
-                PollOpt::edge() | PollOpt::oneshot(),
-            )
+            let _ = poll
+                .register(
+                    &listener,
+                    SERVER,
+                    Ready::readable(),
+                    PollOpt::edge() | PollOpt::oneshot(),
+                )
                 .expect("failed to register TCP SERVER");
-            let _ = poll.register(
-                &dispatcher_registration,
-                DISPATCHER,
-                Ready::readable(),
-                PollOpt::edge() | PollOpt::oneshot(),
-            )
+            let _ = poll
+                .register(
+                    &dispatcher_registration,
+                    DISPATCHER,
+                    Ready::readable(),
+                    PollOpt::edge() | PollOpt::oneshot(),
+                )
                 .expect("failed to register dispatcher Poll");
             // Connections and buffers
             // There's probably a better way to handle the token/addr maps
@@ -155,11 +157,19 @@ impl NetworkThread {
             for event in events.iter() {
                 //println!("{} Handling event", self.addr);
                 if let Err(e) = self.handle_event(event) {
-                    error!(self.log, "NetworkThread Error while handling event with token {:?}: {:?}", event.token(), e);
+                    error!(
+                        self.log,
+                        "NetworkThread Error while handling event with token {:?}: {:?}",
+                        event.token(),
+                        e
+                    );
                 };
                 if self.stopped {
                     if let Err(e) = self.network_thread_sender.send(true) {
-                        error!(self.log, "NetworkThread error shutting down sender: {:?}", e);
+                        error!(
+                            self.log,
+                            "NetworkThread error shutting down sender: {:?}", e
+                        );
                     };
                     info!(self.log, "NetworkThread {} Stopped", self.addr);
                     return;
@@ -185,7 +195,8 @@ impl NetworkThread {
             }
             DISPATCHER => {
                 // Message available from Dispatcher, clear the poll readiness before receiving
-                self.dispatcher_set_readiness.set_readiness(Ready::empty())?;
+                self.dispatcher_set_readiness
+                    .set_readiness(Ready::empty())?;
                 self.receive_dispatch()?;
                 // Reregister polling
                 let _ = self.poll.reregister(
@@ -201,7 +212,12 @@ impl NetworkThread {
                     if let Some(addr) = self.token_map.get(&token) {
                         addr.clone()
                     } else {
-                        info!(self.log, "NetworkThread {} Poll triggered for removed channel, Token({})", self.addr, token.0);
+                        info!(
+                            self.log,
+                            "NetworkThread {} Poll triggered for removed channel, Token({})",
+                            self.addr,
+                            token.0
+                        );
                         return Ok(());
                     }
                 };
@@ -234,9 +250,10 @@ impl NetworkThread {
                     }
                     if close_channel {
                         if let Some(channel) = self.channel_map.remove(&addr) {
-                            self.poll.deregister(channel.stream());
+                            return self.poll.deregister(channel.stream());
+                        } else {
+                            return Ok(());
                         }
-                        return Ok(());
                     }
                     if swap_buffer {
                         // Buffer full, we swap it and register for poll again
@@ -256,7 +273,7 @@ impl NetworkThread {
                         channel.token.clone(),
                         channel.pending_set,
                         PollOpt::edge() | PollOpt::oneshot(),
-                    );
+                    )?;
                 }
             }
         }
@@ -307,7 +324,10 @@ impl NetworkThread {
                 //println!("Telling dispatcher about the Connected peer!");
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::Connection(hello_addr, ConnectionState::Connected(hello_addr)),
+                        NetworkEvent::Connection(
+                            hello_addr,
+                            ConnectionState::Connected(hello_addr),
+                        ),
                     )));
             }
         } else {
@@ -319,13 +339,15 @@ impl NetworkThread {
         if let Some(channel) = self.channel_map.get_mut(&addr) {
             match channel.try_drain() {
                 Err(ref err) if broken_pipe(err) => {
-                    println!("BROKEN PIPE WRITE");
+                    // TODO Adam do something useful
+                    //println!("BROKEN PIPE WRITE");
                 }
                 Ok(n) => {
                     self.sent_bytes = self.sent_bytes + n as u64;
                 }
                 Err(e) => {
-                    println!("Error while sending! {:?}", e);
+                    // TODO Adam do something useful
+                    //println!("Error while sending! {:?}", e);
                 }
             }
         }
@@ -393,10 +415,11 @@ impl NetworkThread {
                             let envelope = deserialise_msg(buf).expect("s11n errors");
                             match lease_lookup.get_by_actor_path(envelope.receiver()) {
                                 None => {
-                                    println!(
-                                        "Could not find actor reference for destination: {:?}",
-                                        envelope.receiver()
-                                    );
+                                    // TODO Adam do something useful
+                                    // println!(
+                                    //     "Could not find actor reference for destination: {:?}",
+                                    //     envelope.receiver()
+                                    // );
                                 }
                                 Some(actor) => {
                                     actor.enqueue(envelope);
@@ -440,7 +463,9 @@ impl NetworkThread {
             // the connection request must have been sent before the channel was initialized
             info!(
                 self.log,
-                "NetworkThread {} asked to request connection to already connected host {}", self.addr, &addr
+                "NetworkThread {} asked to request connection to already connected host {}",
+                self.addr,
+                &addr
             );
             return Ok(true);
         }
@@ -511,7 +536,7 @@ impl NetworkThread {
                                 channel.token.clone(),
                                 channel.pending_set,
                                 PollOpt::edge() | PollOpt::oneshot(),
-                            );
+                            )?;
                         }
                     } else {
                         // The stream isn't set-up, request connection, set-it up and try to send the message
@@ -600,12 +625,22 @@ pub(crate) fn broken_pipe(err: &io::Error) -> bool {
 #[allow(unused_must_use)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr};
     use crate::dispatch::NetworkConfig;
-    use std::time::Duration;
+    use std::{
+        net::{IpAddr, Ipv4Addr},
+        time::Duration,
+    };
 
     #[allow(unused_must_use)]
-    fn setup_two_threads(addr1: SocketAddr, addr2: SocketAddr) -> (NetworkThread, Sender<DispatchEvent>, NetworkThread, Sender<DispatchEvent>) {
+    fn setup_two_threads(
+        addr1: SocketAddr,
+        addr2: SocketAddr,
+    ) -> (
+        NetworkThread,
+        Sender<DispatchEvent>,
+        NetworkThread,
+        Sender<DispatchEvent>,
+    ) {
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = cfg.build().expect("KompactSystem");
@@ -645,7 +680,12 @@ mod tests {
             dispatcher_ref.clone(),
         );
 
-        (network_thread1, input_queue_1_sender, network_thread2, input_queue_2_sender)
+        (
+            network_thread1,
+            input_queue_1_sender,
+            network_thread2,
+            input_queue_2_sender,
+        )
     }
 
     #[test]
@@ -655,7 +695,8 @@ mod tests {
         let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
         let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7780);
 
-        let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) = setup_two_threads(addr1.clone(), addr2.clone());
+        let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
+            setup_two_threads(addr1.clone(), addr2.clone());
 
         // Tell both to connect to each-other before they start running:
         input_queue_1_sender.send(DispatchEvent::Connect(addr2.clone()));
@@ -677,27 +718,51 @@ mod tests {
 
         // We need to make sure the TCP buffers are actually flushing the messages. Give both channels two cycles to finnish
         // Cycle one Requested channels
-        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        network_thread1.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            START_TOKEN,
+        ));
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        network_thread2.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            START_TOKEN,
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // Cycle one Accepted channels:
-        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        network_thread1.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            Token(START_TOKEN.0 + 1),
+        ));
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        network_thread2.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            Token(START_TOKEN.0 + 1),
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // Cycle two Requested channels
-        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        network_thread1.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            START_TOKEN,
+        ));
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        network_thread2.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            START_TOKEN,
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // Cycle two Accepted channels:
-        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        network_thread1.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            Token(START_TOKEN.0 + 1),
+        ));
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        network_thread2.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            Token(START_TOKEN.0 + 1),
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // Now we can inspect the Network channels, both only have one channel:
@@ -705,8 +770,26 @@ mod tests {
         assert_eq!(network_thread2.channel_map.len(), 1);
 
         // Now assert that they've kept the same channel:
-        assert_eq!(network_thread1.channel_map.drain().next().unwrap().1.stream().local_addr().unwrap(),
-                   network_thread2.channel_map.drain().next().unwrap().1.stream().peer_addr().unwrap());
+        assert_eq!(
+            network_thread1
+                .channel_map
+                .drain()
+                .next()
+                .unwrap()
+                .1
+                .stream()
+                .local_addr()
+                .unwrap(),
+            network_thread2
+                .channel_map
+                .drain()
+                .next()
+                .unwrap()
+                .1
+                .stream()
+                .peer_addr()
+                .unwrap()
+        );
     }
 
     #[test]
@@ -717,7 +800,8 @@ mod tests {
         let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8778);
         let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8780);
 
-        let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) = setup_two_threads(addr1.clone(), addr2.clone());
+        let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
+            setup_two_threads(addr1.clone(), addr2.clone());
 
         // 2 Requests connection to 1 and sends Hello
         input_queue_2_sender.send(DispatchEvent::Connect(addr1.clone()));
@@ -729,11 +813,17 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
 
         // 2 receives the Hello
-        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        network_thread2.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            START_TOKEN,
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // 1 Receives Hello
-        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), START_TOKEN));
+        network_thread1.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            START_TOKEN,
+        ));
 
         // 1 Receives Request Connection Event, this is the tricky part
         // 1 Requests connection to 2 and sends Hello
@@ -746,11 +836,17 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
 
         // 2 receives the Hello on the new channel and merges
-        network_thread2.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        network_thread2.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            Token(START_TOKEN.0 + 1),
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // 1 receives the Hello on the new channel and merges
-        network_thread1.handle_event(Event::new(Ready::readable() | Ready::writable(), Token(START_TOKEN.0 + 1)));
+        network_thread1.handle_event(Event::new(
+            Ready::readable() | Ready::writable(),
+            Token(START_TOKEN.0 + 1),
+        ));
         thread::sleep(Duration::from_millis(100));
 
         // Now we can inspect the Network channels, both only have one channel:
@@ -758,7 +854,25 @@ mod tests {
         assert_eq!(network_thread2.channel_map.len(), 1);
 
         // Now assert that they've kept the same channel:
-        assert_eq!(network_thread1.channel_map.drain().next().unwrap().1.stream().local_addr().unwrap(),
-                   network_thread2.channel_map.drain().next().unwrap().1.stream().peer_addr().unwrap());
+        assert_eq!(
+            network_thread1
+                .channel_map
+                .drain()
+                .next()
+                .unwrap()
+                .1
+                .stream()
+                .local_addr()
+                .unwrap(),
+            network_thread2
+                .channel_map
+                .drain()
+                .next()
+                .unwrap()
+                .1
+                .stream()
+                .peer_addr()
+                .unwrap()
+        );
     }
 }
