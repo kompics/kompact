@@ -24,7 +24,7 @@ jobs:
       script: mdbook build docs
       deploy:
         provider: pages
-        cleanup: true
+        cleanup: false
         token: $GITHUB_TOKEN
         local_dir: docs/book/html
         keep_history: false
