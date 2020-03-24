@@ -1,6 +1,6 @@
 use super::*;
 use crate::net::{buffer_pool::BufferPool, ConnectionState};
-use mio::{event::Event, net::{TcpListener, TcpStream}, Events, Poll, PollOpt, Ready, Registration, Token, Evented};
+use mio::{event::Event, net::{TcpListener, TcpStream}, Events, Poll, PollOpt, Ready, Registration, Token};
 use std::{
     collections::HashMap,
     io,
@@ -144,7 +144,7 @@ impl NetworkThread {
     /// Event loop, spawn a thread calling this method start the thread.
     pub fn run(&mut self) -> () {
         let mut events = Events::with_capacity(MAX_POLL_EVENTS);
-        info!(self.log, "NetworkThread entering main EventLoop");
+        debug!(self.log, "NetworkThread entering main EventLoop");
         loop {
             self.poll
                 .poll(&mut events, None)
@@ -158,7 +158,7 @@ impl NetworkThread {
                     if let Err(e) = self.network_thread_sender.send(true) {
                         error!(self.log, "NetworkThread error shutting down sender: {:?}", e);
                     };
-                    info!(self.log, "NetworkThread {} Stopped", self.addr);
+                    debug!(self.log, "NetworkThread {} Stopped", self.addr);
                     return;
                 };
             }
@@ -170,9 +170,9 @@ impl NetworkThread {
             SERVER => {
                 // Received an event for the TCP server socket.Accept the connection.
                 if let Err(e) = self.accept_stream() {
-                    info!(self.log, "NetworkThread {} Error while accepting stream {:?}",
-                          self.addr,
-                          e
+                    debug!(self.log, "NetworkThread {} Error while accepting stream {:?}",
+                           self.addr,
+                           e
                     );
                 }
             }
@@ -194,7 +194,7 @@ impl NetworkThread {
                     if let Some(addr) = self.token_map.get(&token) {
                         addr.clone()
                     } else {
-                        info!(self.log, "NetworkThread {} Poll triggered for removed channel, Token({})", self.addr, token.0);
+                        debug!(self.log, "NetworkThread {} Poll triggered for removed channel, Token({})", self.addr, token.0);
                         return Ok(());
                     }
                 };
@@ -226,8 +226,10 @@ impl NetworkThread {
                         _ => {}
                     }
                     if close_channel {
-                        if let Some(channel) = self.channel_map.remove(&addr) {
+                        if let Some(mut channel) = self.channel_map.remove(&addr) {
                             self.poll.deregister(channel.stream());
+                            channel.shutdown();
+                            drop(channel);
                         }
                         // Tell the dispatcher that we've closed the connection
                         self.dispatcher_ref.tell(DispatchEnvelope::Event(EventEnvelope::Network(
@@ -240,7 +242,7 @@ impl NetworkThread {
                         if let Some(channel) = self.channel_map.get_mut(&addr) {
                             if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
                                 channel.swap_buffer(&mut new_buffer);
-                                info!(self.log, "NetworkThread {} swapped buffer for channel {} with msg count {}", self.addr, &addr, channel.messages);
+                                debug!(self.log, "NetworkThread {} swapped buffer for channel {} with msg count {}", self.addr, &addr, channel.messages);
                                 self.buffer_pool.return_buffer(new_buffer);
                             }
                         }
@@ -262,7 +264,7 @@ impl NetworkThread {
 
     fn rename(&mut self, token: Token, hello_addr: SocketAddr) -> () {
         if let Some(registered_addr) = self.token_map.remove(&token) {
-            info!(
+            debug!(
                 self.log,
                 "NetworkThread {} got Hello({}) from {}", self.addr, &hello_addr, &registered_addr
             );
@@ -276,7 +278,7 @@ impl NetworkThread {
                     if let Some(mut other_channel) = self.channel_map.remove(&registered_addr) {
                         // There's another channel, we received a Hello message on a different channel.
                         // This is not good. We need to merge the two connections into one.
-                        info!(
+                        debug!(
                             self.log,
                             "NetworkThread {} merging {} into {}",
                             self.addr,
@@ -325,7 +327,7 @@ impl NetworkThread {
                     self.sent_bytes = self.sent_bytes + n as u64;
                 }
                 Err(e) => {
-                    info!(self.log, "NetworkThread {} unhandled error while writing {:?}", self.addr, e)
+                    error!(self.log, "NetworkThread {} unhandled error while writing {:?}", self.addr, e)
                 }
             }
         }
@@ -339,24 +341,20 @@ impl NetworkThread {
                     self.received_bytes += n as u64;
                 }
                 Err(ref err) if no_buffer_space(err) => {
-                    info!(self.log, "NetworkThread {} no_buffer_space for channel to {}", self.addr, &addr);
+                    debug!(self.log, "NetworkThread {} no_buffer_space for channel to {}", self.addr, &addr);
                     ret = IOReturn::SwapBuffer
                 }
                 Err(err) if interrupted(&err) || would_block(&err) => {
                     // Just retry later
                 }
                 Err(err) if connection_reset(&err) => {
-                    info!(self.log, "NetworkThread {} Connection_reset to peer {}, shutting down the channel", self.addr, &addr);
+                    debug!(self.log, "NetworkThread {} Connection_reset to peer {}, shutting down the channel", self.addr, &addr);
                     channel.shutdown();
-                    self.dispatcher_ref
-                        .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                            NetworkEvent::Connection(*addr, ConnectionState::Closed),
-                        )));
                     ret = IOReturn::Close
                 }
                 Err(err) => {
                     // Fatal error don't try to read again
-                    info!(self.log, "NetworkThread {} Error while reading from peer {}:\n{:?}", self.addr, &addr, &err);
+                    error!(self.log, "NetworkThread {} Error while reading from peer {}:\n{:?}", self.addr, &addr, &err);
                 }
             }
         }
@@ -378,7 +376,7 @@ impl NetworkThread {
                             let envelope = deserialise_msg(buf).expect("s11n errors");
                             match lease_lookup.get_by_actor_path(envelope.receiver()) {
                                 None => {
-                                    info!(&self.log, "NetworkThread {} Could not find actor reference for destination: {:?}, dropping message", self.addr, envelope.receiver()
+                                    debug!(&self.log, "NetworkThread {} Could not find actor reference for destination: {:?}, dropping message", self.addr, envelope.receiver()
                                     )
                                 }
                                 Some(actor) => {
@@ -391,8 +389,7 @@ impl NetworkThread {
                         ret = IOReturn::Rename(hello.addr)
                     }
                     Frame::Bye() => {
-                        info!(self.log, "NetworkThread {} received Bye from {}", self.addr, &addr);
-                        channel.shutdown();
+                        debug!(self.log, "NetworkThread {} received Bye from {}", self.addr, &addr);
                         self.dispatcher_ref
                             .tell(DispatchEnvelope::Event(EventEnvelope::Network(
                                 NetworkEvent::Connection(*addr, ConnectionState::Closed),
@@ -400,7 +397,7 @@ impl NetworkThread {
                         return IOReturn::Close;
                     }
                     _ => {
-                        info!(self.log, "NetworkThread {} unexpected frame type from {}", self.addr, &addr);
+                        error!(self.log, "NetworkThread {} unexpected frame type from {}", self.addr, &addr);
                     }
                 }
             }
@@ -414,17 +411,17 @@ impl NetworkThread {
         if let Some(_) = self.channel_map.get(&addr) {
             // We already have a connection set-up
             // the connection request must have been sent before the channel was initialized
-            info!(self.log, "NetworkThread {} asked to request connection to already connected host {}", self.addr, &addr);
+            debug!(self.log, "NetworkThread {} asked to request connection to already connected host {}", self.addr, &addr);
             return Ok(());
         }
-        info!(self.log, "NetworkThread {} requesting connection to {}", self.addr, &addr);
+        debug!(self.log, "NetworkThread {} requesting connection to {}", self.addr, &addr);
         match TcpStream::connect(&addr) {
             Ok(stream) => {
                 self.store_stream(stream, &addr)?;
                 Ok(())
             }
             Err(e) => {
-                info!(self.log, "NetworkThread {} failed to connect to remote host {}, error: {:?}", addr, &addr, e);
+                error!(self.log, "NetworkThread {} failed to connect to remote host {}, error: {:?}", addr, &addr, e);
                 Ok(())
             }
         }
@@ -433,7 +430,7 @@ impl NetworkThread {
     #[allow(irrefutable_let_patterns)]
     fn accept_stream(&mut self) -> io::Result<()> {
         while let (stream, addr) = (self.listener.as_ref().unwrap()).accept()? {
-            info!(self.log, "NetworkThread {} accepting connection from {}", self.addr, &addr);
+            debug!(self.log, "NetworkThread {} accepting connection from {}", self.addr, &addr);
             self.store_stream(stream, &addr)?;
         }
         Ok(())
@@ -443,7 +440,7 @@ impl NetworkThread {
         if let Some(buffer) = self.buffer_pool.get_buffer() {
             self.token_map.insert(self.token.clone(), addr.clone());
             let mut channel = TcpChannel::new(stream, self.token, buffer);
-            info!(self.log, "NetworkThread {} saying Hello to {}", self.addr, &addr);
+            debug!(self.log, "NetworkThread {} saying Hello to {}", self.addr, &addr);
             let _ = channel.initialize(&self.addr);
             let _ = self.poll.register(
                 channel.stream(),
@@ -499,7 +496,7 @@ impl NetworkThread {
                     self.stop();
                 }
                 DispatchEvent::Connect(addr) => {
-                    info!(
+                    debug!(
                         self.log,
                         "NetworkThread got DispatchEvent::Connect({})", addr
                     );
@@ -516,7 +513,7 @@ impl NetworkThread {
             self.try_read(&addr);
         }
         for (_, mut channel) in self.channel_map.drain() {
-            info!(
+            debug!(
                 self.log,
                 "NetworkThread {} Stopping channel with message count {}",
                 self.addr,

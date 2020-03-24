@@ -217,10 +217,11 @@ impl NetworkDispatcher {
             for (addr, retry) in drain {
                 if retry < MAX_RETRY_ATTEMPTS {
                     // Make sure we will re-request connection later
-                    self.retry_map.insert(addr.clone(), 0);
+                    self.retry_map.insert(addr.clone(), retry + 1);
                     if let Some(bridge) = &self.net_bridge {
                         // Do connection attempt
-                        info!(self.ctx().log(), "Dispatcher retrying connection to host {}", addr);
+                        debug!(self.ctx().log(), "Dispatcher retrying connection to host {}, attempt {}/{}",
+                               addr, retry, MAX_RETRY_ATTEMPTS);
                         bridge.connect(Transport::TCP, addr).unwrap();
                     }
                 } else {
@@ -959,6 +960,211 @@ mod dispatch_tests {
         });
 
         system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems 1 and 2a, with Named paths. It first spawns a pinger-ponger couple
+    /// The ping pong process completes, it shuts down system2a, spawns a new pinger on system1
+    /// and finally boots a new system 2b with an identical networkconfig and named actor registration
+    /// The final ping pong round should then complete as system1 automatically reconnects to system2 and
+    /// transfers the enqueued messages.
+    fn remote_lost_and_continued_connection() {
+        let system1 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9111)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+        let system2 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9112)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+
+        // Set-up system2a
+        let system2a = system2();
+        //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new);
+        let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system2a.system_path(),
+            vec!["custom_name".into()],
+        ));
+        let named_path_clone = named_path.clone();
+        // Set-up system1
+        let system1 = system1();
+        let (pinger_named, pinf) = system1.create_and_register(move || PingerAct::new(named_path_clone));
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system2a.start(&ponger_named);
+        system1.start(&pinger_named);
+
+        // Wait for the pingpong
+        thread::sleep(Duration::from_millis(2000));
+
+        // Assert that things are going as we expect
+        let pongfn = system2a.kill_notify(ponger_named);
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        // We now kill system2
+        system2a.shutdown();
+        // Start a new pinger on system1
+        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
+        pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        system1.start(&pinger_named2);
+        // Wait for it to send its pings, system1 should recognize the remote address
+        thread::sleep(Duration::from_millis(1000));
+        // Assert that things are going as they should be, ping count has not increased
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, 0);
+        });
+        // Start up system2b
+        println!("Setting up system2b");
+        let system2b = system2();
+        let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new);
+        let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        println!("Starting actor on system2b");
+        system2b.start(&ponger_named);
+
+        // We give the connection plenty of time to re-establish and transfer it's old queue
+        println!("Final sleep");
+        thread::sleep(Duration::from_millis(5000));
+        // Final assertion, did our systems re-connect without lost messages?
+        println!("Asserting");
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        println!("Shutting down");
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2b
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
+    /// system1 times out in its reconnection attempts and drops the enqueued buffers.
+    /// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
+    fn remote_lost_and_dropped_connection() {
+        let system1 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9211)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+        let system2 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9212)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+
+        // Set-up system2a
+        let system2a = system2();
+        //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new);
+        let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system2a.system_path(),
+            vec!["custom_name".into()],
+        ));
+        let named_path_clone = named_path.clone();
+        let named_path_clone2 = named_path.clone();
+        // Set-up system1
+        let system1 = system1();
+        let (pinger_named, pinf) = system1.create_and_register(move || PingerAct::new(named_path_clone));
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system2a.start(&ponger_named);
+        system1.start(&pinger_named);
+
+        // Wait for the pingpong
+        thread::sleep(Duration::from_millis(2000));
+
+        // Assert that things are going as we expect
+        let pongfn = system2a.kill_notify(ponger_named);
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        // We now kill system2
+        system2a.shutdown();
+        // Start a new pinger on system1
+        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
+        pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        system1.start(&pinger_named2);
+        // Wait for it to send its pings, system1 should recognize the remote address
+        thread::sleep(Duration::from_millis(1000));
+        // Assert that things are going as they should be, ping count has not increased
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, 0);
+        });
+        // Sleep long-enough that the remote connection will be dropped with its queue
+        thread::sleep(Duration::from_millis((MAX_RETRY_ATTEMPTS + 2) as u64 * 5000));
+        // Start up system2b
+        println!("Setting up system2b");
+        let system2b = system2();
+        let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new);
+        let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        println!("Starting actor on system2b");
+        system2b.start(&ponger_named);
+
+        // We give the connection plenty of time to re-establish and transfer it's old queue
+        thread::sleep(Duration::from_millis(5000));
+        // Final assertion, did our systems re-connect without lost messages?
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, 0);
+        });
+
+        // This one should now succeed
+        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path_clone2));
+        pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        system1.start(&pinger_named2);
+        // Wait for it to send its pings, system1 should recognize the remote address
+        thread::sleep(Duration::from_millis(1000));
+        // Assert that things are going as they should be
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2b
             .shutdown()
             .expect("Kompact didn't shut down properly");
     }

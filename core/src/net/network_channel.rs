@@ -32,9 +32,6 @@ pub(crate) struct TcpChannel {
 impl TcpChannel {
     pub fn new(stream: TcpStream, token: Token, buffer_chunk: BufferChunk) -> Self {
         let input_buffer = DecodeBuffer::new(buffer_chunk);
-        if let Err(e) = stream.set_nodelay(true) {
-            eprintln!("failed to set nodelay on TcpChannel: {:?}", e);
-        }
         TcpChannel {
             stream,
             outbound_queue: VecDeque::new(),
@@ -67,6 +64,9 @@ impl TcpChannel {
         let mut hello_bytes = BytesMut::with_capacity(hello.encoded_len());
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = hello.encode_into(&mut hello_bytes) {
+            if let Err(e) = self.stream.set_nodelay(true) {
+                eprintln!("failed to set nodelay on TcpChannel connected to {:?}: {:?}", self.stream.peer_addr(), e);
+            }
             self.outbound_queue
                 .push_back(SerializedFrame::Bytes(hello_bytes.freeze()));
             self.try_drain()?;

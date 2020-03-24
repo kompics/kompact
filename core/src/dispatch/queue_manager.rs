@@ -1,6 +1,3 @@
-use crate::net::ConnectionState;
-use futures::sync;
-
 use crate::messaging::SerializedFrame;
 use std::{
     collections::{HashMap, VecDeque},

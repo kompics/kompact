@@ -597,7 +597,7 @@ mod deser_macro_tests {
     use super::*;
     use crate::{net::buffer::BufferChunk, serialisation::Serialiser};
     use bytes::{Buf, BufMut};
-    use std::{str::FromStr, sync::Arc};
+    use std::{str::FromStr};
 
     #[test]
     fn simple_macro_test() {
