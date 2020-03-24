@@ -20,9 +20,9 @@ before_install:
 
 deploy:
   provider: pages
-  skip-cleanup: true
-  github-token: $GITHUB_TOKEN
-  local-dir: docs/book/html
-  keep-history: false
+  cleanup: true
+  token: $GITHUB_TOKEN
+  local_dir: docs/book/html
+  keep_history: false
   on:
     branch: tutorial
