@@ -313,19 +313,24 @@ impl ActorPath {
             self.tell(m, from);
             return Ok(());
         }
-        //let mut buf = encode_buffer.deref_mut();
-        let mut buf_ref = from.ctx().get_buffer().borrow_mut();
-        let buf = &mut EncodeBuffer::get_buffer_encoder(buf_ref.deref_mut());
+        // Make sure the pool is initialized
+        if let Some(ref mut buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
+            let mut buf = buffer.get_buffer_encoder();
+            let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, &mut buf)?;
 
-        let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, buf)?;
+            let env = DispatchEnvelope::Msg {
+                src: from.path_resolvable(),
+                dst: self.clone(),
+                msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+            };
+            from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
 
-        let env = DispatchEnvelope::Msg {
-            src: from.path_resolvable(),
-            dst: self.clone(),
-            msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
-        };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-        Ok(())
+            Ok(())
+        } else {
+            from.ctx().initialize_pool();
+            // Try again
+            self.tell_serialised(m, from)
+        }
     }
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)

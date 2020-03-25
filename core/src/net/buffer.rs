@@ -278,8 +278,13 @@ impl EncodeBuffer {
         self.read_offset += cnt;
     }
 
+    /*
     pub fn get_buffer_encoder(encode_buffer: &mut EncodeBuffer) -> BufferEncoder {
         BufferEncoder::new(encode_buffer)
+    }
+    */
+    pub fn get_buffer_encoder(&mut self) -> BufferEncoder {
+        BufferEncoder::new(self)
     }
 
     pub fn get_write_offset(&self) -> usize { self.write_offset }
