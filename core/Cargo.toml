@@ -65,7 +65,7 @@ core_affinity = {version = "0.5.9", optional = true}
 bytes = "0.5.3"
 futures = "0.1.2"
 bitfields = "0.2"
-mio = "0.6.20"
+mio = {version = "0.7.0", features = ["tcp", "os-poll"]}
 iovec = "0.1.1" # Match MIOs Version
 
 [dependencies.executors]

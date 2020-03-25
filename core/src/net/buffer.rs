@@ -360,13 +360,12 @@ impl DecodeBuffer {
 
     /// Returns an IoVec of the writeable end of the buffer
     /// If something is written to the slice the advance writeable must be called after
-    pub fn get_writeable(&mut self) -> Option<&mut IoVec> {
+    pub fn get_writeable(&mut self) -> Option<&mut [u8]> {
         if self.buffer.len() - self.write_offset < 128 {
             return None;
         }
         unsafe {
-            //let mut slice = ;
-            IoVec::from_bytes_mut(self.buffer.get_slice(self.write_offset, self.buffer.len()))
+            Some(self.buffer.get_slice(self.write_offset, self.buffer.len()))
         }
     }
 

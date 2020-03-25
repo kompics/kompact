@@ -11,7 +11,7 @@ use crate::{
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
 };
 use bytes::{Buf, BufMut, BytesMut};
-use mio::{Ready, Registration, SetReadiness};
+use mio::{Interest, Waker};
 use std::sync::mpsc::{channel, Receiver as Recv, Sender, SendError, RecvError};
 
 #[allow(missing_docs)]
@@ -129,7 +129,7 @@ pub struct Bridge {
     // network_thread: Box<NetworkThread>,
     // ^ Can we avoid storing this by moving it into itself?
     network_input_queue: Sender<events::DispatchEvent>,
-    network_thread_registration: SetReadiness,
+    waker: Waker,
     /// Tokio Runtime
     // tokio_runtime: Option<Runtime>,
     /// Reference back to the Kompact dispatcher
@@ -153,15 +153,12 @@ impl Bridge {
         addr: SocketAddr,
         dispatcher_ref: DispatcherRef,
     ) -> (Self, SocketAddr) {
-        let (registration, network_thread_registration) = Registration::new2();
         let (sender, receiver) = channel();
         let (network_thread_sender, network_thread_receiver) = channel();
-        let mut network_thread = NetworkThread::new(
+        let (mut network_thread, mut waker) = NetworkThread::new(
             network_thread_log,
             addr,
             lookup.clone(),
-            registration,
-            network_thread_registration.clone(),
             receiver,
             network_thread_sender,
             dispatcher_ref.clone(),
@@ -172,7 +169,7 @@ impl Bridge {
             log: bridge_log,
             // lookup,
             network_input_queue: sender,
-            network_thread_registration,
+            waker,
             dispatcher: Some(dispatcher_ref),
             bound_addr: Some(bound_addr.clone()),
             network_thread_receiver: Box::new(network_thread_receiver),
@@ -196,8 +193,7 @@ impl Bridge {
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         self.network_input_queue.send(DispatchEvent::Stop())?;
-        self.network_thread_registration
-            .set_readiness(Ready::readable())?;
+        self.waker.wake().expect("Network Bridge Waking NetworkThread in stop()");
         self.network_thread_receiver.recv()?; // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
@@ -229,8 +225,7 @@ impl Bridge {
                 ))?;
             }
         }
-        self.network_thread_registration
-            .set_readiness(Ready::readable())?;
+        self.waker.wake()?;
         Ok(())
     }
 
@@ -248,8 +243,7 @@ impl Bridge {
             Transport::TCP => {
                 self.network_input_queue
                     .send(events::DispatchEvent::Connect(addr))?;
-                self.network_thread_registration
-                    .set_readiness(Ready::readable())?;
+                self.waker.wake()?;
                 Ok(())
             }
             _other => Err(NetworkBridgeErr::Other("Bad Protocol".to_string())),

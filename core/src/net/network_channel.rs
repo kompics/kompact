@@ -10,12 +10,12 @@ use crate::{
 };
 use bytes::{Buf, BytesMut};
 use core::mem;
-use mio::{tcp::TcpStream, Ready, Token};
+use mio::{net::TcpStream, Interest, Token};
 use std::{
     cmp::Ordering,
     collections::VecDeque,
     io,
-    io::{Error, ErrorKind, Write},
+    io::{Error, ErrorKind, Write, Read},
     net::{Shutdown::Both, SocketAddr},
 };
 
@@ -26,7 +26,6 @@ pub(crate) struct TcpChannel {
     input_buffer: DecodeBuffer,
     pub state: ConnectionState,
     pub messages: u32,
-    pub pending_set: Ready,
 }
 
 impl TcpChannel {
@@ -39,7 +38,6 @@ impl TcpChannel {
             input_buffer,
             state: ConnectionState::New,
             messages: 0,
-            pending_set: Ready::readable() | Ready::writable(),
         }
     }
 
@@ -89,10 +87,9 @@ impl TcpChannel {
             if read_bytes > 0 {
                 self.input_buffer.advance_writeable(read_bytes);
             }
-            if let Some(mut io_vec) = self.input_buffer.get_writeable() {
-                match self.stream.read_bufs(&mut [&mut io_vec]) {
+            if let Some(mut buf) = self.input_buffer.get_writeable() {
+                match self.stream.read(&mut buf) {
                     Ok(0) => {
-                        self.pending_set.insert(Ready::readable());
                         return Ok(sum_read_bytes);
                     }
                     Ok(n) => {
@@ -101,14 +98,12 @@ impl TcpChannel {
                         // continue looping and reading
                     }
                     Err(err) if would_block(&err) => {
-                        self.pending_set.insert(Ready::readable());
                         return Ok(sum_read_bytes);
                     }
                     Err(err) if interrupted(&err) => {
                         // We should continue trying until no interruption
                         interrupts += 1;
                         if interrupts >= network_thread::MAX_INTERRUPTS {
-                            self.pending_set.insert(Ready::readable());
                             return Err(err);
                         }
                     }
@@ -185,11 +180,6 @@ impl TcpChannel {
                 Err(ref err) if would_block(err) => {
                     // re-insert the data at the front of the buffer and return
                     self.outbound_queue.push_front(serialized_frame);
-                    if self.has_remaining_output() {
-                        self.pending_set.insert(Ready::writable());
-                    } else {
-                        self.pending_set.remove(Ready::writable());
-                    }
                     return Ok(sent_bytes);
                 }
                 Err(err) if interrupted(&err) => {
@@ -206,11 +196,6 @@ impl TcpChannel {
                     return Err(err);
                 }
             }
-        }
-        if self.has_remaining_output() {
-            self.pending_set.insert(Ready::writable());
-        } else {
-            self.pending_set.remove(Ready::writable());
         }
         Ok(sent_bytes)
     }
