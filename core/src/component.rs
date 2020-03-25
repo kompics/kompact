@@ -689,7 +689,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     }
 
     /// Initializes a buffer pool which [tell_serialised(ActorPath::tell_serialised) can use.
-    pub fn initialize_pool(&self) -> () {
+    pub fn initialise_pool(&self) -> () {
         debug!(self.log(), "Initialising EncodeBuffer");
         *self.inner_ref().buffer.borrow_mut() = Some(EncodeBuffer::new());
     }

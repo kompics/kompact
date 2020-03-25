@@ -538,7 +538,6 @@ impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Start => {
-                self.ctx_mut().initialize_pool();
                 info!(self.ctx.log(), "Starting network...");
                 let res = self.start(); //.expect("Could not create NetworkDispatcher!");
                 match res {
@@ -1381,7 +1380,6 @@ mod dispatch_tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
                     if self.eager {
                         self.target.tell_serialised(PingMsg { i: 0 }, self);
@@ -1446,7 +1444,6 @@ mod dispatch_tests {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
-                    self.ctx_mut().initialize_pool();
                 }
                 _ => (),
             }

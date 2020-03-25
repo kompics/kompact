@@ -313,24 +313,25 @@ impl ActorPath {
             self.tell(m, from);
             return Ok(());
         }
-        // Make sure the pool is initialized
-        if let Some(ref mut buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
-            let mut buf = buffer.get_buffer_encoder();
-            let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, &mut buf)?;
+        // Scope the buffer check so we can safely initialise it if we need to
+        {
+            if let Some(ref mut buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
+                let mut buf = buffer.get_buffer_encoder();
+                let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, &mut buf)?;
 
-            let env = DispatchEnvelope::Msg {
-                src: from.path_resolvable(),
-                dst: self.clone(),
-                msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
-            };
-            from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+                let env = DispatchEnvelope::Msg {
+                    src: from.path_resolvable(),
+                    dst: self.clone(),
+                    msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+                };
+                from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
 
-            Ok(())
-        } else {
-            from.ctx().initialize_pool();
-            // Try again
-            self.tell_serialised(m, from)
+                return Ok(());
+            }
         }
+        // Try again
+        from.ctx().initialise_pool();
+        self.tell_serialised(m, from)
     }
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
@@ -489,13 +490,13 @@ impl FromStr for UniquePath {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.split("://").collect();
-        // parts: [tcp]://[IP:port#id]
+// parts: [tcp]://[IP:port#id]
         if parts.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
         let proto: Transport = parts[0].parse()?;
         let parts: Vec<&str> = parts[1].split(UNIQUE_PATH_SEP).collect();
-        // parts: [IP:port]#[UUID]
+// parts: [IP:port]#[UUID]
         if parts.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
@@ -660,7 +661,7 @@ mod tests {
             Uuid::new_v4(),
         ));
         let ref1_string = ref1.to_string();
-        //println!("ActorPath::Unique: {}", ref1_string);
+//println!("ActorPath::Unique: {}", ref1_string);
         let ref1_deser = ActorPath::from_str(&ref1_string).expect("a proper path");
         let ref1_deser2: ActorPath = ref1_string.parse().expect("a proper path");
         assert_eq!(ref1, ref1_deser);

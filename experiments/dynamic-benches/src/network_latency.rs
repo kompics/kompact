@@ -102,12 +102,12 @@ fn ping_pong_latency_bin<Pinger, PingerF, Ponger, PongerF, PortF>(
     ponger_func: PongerF,
     port_func: PortF,
 ) -> Duration
-where
-    Pinger: ComponentDefinition + 'static,
-    Ponger: ComponentDefinition + 'static,
-    PingerF: Fn(ActorPath) -> Pinger,
-    PongerF: Fn() -> Ponger,
-    PortF: Fn(&std::sync::Arc<Component<Pinger>>) -> ProvidedRef<ExperimentPort>,
+    where
+        Pinger: ComponentDefinition + 'static,
+        Ponger: ComponentDefinition + 'static,
+        PingerF: Fn(ActorPath) -> Pinger,
+        PongerF: Fn() -> Ponger,
+        PortF: Fn(&std::sync::Arc<Component<Pinger>>) -> ProvidedRef<ExperimentPort>,
 {
     // Setup
     let sys1 = setup_system("test-system-1", 1);
@@ -341,7 +341,6 @@ pub mod pppipelinestatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -377,7 +376,7 @@ pub mod pppipelinestatic {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining_recv -= 1u64;
@@ -414,7 +413,6 @@ pub mod pppipelinestatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -432,7 +430,7 @@ pub mod pppipelinestatic {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
             let sender = msg.sender().clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
@@ -554,7 +552,6 @@ pub mod pppipelineindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -592,7 +589,7 @@ pub mod pppipelineindexed {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining_recv -= 1u64;
@@ -629,7 +626,6 @@ pub mod pppipelineindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -647,7 +643,7 @@ pub mod pppipelineindexed {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
             let sender = msg.sender().clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
@@ -781,7 +777,6 @@ pub mod ppstatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -813,7 +808,7 @@ pub mod ppstatic {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
             let sender = msg.sender().clone();
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -853,7 +848,6 @@ pub mod ppstatic {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -871,7 +865,7 @@ pub mod ppstatic {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
             let sender = msg.sender().clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
@@ -999,7 +993,6 @@ pub mod ppstatic {
         impl Provide<ControlPort> for Pinger {
             fn handle(&mut self, _event: ControlEvent) -> () {
                 // ignore
-                self.ctx.initialize_pool();
             }
         }
 
@@ -1089,7 +1082,6 @@ pub mod ppstatic {
         impl Provide<ControlPort> for Ponger {
             fn handle(&mut self, _event: ControlEvent) -> () {
                 // ignore
-                self.ctx.initialize_pool();
             }
         }
 
@@ -1101,7 +1093,7 @@ pub mod ppstatic {
             }
 
             fn receive_network(&mut self, msg: NetMessage) -> () {
-                trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+                trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
                 let sender = msg.sender().clone();
                 match msg.try_deserialise::<Ping, Ping>() {
                     Ok(_ping) => {
@@ -1152,7 +1144,6 @@ pub mod ppindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Pinger");
                 }
                 e => {
@@ -1184,7 +1175,7 @@ pub mod ppindexed {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining -= 1u64;
@@ -1223,7 +1214,6 @@ pub mod ppindexed {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx.initialize_pool();
                     debug!(self.ctx.log(), "Starting Ponger");
                 }
                 e => {
@@ -1241,7 +1231,7 @@ pub mod ppindexed {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
+            trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
             let sender = msg.sender().clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
