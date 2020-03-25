@@ -413,7 +413,7 @@ impl NetworkThread {
                             use serialisation::ser_helpers::deserialise_msg;
                             let buf = fr.payload();
                             let envelope = deserialise_msg(buf).expect("s11n errors");
-                            match lease_lookup.get_by_actor_path(envelope.receiver()) {
+                            match lease_lookup.get_by_actor_path(&envelope.receiver) {
                                 None => {
                                     // TODO Adam do something useful
                                     // println!(

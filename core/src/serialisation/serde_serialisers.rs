@@ -29,8 +29,7 @@ where
     }
 
     fn size_hint(&self) -> Option<usize> {
-        // TODO remove this random number shit! It's just a hack until buffers correctly resize again (Adam's PR)
-        Some(std::mem::size_of::<T>() + 1024) // best guess
+        Some(std::mem::size_of::<T>()) // best guess
     }
 
     fn serialise(&self, v: &T, buf: &mut dyn BufMut) -> Result<(), SerError> {
@@ -947,10 +946,8 @@ impl<'de> Visitor<'de> for ActorPathVisitor {
     where
         E: de::Error,
     {
-        // TODO just use the slice once Adam's branch is merged
-        //let slice: &[u8] = &value;
-        let mut cursor = std::io::Cursor::new(value);
-        let path = ActorPath::deserialise(&mut cursor).map_err(|e| de::Error::custom(e))?;
+        let mut slice: &[u8] = &value;
+        let path = ActorPath::deserialise(&mut slice).map_err(|e| de::Error::custom(e))?;
         Ok(path)
     }
 }

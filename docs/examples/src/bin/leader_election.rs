@@ -115,8 +115,8 @@ impl Actor for EventualLeaderElector {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        let sender = msg.sender().clone();
-        match msg.try_deserialise::<Heartbeat, Serde>() {
+        let sender = msg.sender;
+        match msg.data.try_deserialise::<Heartbeat, Serde>() {
             Ok(_heartbeat) => {
                 self.candidates.insert(sender);
             }

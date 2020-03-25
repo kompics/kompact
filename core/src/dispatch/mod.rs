@@ -333,8 +333,7 @@ impl NetworkDispatcher {
         } else {
             error!(
                 self.ctx.log(),
-                "No local actor found at {:?}. Forwarding to DeadletterBox",
-                netmsg.receiver(),
+                "No local actor found at {:?}. Forwarding to DeadletterBox", netmsg.receiver,
             );
             self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
         }
@@ -1134,7 +1133,9 @@ mod dispatch_tests {
                     self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
                     if self.eager {
-                        self.target.tell_serialised(PingMsg { i: 0 }, self);
+                        self.target
+                            .tell_serialised(PingMsg { i: 0 }, self)
+                            .expect("serialise");
                     } else {
                         self.target.tell(PingMsg { i: 0 }, self);
                     }
@@ -1159,7 +1160,8 @@ mod dispatch_tests {
                     if self.count < PING_COUNT {
                         if self.eager {
                             self.target
-                                .tell_serialised((PingMsg { i: pong.i + 1 }), self);
+                                .tell_serialised((PingMsg { i: pong.i + 1 }), self)
+                                .expect("serialise");
                         } else {
                             self.target.tell((PingMsg { i: pong.i + 1 }), self);
                         }
@@ -1212,8 +1214,8 @@ mod dispatch_tests {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            let sender = msg.sender().clone();
-            match_deser! {msg; {
+            let sender = msg.sender;
+            match_deser! {msg.data; {
                 ping: PingMsg [PingPongSer] => {
                     info!(self.ctx.log(), "Got msg {:?} from {:?}", ping, sender);
                     let pong = PongMsg { i: ping.i };
