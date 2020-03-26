@@ -49,7 +49,7 @@ pub trait Timer {
         action: F,
     ) -> ()
     where
-        F: Fn(Uuid) + Send + 'static;
+        F: Fn(Uuid) -> TimerReturn + Send + 'static;
 
     /// Cancel the timer indicated by the `id`
     ///
@@ -60,6 +60,29 @@ pub trait Timer {
     /// However, calling this method will definitely prevent *periodic* timeouts
     /// from being rescheduled.
     fn cancel(&mut self, id: Uuid);
+}
+
+/// Indicate whether or not to reschedule a periodic timer
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TimerReturn {
+    /// Reschedule the timer
+    Reschedule,
+    /// Do not reschedule the timer
+    Cancel,
+}
+impl TimerReturn {
+    /// Whether or not this timer should be rescheduled
+    pub fn should_reschedule(&self) -> bool {
+        match self {
+            TimerReturn::Reschedule => true,
+            TimerReturn::Cancel => false,
+        }
+    }
+}
+impl Default for TimerReturn {
+    fn default() -> Self {
+        TimerReturn::Reschedule
+    }
 }
 
 /// A concrete entry for an outstanding timout
@@ -82,7 +105,7 @@ pub enum TimerEntry {
         /// The time between `action` invocations
         period: Duration,
         /// The action to invoke whenever the timeout expires
-        action: Box<dyn Fn(Uuid) + Send + 'static>,
+        action: Box<dyn Fn(Uuid) -> TimerReturn + Send + 'static>,
     },
 }
 
@@ -151,15 +174,18 @@ impl TimerEntry {
             TimerEntry::Periodic {
                 id, action, period, ..
             } => {
-                action.as_ref()(id);
-                let next = TimerEntry::Periodic {
-                    id,
-                    delay: period,
-                    period,
-                    action,
-                };
-                //FnBox::call_box(&action, id);
-                Some(next)
+                let res = action.as_ref()(id);
+                if res.should_reschedule() {
+                    let next = TimerEntry::Periodic {
+                        id,
+                        delay: period,
+                        period,
+                        action,
+                    };
+                    Some(next)
+                } else {
+                    None
+                }
             }
         }
     }

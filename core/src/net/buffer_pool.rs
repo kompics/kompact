@@ -5,7 +5,6 @@ use std::collections::VecDeque;
 pub const INITIAL_BUFFER_LEN: usize = 5;
 const MAX_POOL_SIZE: usize = 10000;
 
-
 /// Methods required by a ChunkAllocator
 pub trait ChunkAllocator: Send + 'static {
     /// ChunkAllocators deliver Chunk by raw pointers
@@ -13,7 +12,6 @@ pub trait ChunkAllocator: Send + 'static {
     /// This method tells the allocator that the Chunk may be de-allocated
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
 }
-
 
 /// A default allocator for Kompact
 ///

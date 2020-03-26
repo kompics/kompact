@@ -37,7 +37,7 @@ impl Timer for TimerRef {
 
     fn schedule_periodic<F>(&mut self, id: Uuid, delay: Duration, period: Duration, action: F) -> ()
     where
-        F: Fn(Uuid) + Send + 'static,
+        F: Fn(Uuid) -> TimerReturn + Send + 'static,
     {
         let e = TimerEntry::Periodic {
             id,

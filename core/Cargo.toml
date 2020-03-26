@@ -24,7 +24,7 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["serde","slog/max_level_debug", "slog/release_max_level_info", "ser_id_64"]
+default = ["serde_support","slog/max_level_debug", "slog/release_max_level_info", "ser_id_64"]
 silent_logging = ["serde", "slog/max_level_info", "slog/release_max_level_error"]
 low_latency = ["executors/ws-no-park"]
 ser_id_64 = []
@@ -32,7 +32,7 @@ ser_id_32 = []
 ser_id_16 = []
 ser_id_8 = []
 thread_pinning = ["core_affinity", "executors/thread-pinning"]
-
+serde_support = ["serde", "bytes/serde"]
 
 [dependencies]
 log = "0.4"
@@ -86,6 +86,7 @@ default_features = true
 [dev-dependencies]
 #env_logger = "0.4"
 tempfile = "3.1"
+serde = {version = "1.0", features = ["derive"]}
 
 [build-dependencies]
 rustc_version = "0.2"

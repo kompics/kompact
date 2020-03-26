@@ -55,3 +55,4 @@ report_fixme = "Always"
 ignore = []
 emit_mode = "Files"
 make_backup = false
+edition = "2018"

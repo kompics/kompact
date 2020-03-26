@@ -20,12 +20,16 @@ use crate::{
         RegistrationEnvelope,
         RegistrationError,
     },
-    net::{events::NetworkEvent, ConnectionState, NetworkBridgeErr,
-          buffer::{EncodeBuffer, BufferEncoder}},
+    net::{
+        buffer::{BufferEncoder, EncodeBuffer},
+        events::NetworkEvent,
+        ConnectionState,
+        NetworkBridgeErr,
+    },
 };
 use arc_swap::ArcSwap;
-use futures::{self, Async, AsyncSink, Poll, StartSend};
 use fnv::FnvHashMap;
+use futures::{self, Async, AsyncSink, Poll, StartSend};
 use std::{io::ErrorKind, time::Duration};
 
 pub mod lookup;
@@ -256,7 +260,10 @@ impl NetworkDispatcher {
             EventEnvelope::Network(ev) => match ev {
                 NetworkEvent::Connection(addr, conn_state) => {
                     if let Err(e) = self.on_conn_state(addr, conn_state) {
-                        error!(self.ctx().log(), "Error while connecting to {}, \n{:?}", addr, e)
+                        error!(
+                            self.ctx().log(),
+                            "Error while connecting to {}, \n{:?}", addr, e
+                        )
                     }
                 }
                 NetworkEvent::Data(_) => {
@@ -271,7 +278,11 @@ impl NetworkDispatcher {
         }
     }
 
-    fn on_conn_state(&mut self, addr: SocketAddr, mut state: ConnectionState) -> Result<(), NetworkBridgeErr> {
+    fn on_conn_state(
+        &mut self,
+        addr: SocketAddr,
+        mut state: ConnectionState,
+    ) -> Result<(), NetworkBridgeErr> {
         use self::ConnectionState::*;
         match state {
             Connected(ref mut _frame_sender) => {
@@ -341,8 +352,7 @@ impl NetworkDispatcher {
         } else {
             error!(
                 self.ctx.log(),
-                "No local actor found at {:?}. Forwarding to DeadletterBox",
-                netmsg.receiver(),
+                "No local actor found at {:?}. Forwarding to DeadletterBox", netmsg.receiver,
             );
             self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
         }
@@ -350,7 +360,12 @@ impl NetworkDispatcher {
 
     /// Routes the provided message to the destination, or queues the message until the connection
     /// is available.
-    fn route_remote(&mut self, src: ActorPath, dst: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
+    fn route_remote(
+        &mut self,
+        src: ActorPath,
+        dst: ActorPath,
+        msg: DispatchData,
+    ) -> Result<(), NetworkBridgeErr> {
         let addr = SocketAddr::new(dst.address().clone(), dst.port());
         let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
         let serialized = msg.to_serialised(src, dst, buf)?;
@@ -429,7 +444,12 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, src: PathResolvable, dst_path: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
+    fn route(
+        &mut self,
+        src: PathResolvable,
+        dst_path: ActorPath,
+        msg: DispatchData,
+    ) -> Result<(), NetworkBridgeErr> {
         let src_path = self.resolve_path(&src);
         //println!("*** Dispatch route {:?}", dst_path.system().protocol());
         if src_path.system() == dst_path.system() {
@@ -449,7 +469,9 @@ impl NetworkDispatcher {
                 self.route_remote(src_path, dst_path, msg)?;
             }
             Transport::UDP => {
-                return Err(NetworkBridgeErr::Other("UDP routing is not supported.".to_string()));
+                return Err(NetworkBridgeErr::Other(
+                    "UDP routing is not supported.".to_string(),
+                ));
             }
         }
         Ok(())
@@ -841,8 +863,10 @@ mod dispatch_tests {
             ponger_unique.id().clone(),
         ));
 
-        let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new_eager(unique_path));
-        let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new_eager(named_path));
+        let (pinger_unique, piuf) =
+            system.create_and_register(move || PingerAct::new_eager(unique_path));
+        let (pinger_named, pinf) =
+            system.create_and_register(move || PingerAct::new_eager(named_path));
 
         piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -1366,6 +1390,7 @@ mod dispatch_tests {
                 eager: false,
             }
         }
+
         fn new_eager(target: ActorPath) -> PingerAct {
             PingerAct {
                 ctx: ComponentContext::new(),
@@ -1382,7 +1407,9 @@ mod dispatch_tests {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
                     if self.eager {
-                        self.target.tell_serialised(PingMsg { i: 0 }, self).ok();
+                        self.target
+                            .tell_serialised(PingMsg { i: 0 }, self)
+                            .expect("serialise");
                     } else {
                         self.target.tell(PingMsg { i: 0 }, self);
                     }
@@ -1407,7 +1434,8 @@ mod dispatch_tests {
                     if self.count < PING_COUNT {
                         if self.eager {
                             self.target
-                                .tell_serialised((PingMsg { i: pong.i + 1 }), self).ok();
+                                .tell_serialised((PingMsg { i: pong.i + 1 }), self)
+                                .expect("serialise");
                         } else {
                             self.target.tell((PingMsg { i: pong.i + 1 }), self);
                         }
@@ -1431,6 +1459,7 @@ mod dispatch_tests {
                 eager: false,
             }
         }
+
         fn new_eager() -> PongerAct {
             PongerAct {
                 ctx: ComponentContext::new(),
@@ -1458,8 +1487,8 @@ mod dispatch_tests {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            let sender = msg.sender().clone();
-            match_deser! {msg; {
+            let sender = msg.sender;
+            match_deser! {msg.data; {
                 ping: PingMsg [PingPongSer] => {
                     info!(self.ctx.log(), "Got msg {:?} from {:?}", ping, sender);
                     let pong = PongMsg { i: ping.i };

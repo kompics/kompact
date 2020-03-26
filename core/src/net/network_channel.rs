@@ -44,7 +44,8 @@ impl TcpChannel {
     pub fn stream_mut(&mut self) -> &mut TcpStream {
         &mut self.stream
     }
-    
+
+    #[allow(dead_code)]
     pub fn stream(&self) -> &TcpStream {
         &self.stream
     }

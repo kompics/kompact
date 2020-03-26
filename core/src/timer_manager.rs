@@ -1,4 +1,4 @@
-use crate::timer::Timer as TTimer;
+use crate::timer::{Timer as TTimer, TimerReturn};
 use std::{
     collections::HashMap,
     rc::Rc,
@@ -21,7 +21,7 @@ pub trait TimerRefFactory {
 ///
 /// Instances are returned from functions that schedule timers, such as
 /// [schedule_once](Timer::schedule_once) and [schedule_periodic](Timer::schedule_periodic).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScheduledTimer(Uuid);
 
 impl ScheduledTimer {
@@ -80,7 +80,7 @@ pub trait Timer<C: ComponentDefinition> {
     /// ```
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, Uuid) + Send + 'static;
+        F: FnOnce(&mut C, ScheduledTimer) + Send + 'static;
 
     /// Schedule the `action` to be run every `timeout` time units
     ///
@@ -148,7 +148,7 @@ pub trait Timer<C: ComponentDefinition> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, Uuid) + Send + 'static;
+        F: Fn(&mut C, ScheduledTimer) + Send + 'static;
 
     /// Cancel the timer indicated by the `handle`
     ///
@@ -219,17 +219,18 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, Uuid) + Send + 'static,
+        F: FnOnce(&mut C, ScheduledTimer) + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::OneShot {
             _id: id,
-            action: Box::new(action),
+            action: Box::new(move |new_self, id| action(new_self, ScheduledTimer::from_uuid(id))),
         };
         self.handles.insert(id, handle);
         let tar = self.new_ref(component);
         self.timer.schedule_once(id, timeout, move |id| {
-            tar.enqueue(Timeout(id));
+            // Ignore the Result, as we are anyway not trying to reschedule this timer
+            let _res = tar.enqueue(Timeout(id));
         });
         ScheduledTimer::from_uuid(id)
     }
@@ -242,17 +243,23 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, Uuid) + Send + 'static,
+        F: Fn(&mut C, ScheduledTimer) + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::Periodic {
             _id: id,
-            action: Rc::new(action),
+            action: Rc::new(move |new_self, id| action(new_self, ScheduledTimer::from_uuid(id))),
         };
         self.handles.insert(id, handle);
         let tar = self.new_ref(component);
         self.timer.schedule_periodic(id, delay, period, move |id| {
-            tar.enqueue(Timeout(id));
+            let res = tar.enqueue(Timeout(id));
+            if res.is_ok() {
+                TimerReturn::Reschedule
+            } else {
+                // Queue has probably been deallocated, so no point in trying this over and over again
+                TimerReturn::Cancel
+            }
         });
         ScheduledTimer::from_uuid(id)
     }
@@ -260,6 +267,15 @@ impl<C: ComponentDefinition> TimerManager<C> {
     pub(crate) fn cancel_timer(&mut self, handle: ScheduledTimer) {
         self.timer.cancel(handle.0);
         self.handles.remove(&handle.0);
+    }
+}
+
+impl<C: ComponentDefinition> Drop for TimerManager<C> {
+    fn drop(&mut self) {
+        // drop all handles in case someone forgets to clean up after their component
+        for (id, _) in self.handles.drain() {
+            self.timer.cancel(id);
+        }
     }
 }
 
@@ -297,24 +313,27 @@ impl TimerActorRef {
         }
     }
 
-    fn enqueue(&self, timeout: Timeout) -> () {
+    fn enqueue(&self, timeout: Timeout) -> Result<(), QueueingError> {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
                 q.push(timeout);
-                match c.core().increment_work() {
-                    SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = c.core().increment_work() {
+                    let system = c.core().system();
+                    system.schedule(c.clone());
                 }
+                Ok(())
             }
-            (q, c) => println!(
-                "Dropping timeout as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                q.is_some(),
-                c.is_some(),
-                timeout
-            ),
+            (q, c) => {
+                eprintln!("Dropping timeout as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                    q.is_some(),
+                    c.is_some(),
+                    timeout
+                );
+                Err(QueueingError)
+            }
         }
     }
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct QueueingError;

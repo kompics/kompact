@@ -1,9 +1,7 @@
 use crate::net::{buffer_pool::BufferPool, frames, frames::*};
 use bytes::{Buf, BufMut};
 use core::{cmp, mem, ptr};
-use std::sync::Arc;
-use std::io::Cursor;
-use std::mem::MaybeUninit;
+use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 1000;
@@ -26,9 +24,7 @@ pub(crate) struct DefaultChunk {
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
         let slice = ([0u8; BUFFER_SIZE]);
-        DefaultChunk {
-            chunk: slice,
-        }
+        DefaultChunk { chunk: slice }
     }
 }
 
@@ -82,9 +78,7 @@ impl BufferChunk {
 
     /// Get the length of the BufferChunk
     pub fn len(&self) -> usize {
-        unsafe {
-            Chunk::len(&*self.chunk)
-        }
+        unsafe { Chunk::len(&*self.chunk) }
     }
 
     /// Return a pointer to a subslice of the chunk
@@ -154,7 +148,10 @@ pub struct BufferEncoder<'a> {
 impl<'a> BufferEncoder<'a> {
     pub fn new(encode_buffer: &'a mut EncodeBuffer) -> Self {
         // Check alignment, make sure we start aligned:
-        assert_eq!(encode_buffer.get_write_offset(), encode_buffer.get_read_offset());
+        assert_eq!(
+            encode_buffer.get_write_offset(),
+            encode_buffer.get_read_offset()
+        );
         BufferEncoder { encode_buffer }
     }
 
@@ -286,8 +283,13 @@ impl EncodeBuffer {
         BufferEncoder::new(self)
     }
 
-    pub fn get_write_offset(&self) -> usize { self.write_offset }
-    pub fn get_read_offset(&self) -> usize { self.read_offset }
+    pub fn get_write_offset(&self) -> usize {
+        self.write_offset
+    }
+
+    pub fn get_read_offset(&self) -> usize {
+        self.read_offset
+    }
 
     /// Extracts the bytes between the read-pointer and the write-pointer and advances the read-pointer
     /// Ensures there's a minimum of `ENCODEBUFFER_MIN_REMAINING` left in the current buffer which minimizes overflow during swap
@@ -325,7 +327,11 @@ impl EncodeBuffer {
                 let len = chunk.bytes().len();
                 assert!(len < self.remaining());
                 unsafe {
-                    ptr::copy_nonoverlapping(chunk.bytes().as_ptr(), self.buffer.get_slice(0, len).as_mut_ptr(), len);
+                    ptr::copy_nonoverlapping(
+                        chunk.bytes().as_ptr(),
+                        self.buffer.get_slice(0, len).as_mut_ptr(),
+                        len,
+                    );
                     self.write_offset = chunk.bytes().len();
                 }
             }
@@ -475,7 +481,9 @@ impl DecodeBuffer {
                         return self.get_frame();
                     } else {
                         // We are lost in the buffer, this is very bad, no recovery mechanism implemented, yet
-                        panic!("Buffers is misaligned, can't find a frame head, potential data-loss")
+                        panic!(
+                            "Buffers is misaligned, can't find a frame head, potential data-loss"
+                        )
                     }
                 }
             }

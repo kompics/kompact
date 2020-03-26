@@ -431,7 +431,7 @@ pub mod pppipelinestatic {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender().clone();
+            let sender = msg.sender.clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
@@ -644,7 +644,7 @@ pub mod pppipelineindexed {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender().clone();
+            let sender = msg.sender.clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
@@ -809,7 +809,7 @@ pub mod ppstatic {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
-            let sender = msg.sender().clone();
+            let sender = msg.sender.clone();
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining -= 1u64;
@@ -866,7 +866,7 @@ pub mod ppstatic {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender().clone();
+            let sender = msg.sender.clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
@@ -1094,7 +1094,7 @@ pub mod ppstatic {
 
             fn receive_network(&mut self, msg: NetMessage) -> () {
                 trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-                let sender = msg.sender().clone();
+                let sender = msg.sender.clone();
                 match msg.try_deserialise::<Ping, Ping>() {
                     Ok(_ping) => {
                         trace!(self.ctx.log(), "Ponger got Ping!");
@@ -1232,7 +1232,7 @@ pub mod ppindexed {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender().clone();
+            let sender = msg.sender.clone();
             match msg.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");

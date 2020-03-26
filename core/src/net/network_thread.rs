@@ -349,10 +349,9 @@ impl NetworkThread {
                             use serialisation::ser_helpers::deserialise_msg;
                             let buf = fr.payload();
                             let envelope = deserialise_msg(buf).expect("s11n errors");
-                            match lease_lookup.get_by_actor_path(envelope.receiver()) {
+                            match lease_lookup.get_by_actor_path(&envelope.receiver) {
                                 None => {
-                                    debug!(&self.log, "NetworkThread {} Could not find actor reference for destination: {:?}, dropping message", self.addr, envelope.receiver()
-                                    )
+                                    debug!(&self.log, "NetworkThread {} Could not find actor reference for destination: {:?}, dropping message", self.addr, &envelope.receiver)
                                 }
                                 Some(actor) => {
                                     actor.enqueue(envelope);
