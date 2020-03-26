@@ -8,8 +8,6 @@ use std::{
     str::FromStr,
 };
 use uuid::Uuid;
-use std::ops::DerefMut;
-use crate::net::buffer::EncodeBuffer;
 
 /// Transport protocol to use for delivering messages
 /// sent to an [ActorPath](ActorPath)

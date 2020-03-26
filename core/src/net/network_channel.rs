@@ -10,7 +10,7 @@ use crate::{
 };
 use bytes::{Buf, BytesMut};
 use core::mem;
-use mio::{net::TcpStream, Interest, Token};
+use mio::{net::TcpStream, Token};
 use std::{
     cmp::Ordering,
     collections::VecDeque,
@@ -44,17 +44,9 @@ impl TcpChannel {
     pub fn stream_mut(&mut self) -> &mut TcpStream {
         &mut self.stream
     }
-
+    
     pub fn stream(&self) -> &TcpStream {
         &self.stream
-    }
-
-    pub fn has_remaining_output(&self) -> bool {
-        if self.outbound_queue.len() > 0 {
-            true
-        } else {
-            false
-        }
     }
 
     pub fn initialize(&mut self, addr: &SocketAddr) -> io::Result<()> {

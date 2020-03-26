@@ -291,8 +291,8 @@ impl NetworkDispatcher {
                 }
             }
             Closed => {
-                warn!(self.ctx().log(), "connection closed for {:?}", addr);
-                if let Some(retries) = self.retry_map.get(&addr) {} else {
+                if self.retry_map.get(&addr).is_none() {
+                    warn!(self.ctx().log(), "connection closed for {:?}", addr);
                     self.retry_map.insert(addr.clone(), 0); // Make sure we try to re-establish the connection
                 }
             }
@@ -732,7 +732,7 @@ mod dispatch_tests {
                     .shutdown()
                     .expect("KompicsSystem failed to shut down!");
                 println!("System shut down.");
-            });
+            }).ok();
 
         let mut cfg2 = KompactConfig::new();
         println!("Configuring network");
@@ -1020,7 +1020,7 @@ mod dispatch_tests {
             assert_eq!(c.count, PING_COUNT);
         });
         // We now kill system2
-        system2a.shutdown();
+        system2a.shutdown().ok();
         // Start a new pinger on system1
         let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
         pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -1116,7 +1116,7 @@ mod dispatch_tests {
             assert_eq!(c.count, PING_COUNT);
         });
         // We now kill system2
-        system2a.shutdown();
+        system2a.shutdown().ok();
         // Start a new pinger on system1
         let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
         pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -1382,7 +1382,7 @@ mod dispatch_tests {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
                     if self.eager {
-                        self.target.tell_serialised(PingMsg { i: 0 }, self);
+                        self.target.tell_serialised(PingMsg { i: 0 }, self).ok();
                     } else {
                         self.target.tell(PingMsg { i: 0 }, self);
                     }
@@ -1407,7 +1407,7 @@ mod dispatch_tests {
                     if self.count < PING_COUNT {
                         if self.eager {
                             self.target
-                                .tell_serialised((PingMsg { i: pong.i + 1 }), self);
+                                .tell_serialised((PingMsg { i: pong.i + 1 }), self).ok();
                         } else {
                             self.target.tell((PingMsg { i: pong.i + 1 }), self);
                         }

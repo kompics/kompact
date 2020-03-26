@@ -155,7 +155,7 @@ impl Bridge {
     ) -> (Self, SocketAddr) {
         let (sender, receiver) = channel();
         let (network_thread_sender, network_thread_receiver) = channel();
-        let (mut network_thread, mut waker) = NetworkThread::new(
+        let (mut network_thread, waker) = NetworkThread::new(
             network_thread_log,
             addr,
             lookup.clone(),

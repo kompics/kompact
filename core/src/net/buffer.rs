@@ -1,7 +1,6 @@
 use crate::net::{buffer_pool::BufferPool, frames, frames::*};
 use bytes::{Buf, BufMut};
 use core::{cmp, mem, ptr};
-use iovec::IoVec;
 use std::sync::Arc;
 use std::io::Cursor;
 use std::mem::MaybeUninit;

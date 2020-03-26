@@ -1,6 +1,6 @@
 use super::*;
 use crate::net::{buffer_pool::BufferPool, ConnectionState};
-use mio::{event::Event, net::{TcpListener, TcpStream}, Registry, Events, Poll, Token};
+use mio::{event::Event, net::{TcpListener, TcpStream}, Events, Poll, Token};
 use std::{
     collections::HashMap,
     io,
@@ -98,7 +98,7 @@ impl NetworkThread {
                     .expect("failed to register TCP SERVER");
 
                 // Create waker for Dispatch
-                let mut waker = Waker::new(poll.registry(), DISPATCHER)
+                let waker = Waker::new(poll.registry(), DISPATCHER)
                     .expect("failed to create Waker for DISPATCHER");
 
                 pub type FxBuildHasher = BuildHasherDefault<FxHasher>;
@@ -211,7 +211,7 @@ impl NetworkThread {
                     }
                     if close_channel {
                         if let Some(mut channel) = self.channel_map.remove(&addr) {
-                            self.poll.registry().deregister(channel.stream_mut());
+                            self.poll.registry().deregister(channel.stream_mut()).ok();
                             channel.shutdown();
                             drop(channel);
                         }
@@ -417,11 +417,14 @@ impl NetworkThread {
             let mut channel = TcpChannel::new(stream, self.token, buffer);
             debug!(self.log, "NetworkThread {} saying Hello to {}", self.addr, &addr);
             let _ = channel.initialize(&self.addr);
-            let _ = self.poll.registry().register(
+            if let Err(e) = self.poll.registry().register(
                 channel.stream_mut(),
                 self.token.clone(),
                 Interest::READABLE | Interest::WRITABLE,
-            );
+            ) {
+                error!(self.log, "NetworkThread {} failed to register polling for {}\n{:?}",
+                       self.addr, addr, e);
+            }
             self.channel_map.insert(addr.clone(), channel);
             self.next_token();
             Ok(())
@@ -493,7 +496,7 @@ impl NetworkThread {
             }
         }
         if let Some(mut listener) = self.listener.take() {
-            self.poll.registry().deregister(&mut listener);
+            self.poll.registry().deregister(&mut listener).ok();
             drop(listener);
             debug!(
                 self.log,
@@ -554,9 +557,15 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use crate::dispatch::NetworkConfig;
 
+    // Cleaner test-cases for manually running the thread
+    fn poll_and_handle(thread: &mut NetworkThread) -> () {
+        let mut events = Events::with_capacity(10);
+        thread.poll.poll(&mut events, Some(Duration::from_millis(100)));
+        for event in events.iter() {
+            thread.handle_event(event);
+        }
+    }
 
-    /*
-    Needs to be re-written for MIO 0.7.0, not worth it, test is too specific anyway
     #[allow(unused_must_use)]
     fn setup_two_threads(addr1: SocketAddr, addr2: SocketAddr) -> (NetworkThread, Sender<DispatchEvent>, NetworkThread, Sender<DispatchEvent>) {
         let mut cfg = KompactConfig::new();
@@ -565,8 +574,6 @@ mod tests {
 
         // Set-up the the threads arguments
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
-        let (registration1, network_thread_registration1) = Registration::new2();
-        let (registration2, network_thread_registration2) = Registration::new2();
         //network_thread_registration.set_readiness(Interest::empty());
         let (input_queue_1_sender, input_queue_1_receiver) = channel();
         let (input_queue_2_sender, input_queue_2_receiver) = channel();
@@ -576,23 +583,19 @@ mod tests {
         let dispatcher_ref = system.dispatcher_ref();
 
         // Set up the two network threads
-        let network_thread1 = NetworkThread::new(
+        let (network_thread1, _) = NetworkThread::new(
             logger.clone(),
             addr1.clone(),
             lookup.clone(),
-            registration1,
-            network_thread_registration1.clone(),
             input_queue_1_receiver,
             dispatch_shutdown_sender1,
             dispatcher_ref.clone(),
         );
 
-        let network_thread2 = NetworkThread::new(
+        let (network_thread2, _) = NetworkThread::new(
             logger.clone(),
             addr2.clone(),
             lookup.clone(),
-            registration2,
-            network_thread_registration2.clone(),
             input_queue_2_receiver,
             dispatch_shutdown_sender2,
             dispatcher_ref.clone(),
@@ -620,40 +623,32 @@ mod tests {
         network_thread2.receive_dispatch();
 
         // Wait for the connect requests to reach destination:
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(Duration::from_millis(100));
 
         // Accept requested streams
         network_thread1.accept_stream();
         network_thread2.accept_stream();
 
         // Wait for Hello to reach destination:
-        thread::sleep(Duration::from_millis(500));
-
-        // We need to make sure the TCP buffers are actually flushing the messages. Give both channels two cycles to finnish
-        // Cycle one Requested channels
-        network_thread1.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
-        thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
         thread::sleep(Duration::from_millis(100));
 
-        // Cycle one Accepted channels:
-        network_thread1.handle_event(Event::new(Interest::readable() | Interest::writable(), Token(START_TOKEN.0 + 1)));
+        // We need to make sure the TCP buffers are actually flushing the messages.
+        // Handle events on both ends, say hello:
+        poll_and_handle(&mut network_thread1);
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), Token(START_TOKEN.0 + 1)));
-        thread::sleep(Duration::from_millis(100));
-
         // Cycle two Requested channels
-        network_thread1.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
+        poll_and_handle(&mut network_thread1);
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
+        // Cycle three, merge and close
+        poll_and_handle(&mut network_thread1);
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
-
-        // Cycle two Accepted channels:
-        network_thread1.handle_event(Event::new(Interest::readable() | Interest::writable(), Token(START_TOKEN.0 + 1)));
+        // Cycle four, receive close and close
+        poll_and_handle(&mut network_thread1);
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), Token(START_TOKEN.0 + 1)));
-        thread::sleep(Duration::from_millis(100));
-
         // Now we can inspect the Network channels, both only have one channel:
         assert_eq!(network_thread1.channel_map.len(), 1);
         assert_eq!(network_thread2.channel_map.len(), 1);
@@ -681,13 +676,11 @@ mod tests {
         // 1 accepts the connection and sends hello back
         network_thread1.accept_stream();
         thread::sleep(Duration::from_millis(100));
-
         // 2 receives the Hello
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
-
         // 1 Receives Hello
-        network_thread1.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
+        poll_and_handle(&mut network_thread1);
 
         // 1 Receives Request Connection Event, this is the tricky part
         // 1 Requests connection to 2 and sends Hello
@@ -700,11 +693,11 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
 
         // 2 receives the Hello on the new channel and merges
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), Token(START_TOKEN.0 + 1)));
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
 
         // 1 receives the Hello on the new channel and merges
-        network_thread1.handle_event(Event::new(Interest::readable() | Interest::writable(), Token(START_TOKEN.0 + 1)));
+        poll_and_handle(&mut network_thread1);
         thread::sleep(Duration::from_millis(100));
 
         // Now we can inspect the Network channels, both only have one channel:
@@ -715,7 +708,7 @@ mod tests {
         assert_eq!(network_thread1.channel_map.drain().next().unwrap().1.stream().local_addr().unwrap(),
                    network_thread2.channel_map.drain().next().unwrap().1.stream().peer_addr().unwrap());
     }
-
+    /*
     #[test]
     fn graceful_network_shutdown() -> () {
         // Sets up two NetworkThreads and connects them to eachother, then shuts it down
@@ -731,8 +724,10 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
         network_thread1.accept_stream();
         // Hello is sent to network_thread2, let it read:
-        network_thread2.handle_event(Event::new(Interest::readable() | Interest::writable(), START_TOKEN));
-        //
-    }
-    */
+        network_thread2.poll.poll(&mut events, None);
+        for event in events.iter() {
+            network_thread2.handle_event(event);
+        }
+        events.clear();
+    }*/
 }

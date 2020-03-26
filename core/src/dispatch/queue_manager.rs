@@ -20,11 +20,12 @@ impl QueueManager {
             priority_queue: HashMap::new(),
         }
     }
-
+    /*
+    The queuemanager is really just a struct, no need to stop it?
     pub fn stop(self) -> () {
         drop(self); // doesn't need any cleanup, yet
     }
-
+    */
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_frame(&mut self, frame: SerializedFrame, dst: SocketAddr) {
         self.inner

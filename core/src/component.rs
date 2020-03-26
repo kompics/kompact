@@ -18,7 +18,7 @@ use std::cell::{RefCell, UnsafeCell};
 use super::*;
 use crate::{actors::TypedMsgQueue, messaging::PathResolvable, supervision::*};
 
-use crate::net::buffer::{EncodeBuffer, BufferEncoder};
+use crate::net::buffer::EncodeBuffer;
 
 /// A trait for abstracting over structures that contain a component core
 ///

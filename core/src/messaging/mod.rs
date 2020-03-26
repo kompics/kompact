@@ -595,7 +595,7 @@ macro_rules! match_deser {
 #[cfg(test)]
 mod deser_macro_tests {
     use super::*;
-    use crate::{net::buffer::BufferChunk, serialisation::Serialiser};
+    use crate::serialisation::Serialiser;
     use bytes::{Buf, BufMut};
     use std::{str::FromStr};
 
