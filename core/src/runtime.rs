@@ -181,6 +181,7 @@ impl KompactConfig {
     /// Larger values can increase throughput on highly loaded components,
     /// but at the cost of fairness between components.
     pub fn throughput(&mut self, n: usize) -> &mut Self {
+        assert!(n > 0, "throughput must be larger than 0");
         self.throughput = n;
         self
     }
@@ -194,6 +195,7 @@ impl KompactConfig {
     /// the remaining allotment will be redistributed to the other type
     /// until all throughput is used up or no messages or events remain.
     pub fn msg_priority(&mut self, r: f32) -> &mut Self {
+        assert!(r > 0.0, "msg_priority must be larger than 0.0");
         self.msg_priority = r;
         self
     }
@@ -205,6 +207,7 @@ impl KompactConfig {
     /// You *must* ensure that the selected [scheduler](KompactConfig::scheduler) implementation
     /// can manage the given number of threads, if you customise this value!
     pub fn threads(&mut self, n: usize) -> &mut Self {
+        assert!(n > 0, "threads must be larger than 0");
         self.threads = n;
         self
     }
@@ -437,7 +440,7 @@ impl Default for KompactConfig {
     /// It runs with one thread per cpu on an appropriately sized [`crossbeam_workstealing_pool`](crossbeam_workstealing_pool) implementation.
     /// It uses all default components, without networking, with the default timer and default logger.
     fn default() -> Self {
-        let threads = num_cpus::get();
+        let threads = std::cmp::max(1, num_cpus::get());
         let scheduler_builder: Rc<SchedulerBuilder> = if threads <= 32 {
             Rc::new(|t| ExecutorScheduler::from(crossbeam_workstealing_pool::small_pool(t)))
         } else if threads <= 64 {
