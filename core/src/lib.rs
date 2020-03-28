@@ -174,7 +174,7 @@ pub mod prelude {
     };
 
     pub use crate::{
-        default_components::{CustomComponents, DeadletterBox},
+        default_components::{CustomComponents, DeadletterBox, LocalDispatcher},
         dispatch::{NetworkConfig, NetworkDispatcher},
         messaging::{
             DispatchEnvelope,
