@@ -11,10 +11,11 @@ use std::{
 };
 use crate::{
     messaging::{DispatchEnvelope, EventEnvelope},
-    net::network_channel::TcpChannel,
+    net::network_channel::{TcpChannel, ChannelState},
 };
 use fxhash::{FxHashMap, FxHasher};
 use std::hash::BuildHasherDefault;
+use uuid::Uuid;
 
 /*
     Using https://github.com/tokio-rs/mio/blob/master/examples/tcp_server.rs as template.
@@ -64,7 +65,8 @@ enum IOReturn {
     SwapBuffer,
     Close,
     None,
-    Rename(SocketAddr),
+    Start(SocketAddr, Uuid),
+    Ack,
 }
 
 impl NetworkThread {
@@ -173,7 +175,7 @@ impl NetworkThread {
                 self.receive_dispatch()?;
             }
             token => {
-                // lookup token state in kv map <token, state> (it's corresponding addr for now)
+                // lookup it's corresponding addr
                 let mut addr = {
                     if let Some(addr) = self.token_map.get(&token) {
                         addr.clone()
@@ -205,13 +207,15 @@ impl NetworkThread {
                         _ => {}
                     }
                     match self.decode(&addr) {
-                        IOReturn::Rename(new_addr) => {
-                            self.handle_hello(event.token(), new_addr);
-                            addr = new_addr;
+                        IOReturn::Start(remote_addr, id) => {
+                            self.handle_start(event.token(), remote_addr, id);
                         }
                         IOReturn::Close => {
                             // Remove and deregister
                             close_channel = true;
+                        }
+                        IOReturn::Ack => {
+                            self.handle_ack(event.token());
                         }
                         _ => {}
                     }
@@ -236,73 +240,88 @@ impl NetworkThread {
         Ok(())
     }
 
-    /// `token` is the token we received `hello_addr` from. We want it to be aligned after handling this.
-    /// In some cases this will detect a conflict, where there are two channels between the same two hosts
-    /// In that case this will attempt to merge the two channels into one by examining the local and peer SocketAddr
-    /// If one of the channels have not been established correctly before this function is triggered the merge can
-    /// not safely be performed as the peer SocketAddr will not be available.
-    fn handle_hello(&mut self, token: Token, hello_addr: SocketAddr) -> () {
+    /// During channel initialization the threeway handshake to establish connections culminates with this function
+    /// The Start(remote_addr, id) is received by the host on the receiving end of the channel initialisation.
+    /// The decision is made here and now.
+    /// If no other connection is registered for the remote host the decision is easy, we start the channel and send the ack.
+    /// If there are other connection attempts underway there are multiple possibilities:
+    ///     The other connection has not started and does not have a known UUID: it will be killed, this channel will start.
+    ///     The connection has already started, in which case this channel must be killed.
+    ///     The connection has a known UUID but is not connected: Use the UUID as a tie breaker for which to kill and which to keep.
+    fn handle_start(&mut self, token: Token, remote_addr: SocketAddr, id: Uuid) -> () {
         if let Some(registered_addr) = self.token_map.remove(&token) {
             debug!(
                 self.log,
-                "NetworkThread {} got Hello({}) from {}", self.addr, &hello_addr, &registered_addr
+                "NetworkThread {} got Start({}, ...) from {}", self.addr, &remote_addr, &registered_addr
             );
-            if hello_addr == registered_addr {
-                // The channel is already correct, we update state at the end
+            if remote_addr == registered_addr {
+                // The channel we received the start on was already registered with the appropriate address.
+                // There is no need to change anything, we can simply transition the channel.
             } else {
-                // Make sure we only have one channel and that it's registered with the hello_addr
-                if let Some(mut channel) = self.channel_map.remove(&hello_addr) {
-                    // There's a channel registered with the hello_addr
+                // Make sure we only have one channel and that it's registered with the remote_addr
+                if let Some(mut channel) = self.channel_map.remove(&registered_addr) {
+                    // There's a channel registered with the remote_addr
 
-                    if let Some(mut other_channel) = self.channel_map.remove(&registered_addr) {
-                        // There's another channel, we received a Hello message on a different channel.
-                        // This is not good. We may need to merge the two connections into one.
-                        if let Err(_) = other_channel.stream().peer_addr() {
-                            // The channel is already dropped or hasn't been established yet.
-                            info!(
-                                self.log,
-                                "NetworkThread {} dropping other_channel during handle_hello {}",
-                                self.addr,
-                                &hello_addr
-                            );
-                            other_channel.shutdown();
-                        } else {
-                            info!(
-                                self.log,
-                                "NetworkThread {} merging {} into {}",
-                                self.addr,
-                                &registered_addr,
-                                &hello_addr
-                            );
-                            // Merge will check the SocketAddr of the two systems and uniformly decide which to keep in &channel
-                            channel.merge(&mut other_channel);
+                    if let Some(mut other_channel) = self.channel_map.remove(&remote_addr) {
+                        // There's another channel for the same host, only one can survive.
+                        // If we don't knw the Uuid yet the channel can safely be killed. The remote host must obey our Ack.
+                        // It can not discard the other channel without receiving a Start(...) or Ack(...) for the other channel.
+                        if let Some(other_id) = other_channel.get_id() {
+                            // The other channel has a known id, if it doesn't there is no reason to keep it.
+
+                            if other_channel.connected() || other_id > id {
+                                // The other channel should be kept and this one should be discarded.
+                                self.poll.registry().deregister(channel.stream_mut());
+                                channel.graceful_shutdown();
+                                self.channel_map.insert(remote_addr, other_channel);
+                                // It will be driven to completion on its own.
+                                return;
+                            }
                         }
-                        self.channel_map.insert(hello_addr, channel);
-                    } else {
-                        // Expected case, no merge needed
-                        self.channel_map.insert(hello_addr, channel);
+                        // We will keep this channel, not the other channel
+                        info!(self.log, "NetworkThread {} dropping other_channel while starting channel {}", self.addr, &remote_addr);
+                        other_channel.shutdown();
+                        drop(other_channel);
+                        // Continue with `channel`
                     }
-                } else if let Some(channel) = self.channel_map.remove(&registered_addr) {
-                    // Re-insert the channel with different key
-                    self.channel_map.insert(hello_addr, channel);
+                    // Re-insert the channel and continue starting it.
+                    self.channel_map.insert(remote_addr, channel);
+                } else if let Some(channel) = self.channel_map.remove(&remote_addr) {
+                    // Only one channel, re-insert the channel with the correct key
+                    self.channel_map.insert(remote_addr, channel);
                 }
             }
 
             // Make sure that the channel is registered correctly and in Connected State.
-            if let Some(channel) = self.channel_map.get_mut(&hello_addr) {
-                channel.state = ConnectionState::Connected(hello_addr);
+            if let Some(channel) = self.channel_map.get_mut(&remote_addr) {
+                debug!(self.log, "NetworkThread {} sending ack for {}", self.addr, &remote_addr);
+                channel.send_ack(&remote_addr, id);
                 channel.token = token.clone();
-                self.token_map.insert(token, hello_addr);
+                self.token_map.insert(token, remote_addr);
                 if let Err(e) = self.poll.registry().reregister(channel.stream_mut(), token, Interest::WRITABLE | Interest::READABLE) {
                     warn!(self.log, "{} Error when reregistering Poll for channel in handle_hello: {:?}", self.addr, e);
                 };
+
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::Connection(hello_addr, ConnectionState::Connected(hello_addr)),
+                        NetworkEvent::Connection(remote_addr, ConnectionState::Connected(remote_addr)),
                     )));
             }
         } else {
             panic!("No address registered for a token which yielded a hello msg");
+        }
+    }
+
+    fn handle_ack(&mut self, token: Token) -> () {
+        if let Some(addr) = self.token_map.remove(&token) {
+            if let Some(mut channel) = self.channel_map.get_mut(&addr) {
+                debug!(self.log, "NetworkThread {} handling ack for {}", self.addr, &addr);
+                channel.handle_ack();
+                self.dispatcher_ref
+                    .tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                        NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
+                    )));
+            }
         }
     }
 
@@ -378,7 +397,16 @@ impl NetworkThread {
                         }
                     }
                     Ok(Frame::Hello(hello)) => {
-                        ret = IOReturn::Rename(hello.addr)
+                        // Channel handles hello internally. NetworkThread decides in next state transition
+                        debug!(self.log, "NetworkThread {} handling Hello({}) from {}", self.addr, &hello.addr, &addr);
+                        channel.handle_hello(&(hello.addr()));
+                    }
+                    Ok(Frame::Start(start)) => {
+                        // Channel handles hello internally. NetworkThread decides in next state transition
+                        return IOReturn::Start(start.addr, start.id);
+                    }
+                    Ok(Frame::Ack()) => {
+                        return IOReturn::Ack;
                     }
                     Ok(Frame::Bye()) => {
                         debug!(self.log, "NetworkThread {} received Bye from {}", self.addr, &addr);
@@ -403,7 +431,7 @@ impl NetworkThread {
         if let Some(channel) = self.channel_map.remove(&addr) {
             // We already have a connection set-up
             // the connection request must have been sent before the channel was initialized
-            if let ConnectionState::Connected(_) = channel.state {
+            if let ChannelState::Connected(_0, _1) = channel.state {
                 // log and inform Dispatcher to make sure it knows we're connected.
                 debug!(self.log, "NetworkThread {} asked to request connection to already connected host {}", self.addr, &addr);
                 self.dispatcher_ref.tell(DispatchEnvelope::Event(EventEnvelope::Network(
@@ -419,7 +447,7 @@ impl NetworkThread {
         debug!(self.log, "NetworkThread {} requesting connection to {}", self.addr, &addr);
         match TcpStream::connect(addr.clone()) {
             Ok(stream) => {
-                self.store_stream(stream, &addr)?;
+                self.store_stream(stream, &addr, ChannelState::Requested(addr, Uuid::new_v4()))?;
                 Ok(())
             }
             Err(e) => {
@@ -433,15 +461,15 @@ impl NetworkThread {
     fn accept_stream(&mut self) -> io::Result<()> {
         while let (stream, addr) = (self.listener.as_ref().unwrap()).accept()? {
             debug!(self.log, "NetworkThread {} accepting connection from {}", self.addr, &addr);
-            self.store_stream(stream, &addr)?;
+            self.store_stream(stream, &addr, ChannelState::Initialising)?;
         }
         Ok(())
     }
 
-    fn store_stream(&mut self, stream: TcpStream, addr: &SocketAddr) -> io::Result<()> {
+    fn store_stream(&mut self, stream: TcpStream, addr: &SocketAddr, state: ChannelState) -> io::Result<()> {
         if let Some(buffer) = self.buffer_pool.get_buffer() {
             self.token_map.insert(self.token.clone(), addr.clone());
-            let mut channel = TcpChannel::new(stream, self.token, buffer);
+            let mut channel = TcpChannel::new(stream, self.token, buffer, state, self.addr);
             debug!(self.log, "NetworkThread {} saying Hello to {}", self.addr, &addr);
             channel.initialise(&self.addr);
             if let Err(e) = self.poll.registry().register(
@@ -524,12 +552,7 @@ impl NetworkThread {
                 self.addr,
                 channel.messages
             );
-            match channel.state {
-                ConnectionState::Closed => {}
-                _ => {
-                    channel.graceful_shutdown();
-                }
-            }
+            channel.graceful_shutdown();
         }
         if let Some(mut listener) = self.listener.take() {
             self.poll.registry().deregister(&mut listener).ok();
@@ -734,6 +757,10 @@ mod tests {
 
         // 1 receives the Hello on the new channel and merges
         poll_and_handle(&mut network_thread1);
+        thread::sleep(Duration::from_millis(100));
+
+        // 2 receives the Bye and the Ack.
+        poll_and_handle(&mut network_thread2);
         thread::sleep(Duration::from_millis(100));
 
         // Now we can inspect the Network channels, both only have one channel:

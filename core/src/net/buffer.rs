@@ -438,6 +438,7 @@ impl DecodeBuffer {
                     .get_lease(self.read_offset, self.read_offset + head.content_length());
                 self.read_offset += head.content_length();
                 match head.frame_type() {
+                    // Frames with empty bodies should be handled in frame-head decoding below.
                     FrameType::Data => {
                         if let Ok(data) = Data::decode_from(lease) {
                             self.next_frame_head = None;
@@ -460,6 +461,14 @@ impl DecodeBuffer {
                             println!("Failed to decode data");
                         }
                     }
+                    FrameType::Start => {
+                        if let Ok(start) = Start::decode_from(lease) {
+                            self.next_frame_head = None;
+                            return Ok(start);
+                        } else {
+                            println!("Failed to decode start");
+                        }
+                    }
                     _ => {
                         println!("Weird head");
                     }
@@ -475,8 +484,12 @@ impl DecodeBuffer {
                     if let Ok(head) = FrameHead::decode_from(&mut Cursor::new(slice)) {
                         if head.content_length() == 0 {
                             match head.frame_type() {
+                                // Frames without content match here for expediency, Decoder doesn't allow 0 length.
                                 FrameType::Bye => {
                                     return Ok(Frame::Bye());
+                                }
+                                FrameType::Ack => {
+                                    return Ok(Frame::Ack());
                                 }
                                 _ => {}
                             }
