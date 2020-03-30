@@ -30,6 +30,8 @@ pub enum FramingError {
     SerialisationError,
     /// Unwrap error
     OptionError,
+    /// No data to extract frame from
+    NoData,
     /// IO errors wrapped into FramingError
     Io(std::io::Error),
 }

@@ -31,14 +31,14 @@ impl QueueManager {
         self.inner
             .entry(dst)
             .or_insert(VecDeque::new())
-            .push_back(frame);
+            .push_front(frame);
     }
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_priority_frame(&mut self, frame: SerializedFrame, dst: SocketAddr) {
         self.priority_queue
             .entry(dst)
             .or_insert(VecDeque::new())
-            .push_back(frame);
+            .push_front(frame);
     }
 
     /// Extracts the next queue-up frame for the SocketAddr, if one exists

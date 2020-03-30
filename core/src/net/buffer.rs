@@ -394,6 +394,10 @@ impl DecodeBuffer {
         self.write_offset
     }
 
+    /// Get the current read-offset of the buffer
+    pub fn get_read_offset(&self) -> usize {
+        self.read_offset
+    }
     /// Get the first 24 bytes of the DecodeBuffer, used for testing/debugging
     /// get_slice does the bounds checking
     pub fn get_buffer_head(&mut self) -> &mut [u8] {
@@ -425,7 +429,7 @@ impl DecodeBuffer {
     }
 
     /// Tries to decode one frame from the readable part of the buffer
-    pub fn get_frame(&mut self) -> Option<Frame> {
+    pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
         let readable_len = (self.write_offset - self.read_offset) as usize;
         if let Some(head) = &self.next_frame_head {
             if readable_len >= head.content_length() {
@@ -437,7 +441,7 @@ impl DecodeBuffer {
                     FrameType::Data => {
                         if let Ok(data) = Data::decode_from(lease) {
                             self.next_frame_head = None;
-                            return Some(data);
+                            return Ok(data);
                         } else {
                             println!("Failed to decode data");
                         }
@@ -445,13 +449,13 @@ impl DecodeBuffer {
                     FrameType::StreamRequest => {
                         if let Ok(data) = StreamRequest::decode_from(lease) {
                             self.next_frame_head = None;
-                            return Some(data);
+                            return Ok(data);
                         }
                     }
                     FrameType::Hello => {
                         if let Ok(hello) = Hello::decode_from(lease) {
                             self.next_frame_head = None;
-                            return Some(hello);
+                            return Ok(hello);
                         } else {
                             println!("Failed to decode data");
                         }
@@ -472,7 +476,7 @@ impl DecodeBuffer {
                         if head.content_length() == 0 {
                             match head.frame_type() {
                                 FrameType::Bye => {
-                                    return Some(Frame::Bye());
+                                    return Ok(Frame::Bye());
                                 }
                                 _ => {}
                             }
@@ -481,14 +485,12 @@ impl DecodeBuffer {
                         return self.get_frame();
                     } else {
                         // We are lost in the buffer, this is very bad, no recovery mechanism implemented, yet
-                        panic!(
-                            "Buffers is misaligned, can't find a frame head, potential data-loss"
-                        )
+                        return Err(FramingError::InvalidMagicNum);
                     }
                 }
             }
         }
-        return None;
+        return Err(FramingError::NoData);
     }
 }
 

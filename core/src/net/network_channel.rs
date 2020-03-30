@@ -18,6 +18,7 @@ use std::{
     io::{Error, ErrorKind, Write, Read},
     net::{Shutdown::Both, SocketAddr},
 };
+use crate::net::frames::FramingError;
 
 pub(crate) struct TcpChannel {
     stream: TcpStream,
@@ -50,14 +51,16 @@ impl TcpChannel {
         &self.stream
     }
 
-    pub fn initialize(&mut self, addr: &SocketAddr) -> io::Result<()> {
+    pub fn initialise(&mut self, addr: &SocketAddr) -> io::Result<()> {
         let hello = Frame::Hello(Hello::new(*addr));
         let mut hello_bytes = BytesMut::with_capacity(hello.encoded_len());
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = hello.encode_into(&mut hello_bytes) {
+            /* This triggers an error every for some reason
             if let Err(e) = self.stream.set_nodelay(true) {
+
                 eprintln!("failed to set nodelay on TcpChannel connected to {:?}: {:?}", self.stream.peer_addr(), e);
-            }
+            }*/
             self.outbound_queue
                 .push_back(SerializedFrame::Bytes(hello_bytes.freeze()));
             self.try_drain()?;
@@ -71,6 +74,14 @@ impl TcpChannel {
         self.input_buffer.swap_buffer(new_buffer);
     }
 
+    pub fn take_outbound(&mut self) -> Vec<SerializedFrame> {
+        let mut ret = Vec::new();
+        while let Some(mut frame) = self.outbound_queue.pop_front() {
+            ret.push(frame);
+        }
+        return ret;
+    }
+
     pub fn receive(&mut self) -> io::Result<usize> {
         let mut read_bytes = 0;
         let mut sum_read_bytes = 0;
@@ -79,6 +90,7 @@ impl TcpChannel {
             // Keep all the read bytes in the buffer without overwriting
             if read_bytes > 0 {
                 self.input_buffer.advance_writeable(read_bytes);
+                read_bytes = 0;
             }
             if let Some(mut buf) = self.input_buffer.get_writeable() {
                 match self.stream.read(&mut buf) {
@@ -132,12 +144,16 @@ impl TcpChannel {
         self.state = ConnectionState::Closed;
     }
 
-    pub fn decode(&mut self) -> Option<Frame> {
-        if let Some(frame) = self.input_buffer.get_frame() {
-            self.messages += 1;
-            return Some(frame);
+    pub fn decode(&mut self) -> Result<Frame, FramingError> {
+        match self.input_buffer.get_frame() {
+            Ok(frame) => {
+                self.messages += 1;
+                Ok(frame)
+            }
+            Err(e) => {
+                Err(e)
+            }
         }
-        None
     }
 
     pub fn enqueue_serialized(&mut self, serialized: SerializedFrame) -> () {
@@ -223,11 +239,26 @@ impl TcpChannel {
         } else {
             // Keep other
             mem::swap(other.stream_mut(), self.stream_mut());
+            println!("swapping channel for dst {}, self {}/{} other {}/{}", self.stream.peer_addr().unwrap(),
+                     self.input_buffer.get_read_offset(), self.input_buffer.get_write_offset(),
+                     other.input_buffer.get_read_offset(), other.input_buffer.get_write_offset(),
+            );
+            // Keep buffers aligned
+            mem::swap(&mut other.input_buffer, &mut self.input_buffer);
+            println!("swapping buffer for dst {}, self {}/{} other {}/{}", self.stream.peer_addr().unwrap(),
+                     self.input_buffer.get_read_offset(), self.input_buffer.get_write_offset(),
+                     other.input_buffer.get_read_offset(), other.input_buffer.get_write_offset(),
+            );
+            // self will be kept and other will be shutdown, check if we should move more than the connection
+            match other.state {
+                ConnectionState::Connected(_) => {
+                    println!("appending outbound_queue for dst {}", self.stream.peer_addr().unwrap());
+                    self.outbound_queue.append(&mut other.outbound_queue);
+                }
+                _ => {}
+            }
         }
         other.shutdown();
-        if other.outbound_queue.len() > 0 {
-            self.outbound_queue.append(&mut other.outbound_queue);
-        }
     }
 }
 
