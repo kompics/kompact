@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "kompact"
-version = "0.10.0"
+version = "0.9.0"
 dependencies = [
  "arc-swap",
  "as_num",
@@ -870,18 +870,18 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
-version = "2.11.0"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc1b4a8efc42cf150049e8a490f618c7c60e82332405065f202a7e33aa5a1f06"
+checksum = "71964f34fd51cf04882d7ae3325fa0794d4cad66a03d0003f38d8ae4f63ba126"
 dependencies = [
  "bytes",
 ]
 
 [[package]]
 name = "protobuf-codegen"
-version = "2.11.0"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a4b63c382bf470f58a964337fb09faafe9fc0af0db796529b30178ac26076c0"
+checksum = "f122718d40a717194a9b6df594ab8f8718a31f40787a98606fcdc32fc308fdb6"
 dependencies = [
  "protobuf",
 ]
@@ -898,18 +898,18 @@ dependencies = [
 
 [[package]]
 name = "protoc"
-version = "2.11.0"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "347165ec56718bbba77c3f33b4f7a447b5848149f495ba66c745acc651e1033c"
+checksum = "995500a03bb869ba06b6616b841953146fd289e64a2aa8e36856312accde6abc"
 dependencies = [
  "log",
 ]
 
 [[package]]
 name = "protoc-rust"
-version = "2.11.0"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e587ad332af71449c43ba252f75d1c0d1a0481edf06eec15128f13713fcfe46c"
+checksum = "c5c0f4e0ca9124c1565ae833acdcba94905c8338b4b343f28f321f8c1114780a"
 dependencies = [
  "protobuf",
  "protobuf-codegen",

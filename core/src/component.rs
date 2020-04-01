@@ -39,6 +39,8 @@ pub trait CoreContainer: Send + Sync {
     }
     /// Schedules this component on its associated scheduler
     fn schedule(&self) -> ();
+    /// The descriptive string of the [ComponentDefinition](ComponentDefinition) type wrapped in this container
+    fn type_name(&self) -> &'static str;
 }
 
 impl fmt::Debug for dyn CoreContainer {
@@ -478,6 +480,10 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
                 core.system().schedule(core.component())
             }
         }
+    }
+
+    fn type_name(&self) -> &'static str {
+        C::type_name()
     }
 }
 

@@ -283,7 +283,7 @@ impl ActorPath {
     /// to facility this lazy serialisation.
     /// As this method has some overhead in the case where it sure
     /// that `m` will definitely go over the network, you can use
-    /// [tell_ser](ActorPath::tell_ser) to force eager serialisation instead.
+    /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
         where
             S: ActorSource,
@@ -330,6 +330,9 @@ impl ActorPath {
         from.ctx().initialise_pool();
         self.tell_serialised(m, from)
     }
+
+    // TODO
+    //pub fn forward(&self, serialized_message: NetMessage);
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
     /// and something that can [dispatch](Dispatching) stuff
