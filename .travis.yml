@@ -4,11 +4,6 @@ rust:
   - stable
   - beta
 cache: cargo
-script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
-  - cd core
-  - ./test-feature-matrix.sh
 
 # make sure protobuf library and mdbook are installed for build to succeed
 before_install:
@@ -20,6 +15,16 @@ before_install:
 
 jobs:
   include:
+    - stage: test
+      name: "Build and test root"
+      script:
+        - cargo build --verbose --all
+        - cargo test --verbose --all
+    - stage: test-features
+      name: "Test feature matrix"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh
     - stage: deploy
       name: "Github Release"
       script: mdbook build docs

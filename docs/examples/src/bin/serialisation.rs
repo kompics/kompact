@@ -122,14 +122,7 @@ impl BootstrapServer {
 }
 
 //ignore_control!(BootstrapServer);
-impl Provide<ControlPort> for BootstrapServer {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => self.ctx.initialise_pool(),
-            _ => (), // ignore
-        }
-    }
-}
+impl Provide<ControlPort> for BootstrapServer { fn handle(&mut self, _: ControlEvent) -> () {} }
 
 impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;

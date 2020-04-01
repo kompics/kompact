@@ -363,7 +363,8 @@ pub mod pppipelinestatic {
             self.start = Instant::now();
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
-                self.ponger.tell_serialised(Ping::EVENT, self).ok();
+                self.ponger.tell_serialised(Ping::EVENT, self)
+                    .expect("serialise");
             }
         }
     }
@@ -431,11 +432,12 @@ pub mod pppipelinestatic {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender.clone();
-            match msg.try_deserialise::<Ping, Ping>() {
+            let sender = msg.sender;
+            match msg.data.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell_serialised(Pong::EVENT, self).ok();
+                    sender.tell_serialised(Pong::EVENT, self)
+                        .expect("serialise");
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -576,7 +578,8 @@ pub mod pppipelineindexed {
             while self.remaining_send > 0u64 {
                 self.remaining_send -= 1u64;
                 self.ponger
-                    .tell_serialised(Ping::new(self.remaining_send), self).ok();
+                    .tell_serialised(Ping::new(self.remaining_send), self)
+                    .expect("serialise");
             }
         }
     }
@@ -590,7 +593,7 @@ pub mod pppipelineindexed {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
-            match msg.try_deserialise::<Pong, Pong>() {
+            match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining_recv -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining_recv);
@@ -644,11 +647,12 @@ pub mod pppipelineindexed {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender.clone();
-            match msg.try_deserialise::<Ping, Ping>() {
+            let sender = msg.sender;
+            match msg.data.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell_serialised(Pong::new(ping.index), self).ok();
+                    sender.tell_serialised(Pong::new(ping.index), self)
+                        .expect("serialise");
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -796,7 +800,8 @@ pub mod ppstatic {
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
-            self.ponger.tell_serialised(Ping::EVENT, self).ok();
+            self.ponger.tell_serialised(Ping::EVENT, self)
+                .expect("serialise");
         }
     }
 
@@ -809,13 +814,14 @@ pub mod ppstatic {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
-            let sender = msg.sender.clone();
-            match msg.try_deserialise::<Pong, Pong>() {
+            let sender = msg.sender;
+            match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
-                        sender.tell_serialised(Ping::EVENT, self).ok();
+                        sender.tell_serialised(Ping::EVENT, self)
+                            .expect("serialise");
                     } else {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
@@ -866,11 +872,12 @@ pub mod ppstatic {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender.clone();
-            match msg.try_deserialise::<Ping, Ping>() {
+            let sender = msg.sender;
+            match msg.data.try_deserialise::<Ping, Ping>() {
                 Ok(_ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell_serialised(Pong::EVENT, self).ok();
+                    sender.tell_serialised(Pong::EVENT, self)
+                        .expect("serialise");
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -1008,7 +1015,8 @@ pub mod ppstatic {
                 self.start = Instant::now();
                 let mut pipelined: u64 = 0;
                 while (pipelined < self.pipeline) && (self.sent_count < self.count) {
-                    self.ponger.tell_serialised(Ping::EVENT, self).ok();
+                    self.ponger.tell_serialised(Ping::EVENT, self)
+                        .expect("serialise");
                     self.sent_count += 1;
                     pipelined += 1;
                 }
@@ -1024,12 +1032,13 @@ pub mod ppstatic {
 
             fn receive_network(&mut self, msg: NetMessage) -> () {
                 trace!(self.ctx.log(), "Pinger received msg {:?}", msg);
-                match msg.try_deserialise::<Pong, Pong>() {
+                match msg.data.try_deserialise::<Pong, Pong>() {
                     Ok(_pong) => {
                         self.recv_count += 1;
                         if self.recv_count < self.count {
                             if self.sent_count < self.count {
-                                self.ponger.tell_serialised(Ping::EVENT, self).ok();
+                                self.ponger.tell_serialised(Ping::EVENT, self)
+                                    .expect("serialise");
                                 self.sent_count += 1;
                             }
                         } else {
@@ -1040,7 +1049,8 @@ pub mod ppstatic {
                                 let mut pipelined: u64 = 0;
                                 while (pipelined < self.pipeline) && (self.sent_count < self.count)
                                 {
-                                    self.ponger.tell_serialised(Ping::EVENT, self).ok();
+                                    self.ponger.tell_serialised(Ping::EVENT, self)
+                                        .expect("serialise");
                                     self.sent_count += 1;
                                     pipelined += 1;
                                 }
@@ -1094,11 +1104,12 @@ pub mod ppstatic {
 
             fn receive_network(&mut self, msg: NetMessage) -> () {
                 trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-                let sender = msg.sender.clone();
-                match msg.try_deserialise::<Ping, Ping>() {
+                let sender = msg.sender;
+                match msg.data.try_deserialise::<Ping, Ping>() {
                     Ok(_ping) => {
                         trace!(self.ctx.log(), "Ponger got Ping!");
-                        sender.tell_serialised(Pong::EVENT, self).ok();
+                        sender.tell_serialised(Pong::EVENT, self)
+                            .expect("serialise");
                     }
                     Err(e) => {
                         error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
@@ -1163,7 +1174,8 @@ pub mod ppindexed {
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
             self.start = Instant::now();
-            self.ponger.tell_serialised(Ping::new(self.remaining), self).ok();
+            self.ponger.tell_serialised(Ping::new(self.remaining), self)
+                .expect("serialise");
         }
     }
 
@@ -1176,12 +1188,13 @@ pub mod ppindexed {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg, );
-            match msg.try_deserialise::<Pong, Pong>() {
+            match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
                     self.remaining -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining);
                     if self.remaining > 0u64 {
-                        self.ponger.tell_serialised(Ping::new(self.remaining), self).ok();
+                        self.ponger.tell_serialised(Ping::new(self.remaining), self)
+                            .expect("serialise");
                     } else {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
@@ -1232,11 +1245,12 @@ pub mod ppindexed {
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg, );
-            let sender = msg.sender.clone();
-            match msg.try_deserialise::<Ping, Ping>() {
+            let sender = msg.sender;
+            match msg.data.try_deserialise::<Ping, Ping>() {
                 Ok(ping) => {
                     trace!(self.ctx.log(), "Ponger got Ping!");
-                    sender.tell_serialised(Pong::new(ping.index), self).ok();
+                    sender.tell_serialised(Pong::new(ping.index), self)
+                        .expect("serialise");
                 }
                 Err(e) => {
                     error!(self.ctx.log(), "Error deserialising Ping: {:?}", e);
