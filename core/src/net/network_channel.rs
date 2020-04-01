@@ -2,23 +2,21 @@ use crate::{
     messaging::SerializedFrame,
     net::{
         buffer::{BufferChunk, DecodeBuffer},
-        frames::{Frame, Hello},
+        frames::{
+            Frame, Hello, FramingError, Start, Ack},
         network_thread,
         network_thread::*,
-        ConnectionState,
-    },
-};
-use bytes::{Buf, BytesMut};
-use core::mem;
-use mio::{net::TcpStream, Token};
+    }};
 use std::{
     cmp::Ordering,
     collections::VecDeque,
     io,
     io::{Error, ErrorKind, Write, Read},
     net::{Shutdown::Both, SocketAddr},
+    fmt::Formatter,
 };
-use crate::net::frames::{FramingError, Start};
+use bytes::{Buf, BytesMut};
+use mio::{net::TcpStream, Token};
 use uuid::Uuid;
 
 pub(crate) enum ChannelState {
@@ -118,9 +116,9 @@ impl TcpChannel {
     }
 
     /// Must be called when a Hello frame is received on the channel.
-    pub fn handle_hello(&mut self, addr: &SocketAddr) -> () {
+    pub fn handle_hello(&mut self, hello: Hello) -> () {
         if let ChannelState::Requested(requested_addr, id) = self.state {
-            if requested_addr.eq(addr) {
+            if requested_addr.eq(&hello.addr) {
                 // Has now received Hello(addr), must send Start(addr, uuid) and await ack
                 let start = Frame::Start(Start::new(self.own_addr.clone(), id));
                 let mut start_bytes = BytesMut::with_capacity(start.encoded_len());
@@ -130,7 +128,7 @@ impl TcpChannel {
                         .push_back(SerializedFrame::Bytes(start_bytes.freeze()));
                     // Errors do not matter here.
                     let _ = self.try_drain();
-                    self.state = ChannelState::Initialised(addr.clone(), id);
+                    self.state = ChannelState::Initialised(hello.addr.clone(), id);
                     return;
                 }
             }
@@ -147,7 +145,7 @@ impl TcpChannel {
                 // Method called because we received Start and want to send Ack.
                 self.state = ChannelState::Connected(addr.clone(), id);
                 // Has now received Hello(addr), must send Start(addr, uuid) and await ack
-                let ack = Frame::Ack();
+                let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
                 let mut ack_bytes = BytesMut::with_capacity(ack.encoded_len());
                 //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
                 if let Ok(()) = ack.encode_into(&mut ack_bytes) {
@@ -155,7 +153,7 @@ impl TcpChannel {
                         .push_back(SerializedFrame::Bytes(ack_bytes.freeze()));
                     // Errors do not matter here.
                     let _ = self.try_drain();
-                    self.state = ChannelState::Initialised(addr.clone(), id);
+                    self.state = ChannelState::Connected(addr.clone(), id);
                     return;
                 }
             }
@@ -186,7 +184,7 @@ impl TcpChannel {
 
     pub fn take_outbound(&mut self) -> Vec<SerializedFrame> {
         let mut ret = Vec::new();
-        while let Some(mut frame) = self.outbound_queue.pop_front() {
+        while let Some(frame) = self.outbound_queue.pop_front() {
             ret.push(frame);
         }
         return ret;
@@ -268,12 +266,8 @@ impl TcpChannel {
 
     /// Enqueues the frame for sending on the channel.
     /// Enquing to a non-connected channel is disallowed.
-    pub fn enqueue_serialized(&mut self, serialized: SerializedFrame) -> () {
-        if let ChannelState::Connected(_, _) = self.state {
-            self.outbound_queue.push_back(serialized);
-        } else {
-            eprintln!("Enqueue to non-connected channel.");
-        }
+    pub fn enqueue_serialised(&mut self, serialized: SerializedFrame) -> () {
+        self.outbound_queue.push_back(serialized);
     }
 
     /// Tries to drain the outbound buffer into
@@ -288,12 +282,14 @@ impl TcpChannel {
                         // Split the data and continue sending the rest later if we sent less than the full frame
                         SerializedFrame::Bytes(bytes) => {
                             if n < bytes.len() {
+                                eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 let _ = bytes.split_to(n); // Discard the already sent split off part.
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
                         SerializedFrame::Chunk(chunk) => {
                             if n < chunk.bytes().len() {
+                                eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 chunk.advance(n);
                                 self.outbound_queue.push_front(serialized_frame);
                             }
@@ -333,54 +329,53 @@ impl TcpChannel {
             SerializedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
         }
     }
-    /*
-    We don't need merge anymore with a proper handshake. Merge was silly from the start.
-    /// Compares the SocketAddr the two channels are bound on and ensures that both sides will merge into the same channel on both sides
-    /// The channel to retain will be self while the unused other will be stopped.
-    pub fn merge(&mut self, other: &mut TcpChannel) -> () {
-        let this_peer = SocketWrapper {
-            inner: self.stream.peer_addr().unwrap(),
-        };
-        let that_peer = SocketWrapper {
-            inner: other.stream.peer_addr().unwrap(),
-        };
-        let this_local = SocketWrapper {
-            inner: self.stream.local_addr().unwrap(),
-        };
-        let that_local = SocketWrapper {
-            inner: other.stream.local_addr().unwrap(),
-        };
+}
 
-        if (this_peer < that_peer && this_peer < this_local && this_peer < that_local)
-            || (this_local < that_local && this_local < this_peer && this_local < that_local)
-        {
-            // Keep self, this_local or this_peer was the lowest in the set
-        } else {
-            // Keep other
-            mem::swap(other.stream_mut(), self.stream_mut());
-            println!("swapping channel for dst {}, self {}/{} other {}/{}", self.stream.peer_addr().unwrap(),
-                     self.input_buffer.get_read_offset(), self.input_buffer.get_write_offset(),
-                     other.input_buffer.get_read_offset(), other.input_buffer.get_write_offset(),
-            );
-            // Keep buffers aligned
-            mem::swap(&mut other.input_buffer, &mut self.input_buffer);
-            println!("swapping buffer for dst {}, self {}/{} other {}/{}", self.stream.peer_addr().unwrap(),
-                     self.input_buffer.get_read_offset(), self.input_buffer.get_write_offset(),
-                     other.input_buffer.get_read_offset(), other.input_buffer.get_write_offset(),
-            );
-            // self will be kept and other will be shutdown, check if we should move more than the connection
-            match other.state {
-                ChannelState::Connected(_) => {
-                    println!("appending outbound_queue for dst {}", self.stream.peer_addr().unwrap());
-                    self.outbound_queue.append(&mut other.outbound_queue);
-                }
-                _ => {}
+impl std::fmt::Debug for TcpChannel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TcpChannel")
+            .field("State", &self.state)
+            .field("Messages", &self.messages)
+            .field("Read offset", &self.input_buffer.get_read_offset())
+            .field("Write offset", &self.input_buffer.get_write_offset())
+            .field("Outbound Queue", &self.outbound_queue.len())
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for ChannelState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChannelState::Initialising => {
+                f.debug_struct("ChannelState")
+                    .field("State", &0)
+                    .finish()
+            }
+            ChannelState::Initialised(addr, id) => {
+                f.debug_struct("ChannelState")
+                    .field("State", &0)
+                    .field("addr", addr)
+                    .field("id", id)
+                    .finish()
+            }
+            ChannelState::Requested(addr, id) => {
+                f.debug_struct("ChannelState")
+                    .field("State", &0)
+                    .field("addr", addr)
+                    .field("id", id)
+                    .finish()
+            }
+            ChannelState::Connected(addr, id) => {
+                f.debug_struct("ChannelState")
+                    .field("State", &1)
+                    .field("addr", addr)
+                    .field("id", id)
+                    .finish()
             }
         }
-        other.shutdown();
     }
-    */
 }
+
 
 #[derive(PartialEq, Eq)]
 struct SocketWrapper {

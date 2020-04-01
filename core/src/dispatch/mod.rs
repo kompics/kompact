@@ -35,6 +35,7 @@ use std::{io::ErrorKind, time::Duration};
 pub mod lookup;
 pub mod queue_manager;
 
+const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
 const MAX_RETRY_ATTEMPTS: u8 = 10;
 
 /// Configuration builder for the network dispatcher
@@ -122,7 +123,7 @@ pub struct NetworkDispatcher {
     notify_ready: Option<Promise<()>>,
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
-    retry_map: FnvHashMap<SocketAddr, u8>,
+    retry_map: FnvHashMap<SocketAddr, (u8)>,
 }
 
 impl NetworkDispatcher {
@@ -187,6 +188,7 @@ impl NetworkDispatcher {
         );
 
         bridge.set_dispatcher(dispatcher.clone());
+        self.schedule_retries();
         self.net_bridge = Some(bridge);
         Ok(())
     }
@@ -215,26 +217,7 @@ impl NetworkDispatcher {
             // First time running; mark as scheduled and jump straight to scheduling
             self.reaper.schedule();
         } else {
-            // First check the retry_map if we should re-request connections
-            let drain = self.retry_map.clone();
-            self.retry_map.clear();
-            for (addr, retry) in drain {
-                if retry < MAX_RETRY_ATTEMPTS {
-                    // Make sure we will re-request connection later
-                    self.retry_map.insert(addr.clone(), retry + 1);
-                    if let Some(bridge) = &self.net_bridge {
-                        // Do connection attempt
-                        debug!(self.ctx().log(), "Dispatcher retrying connection to host {}, attempt {}/{}",
-                               addr, retry, MAX_RETRY_ATTEMPTS);
-                        bridge.connect(Transport::TCP, addr).unwrap();
-                    }
-                } else {
-                    // Too many retries, give up on the connection.
-                    info!(self.ctx().log(), "Dispatcher giving up on remote host {}, dropping queues", addr);
-                    self.queue_manager.drop_queue(&addr);
-                    self.connections.remove(&addr);
-                }
-            }
+
             // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly
             let num_reaped = self.reaper.run(&self.lookup);
             if num_reaped == 0 {
@@ -252,6 +235,32 @@ impl NetworkDispatcher {
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
             target.schedule_reaper()
+        });
+    }
+
+    fn schedule_retries(&mut self) {
+        // First check the retry_map if we should re-request connections
+        let drain = self.retry_map.clone();
+        self.retry_map.clear();
+        for (addr, retry) in drain {
+            if retry < MAX_RETRY_ATTEMPTS {
+                // Make sure we will re-request connection later
+                self.retry_map.insert(addr.clone(), retry + 1);
+                if let Some(bridge) = &self.net_bridge {
+                    // Do connection attempt
+                    debug!(self.ctx().log(), "Dispatcher retrying connection to host {}, attempt {}/{}",
+                           addr, retry, MAX_RETRY_ATTEMPTS);
+                    bridge.connect(Transport::TCP, addr).unwrap();
+                }
+            } else {
+                // Too many retries, give up on the connection.
+                info!(self.ctx().log(), "Dispatcher giving up on remote host {}, dropping queues", addr);
+                self.queue_manager.drop_queue(&addr);
+                self.connections.remove(&addr);
+            }
+        }
+        self.schedule_once(Duration::from_millis(RETRY_CONNECTIONS_INTERVAL), move |target, _id| {
+            target.schedule_retries()
         });
     }
 
@@ -374,7 +383,6 @@ impl NetworkDispatcher {
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
             ConnectionState::New => {
-                //println!("route_remote found New or Closed state");
                 debug!(
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
@@ -410,7 +418,7 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Initializing => {
-                debug!(self.ctx.log(), "Connection is initializing; queuing frame");
+                //debug!(self.ctx.log(), "Connection is initializing; queuing frame");
                 self.queue_manager.enqueue_frame(serialized, addr);
                 None
             }
@@ -451,9 +459,7 @@ impl NetworkDispatcher {
         msg: DispatchData,
     ) -> Result<(), NetworkBridgeErr> {
         let src_path = self.resolve_path(&src);
-        //println!("*** Dispatch route {:?}", dst_path.system().protocol());
         if src_path.system() == dst_path.system() {
-            //println!("*** dst system == src system");
             self.route_local(src_path, dst_path, msg);
             return Ok(());
         };
@@ -1153,7 +1159,7 @@ mod dispatch_tests {
             assert_eq!(c.count, 0);
         });
         // Sleep long-enough that the remote connection will be dropped with its queue
-        thread::sleep(Duration::from_millis((MAX_RETRY_ATTEMPTS + 2) as u64 * 5000));
+        thread::sleep(Duration::from_millis((MAX_RETRY_ATTEMPTS + 2) as u64 * RETRY_CONNECTIONS_INTERVAL));
         // Start up system2b
         println!("Setting up system2b");
         let system2b = system2();

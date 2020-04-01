@@ -499,13 +499,13 @@ impl FromStr for UniquePath {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.split("://").collect();
-// parts: [tcp]://[IP:port#id]
+        // parts: [tcp]://[IP:port#id]
         if parts.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
         let proto: Transport = parts[0].parse()?;
         let parts: Vec<&str> = parts[1].split(UNIQUE_PATH_SEP).collect();
-// parts: [IP:port]#[UUID]
+        // parts: [IP:port]#[UUID]
         if parts.len() != 2 {
             return Err(PathParseError::Form(s.to_string()));
         }
@@ -670,7 +670,7 @@ mod tests {
             Uuid::new_v4(),
         ));
         let ref1_string = ref1.to_string();
-//println!("ActorPath::Unique: {}", ref1_string);
+        //println!("ActorPath::Unique: {}", ref1_string);
         let ref1_deser = ActorPath::from_str(&ref1_string).expect("a proper path");
         let ref1_deser2: ActorPath = ref1_string.parse().expect("a proper path");
         assert_eq!(ref1, ref1_deser);

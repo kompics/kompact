@@ -1,4 +1,5 @@
-use crate::net::{buffer_pool::BufferPool, frames, frames::*};
+use super::*;
+use crate::net::{buffer_pool::BufferPool, frames};
 use bytes::{Buf, BufMut};
 use core::{cmp, mem, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
@@ -406,33 +407,39 @@ impl DecodeBuffer {
         }
     }
 
-    /// Safely swaps self.buffer with other
+    /// Swaps the underlying buffer in place with other
+    /// Afterwards `other` owns the used up bytes and is locked.
     pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
-        // Check if there's overflow in the buffer currently which needs to be copied
-        if self.write_offset > self.read_offset {
-            // We need to copy the bits from self.inner to other.inner before swapping
-            let overflow_len = self.write_offset - self.read_offset;
-            unsafe {
-                other
-                    .get_slice(0, overflow_len)
-                    .clone_from_slice(self.buffer.get_slice(self.read_offset, self.write_offset));
-            }
-            self.write_offset = overflow_len;
-            self.read_offset = 0;
-        } else {
-            self.write_offset = 0;
-            self.read_offset = 0;
-        }
-        // Swap the buffer chunks
+        assert!(!other.locked); // Must not try to swap in a locked buffer
+
+        let overflow = self.get_overflow();
+
         self.buffer.swap_buffer(other);
+        self.read_offset = 0;
+        self.write_offset = 0;
+        if let Some(chunk) = overflow {
+            let len = chunk.bytes().len();
+            assert!(len < self.remaining()); // the overflow must not exceed the new buffers capacity
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    chunk.bytes().as_ptr(),
+                    self.buffer.get_slice(0, len).as_mut_ptr(),
+                    len,
+                );
+                self.write_offset = chunk.bytes().len();
+            }
+        }
+        // other has been swapped in-place, can be returned to the pool
         other.lock();
     }
-
+    
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
         let readable_len = (self.write_offset - self.read_offset) as usize;
         if let Some(head) = &self.next_frame_head {
             if readable_len >= head.content_length() {
+                drop(head);
+                let head = self.next_frame_head.take().unwrap();
                 let lease = self
                     .buffer
                     .get_lease(self.read_offset, self.read_offset + head.content_length());
@@ -441,36 +448,36 @@ impl DecodeBuffer {
                     // Frames with empty bodies should be handled in frame-head decoding below.
                     FrameType::Data => {
                         if let Ok(data) = Data::decode_from(lease) {
-                            self.next_frame_head = None;
                             return Ok(data);
-                        } else {
-                            println!("Failed to decode data");
                         }
+                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::StreamRequest => {
                         if let Ok(data) = StreamRequest::decode_from(lease) {
-                            self.next_frame_head = None;
                             return Ok(data);
                         }
+                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::Hello => {
                         if let Ok(hello) = Hello::decode_from(lease) {
-                            self.next_frame_head = None;
                             return Ok(hello);
-                        } else {
-                            println!("Failed to decode data");
                         }
+                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::Start => {
                         if let Ok(start) = Start::decode_from(lease) {
-                            self.next_frame_head = None;
                             return Ok(start);
-                        } else {
-                            println!("Failed to decode start");
                         }
+                        return Err(FramingError::InvalidFrame);
+                    }
+                    FrameType::Ack => {
+                        if let Ok(ack) = Ack::decode_from(lease) {
+                            return Ok(ack);
+                        }
+                        return Err(FramingError::InvalidFrame);
                     }
                     _ => {
-                        println!("Weird head");
+                        return Err(FramingError::UnsupportedFrameType);
                     }
                 }
             }
@@ -481,29 +488,36 @@ impl DecodeBuffer {
                         .buffer
                         .get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
                     self.read_offset += FRAME_HEAD_LEN;
-                    if let Ok(head) = FrameHead::decode_from(&mut Cursor::new(slice)) {
-                        if head.content_length() == 0 {
-                            match head.frame_type() {
-                                // Frames without content match here for expediency, Decoder doesn't allow 0 length.
-                                FrameType::Bye => {
-                                    return Ok(Frame::Bye());
-                                }
-                                FrameType::Ack => {
-                                    return Ok(Frame::Ack());
-                                }
-                                _ => {}
+                    let mut cursor = Cursor::new(slice);
+                    let head = FrameHead::decode_from(&mut cursor)?;
+                    if head.content_length() == 0 {
+                        match head.frame_type() {
+                            // Frames without content match here for expediency, Decoder doesn't allow 0 length.
+                            FrameType::Bye => {
+                                return Ok(Frame::Bye());
                             }
+                            _ => {}
                         }
+                    } else {
                         self.next_frame_head = Some(head);
                         return self.get_frame();
-                    } else {
-                        // We are lost in the buffer, this is very bad, no recovery mechanism implemented, yet
-                        return Err(FramingError::InvalidMagicNum);
                     }
                 }
             }
         }
         return Err(FramingError::NoData);
+    }
+
+    pub(crate) fn get_overflow(&mut self) -> Option<ChunkLease> {
+        let cnt = self.write_offset - self.read_offset;
+        if cnt > 0 {
+            self.read_offset += cnt;
+            let lease = self
+                .buffer
+                .get_lease(self.write_offset - cnt, self.write_offset);
+            return Some(lease);
+        }
+        None
     }
 }
 
