@@ -7,9 +7,6 @@ before_install:
   - cargo install-update -a
 
 language: rust
-rust:
-  - nightly
-  - stable
 jobs:
   include:
     - stage: test
@@ -17,20 +14,19 @@ jobs:
       script:
         - cargo build --verbose --all
         - cargo test --verbose --all
+      rust:
+        - nightly
+        - stable
     - stage: test-features
       name: "Test feature matrix"
       script:
         - cd core
         - ./test-feature-matrix.sh
+      rust:
+        - nightly
+        - stable
     - stage: deploy
       name: "Github Release"
       script: mdbook build docs
-      deploy:
-        provider: pages
-        edge: true
-        cleanup: false
-        token: $GITHUB_TOKEN
-        local_dir: docs/book/html
-        keep_history: false
-        on:
-          branch: master
+      rust:
+        - nightly
