@@ -301,7 +301,7 @@ impl NetworkThread {
             // Make sure that the channel is registered correctly and in Connected State.
             if let Some(channel) = self.channel_map.get_mut(&remote_addr) {
                 debug!(self.log, "NetworkThread {} sending ack for {}, {}", self.addr, &remote_addr, &channel.token.0);
-                channel.send_ack(&remote_addr, id);
+                channel.handle_start(&remote_addr, id);
                 channel.token = token.clone();
                 self.token_map.insert(token, remote_addr);
                 if let Err(e) = self.poll.registry().reregister(channel.stream_mut(), token, Interest::WRITABLE | Interest::READABLE) {
@@ -420,18 +420,22 @@ impl NetworkThread {
                         debug!(self.log, "NetworkThread {} received Bye from {}", self.addr, &addr);
                         return IOReturn::Close;
                     }
-                    Err(FramingError::InvalidMagicNum(slice)) => {
+                    Err(FramingError::InvalidMagicNum((check, slice))) => {
                         // There is no way to recover from this error right now. Would need resending mechanism
                         // or accept data loss and close the channel.
-                        panic!("NetworkThread {} Unaligned buffer error for {}. {:?}, Slice:{:?}",
-                               self.addr, &addr, channel, slice);
+                        panic!("NetworkThread {} Unaligned buffer error for {}. {:?}, Magic_num: {:X}, Slice:{:?}",
+                               self.addr, &addr, channel, check, slice);
                     }
                     Err(FramingError::InvalidFrame) => {
                         // Bad but not fatal error
                         error!(self.log, "NetworkThread {} Invalid Frame received on channel {:?}", self.addr, channel);
                     }
-                    _ => {
-                        error!(self.log, "NetworkThread {} unexpected frame type from {}", self.addr, &addr);
+                    Err(e) => {
+                        error!(self.log, "NetworkThread {} unhandled error {:?} from {:?}", self.addr, &e, &addr);
+                    }
+                    Ok(other_frame) => {
+                        error!(self.log, "NetworkThread {} received unexpected frame type {:?} from {:?}",
+                               self.addr, other_frame.frame_type(), channel)
                     }
                 }
             }
@@ -493,7 +497,7 @@ impl NetworkThread {
             let mut channel = TcpChannel::new(stream, self.token, buffer, state, self.addr);
             debug!(self.log, "NetworkThread {} saying Hello to {}", self.addr, &addr);
             // Whatever error is thrown here will be re-triggered and handled later.
-            let _ = channel.initialise(&self.addr);
+            channel.initialise(&self.addr);
             if let Err(e) = self.poll.registry().register(
                 channel.stream_mut(),
                 self.token.clone(),

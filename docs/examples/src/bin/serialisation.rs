@@ -121,8 +121,7 @@ impl BootstrapServer {
     // ANCHOR_END: tell_serialised
 }
 
-//ignore_control!(BootstrapServer);
-impl Provide<ControlPort> for BootstrapServer { fn handle(&mut self, _: ControlEvent) -> () {} }
+ignore_control!(BootstrapServer);
 
 impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;

@@ -275,11 +275,6 @@ impl EncodeBuffer {
         self.read_offset += cnt;
     }
 
-    /*
-    pub fn get_buffer_encoder(encode_buffer: &mut EncodeBuffer) -> BufferEncoder {
-        BufferEncoder::new(encode_buffer)
-    }
-    */
     pub fn get_buffer_encoder(&mut self) -> BufferEncoder {
         BufferEncoder::new(self)
     }
@@ -336,6 +331,7 @@ impl EncodeBuffer {
                     self.write_offset = chunk.bytes().len();
                 }
             }
+            new_buffer.lock();
             // new_buffer has been swapped in-place, return it to the pool
             self.buffer_pool.return_buffer(new_buffer);
         } else {
@@ -364,8 +360,8 @@ impl DecodeBuffer {
         }
     }
 
-    /// Returns an IoVec of the writeable end of the buffer
-    /// If something is written to the slice the advance writeable must be called after
+    /// Returns an Write compatible slice of the writeable end of the buffer
+    /// If something is written to the slice advance writeable must be called after
     pub fn get_writeable(&mut self) -> Option<&mut [u8]> {
         if self.buffer.len() - self.write_offset < 128 {
             return None;
@@ -432,7 +428,7 @@ impl DecodeBuffer {
         // other has been swapped in-place, can be returned to the pool
         other.lock();
     }
-    
+
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
         let readable_len = (self.write_offset - self.read_offset) as usize;
@@ -573,9 +569,13 @@ impl ChunkLease {
         }
     }
 
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
     /// This inserts a FrameHead at the head of the Chunklease, the ChunkLease should be padded manually
     /// before this method is invoked, i.e. it does not create space for the head on its own
-    /// Proper framing thus requires 1. pad(), 2 serialise into decodebuffer, 3. get frame, 4. insert_head
+    /// Proper framing thus requires 1. pad(), 2 serialise into DecodeBuffer, 3. get_chunk_lease, 4. insert_head
     pub(crate) fn insert_head(&mut self, head: FrameHead) {
         // Store the write pointer
         let written = self.written;
@@ -605,7 +605,7 @@ impl Buf for ChunkLease {
 
 impl BufMut for ChunkLease {
     fn remaining_mut(&self) -> usize {
-        self.remaining()
+        self.capacity - self.written
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {

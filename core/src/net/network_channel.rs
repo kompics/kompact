@@ -18,7 +18,10 @@ use std::{
 use bytes::{Buf, BytesMut};
 use mio::{net::TcpStream, Token};
 use uuid::Uuid;
+use crate::net::frames::FRAME_HEAD_LEN;
 
+/// Received connection: Initialising -> Say Hello, Receive Start -> Connected, Send Ack
+/// Requested connection: Requested -> Receive Hello -> Initialised -> Send Start, Receive Ack -> Connected
 pub(crate) enum ChannelState {
     /// Requester state: outgoing request sent, await Hello(addr). SocketAddr is remote addr
     Requested(SocketAddr, Uuid),
@@ -70,32 +73,20 @@ impl TcpChannel {
             _ => false,
         }
     }
-    pub fn initialise(&mut self, addr: &SocketAddr) -> io::Result<()> {
-        match self.state {
-            ChannelState::Initialising => {
-                // We must send enqueue Hello and await reply
-                let hello = Frame::Hello(Hello::new(*addr));
-                let mut hello_bytes = BytesMut::with_capacity(hello.encoded_len());
-                //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
-                if let Ok(()) = hello.encode_into(&mut hello_bytes) {
-                    /* This triggers an error every for some reason
-                    if let Err(e) = self.stream.set_nodelay(true) {
 
-                        eprintln!("failed to set nodelay on TcpChannel connected to {:?}: {:?}", self.stream.peer_addr(), e);
-                    }*/
-                    self.outbound_queue
-                        .push_back(SerializedFrame::Bytes(hello_bytes.freeze()));
-                    self.try_drain()?;
-                } else {
-                    eprintln!("Bad state reached during channel initialisation (initialise). Handshake went wrong.\
-                              Connection will likely fail and a re-connect will occur. Non fatal");
-                }
-            }
-            _ => {
-                // We only initialise if we're initialising
-            }
+    /// Internal helper function for special frames
+    fn send_frame(&mut self, frame: Frame) -> () {
+        let len = frame.encoded_len() + FRAME_HEAD_LEN as usize;
+        let mut bytes = BytesMut::with_capacity(128);
+        bytes.truncate(len);
+        if let Ok(()) = frame.encode_into(&mut bytes) {
+            self.outbound_queue
+                .push_back(SerializedFrame::Bytes(bytes.freeze()));
+            // If there is a fatal error during a handshake the connection will be re-attempted
+            let _ = self.try_drain();
+        } else {
+            panic!("Failed to encode bytes for Frame {:?}", frame.frame_type());
         }
-        Ok(())
     }
 
     pub fn get_id(&self) -> Option<Uuid> {
@@ -115,66 +106,45 @@ impl TcpChannel {
         }
     }
 
+    pub fn initialise(&mut self, addr: &SocketAddr) -> () {
+        if let ChannelState::Initialising = self.state {
+            // We must send enqueue Hello and await reply
+            let hello = Frame::Hello(Hello::new(*addr));
+            self.send_frame(hello);
+        }
+    }
+
     /// Must be called when a Hello frame is received on the channel.
     pub fn handle_hello(&mut self, hello: Hello) -> () {
-        if let ChannelState::Requested(requested_addr, id) = self.state {
-            if requested_addr.eq(&hello.addr) {
-                // Has now received Hello(addr), must send Start(addr, uuid) and await ack
-                let start = Frame::Start(Start::new(self.own_addr.clone(), id));
-                let mut start_bytes = BytesMut::with_capacity(start.encoded_len());
-                //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
-                if let Ok(()) = start.encode_into(&mut start_bytes) {
-                    self.outbound_queue
-                        .push_back(SerializedFrame::Bytes(start_bytes.freeze()));
-                    // Errors do not matter here.
-                    let _ = self.try_drain();
-                    self.state = ChannelState::Initialised(hello.addr.clone(), id);
-                    return;
-                }
-            }
+        if let ChannelState::Requested(_, id) = self.state {
+            // Has now received Hello(addr), must send Start(addr, uuid) and await ack
+            let start = Frame::Start(Start::new(self.own_addr.clone(), id));
+            self.send_frame(start);
+            self.state = ChannelState::Initialised(hello.addr.clone(), id);
         }
-        eprintln!("Bad state reached during channel initialisation (handle_hello). Handshake went wrong.\
-                  Connection will likely fail and a re-connect will occur. Non fatal");
     }
 
     /// Must be called when we Ack the channel. This means that the sender can start using the channel
     /// The receiver of the Ack must accept the Ack and use the channel.
-    pub fn send_ack(&mut self, addr: &SocketAddr, id: Uuid) -> () {
-        match self.state {
-            ChannelState::Initialising => {
-                // Method called because we received Start and want to send Ack.
-                self.state = ChannelState::Connected(addr.clone(), id);
-                // Has now received Hello(addr), must send Start(addr, uuid) and await ack
-                let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
-                let mut ack_bytes = BytesMut::with_capacity(ack.encoded_len());
-                //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
-                if let Ok(()) = ack.encode_into(&mut ack_bytes) {
-                    self.outbound_queue
-                        .push_back(SerializedFrame::Bytes(ack_bytes.freeze()));
-                    // Errors do not matter here.
-                    let _ = self.try_drain();
-                    self.state = ChannelState::Connected(addr.clone(), id);
-                    return;
-                }
-            }
-            _ => {}
+    pub fn handle_start(&mut self, addr: &SocketAddr, id: Uuid) -> () {
+        if let ChannelState::Initialising = self.state {
+            // Method called because we received Start and want to send Ack.
+            let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
+            self.send_frame(ack);
+            self.state = ChannelState::Connected(addr.clone(), id);
         }
-        eprintln!("Bad state reached during channel initialisation (send_ack). Handshake went wrong.\
-                  Connection will likely fail and a re-connect will occur. Non fatal");
     }
 
+    /// Returns true if it transitioned, false if it's not starting.
     pub fn handle_ack(&mut self) -> bool {
-        match self.state {
-            ChannelState::Initialised(addr, id) => {
-                // An Ack was received. Transition the channel.
-                self.state = ChannelState::Connected(addr, id);
-                return true;
-            }
-            _ => {
-                eprintln!("Bad state reached during channel initialisation (handle_ack). Handshake went wrong.\
-                  Connection will likely fail and a re-connect will occur. Non fatal");
-                return false;
-            }
+        if let ChannelState::Initialised(addr, id) = self.state {
+            // An Ack was received. Transition the channel.
+            self.state = ChannelState::Connected(addr, id);
+            true
+        } else {
+            eprintln!("Bad state reached during channel initialisation (handle_ack). Handshake went wrong.\
+              Connection will likely fail and a re-connect will occur. Non fatal");
+            false
         }
     }
 
@@ -222,7 +192,6 @@ impl TcpChannel {
                         }
                     }
                     Err(err) => {
-                        //println!("network thread {} got uncaught error during read from remote {}", self.stream.local_addr().unwrap(), self.stream.peer_addr().unwrap());
                         return Err(err);
                     }
                 }
@@ -234,7 +203,9 @@ impl TcpChannel {
 
     pub fn graceful_shutdown(&mut self) -> () {
         let bye = Frame::Bye();
-        let mut bye_bytes = BytesMut::with_capacity(bye.encoded_len());
+        let mut bye_bytes = BytesMut::with_capacity(128);
+        let len = bye.encoded_len() + FRAME_HEAD_LEN as usize;
+        bye_bytes.truncate(len);
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = bye.encode_into(&mut bye_bytes) {
             self.outbound_queue
@@ -375,7 +346,6 @@ impl std::fmt::Debug for ChannelState {
         }
     }
 }
-
 
 #[derive(PartialEq, Eq)]
 struct SocketWrapper {

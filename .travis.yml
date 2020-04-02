@@ -1,10 +1,3 @@
-language: rust
-rust:
-  - nightly
-  - stable
-  - beta
-cache: cargo
-
 # make sure protobuf library and mdbook are installed for build to succeed
 before_install:
   - ./travis_install_protobuf.sh
@@ -17,11 +10,19 @@ jobs:
   include:
     - stage: test
       name: "Build and test root"
+      language: rust
+      rust:
+        - nightly
+        - stable
       script:
         - cargo build --verbose --all
         - cargo test --verbose --all
     - stage: test-features
       name: "Test feature matrix"
+      language: rust
+      rust:
+        - nightly
+        - stable
       script:
         - cd core
         - ./test-feature-matrix.sh
