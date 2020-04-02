@@ -13,6 +13,7 @@ use uuid::Uuid;
 //use stream::StreamId;
 /// Used to identify start of a frame head
 pub const MAGIC_NUM: u32 = 0xC0A1BA11;
+// 192, 161, 186, 17
 /// Framehead has constant size: (frame length) + (magic) + (frame type)
 pub const FRAME_HEAD_LEN: u32 = 4 + 4 + 1;
 
@@ -24,7 +25,7 @@ pub enum FramingError {
     /// Uknown frame type.
     UnsupportedFrameType,
     /// Invalid start of frame.
-    InvalidMagicNum(Vec<u8>),
+    InvalidMagicNum((u32, Vec<u8>)),
     /// Invalid frame
     InvalidFrame,
     /// Serialisation during encode or deserialisation during decode
@@ -54,7 +55,7 @@ pub enum Frame {
     Data(Data),
     /// Hello, used to initiate network channels
     Hello(Hello),
-    /// Hello, used to initiate network channels
+    /// Start, used to initiate network channels
     Start(Start),
     /// Ack to acknowledge that the connection is started.
     Ack(Ack),
@@ -140,15 +141,13 @@ pub struct CreditUpdate {
 /// Frame of Data
 #[derive(Debug)]
 pub struct Data {
-    /// The actual contents of the Frame
+    /// The contents of the Frame
     pub payload: ChunkLease,
 }
 
 /// Hello, used to initiate network channels
 #[derive(Debug)]
 pub struct Hello {
-    //pub stream_id: StreamId,
-    //pub seq_num: u32,
     /// The Cannonical Address of the host saying Hello
     pub addr: SocketAddr,
 }
@@ -156,7 +155,7 @@ pub struct Hello {
 /// Hello, used to initiate network channels
 #[derive(Debug)]
 pub struct Start {
-    /// The Cannonical Address of the host saying Hello
+    /// The Cannonical Address of the host sending the Start message
     pub addr: SocketAddr,
     /// "Channel ID", used as a tie-breaker in mutual connection requests
     pub id: Uuid,
@@ -168,7 +167,6 @@ pub struct Ack {
     /// Ack where we're ready to start receiving from.
     pub offset: u128,
 }
-
 
 /// Byte-mappings for frame types
 #[repr(u8)]
@@ -236,12 +234,13 @@ impl FrameHead {
     pub(crate) fn decode_from<B: Buf + ?Sized>(src: &mut B) -> Result<Self, FramingError> {
         // length_delimited's decoder will have parsed the length out of `src`, subtract that out
         if src.remaining() < (FRAME_HEAD_LEN) as usize {
-            return Err(FramingError::BufferCapacity);
+            return Err(FramingError::NoData);
         }
 
         let magic_check = src.get_u32();
         if magic_check != MAGIC_NUM {
-            return Err(FramingError::InvalidMagicNum(src.bytes().to_vec()));
+            eprintln!("Magic check fail: {:X}", magic_check);
+            return Err(FramingError::InvalidMagicNum((magic_check, src.bytes().to_vec())));
         }
 
         let content_length = src.get_u32() as usize;
