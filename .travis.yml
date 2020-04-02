@@ -6,27 +6,39 @@ before_install:
   - (test -x $HOME/.cargo/bin/mdbook-linkcheck || cargo install mdbook-linkcheck)
   - cargo install-update -a
 
+os: linux
+dist: xenial
 language: rust
+rust:
+  - stable
+  - nightly
 jobs:
   include:
     - stage: test
-      name: "Build and test root"
+      name: "Build and test root: stable"
+      rust: stable
       script:
         - cargo build --verbose --all
         - cargo test --verbose --all
-      rust:
-        - nightly
-        - stable
+    - stage: test
+      name: "Build and test root: nightly"
+      rust: nightly
+      script:
+        - cargo build --verbose --all
+        - cargo test --verbose --all
     - stage: test-features
-      name: "Test feature matrix"
+      rust: stable
+      name: "Test feature matrix: stable"
       script:
         - cd core
         - ./test-feature-matrix.sh
-      rust:
-        - nightly
-        - stable
+    - stage: test-features
+      rust: nightly
+      name: "Test feature matrix: nightly"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh
     - stage: deploy
+      rust: nightly
       name: "Github Release"
       script: mdbook build docs
-      rust:
-        - nightly
