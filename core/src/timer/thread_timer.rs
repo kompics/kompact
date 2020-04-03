@@ -165,76 +165,74 @@ impl TimerThread {
                 for _ in 0..elap {
                     self.tick();
                 }
-            } else {
-                match self.work_queue.try_recv() {
-                    Ok(msg) => self.handle_msg(msg),
-                    Err(channel::TryRecvError::Empty) => {
-                        // nothing to tick and nothing in the queue
-                        match self.timer.can_skip() {
-                            Skip::None => {
-                                thread::yield_now();
-                                // if last_check.elapsed().as_nanos() > 800000 {
-                                //     // if more than 8/10ms left
-                                //     thread::yield_now(); // just let someone else run until the next tick
-                                // } // else hot wait to reduce inaccuracy
-                            }
-                            Skip::Empty => {
-                                // wait until something is scheduled
-                                // don't even need to bother skipping time in the wheel,
-                                // since all times in there are relative
-                                match self.work_queue.recv() {
-                                    Ok(msg) => {
-                                        self.reset(); // since we waited for an arbitrary time and taking a new timestamp incures no error
-                                        self.handle_msg(msg)
-                                    }
-                                    Err(channel::RecvError) => {
-                                        panic!("Timer work_queue unexpectedly shut down!")
-                                    }
+            }
+
+            match self.work_queue.try_recv() {
+                Ok(msg) => self.handle_msg(msg),
+                Err(channel::TryRecvError::Empty) => {
+                    match self.timer.can_skip() {
+                        Skip::None => {
+                            thread::yield_now(); // try again after yielding for a bit
+                        }
+                        Skip::Empty => {
+                            // wait until something is scheduled
+                            // don't even need to bother skipping time in the wheel,
+                            // since all times in there are relative
+                            match self.work_queue.recv() {
+                                Ok(msg) => {
+                                    self.reset(); // since we waited for an arbitrary time and taking a new timestamp incurs no error
+                                    self.handle_msg(msg)
                                 }
-                            }
-                            Skip::Millis(ms) if ms > 5 => {
-                                let ms = ms - 5; // balance OS scheduler inaccuracy
-                                                 // wait until something is scheduled but max skip
-                                let timeout = Duration::from_millis(ms as u64);
-                                let res = select! {
-                                    recv(self.work_queue) -> msg => msg.ok(),
-                                    default(timeout) => None,
-                                };
-                                let elap = self.elapsed();
-                                let longms = ms as u128;
-                                if elap > longms {
-                                    // took longer to get rescheduled than we wanted
-                                    self.timer.skip(ms);
-                                    for _ in 0..(elap - longms) {
-                                        self.tick();
-                                    }
-                                } else if elap < longms {
-                                    // we got woken up early, no need to tick
-                                    self.timer.skip(elap as u32)
-                                } else {
-                                    // elap == ms
-                                    // next action should be a tick, but add the new items first
-                                    self.timer.skip(ms);
+                                Err(channel::RecvError) => {
+                                    panic!("Timer work_queue unexpectedly shut down!")
                                 }
-                                match res {
-                                    Some(msg) => self.handle_msg(msg),
-                                    None => (), // restart loop
-                                }
-                            }
-                            Skip::Millis(_) => {
-                                thread::yield_now();
-                                // if last_check.elapsed().as_nanos() > 800000 {
-                                //     // if more than 8/10ms left
-                                //     thread::yield_now(); // just let someone else run until the next tick
-                                // } // else hot wait to reduce inaccuracy
                             }
                         }
-                    }
-                    Err(channel::TryRecvError::Disconnected) => {
-                        panic!("Timer work_queue unexpectedly shut down!")
+                        Skip::Millis(can_skip) if can_skip > 5 => {
+                            let waiting_time = can_skip - 5; // balance OS scheduler inaccuracy
+                                                             // wait until something is scheduled but max skip
+                            let timeout = Duration::from_millis(waiting_time as u64);
+                            let res = select! {
+                                recv(self.work_queue) -> msg => msg.ok(),
+                                default(timeout) => None,
+                            };
+                            let elap = self.elapsed();
+                            self.skip_and_tick(can_skip, elap);
+                            match res {
+                                Some(msg) => self.handle_msg(msg),
+                                None => (), // restart loop
+                            }
+                        }
+                        Skip::Millis(can_skip) => {
+                            thread::yield_now();
+                            let elap = self.elapsed();
+                            self.skip_and_tick(can_skip, elap);
+                        }
                     }
                 }
+                Err(channel::TryRecvError::Disconnected) => {
+                    panic!("Timer work_queue unexpectedly shut down!")
+                }
             }
+        }
+    }
+
+    #[inline(always)]
+    fn skip_and_tick(&mut self, can_skip: u32, elapsed: u128) -> () {
+        let can_skip_u128 = can_skip as u128;
+        if elapsed > can_skip_u128 {
+            // took longer to get rescheduled than we wanted
+            self.timer.skip(can_skip);
+            let ticks = elapsed - can_skip_u128;
+            for _ in 0..ticks {
+                self.tick();
+            }
+        } else if elapsed < can_skip_u128 {
+            // we got woken up early, no need to tick
+            self.timer.skip(elapsed as u32);
+        } else {
+            // elapsed == can_skip
+            self.timer.skip(can_skip);
         }
     }
 

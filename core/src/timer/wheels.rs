@@ -538,8 +538,10 @@ mod tests {
     fn increasing_skip() {
         let mut timer = QuadWheelWithOverflow::new();
         let mut ids: [Uuid; 33] = [Uuid::nil(); 33];
+        let mut timeouts: [u128; 33] = [0; 33];
         for i in 0..=32 {
             let timeout: u64 = 1 << i;
+            timeouts[i] = timeout as u128;
             let id = Uuid::new_v4();
             ids[i] = id;
             let entry = TimerEntry::OneShot {
@@ -548,6 +550,7 @@ mod tests {
                 action: Box::new(|id| println!("{:?}", id)),
             };
             timer.insert(entry).expect("Could not insert timer entry!");
+            println!("Added timeout at index={} with time={}", i, timeout);
         }
         let mut index = 0usize;
         let mut millis = 0u128;
@@ -560,7 +563,7 @@ mod tests {
                 Skip::Millis(skip) => {
                     timer.skip(skip);
                     millis += skip as u128;
-                    //println!("Skipped {}ms to {}", skip, millis);
+                    println!("Skipped {}ms to {}", skip, millis);
                 }
                 Skip::None => (),
             }
@@ -570,7 +573,12 @@ mod tests {
             if !res.is_empty() {
                 let entry = res.pop().unwrap();
                 assert_eq!(entry.id(), ids[index]);
+                assert_eq!(millis, timeouts[index]);
+                println!("Handled timeout {} at {}ms", index, millis);
                 index += 1usize;
+            } else {
+                () // ignore empty ticks, which must be done do advance within a wheel
+                   //println!("Empty tick at {}ms", millis);
             }
         }
         assert_eq!(timer.can_skip(), Skip::Empty);

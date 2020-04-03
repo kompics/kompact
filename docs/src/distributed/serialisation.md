@@ -4,7 +4,7 @@ In this section we are going take a closer look at the various serialisation opt
 
 ## Custom Serialisation
 
-At the centre of Kompact's serialisation mechanisms are the `Serialiable` and `Deserialiser` traits, the signature of which looks roughtly like this:
+At the centre of Kompact's serialisation mechanisms are the `Serialisable` and `Deserialiser` traits, the signature of which looks roughtly like this:
 
 ```rust,edition2018,no_run,noplaypen
 pub trait Serialisable: Send + Debug {
