@@ -39,3 +39,12 @@ jobs:
       rust: nightly
       name: "Github Release"
       script: mdbook build docs
+      deploy:
+        provider: pages
+        edge: true
+        cleanup: false
+        token: $GITHUB_TOKEN
+        local_dir: docs/book/html
+        keep_history: false
+        on:
+          branch: master
