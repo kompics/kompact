@@ -35,6 +35,9 @@ use std::{io::ErrorKind, time::Duration};
 pub mod lookup;
 pub mod queue_manager;
 
+const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
+const MAX_RETRY_ATTEMPTS: u8 = 10;
+
 /// Configuration builder for the network dispatcher
 ///
 /// # Example
@@ -114,11 +117,13 @@ pub struct NetworkDispatcher {
     /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
     /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
-    queue_manager: Option<QueueManager>,
+    queue_manager: QueueManager,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
     notify_ready: Option<Promise<()>>,
     encode_buffer: EncodeBuffer,
+    /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
+    retry_map: FnvHashMap<SocketAddr, (u8)>,
 }
 
 impl NetworkDispatcher {
@@ -158,10 +163,11 @@ impl NetworkDispatcher {
             cfg,
             lookup,
             net_bridge: None,
-            queue_manager: None,
+            queue_manager: QueueManager::new(),
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
+            retry_map: FnvHashMap::default(),
         }
     }
 
@@ -182,10 +188,8 @@ impl NetworkDispatcher {
         );
 
         bridge.set_dispatcher(dispatcher.clone());
+        self.schedule_retries();
         self.net_bridge = Some(bridge);
-
-        let queue_manager = QueueManager::new();
-        self.queue_manager = Some(queue_manager);
         Ok(())
     }
 
@@ -198,9 +202,6 @@ impl NetworkDispatcher {
     }
 
     fn do_stop(&mut self, _cleanup: bool) -> () {
-        if let Some(manager) = self.queue_manager.take() {
-            manager.stop();
-        }
         if let Some(bridge) = self.net_bridge.take() {
             if let Err(e) = bridge.stop() {
                 error!(
@@ -216,6 +217,7 @@ impl NetworkDispatcher {
             // First time running; mark as scheduled and jump straight to scheduling
             self.reaper.schedule();
         } else {
+
             // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly
             let num_reaped = self.reaper.run(&self.lookup);
             if num_reaped == 0 {
@@ -236,6 +238,32 @@ impl NetworkDispatcher {
         });
     }
 
+    fn schedule_retries(&mut self) {
+        // First check the retry_map if we should re-request connections
+        let drain = self.retry_map.clone();
+        self.retry_map.clear();
+        for (addr, retry) in drain {
+            if retry < MAX_RETRY_ATTEMPTS {
+                // Make sure we will re-request connection later
+                self.retry_map.insert(addr.clone(), retry + 1);
+                if let Some(bridge) = &self.net_bridge {
+                    // Do connection attempt
+                    debug!(self.ctx().log(), "Dispatcher retrying connection to host {}, attempt {}/{}",
+                           addr, retry, MAX_RETRY_ATTEMPTS);
+                    bridge.connect(Transport::TCP, addr).unwrap();
+                }
+            } else {
+                // Too many retries, give up on the connection.
+                info!(self.ctx().log(), "Dispatcher giving up on remote host {}, dropping queues", addr);
+                self.queue_manager.drop_queue(&addr);
+                self.connections.remove(&addr);
+            }
+        }
+        self.schedule_once(Duration::from_millis(RETRY_CONNECTIONS_INTERVAL), move |target, _id| {
+            target.schedule_retries()
+        });
+    }
+
     fn on_event(&mut self, ev: EventEnvelope) {
         match ev {
             EventEnvelope::Network(ev) => match ev {
@@ -250,6 +278,10 @@ impl NetworkDispatcher {
                 NetworkEvent::Data(_) => {
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
+                }
+                NetworkEvent::RejectedFrame(addr, frame) => {
+                    // These are messages which we routed to a network-thread before they lost the connection.
+                    self.queue_manager.enqueue_priority_frame(frame, addr);
                 }
             },
         }
@@ -267,26 +299,22 @@ impl NetworkDispatcher {
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
                 );
-                if let Some(ref mut qm) = self.queue_manager {
-                    if qm.has_frame(&addr) {
-                        // Drain as much as possible
-                        while let Some(frame) = qm.pop_frame(&addr) {
-                            if let Some(bridge) = &self.net_bridge {
-                                //println!("Sending queued frame to newly established connection");
-                                bridge.route(addr, frame)?;
-                            }
-                            /*if let Err(err) = frame_sender.unbounded_send(frame) {
-                                // TODO the underlying channel has been dropped,
-                                // indicating that the entire connection is, in fact, not Connected
-                                qm.enqueue_frame(err.into_inner(), addr.clone());
-                                break;
-                            }*/
+                let _ = self.retry_map.remove(&addr);
+                if self.queue_manager.has_frame(&addr) {
+                    // Drain as much as possible
+                    while let Some(frame) = self.queue_manager.pop_frame(&addr) {
+                        if let Some(bridge) = &self.net_bridge {
+                            //println!("Sending queued frame to newly established connection");
+                            bridge.route(addr, frame)?;
                         }
                     }
                 }
             }
             Closed => {
-                warn!(self.ctx().log(), "connection closed for {:?}", addr);
+                if self.retry_map.get(&addr).is_none() {
+                    warn!(self.ctx().log(), "connection closed for {:?}", addr);
+                    self.retry_map.insert(addr.clone(), 0); // Make sure we try to re-establish the connection
+                }
             }
             Error(ref err) => {
                 match err {
@@ -354,18 +382,16 @@ impl NetworkDispatcher {
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
-            ConnectionState::New | ConnectionState::Closed => {
-                //println!("route_remote found New or Closed state");
+            ConnectionState::New => {
                 debug!(
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
                 );
-                self.queue_manager
-                    .as_mut()
-                    .map(|ref mut q| q.enqueue_frame(serialized, addr));
+                self.queue_manager.enqueue_frame(serialized, addr);
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
+                    self.retry_map.insert(addr.clone(), 0); // Make sure we will re-request connection later
                     bridge.connect(Transport::TCP, addr).unwrap();
                     Some(ConnectionState::Initializing)
                 } else {
@@ -374,34 +400,31 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Connected(_) => {
-                //println!("route_remote found Connected state");
-                if let Some(ref mut qm) = self.queue_manager {
-                    if qm.has_frame(&addr) {
-                        qm.enqueue_frame(serialized, addr.clone());
+                if self.queue_manager.has_frame(&addr) {
+                    self.queue_manager.enqueue_frame(serialized, addr.clone());
 
-                        if let Some(bridge) = &self.net_bridge {
-                            while let Some(frame) = qm.pop_frame(&addr) {
-                                bridge.route(addr, frame)?;
-                            }
+                    if let Some(bridge) = &self.net_bridge {
+                        while let Some(frame) = self.queue_manager.pop_frame(&addr) {
+                            bridge.route(addr, frame)?;
                         }
-                        None
-                    } else {
-                        // Send frame
-                        if let Some(bridge) = &self.net_bridge {
-                            bridge.route(addr, serialized)?;
-                        }
-                        None
                     }
+                    None
                 } else {
-                    // No queue manager available! Should we even allow this state?
+                    // Send frame
+                    if let Some(bridge) = &self.net_bridge {
+                        bridge.route(addr, serialized)?;
+                    }
                     None
                 }
             }
             ConnectionState::Initializing => {
-                debug!(self.ctx.log(), "Connection is initializing; queuing frame");
-                self.queue_manager
-                    .as_mut()
-                    .map(|ref mut q| q.enqueue_frame(serialized, addr));
+                //debug!(self.ctx.log(), "Connection is initializing; queuing frame");
+                self.queue_manager.enqueue_frame(serialized, addr);
+                None
+            }
+            ConnectionState::Closed => {
+                // Enqueue the Frame. The connection will sort itself out or drop the queue eventually
+                self.queue_manager.enqueue_frame(serialized, addr.clone());
                 None
             }
             _ => None,
@@ -436,9 +459,7 @@ impl NetworkDispatcher {
         msg: DispatchData,
     ) -> Result<(), NetworkBridgeErr> {
         let src_path = self.resolve_path(&src);
-        //println!("*** Dispatch route {:?}", dst_path.system().protocol());
         if src_path.system() == dst_path.system() {
-            //println!("*** dst system == src system");
             self.route_local(src_path, dst_path, msg);
             return Ok(());
         };
@@ -523,7 +544,7 @@ impl Actor for NetworkDispatcher {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        warn!(self.ctx.log(), "Received network message: {:?}", msg,);
+        warn!(self.ctx.log(), "Received network message: {:?}", msg, );
     }
 }
 
@@ -545,7 +566,6 @@ impl Provide<ControlPort> for NetworkDispatcher {
     fn handle(&mut self, event: ControlEvent) {
         match event {
             ControlEvent::Start => {
-                self.ctx_mut().initialize_pool();
                 info!(self.ctx.log(), "Starting network...");
                 let res = self.start(); //.expect("Could not create NetworkDispatcher!");
                 match res {
@@ -696,6 +716,62 @@ mod dispatch_tests {
         });
         println!("Starting 2nd KompactSystem");
         let system2 = cfg2.build().expect("KompactSystem");
+        thread::sleep(Duration::from_millis(100));
+        println!("2nd KompactSystem started just fine.");
+        let named_path2 = ActorPath::Named(NamedPath::with_system(
+            system2.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        assert_eq!(named_path, named_path2);
+        system2
+            .shutdown()
+            .expect("2nd KompicsSystem failed to shut down!");
+    }
+
+    /// This is similar to network_cleanup test that will trigger a failed binding.
+    /// The retry should occur when system2 is building and should succeed after system1 is killed.
+    #[test]
+    fn network_cleanup_with_timeout() {
+        let mut cfg = KompactConfig::new();
+        println!("Configuring network");
+        cfg.system_components(DeadletterBox::new, {
+            let net_config =
+                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+            net_config.build()
+        });
+        println!("Starting KompactSystem");
+        let system = cfg.build().expect("KompactSystem");
+        println!("KompactSystem started just fine.");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system.system_path(),
+            vec!["test".into()],
+        ));
+        println!("Got path: {}", named_path);
+        let port = system.system_path().port();
+        println!("Got port: {}", port);
+
+        thread::Builder::new()
+            .name("System1 Killer".to_string())
+            .spawn(move || {
+                thread::sleep(Duration::from_millis(100));
+                println!("Shutting down first system...");
+                system
+                    .shutdown()
+                    .expect("KompicsSystem failed to shut down!");
+                println!("System shut down.");
+            }).ok();
+
+        let mut cfg2 = KompactConfig::new();
+        println!("Configuring network");
+        cfg2.system_components(DeadletterBox::new, {
+            let net_config =
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port));
+            net_config.build()
+        });
+        println!("Starting 2nd KompactSystem");
+        let system2 = cfg2.build().expect("KompactSystem");
+        thread::sleep(Duration::from_millis(100));
         println!("2nd KompactSystem started just fine.");
         let named_path2 = ActorPath::Named(NamedPath::with_system(
             system2.system_path(),
@@ -917,6 +993,211 @@ mod dispatch_tests {
             .expect("Kompact didn't shut down properly");
     }
 
+    #[test]
+    /// Sets up two KompactSystems 1 and 2a, with Named paths. It first spawns a pinger-ponger couple
+    /// The ping pong process completes, it shuts down system2a, spawns a new pinger on system1
+    /// and finally boots a new system 2b with an identical networkconfig and named actor registration
+    /// The final ping pong round should then complete as system1 automatically reconnects to system2 and
+    /// transfers the enqueued messages.
+    fn remote_lost_and_continued_connection() {
+        let system1 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9111)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+        let system2 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9112)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+
+        // Set-up system2a
+        let system2a = system2();
+        //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new);
+        let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system2a.system_path(),
+            vec!["custom_name".into()],
+        ));
+        let named_path_clone = named_path.clone();
+        // Set-up system1
+        let system1 = system1();
+        let (pinger_named, pinf) = system1.create_and_register(move || PingerAct::new(named_path_clone));
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system2a.start(&ponger_named);
+        system1.start(&pinger_named);
+
+        // Wait for the pingpong
+        thread::sleep(Duration::from_millis(2000));
+
+        // Assert that things are going as we expect
+        let pongfn = system2a.kill_notify(ponger_named);
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        // We now kill system2
+        system2a.shutdown().ok();
+        // Start a new pinger on system1
+        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
+        pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        system1.start(&pinger_named2);
+        // Wait for it to send its pings, system1 should recognize the remote address
+        thread::sleep(Duration::from_millis(1000));
+        // Assert that things are going as they should be, ping count has not increased
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, 0);
+        });
+        // Start up system2b
+        println!("Setting up system2b");
+        let system2b = system2();
+        let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new);
+        let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        println!("Starting actor on system2b");
+        system2b.start(&ponger_named);
+
+        // We give the connection plenty of time to re-establish and transfer it's old queue
+        println!("Final sleep");
+        thread::sleep(Duration::from_millis(5000));
+        // Final assertion, did our systems re-connect without lost messages?
+        println!("Asserting");
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        println!("Shutting down");
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2b
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
+    /// system1 times out in its reconnection attempts and drops the enqueued buffers.
+    /// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
+    fn remote_lost_and_dropped_connection() {
+        let system1 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9211)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+        let system2 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9212)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+
+        // Set-up system2a
+        let system2a = system2();
+        //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new);
+        let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system2a.system_path(),
+            vec!["custom_name".into()],
+        ));
+        let named_path_clone = named_path.clone();
+        let named_path_clone2 = named_path.clone();
+        // Set-up system1
+        let system1 = system1();
+        let (pinger_named, pinf) = system1.create_and_register(move || PingerAct::new(named_path_clone));
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system2a.start(&ponger_named);
+        system1.start(&pinger_named);
+
+        // Wait for the pingpong
+        thread::sleep(Duration::from_millis(2000));
+
+        // Assert that things are going as we expect
+        let pongfn = system2a.kill_notify(ponger_named);
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        // We now kill system2
+        system2a.shutdown().ok();
+        // Start a new pinger on system1
+        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
+        pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        system1.start(&pinger_named2);
+        // Wait for it to send its pings, system1 should recognize the remote address
+        thread::sleep(Duration::from_millis(1000));
+        // Assert that things are going as they should be, ping count has not increased
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, 0);
+        });
+        // Sleep long-enough that the remote connection will be dropped with its queue
+        thread::sleep(Duration::from_millis((MAX_RETRY_ATTEMPTS + 2) as u64 * RETRY_CONNECTIONS_INTERVAL));
+        // Start up system2b
+        println!("Setting up system2b");
+        let system2b = system2();
+        let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new);
+        let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        println!("Starting actor on system2b");
+        system2b.start(&ponger_named);
+
+        // We give the connection plenty of time to re-establish and transfer it's old queue
+        thread::sleep(Duration::from_millis(5000));
+        // Final assertion, did our systems re-connect without lost messages?
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, 0);
+        });
+
+        // This one should now succeed
+        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path_clone2));
+        pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        system1.start(&pinger_named2);
+        // Wait for it to send its pings, system1 should recognize the remote address
+        thread::sleep(Duration::from_millis(1000));
+        // Assert that things are going as they should be
+        pinger_named2.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2b
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
     const PING_COUNT: u64 = 10;
 
     #[test]
@@ -1130,7 +1411,6 @@ mod dispatch_tests {
         fn handle(&mut self, event: ControlEvent) -> () {
             match event {
                 ControlEvent::Start => {
-                    self.ctx_mut().initialize_pool();
                     info!(self.ctx.log(), "Starting");
                     if self.eager {
                         self.target
@@ -1199,7 +1479,6 @@ mod dispatch_tests {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
-                    self.ctx_mut().initialize_pool();
                 }
                 _ => (),
             }

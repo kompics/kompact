@@ -9,11 +9,12 @@ use std::{
 
 // ANCHOR: zstser
 struct ZSTSerialiser<T>(T)
-where
-    T: Send + Sync + Default + Copy + SerialisationId;
+    where
+        T: Send + Sync + Default + Copy + SerialisationId;
+
 impl<T> Serialiser<T> for &ZSTSerialiser<T>
-where
-    T: Send + Sync + Default + Copy + SerialisationId,
+    where
+        T: Send + Sync + Default + Copy + SerialisationId,
 {
     fn ser_id(&self) -> SerId {
         T::SER_ID
@@ -27,9 +28,10 @@ where
         Ok(())
     }
 }
+
 impl<T> Deserialiser<T> for ZSTSerialiser<T>
-where
-    T: Send + Sync + Default + Copy + SerialisationId,
+    where
+        T: Send + Sync + Default + Copy + SerialisationId,
 {
     const SER_ID: SerId = T::SER_ID;
 
@@ -40,9 +42,11 @@ where
 
 #[derive(Debug, Clone, Copy, Default)]
 struct CheckIn;
+
 impl SerialisationId for CheckIn {
     const SER_ID: SerId = 2345;
 }
+
 static CHECK_IN_SER: ZSTSerialiser<CheckIn> = ZSTSerialiser(CheckIn);
 // ANCHOR_END: zstser
 
@@ -72,6 +76,7 @@ impl Serialisable for UpdateProcesses {
         Ok(self)
     }
 }
+
 impl Deserialiser<UpdateProcesses> for UpdateProcesses {
     const SER_ID: SerId = 3456;
 
@@ -93,6 +98,7 @@ struct BootstrapServer {
     ctx: ComponentContext<Self>,
     processes: HashSet<ActorPath>,
 }
+
 impl BootstrapServer {
     fn new() -> Self {
         BootstrapServer {
@@ -114,15 +120,9 @@ impl BootstrapServer {
     }
     // ANCHOR_END: tell_serialised
 }
-//ignore_control!(BootstrapServer);
-impl Provide<ControlPort> for BootstrapServer {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => self.ctx.initialize_pool(),
-            _ => (), // ignore
-        }
-    }
-}
+
+ignore_control!(BootstrapServer);
+
 impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;
     type Message = CheckIn;
@@ -148,6 +148,7 @@ struct EventualLeaderElector {
     timer_handle: Option<ScheduledTimer>,
     leader: Option<ActorPath>,
 }
+
 impl EventualLeaderElector {
     fn new(bootstrap_server: ActorPath) -> Self {
         let minimal_period = Duration::from_millis(1);
@@ -286,7 +287,7 @@ pub fn main() {
             let system = run_client(bootstrap_socket, client_socket);
             system.await_termination(); // gotta quit it from command line
         }
-        x => panic!("Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!", x-1),
+        x => panic!("Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!", x - 1),
     }
 }
 
@@ -334,7 +335,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
         bootstrap_socket,
         vec![BOOTSTRAP_PATH.into()],
     )
-    .into();
+        .into();
 
     let printer = system.create(TrustPrinter::new);
     let (detector, registration) =

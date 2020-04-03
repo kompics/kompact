@@ -521,7 +521,7 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
-    buffer: Option<RefCell<EncodeBuffer>>,
+    buffer: RefCell<Option<EncodeBuffer>>,
     config: Arc<Hocon>,
     id: Uuid,
 }
@@ -546,7 +546,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             component: Arc::downgrade(&c),
             logger: c.logger().new(o!("ctype" => CD::type_name())),
             actor_ref: c.actor_ref(),
-            buffer: None,
+            buffer: RefCell::new(None),
             config: system.config_owned(),
             id,
         };
@@ -695,22 +695,15 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     }
 
     /// Initializes a buffer pool which [tell_serialised(ActorPath::tell_serialised) can use.
-    pub fn initialize_pool(&mut self) -> () {
-        self.inner_mut().buffer = Some(RefCell::new(EncodeBuffer::new()));
+    pub fn initialise_pool(&self) -> () {
+        debug!(self.log(), "Initialising EncodeBuffer");
+        *self.inner_ref().buffer.borrow_mut() = Some(EncodeBuffer::new());
     }
 
     /// Get a reference to the interior EncodeBuffer without retaining a self borrow
     /// initializes the private pool if it has not already been initialized
-    pub fn get_buffer(&self) -> &RefCell<EncodeBuffer> {
-        //self.inner_mut().get_buffer(size)
-        {
-            if let Some(buffer) = &self.inner_ref().buffer {
-                return buffer;
-            }
-        }
-        panic!("Failure");
-        //self.initialize_pool();
-        //self.get_buffer()
+    pub fn get_buffer(&self) -> &RefCell<Option<EncodeBuffer>> {
+        &self.inner_ref().buffer
     }
 }
 

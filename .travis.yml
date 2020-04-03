@@ -1,15 +1,3 @@
-language: rust
-rust:
-  - nightly
-  - stable
-  - beta
-cache: cargo
-script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
-  - cd core
-  - ./test-feature-matrix.sh
-
 # make sure protobuf library and mdbook are installed for build to succeed
 before_install:
   - ./travis_install_protobuf.sh
@@ -18,17 +6,36 @@ before_install:
   - (test -x $HOME/.cargo/bin/mdbook-linkcheck || cargo install mdbook-linkcheck)
   - cargo install-update -a
 
+os: linux
+dist: xenial
+language: rust
 jobs:
   include:
+    - stage: test
+      name: "Build and test root: stable"
+      rust: stable
+      script:
+        - cargo build --verbose --all
+        - cargo test --verbose --all
+    - stage: test
+      name: "Build and test root: nightly"
+      rust: nightly
+      script:
+        - cargo build --verbose --all
+        - cargo test --verbose --all
+    - stage: test-features
+      rust: stable
+      name: "Test feature matrix: stable"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh
+    - stage: test-features
+      rust: nightly
+      name: "Test feature matrix: nightly"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh
     - stage: deploy
+      rust: nightly
       name: "Github Release"
       script: mdbook build docs
-      deploy:
-        provider: pages
-        edge: true
-        cleanup: false
-        token: $GITHUB_TOKEN
-        local_dir: docs/book/html
-        keep_history: false
-        on:
-          branch: master

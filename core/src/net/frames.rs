@@ -8,10 +8,12 @@ use std::{self, fmt::Debug};
 
 use crate::net::buffer::ChunkLease;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use uuid::Uuid;
 
 //use stream::StreamId;
 /// Used to identify start of a frame head
 pub const MAGIC_NUM: u32 = 0xC0A1BA11;
+// 192, 161, 186, 17
 /// Framehead has constant size: (frame length) + (magic) + (frame type)
 pub const FRAME_HEAD_LEN: u32 = 4 + 4 + 1;
 
@@ -23,13 +25,15 @@ pub enum FramingError {
     /// Uknown frame type.
     UnsupportedFrameType,
     /// Invalid start of frame.
-    InvalidMagicNum,
+    InvalidMagicNum((u32, Vec<u8>)),
     /// Invalid frame
     InvalidFrame,
     /// Serialisation during encode or deserialisation during decode
     SerialisationError,
     /// Unwrap error
     OptionError,
+    /// No data to extract frame from
+    NoData,
     /// IO errors wrapped into FramingError
     Io(std::io::Error),
 }
@@ -51,6 +55,10 @@ pub enum Frame {
     Data(Data),
     /// Hello, used to initiate network channels
     Hello(Hello),
+    /// Start, used to initiate network channels
+    Start(Start),
+    /// Ack to acknowledge that the connection is started.
+    Ack(Ack),
     /// Bye to signal that a channel is closing.
     Bye(),
 }
@@ -63,6 +71,8 @@ impl Frame {
             Frame::CreditUpdate(_) => FrameType::CreditUpdate,
             Frame::Data(_) => FrameType::Data,
             Frame::Hello(_) => FrameType::Hello,
+            Frame::Start(_) => FrameType::Start,
+            Frame::Ack(_) => FrameType::Ack,
             Frame::Bye() => FrameType::Bye,
         }
     }
@@ -87,6 +97,8 @@ impl Frame {
             Frame::CreditUpdate(ref frame) => frame.encode_into(dst),
             Frame::Data(ref frame) => frame.encode_into(dst),
             Frame::Hello(ref frame) => frame.encode_into(dst),
+            Frame::Start(ref frame) => frame.encode_into(dst),
+            Frame::Ack(ref frame) => frame.encode_into(dst),
             Frame::Bye() => Ok(()),
         }
     }
@@ -98,6 +110,8 @@ impl Frame {
             Frame::CreditUpdate(ref frame) => frame.encoded_len(),
             Frame::Data(ref frame) => frame.encoded_len(),
             Frame::Hello(ref frame) => frame.encoded_len(),
+            Frame::Start(ref frame) => frame.encoded_len(),
+            Frame::Ack(ref frame) => frame.encoded_len(),
             _ => 0,
         }
     }
@@ -127,17 +141,31 @@ pub struct CreditUpdate {
 /// Frame of Data
 #[derive(Debug)]
 pub struct Data {
-    /// The actual contents of the Frame
+    /// The contents of the Frame
     pub payload: ChunkLease,
 }
 
 /// Hello, used to initiate network channels
 #[derive(Debug)]
 pub struct Hello {
-    //pub stream_id: StreamId,
-    //pub seq_num: u32,
     /// The Cannonical Address of the host saying Hello
     pub addr: SocketAddr,
+}
+
+/// Hello, used to initiate network channels
+#[derive(Debug)]
+pub struct Start {
+    /// The Cannonical Address of the host sending the Start message
+    pub addr: SocketAddr,
+    /// "Channel ID", used as a tie-breaker in mutual connection requests
+    pub id: Uuid,
+}
+
+/// Hello, used to initiate network channels
+#[derive(Debug)]
+pub struct Ack {
+    /// Ack where we're ready to start receiving from.
+    pub offset: u128,
 }
 
 /// Byte-mappings for frame types
@@ -152,10 +180,14 @@ pub enum FrameType {
     CreditUpdate = 0x03,
     /// Hello, used to initiate network channels
     Hello = 0x04,
+    /// Start, used to initiate network channels
+    Start = 0x05,
     /// Bye to signal that a channel is closing.
-    Bye = 0x05,
+    Ack = 0x06,
+    /// Bye to signal that a channel is closing.
+    Bye = 0x07,
     /// Unknown frame type
-    Unknown = 0x06,
+    Unknown = 0x08,
 }
 
 impl From<u8> for FrameType {
@@ -165,7 +197,9 @@ impl From<u8> for FrameType {
             0x02 => FrameType::Data,
             0x03 => FrameType::CreditUpdate,
             0x04 => FrameType::Hello,
-            0x05 => FrameType::Bye,
+            0x05 => FrameType::Start,
+            0x06 => FrameType::Ack,
+            0x07 => FrameType::Bye,
             _ => FrameType::Unknown,
         }
     }
@@ -200,12 +234,13 @@ impl FrameHead {
     pub(crate) fn decode_from<B: Buf + ?Sized>(src: &mut B) -> Result<Self, FramingError> {
         // length_delimited's decoder will have parsed the length out of `src`, subtract that out
         if src.remaining() < (FRAME_HEAD_LEN) as usize {
-            return Err(FramingError::BufferCapacity);
+            return Err(FramingError::NoData);
         }
 
         let magic_check = src.get_u32();
         if magic_check != MAGIC_NUM {
-            return Err(FramingError::InvalidMagicNum);
+            eprintln!("Magic check fail: {:X}", magic_check);
+            return Err(FramingError::InvalidMagicNum((magic_check, src.bytes().to_vec())));
         }
 
         let content_length = src.get_u32() as usize;
@@ -244,6 +279,23 @@ impl Hello {
     /// Get the address sent in the Hello message
     pub fn addr(&self) -> SocketAddr {
         self.addr
+    }
+}
+
+impl Start {
+    /// Create a new hello message
+    pub fn new(addr: SocketAddr, id: Uuid) -> Self {
+        Start { addr, id }
+    }
+
+    /// Get the address sent in the Start message
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    /// Get the address sent in the Start message
+    pub fn id(&self) -> Uuid {
+        self.id
     }
 }
 
@@ -358,6 +410,75 @@ impl FrameExt for Hello {
                 1 + 16 + 2 // version + ip + port
             }
         }
+    }
+}
+
+impl FrameExt for Start {
+    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
+        match src.get_u8() {
+            4 => {
+                let ip = Ipv4Addr::from(src.get_u32());
+                let port = src.get_u16();
+                let addr = SocketAddr::new(IpAddr::V4(ip), port);
+                let uuid = Uuid::from_u128(src.get_u128());
+                Ok(Frame::Start(Start::new(addr, uuid)))
+            }
+            6 => {
+                let ip = Ipv6Addr::from(src.get_u128());
+                let port = src.get_u16();
+                let addr = SocketAddr::new(IpAddr::V6(ip), port);
+                let uuid = Uuid::from_u128(src.get_u128().into());
+                Ok(Frame::Start(Start::new(addr, uuid)))
+            }
+            _ => {
+                panic!("Faulty Hello Message!");
+            }
+        }
+    }
+
+    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+        match self.addr {
+            SocketAddr::V4(v4) => {
+                dst.put_u8(4); // version
+                dst.put_slice(&v4.ip().octets()); // ip
+                dst.put_u16(v4.port()); // port
+                dst.put_u128(self.id.as_u128()); //id
+                Ok(())
+            }
+            SocketAddr::V6(v6) => {
+                dst.put_u8(6); // version
+                dst.put_slice(&v6.ip().octets()); // ip
+                dst.put_u16(v6.port()); // port
+                dst.put_u128(self.id.as_u128()); //id
+                Ok(())
+            }
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        match self.addr {
+            SocketAddr::V4(_v4) => {
+                1 + 4 + 2 + 16 // version + ip + port + uuid
+            }
+            SocketAddr::V6(_v6) => {
+                1 + 16 + 2 + 16 // version + ip + port + uuid
+            }
+        }
+    }
+}
+
+
+impl FrameExt for Ack {
+    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
+        Ok(Frame::Ack(Ack { offset: src.get_u128() }))
+    }
+
+    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+        Ok(dst.put_u128(self.offset))
+    }
+
+    fn encoded_len(&self) -> usize {
+        16
     }
 }
 

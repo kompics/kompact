@@ -1,14 +1,10 @@
 use super::*;
-use crate::{
-    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable},
-    net::buffer::EncodeBuffer,
-};
+use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable};
 use std::{
     convert::TryFrom,
     error::Error,
     fmt::{self, Debug},
     net::{AddrParseError, IpAddr, SocketAddr},
-    ops::DerefMut,
     str::FromStr,
 };
 use uuid::Uuid;
@@ -289,9 +285,9 @@ impl ActorPath {
     /// that `m` will definitely go over the network, you can use
     /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
-    where
-        S: ActorSource,
-        B: Into<Box<dyn Serialisable>>,
+        where
+            S: ActorSource,
+            B: Into<Box<dyn Serialisable>>,
     {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
@@ -306,30 +302,34 @@ impl ActorPath {
 
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
-    where
-        CD: ComponentDefinition + Sized + 'static,
-        B: Serialisable + 'static,
+        where
+            CD: ComponentDefinition + Sized + 'static,
+            B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
             self.tell(m, from);
             return Ok(());
+        } else {
+            // Scope the buffer check so we can safely initialise it if we need to
+            {
+                if let Some(buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
+                    let mut buf = buffer.get_buffer_encoder();
+                    let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, &mut buf)?;
+                    let env = DispatchEnvelope::Msg {
+                        src: from.path_resolvable(),
+                        dst: self.clone(),
+                        msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+                    };
+                    from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+                    return Ok(());
+                } // Else Branch outside of the scope below:
+            }
+            from.ctx().initialise_pool();
+            self.tell_serialised(m, from)
         }
-        //let mut buf = encode_buffer.deref_mut();
-        let mut buf_ref = from.ctx().get_buffer().borrow_mut();
-        let buf = &mut EncodeBuffer::get_buffer_encoder(buf_ref.deref_mut());
-
-        let chunk_lease =
-            crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, buf)?;
-
-        let env = DispatchEnvelope::Msg {
-            src: from.path_resolvable(),
-            dst: self.clone(),
-            msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
-        };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-        Ok(())
     }
+
 
     // TODO
     //pub fn forward(&self, serialized_message: NetMessage);
@@ -673,7 +673,6 @@ mod tests {
             Uuid::new_v4(),
         ));
         let ref1_string = ref1.to_string();
-        //println!("ActorPath::Unique: {}", ref1_string);
         let ref1_deser = ActorPath::from_str(&ref1_string).expect("a proper path");
         let ref1_deser2: ActorPath = ref1_string.parse().expect("a proper path");
         assert_eq!(ref1, ref1_deser);

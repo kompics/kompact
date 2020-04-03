@@ -169,8 +169,8 @@ impl NetMessage {
     pub fn try_into_deserialised<T: 'static, D>(
         self,
     ) -> Result<DeserialisedMessage<T>, UnpackError<Self>>
-    where
-        D: Deserialiser<T>,
+        where
+            D: Deserialiser<T>,
     {
         let NetMessage {
             sender,
@@ -239,8 +239,8 @@ impl NetMessage {
     /// `msg.data.try_deserialise<...>(...)` instead,
     /// or use [try_into_deserialised](NetMessage::try_into_deserialised).
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-    where
-        D: Deserialiser<T>,
+        where
+            D: Deserialiser<T>,
     {
         if self.data.ser_id == D::SER_ID {
             self.try_deserialise_unchecked::<T, D>()
@@ -295,8 +295,8 @@ impl NetMessage {
     /// `msg.data.try_deserialise_unchecked<...>(...)` instead,
     /// or use [try_into_deserialised](NetMessage::try_into_deserialised).
     pub fn try_deserialise_unchecked<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-    where
-        D: Deserialiser<T>,
+        where
+            D: Deserialiser<T>,
     {
         let NetMessage {
             sender,
@@ -385,8 +385,8 @@ impl NetData {
     /// }
     /// ```
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-    where
-        D: Deserialiser<T>,
+        where
+            D: Deserialiser<T>,
     {
         if self.ser_id == D::SER_ID {
             self.try_deserialise_unchecked::<T, D>()
@@ -437,8 +437,8 @@ impl NetData {
     /// The [match_deser](match_deser!) macro generates code that is approximately equivalent to the example above
     /// with some nicer syntax.
     pub fn try_deserialise_unchecked<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-    where
-        D: Deserialiser<T>,
+        where
+            D: Deserialiser<T>,
     {
         let NetData { ser_id, data } = self;
         match data {
@@ -482,6 +482,7 @@ pub struct DeserialisedMessage<T> {
     /// The actual deserialised content of the message
     pub content: T,
 }
+
 impl<T> DeserialisedMessage<T> {
     /// Create a new deserialised message
     pub fn with(sender: ActorPath, receiver: ActorPath, content: T) -> Self {
@@ -505,6 +506,7 @@ pub enum UnpackError<T> {
     /// This can not contain `T`, as the buffer may have been corrupted during the failed attempt.
     DeserError(SerError),
 }
+
 impl<T> UnpackError<T> {
     /// Retrieve the wrapped `T` instance, if any
     pub fn get(self) -> Option<T> {
@@ -596,9 +598,9 @@ impl TryFrom<(SerId, Bytes)> for Serialised {
 }
 
 impl<T, S> TryFrom<(&T, &S)> for Serialised
-where
-    T: std::fmt::Debug,
-    S: Serialiser<T>,
+    where
+        T: std::fmt::Debug,
+        S: Serialiser<T>,
 {
     type Error = SerError;
 
@@ -959,8 +961,8 @@ mod deser_macro_tests {
     }
 
     fn simple_macro_test_impl<F>(f: F)
-    where
-        F: Fn(NetMessage) -> EitherAOrB,
+        where
+            F: Fn(NetMessage) -> EitherAOrB,
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
@@ -972,20 +974,20 @@ mod deser_macro_tests {
             ap.clone(),
             Box::new(msg_a),
         )
-        .expect("MsgA should serialise!");
+            .expect("MsgA should serialise!");
         let msg_b_ser = crate::serialisation::ser_helpers::serialise_to_msg(
             ap.clone(),
             ap.clone(),
             (msg_b, BSer).into(),
         )
-        .expect("MsgB should serialise!");
+            .expect("MsgB should serialise!");
         assert!(f(msg_a_ser).is_a());
         assert!(f(msg_b_ser).is_b());
     }
 
     fn simple_macro_test_err_impl<F>(f: F)
-    where
-        F: Fn(NetMessage) -> EitherAOrB,
+        where
+            F: Fn(NetMessage) -> EitherAOrB,
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
