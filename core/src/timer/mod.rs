@@ -297,9 +297,11 @@ mod tests {
                 if (elap > target) {
                     let diff = ((elap - target) as f64) / 1000000.0;
                     println!("Running action {} {}ms late", i, diff);
-                } else {
+                } else if (elap > target) {
                     let diff = ((target - elap) as f64) / 1000000.0;
                     println!("Running action {} {}ms early", i, diff);
+                } else {
+                    println!("Running action {} exactly on time", i);
                 }
                 let mut guard = barrier.lock().unwrap();
                 *guard = true;
