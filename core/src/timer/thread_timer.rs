@@ -172,7 +172,7 @@ impl TimerThread {
                 Err(channel::TryRecvError::Empty) => {
                     match self.timer.can_skip() {
                         Skip::None => {
-                            () // hot wait
+                            thread::yield_now(); // try again after yielding for a bit
                         }
                         Skip::Empty => {
                             // wait until something is scheduled
