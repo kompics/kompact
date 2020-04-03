@@ -9,9 +9,6 @@ before_install:
 os: linux
 dist: xenial
 language: rust
-rust:
-  - stable
-  - nightly
 jobs:
   include:
     - stage: test
