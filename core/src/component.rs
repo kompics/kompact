@@ -16,7 +16,18 @@ use hocon::Hocon;
 use std::cell::{RefCell, UnsafeCell};
 
 use super::*;
-use crate::{actors::TypedMsgQueue, messaging::PathResolvable, supervision::*};
+use crate::{
+    actors::TypedMsgQueue,
+    messaging::{
+        DispatchEnvelope,
+        MsgEnvelope,
+        PathResolvable,
+        RegistrationEnvelope,
+        RegistrationId,
+        RegistrationResponse,
+    },
+    supervision::*,
+};
 
 use crate::net::buffer::EncodeBuffer;
 
@@ -487,10 +498,11 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
     }
 }
 
-//
-//pub trait Component: CoreContainer {
-//    fn setup_ports(&mut self, self_component: Arc<Mutex<Self>>) -> ();
-//}
+impl<C: ComponentDefinition + Sized> fmt::Debug for Component<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Component(id={}, ctype={})", self.id(), self.type_name())
+    }
+}
 
 /// Statistics about the last invocation of [execute](ComponentDefinition::execute).
 pub struct ExecuteResult {
@@ -736,6 +748,11 @@ impl ContextSystemHandle {
     fn from(component: Arc<dyn CoreContainer>) -> Self {
         ContextSystemHandle { component }
     }
+
+    fn send_registration(&self, env: RegistrationEnvelope) -> () {
+        let envelope = MsgEnvelope::Typed(DispatchEnvelope::Registration(env));
+        self.component.system().dispatcher_ref().enqueue(envelope);
+    }
 }
 
 impl SystemHandle for ContextSystemHandle {
@@ -745,6 +762,103 @@ impl SystemHandle for ContextSystemHandle {
         C: ComponentDefinition + 'static,
     {
         self.component.system().create(f)
+    }
+
+    fn register<C>(
+        &self,
+        c: &Arc<Component<C>>,
+        reply_to: &dyn Receiver<RegistrationResponse>,
+    ) -> RegistrationId
+    where
+        C: ComponentDefinition + 'static,
+    {
+        let id = RegistrationId(Uuid::new_v4());
+        let recipient = reply_to.recipient();
+        let env = RegistrationEnvelope::with_recipient(
+            c,
+            PathResolvable::ActorId(*c.id()),
+            false,
+            id,
+            recipient,
+        );
+        self.send_registration(env);
+        id
+    }
+
+    fn register_without_response<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static,
+    {
+        let env = RegistrationEnvelope::basic(c, PathResolvable::ActorId(*c.id()), false);
+        self.send_registration(env);
+    }
+
+    fn register_by_alias<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+        reply_to: &dyn Receiver<RegistrationResponse>,
+    ) -> RegistrationId
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>,
+    {
+        let id = RegistrationId(Uuid::new_v4());
+        let recipient = reply_to.recipient();
+        let env = RegistrationEnvelope::with_recipient(
+            c,
+            PathResolvable::Alias(alias.into()),
+            false,
+            id,
+            recipient,
+        );
+        self.send_registration(env);
+        id
+    }
+
+    fn register_by_alias_without_response<C, A>(&self, c: &Arc<Component<C>>, alias: A) -> ()
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>,
+    {
+        let env = RegistrationEnvelope::basic(c, PathResolvable::Alias(alias.into()), false);
+        self.send_registration(env);
+    }
+
+    fn update_alias_registration<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+        reply_to: &dyn Receiver<RegistrationResponse>,
+    ) -> RegistrationId
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>,
+    {
+        let id = RegistrationId(Uuid::new_v4());
+        let recipient = reply_to.recipient();
+        let env = RegistrationEnvelope::with_recipient(
+            c,
+            PathResolvable::Alias(alias.into()),
+            true,
+            id,
+            recipient,
+        );
+        self.send_registration(env);
+        id
+    }
+
+    fn update_alias_registration_without_response<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+    ) -> ()
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>,
+    {
+        let env = RegistrationEnvelope::basic(c, PathResolvable::Alias(alias.into()), true);
+        self.send_registration(env);
     }
 
     fn start<C>(&self, c: &Arc<Component<C>>) -> ()
@@ -1049,6 +1163,7 @@ unsafe impl Sync for ComponentCore {}
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
+    use std::{sync::Arc, thread, time::Duration};
 
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
@@ -1097,5 +1212,192 @@ mod tests {
     // Just a way to force the compiler to infer Sync for T
     fn is_sync<T: Sync>(_v: &T) -> () {
         // ignore
+    }
+
+    #[derive(Debug, Copy, Clone)]
+    struct TestMessage;
+    impl Serialisable for TestMessage {
+        fn ser_id(&self) -> SerId {
+            Self::SER_ID
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(0)
+        }
+
+        fn serialise(&self, _buf: &mut dyn BufMut) -> Result<(), SerError> {
+            Ok(())
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
+            Ok(self)
+        }
+    }
+    impl Deserialiser<TestMessage> for TestMessage {
+        // whatever
+        const SER_ID: SerId = 42;
+
+        fn deserialise(_buf: &mut dyn Buf) -> Result<TestMessage, SerError> {
+            Ok(TestMessage)
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct ChildComponent {
+        ctx: ComponentContext<Self>,
+        got_message: bool,
+    }
+    impl ChildComponent {
+        fn new() -> Self {
+            ChildComponent {
+                ctx: ComponentContext::new(),
+                got_message: false,
+            }
+        }
+    }
+    ignore_control!(ChildComponent);
+    impl NetworkActor for ChildComponent {
+        type Deserialiser = TestMessage;
+        type Message = TestMessage;
+
+        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> () {
+            info!(self.log(), "Child got message");
+            self.got_message = true;
+        }
+    }
+
+    #[derive(Debug)]
+    enum ParentMessage {
+        GetChild(KPromise<Arc<Component<ChildComponent>>>),
+        RegResp(RegistrationResponse),
+    }
+
+    impl From<RegistrationResponse> for ParentMessage {
+        fn from(rr: RegistrationResponse) -> Self {
+            ParentMessage::RegResp(rr)
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct ParentComponent {
+        ctx: ComponentContext<Self>,
+        alias_opt: Option<String>,
+        child: Option<Arc<Component<ChildComponent>>>,
+        reg_id: Option<RegistrationId>,
+    }
+    impl ParentComponent {
+        fn unique() -> Self {
+            ParentComponent {
+                ctx: ComponentContext::new(),
+                alias_opt: None,
+                child: None,
+                reg_id: None,
+            }
+        }
+
+        fn alias(s: String) -> Self {
+            ParentComponent {
+                ctx: ComponentContext::new(),
+                alias_opt: Some(s),
+                child: None,
+                reg_id: None,
+            }
+        }
+    }
+    impl Provide<ControlPort> for ParentComponent {
+        fn handle(&mut self, event: ControlEvent) -> () {
+            match event {
+                ControlEvent::Start => {
+                    let child = self.ctx.system().create(ChildComponent::new);
+                    let id = match self.alias_opt.take() {
+                        Some(s) => self.ctx.system().register_by_alias(&child, s, self),
+                        None => self.ctx.system().register(&child, self),
+                    };
+                    self.reg_id = Some(id);
+                    self.child = Some(child);
+                }
+                ControlEvent::Stop | ControlEvent::Kill => {
+                    let _ = self.child.take(); // don't hang on to the child
+                }
+            }
+        }
+    }
+    impl Actor for ParentComponent {
+        type Message = ParentMessage;
+
+        fn receive_local(&mut self, msg: Self::Message) -> () {
+            match msg {
+                ParentMessage::GetChild(promise) => {
+                    if let Some(ref child) = self.child {
+                        promise.fulfil(child.clone()).expect("fulfilled");
+                    } else {
+                        drop(promise); // this will cause an error on the Future side
+                    }
+                }
+                ParentMessage::RegResp(res) => {
+                    assert_eq!(res.id, self.reg_id.take().unwrap());
+                    info!(self.log(), "Child was registered");
+                    if let Some(ref child) = self.child {
+                        self.ctx.system().start(child);
+                        let path = res.result.expect("actor path");
+                        path.tell(TestMessage, self);
+                    } else {
+                        unreachable!();
+                    }
+                }
+            }
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> () {
+            unimplemented!("Shouldn't be used");
+        }
+    }
+
+    #[test]
+    fn child_unique_registration_test() -> () {
+        let wait_time = Duration::from_millis(1000);
+
+        let mut conf = KompactConfig::default();
+        conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        let system = conf.build().expect("system");
+        let parent = system.create(ParentComponent::unique);
+        system.start(&parent);
+        thread::sleep(wait_time);
+        let (p, f) = kpromise::<Arc<Component<ChildComponent>>>();
+        parent.actor_ref().tell(ParentMessage::GetChild(p));
+        let child = f.wait_timeout(wait_time).expect("child");
+        let stop_f = system.stop_notify(&child);
+        system.stop(&parent);
+
+        stop_f.wait_timeout(wait_time).expect("child didn't stop");
+        child.on_definition(|cd| {
+            assert!(cd.got_message, "child didn't get the message");
+        });
+        system.shutdown().expect("shutdown");
+    }
+
+    const TEST_ALIAS: &str = "test";
+
+    #[test]
+    fn child_alias_registration_test() -> () {
+        let wait_time = Duration::from_millis(1000);
+
+        let mut conf = KompactConfig::default();
+        conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        let system = conf.build().expect("system");
+        let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
+        system.start(&parent);
+        thread::sleep(wait_time);
+        let (p, f) = kpromise::<Arc<Component<ChildComponent>>>();
+        parent.actor_ref().tell(ParentMessage::GetChild(p));
+        let child = f.wait_timeout(wait_time).expect("child");
+        let stop_f = system.stop_notify(&child);
+        system.stop(&parent);
+
+        stop_f.wait_timeout(wait_time).expect("child didn't stop");
+        child.on_definition(|cd| {
+            assert!(cd.got_message, "child didn't get the message");
+        });
+        system.shutdown().expect("shutdown");
     }
 }

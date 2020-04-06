@@ -177,7 +177,7 @@ impl Provide<ControlPort> for DeadletterBox {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting DeadletterBox");
                 match self.notify_ready.take() {
-                    Some(promise) => promise.fulfill(()).unwrap_or_else(|_| ()),
+                    Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
                     None => (),
                 }
             }
@@ -240,7 +240,7 @@ impl Provide<ControlPort> for LocalDispatcher {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting LocalDispatcher");
                 match self.notify_ready.take() {
-                    Some(promise) => promise.fulfill(()).unwrap_or_else(|_| ()),
+                    Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
                     None => (),
                 }
             }

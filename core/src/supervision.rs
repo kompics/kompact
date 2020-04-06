@@ -77,7 +77,7 @@ impl ComponentSupervisor {
             //     .drain_filter(|entry| selector(&entry.0))
             //     .collect::<Vec<_>>();
             for (_, p) in selected.drain(..) {
-                p.fulfill(()).unwrap_or_else(|e| {
+                p.fulfil(()).unwrap_or_else(|e| {
                     error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
                 });
             }
@@ -173,7 +173,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         debug!(self.ctx.log(), "Last child of the Supervisor is dead!");
                         let promise = self.shutdown.take().unwrap();
                         promise
-                            .fulfill(())
+                            .fulfil(())
                             .expect("Could not fulfill shutdown promise!");
                         self.listeners.clear(); // we won't be fulfilling these anyway
                     } else {
@@ -219,7 +219,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 if self.children.is_empty() {
                     trace!(self.ctx.log(), "Supervisor has no children!");
                     promise
-                        .fulfill(())
+                        .fulfil(())
                         .expect("Could not fulfill shutdown promise!");
                     self.listeners.clear(); // we won't be fulfilling these anyway
                 } else {

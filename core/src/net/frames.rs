@@ -240,7 +240,10 @@ impl FrameHead {
         let magic_check = src.get_u32();
         if magic_check != MAGIC_NUM {
             eprintln!("Magic check fail: {:X}", magic_check);
-            return Err(FramingError::InvalidMagicNum((magic_check, src.bytes().to_vec())));
+            return Err(FramingError::InvalidMagicNum((
+                magic_check,
+                src.bytes().to_vec(),
+            )));
         }
 
         let content_length = src.get_u32() as usize;
@@ -467,10 +470,11 @@ impl FrameExt for Start {
     }
 }
 
-
 impl FrameExt for Ack {
     fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
-        Ok(Frame::Ack(Ack { offset: src.get_u128() }))
+        Ok(Frame::Ack(Ack {
+            offset: src.get_u128(),
+        }))
     }
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {

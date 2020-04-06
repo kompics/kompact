@@ -1,7 +1,7 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
 use crate::{
-    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
+    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds, Recipient},
     net::{buffer::BufferEncoder, events::NetworkEvent},
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
     utils,
@@ -169,8 +169,8 @@ impl NetMessage {
     pub fn try_into_deserialised<T: 'static, D>(
         self,
     ) -> Result<DeserialisedMessage<T>, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         let NetMessage {
             sender,
@@ -239,8 +239,8 @@ impl NetMessage {
     /// `msg.data.try_deserialise<...>(...)` instead,
     /// or use [try_into_deserialised](NetMessage::try_into_deserialised).
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         if self.data.ser_id == D::SER_ID {
             self.try_deserialise_unchecked::<T, D>()
@@ -295,8 +295,8 @@ impl NetMessage {
     /// `msg.data.try_deserialise_unchecked<...>(...)` instead,
     /// or use [try_into_deserialised](NetMessage::try_into_deserialised).
     pub fn try_deserialise_unchecked<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         let NetMessage {
             sender,
@@ -385,8 +385,8 @@ impl NetData {
     /// }
     /// ```
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         if self.ser_id == D::SER_ID {
             self.try_deserialise_unchecked::<T, D>()
@@ -437,8 +437,8 @@ impl NetData {
     /// The [match_deser](match_deser!) macro generates code that is approximately equivalent to the example above
     /// with some nicer syntax.
     pub fn try_deserialise_unchecked<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
-        where
-            D: Deserialiser<T>,
+    where
+        D: Deserialiser<T>,
     {
         let NetData { ser_id, data } = self;
         match data {
@@ -519,12 +519,52 @@ impl<T> UnpackError<T> {
 }
 
 /// An error that can occur during [actor path](ActorPath) registration
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum RegistrationError {
     /// An actor path with the same name exists already
     DuplicateEntry,
     /// This kind of registration is unsupported by the system's dispatcher implementation
     Unsupported,
+}
+
+/// Convenience alias for the result of a path registration attempt
+pub type RegistrationResult = Result<ActorPath, RegistrationError>;
+
+/// A handle to uniquely identify which registration request a [RegistrationResponse](RegistrationResponse) answers
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct RegistrationId(pub Uuid);
+
+/// The response sent by the dispatcher after processing an actor path registration
+#[derive(Debug, Clone)]
+pub struct RegistrationResponse {
+    /// The id of the registration request
+    pub id: RegistrationId,
+    /// The actualt result of the processing
+    pub result: RegistrationResult,
+}
+impl RegistrationResponse {
+    /// Creates a new registration response
+    pub fn new(id: RegistrationId, result: RegistrationResult) -> Self {
+        RegistrationResponse { id, result }
+    }
+}
+
+/// A holder for different variants of how feedback for a registration can be provided
+#[derive(Debug)]
+pub enum RegistrationPromise {
+    /// Provide feedback via fulfilling the promise
+    Fulfil(utils::Promise<RegistrationResult>),
+    /// Provide feedback by replying to the recipient
+    ///
+    /// The `id` must be supplied as part of the response message.
+    Reply {
+        /// Unique id of this registration request
+        id: RegistrationId,
+        /// The actor to respond to
+        recipient: Recipient<RegistrationResponse>,
+    },
+    /// Do not provide feedback
+    None,
 }
 
 /// Envelope representing an actor registration event
@@ -537,25 +577,26 @@ pub struct RegistrationEnvelope {
     pub actor: DynActorRef,
     /// The path we want to register
     pub path: PathResolvable,
+    /// Allow existing registrations to be replaced by this registration
+    ///
+    /// If `false`, attempting to register an existing path will result in an error.
+    pub update: bool,
     /// An optional feedback promise, which returns the newly registered actor path or an error
-    pub promise: Option<utils::Promise<Result<ActorPath, RegistrationError>>>,
+    pub promise: RegistrationPromise,
 }
 
-// old variant
-// pub enum RegistrationEnvelope {
-//     Register(
-//         DynActorRef,
-//         PathResolvable,
-//         Option<utils::Promise<Result<ActorPath, RegistrationError>>>,
-//     ),
-// }
 impl RegistrationEnvelope {
     /// Create a registration envelope without a promise for feedback
-    pub fn basic(actor: &dyn DynActorRefFactory, path: PathResolvable) -> RegistrationEnvelope {
+    pub fn basic(
+        actor: &dyn DynActorRefFactory,
+        path: PathResolvable,
+        update: bool,
+    ) -> RegistrationEnvelope {
         RegistrationEnvelope {
             actor: actor.dyn_ref(),
             path,
-            promise: None,
+            update,
+            promise: RegistrationPromise::None,
         }
     }
 
@@ -563,12 +604,30 @@ impl RegistrationEnvelope {
     pub fn with_promise(
         actor: &dyn DynActorRefFactory,
         path: PathResolvable,
-        promise: utils::Promise<Result<ActorPath, RegistrationError>>,
+        update: bool,
+        promise: utils::Promise<RegistrationResult>,
     ) -> RegistrationEnvelope {
         RegistrationEnvelope {
             actor: actor.dyn_ref(),
             path,
-            promise: Some(promise),
+            update,
+            promise: RegistrationPromise::Fulfil(promise),
+        }
+    }
+
+    /// Create a registration envelope using an actor reference for feedback
+    pub fn with_recipient(
+        actor: &dyn DynActorRefFactory,
+        path: PathResolvable,
+        update: bool,
+        id: RegistrationId,
+        recipient: Recipient<RegistrationResponse>,
+    ) -> RegistrationEnvelope {
+        RegistrationEnvelope {
+            actor: actor.dyn_ref(),
+            path,
+            update,
+            promise: RegistrationPromise::Reply { id, recipient },
         }
     }
 }
@@ -598,9 +657,9 @@ impl TryFrom<(SerId, Bytes)> for Serialised {
 }
 
 impl<T, S> TryFrom<(&T, &S)> for Serialised
-    where
-        T: std::fmt::Debug,
-        S: Serialiser<T>,
+where
+    T: std::fmt::Debug,
+    S: Serialiser<T>,
 {
     type Error = SerError;
 
@@ -961,8 +1020,8 @@ mod deser_macro_tests {
     }
 
     fn simple_macro_test_impl<F>(f: F)
-        where
-            F: Fn(NetMessage) -> EitherAOrB,
+    where
+        F: Fn(NetMessage) -> EitherAOrB,
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
@@ -974,20 +1033,20 @@ mod deser_macro_tests {
             ap.clone(),
             Box::new(msg_a),
         )
-            .expect("MsgA should serialise!");
+        .expect("MsgA should serialise!");
         let msg_b_ser = crate::serialisation::ser_helpers::serialise_to_msg(
             ap.clone(),
             ap.clone(),
             (msg_b, BSer).into(),
         )
-            .expect("MsgB should serialise!");
+        .expect("MsgB should serialise!");
         assert!(f(msg_a_ser).is_a());
         assert!(f(msg_b_ser).is_b());
     }
 
     fn simple_macro_test_err_impl<F>(f: F)
-        where
-            F: Fn(NetMessage) -> EitherAOrB,
+    where
+        F: Fn(NetMessage) -> EitherAOrB,
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 

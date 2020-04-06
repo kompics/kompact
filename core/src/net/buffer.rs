@@ -198,8 +198,8 @@ impl<'a> BufMut for BufferEncoder<'a> {
     }
 
     fn put<T: super::Buf>(&mut self, mut src: T)
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
         if self.remaining_mut() < src.remaining() {
@@ -366,9 +366,7 @@ impl DecodeBuffer {
         if self.buffer.len() - self.write_offset < 128 {
             return None;
         }
-        unsafe {
-            Some(self.buffer.get_slice(self.write_offset, self.buffer.len()))
-        }
+        unsafe { Some(self.buffer.get_slice(self.write_offset, self.buffer.len())) }
     }
 
     /// Returns the length of the read-portion of the buffer
@@ -395,6 +393,7 @@ impl DecodeBuffer {
     pub fn get_read_offset(&self) -> usize {
         self.read_offset
     }
+
     /// Get the first 24 bytes of the DecodeBuffer, used for testing/debugging
     /// get_slice does the bounds checking
     pub fn get_buffer_head(&mut self) -> &mut [u8] {

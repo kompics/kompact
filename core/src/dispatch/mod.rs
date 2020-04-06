@@ -19,6 +19,8 @@ use crate::{
         PathResolvable,
         RegistrationEnvelope,
         RegistrationError,
+        RegistrationPromise,
+        RegistrationResponse,
     },
     net::{
         buffer::{BufferEncoder, EncodeBuffer},
@@ -217,7 +219,6 @@ impl NetworkDispatcher {
             // First time running; mark as scheduled and jump straight to scheduling
             self.reaper.schedule();
         } else {
-
             // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly
             let num_reaped = self.reaper.run(&self.lookup);
             if num_reaped == 0 {
@@ -248,20 +249,29 @@ impl NetworkDispatcher {
                 self.retry_map.insert(addr.clone(), retry + 1);
                 if let Some(bridge) = &self.net_bridge {
                     // Do connection attempt
-                    debug!(self.ctx().log(), "Dispatcher retrying connection to host {}, attempt {}/{}",
-                           addr, retry, MAX_RETRY_ATTEMPTS);
+                    debug!(
+                        self.ctx().log(),
+                        "Dispatcher retrying connection to host {}, attempt {}/{}",
+                        addr,
+                        retry,
+                        MAX_RETRY_ATTEMPTS
+                    );
                     bridge.connect(Transport::TCP, addr).unwrap();
                 }
             } else {
                 // Too many retries, give up on the connection.
-                info!(self.ctx().log(), "Dispatcher giving up on remote host {}, dropping queues", addr);
+                info!(
+                    self.ctx().log(),
+                    "Dispatcher giving up on remote host {}, dropping queues", addr
+                );
                 self.queue_manager.drop_queue(&addr);
                 self.connections.remove(&addr);
             }
         }
-        self.schedule_once(Duration::from_millis(RETRY_CONNECTIONS_INTERVAL), move |target, _id| {
-            target.schedule_retries()
-        });
+        self.schedule_once(
+            Duration::from_millis(RETRY_CONNECTIONS_INTERVAL),
+            move |target, _id| target.schedule_retries(),
+        );
     }
 
     fn on_event(&mut self, ev: EventEnvelope) {
@@ -507,21 +517,28 @@ impl Actor for NetworkDispatcher {
                     RegistrationEnvelope {
                         actor,
                         path,
+                        update,
                         promise,
                     } => {
                         let ap = self.resolve_path(&path);
                         let lease = self.lookup.lease();
-                        let res = if lease.contains(&path) {
+                        let res = if lease.contains(&path) && !update {
                             warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
                             drop(lease);
                             Err(RegistrationError::DuplicateEntry)
                         } else {
                             drop(lease);
-                            self.lookup.rcu(move |current| {
+                            let mut replaced = false;
+                            self.lookup.rcu(|current| {
                                 let mut next = (*current).clone();
-                                next.insert(actor.clone(), path.clone());
+                                if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
+                                    replaced = true;
+                                }
                                 Arc::new(next)
                             });
+                            if replaced {
+                                info!(self.ctx.log(), "Replaced entry for path={:?}", path.clone());
+                            }
                             Ok(ap)
                         };
 
@@ -530,11 +547,17 @@ impl Actor for NetworkDispatcher {
                                 self.schedule_reaper();
                             }
                         }
-
-                        if let Some(promise) = promise {
-                            promise.fulfill(res).unwrap_or_else(|e| {
-                                error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
-                            });
+                        match promise {
+                            RegistrationPromise::Fulfil(promise) => {
+                                promise.fulfil(res).unwrap_or_else(|e| {
+                                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                                });
+                            }
+                            RegistrationPromise::Reply { id, recipient } => {
+                                let msg = RegistrationResponse::new(id, res);
+                                recipient.tell(msg);
+                            }
+                            RegistrationPromise::None => (), // ignore
                         }
                     }
                 }
@@ -544,7 +567,7 @@ impl Actor for NetworkDispatcher {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> () {
-        warn!(self.ctx.log(), "Received network message: {:?}", msg, );
+        warn!(self.ctx.log(), "Received network message: {:?}", msg,);
     }
 }
 
@@ -572,7 +595,7 @@ impl Provide<ControlPort> for NetworkDispatcher {
                     Ok(_) => {
                         info!(self.ctx.log(), "Started network just fine.");
                         match self.notify_ready.take() {
-                            Some(promise) => promise.fulfill(()).unwrap_or_else(|e| {
+                            Some(promise) => promise.fulfil(()).unwrap_or_else(|e| {
                                 error!(self.ctx.log(), "Could not start network! {:?}", e)
                             }),
                             None => (),
@@ -760,7 +783,8 @@ mod dispatch_tests {
                     .shutdown()
                     .expect("KompicsSystem failed to shut down!");
                 println!("System shut down.");
-            }).ok();
+            })
+            .ok();
 
         let mut cfg2 = KompactConfig::new();
         println!("Configuring network");
@@ -1031,7 +1055,8 @@ mod dispatch_tests {
         let named_path_clone = named_path.clone();
         // Set-up system1
         let system1 = system1();
-        let (pinger_named, pinf) = system1.create_and_register(move || PingerAct::new(named_path_clone));
+        let (pinger_named, pinf) =
+            system1.create_and_register(move || PingerAct::new(named_path_clone));
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
         system2a.start(&ponger_named);
@@ -1052,7 +1077,8 @@ mod dispatch_tests {
         // We now kill system2
         system2a.shutdown().ok();
         // Start a new pinger on system1
-        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
+        let (pinger_named2, pinf2) =
+            system1.create_and_register(move || PingerAct::new(named_path));
         pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         system1.start(&pinger_named2);
         // Wait for it to send its pings, system1 should recognize the remote address
@@ -1127,7 +1153,8 @@ mod dispatch_tests {
         let named_path_clone2 = named_path.clone();
         // Set-up system1
         let system1 = system1();
-        let (pinger_named, pinf) = system1.create_and_register(move || PingerAct::new(named_path_clone));
+        let (pinger_named, pinf) =
+            system1.create_and_register(move || PingerAct::new(named_path_clone));
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
         system2a.start(&ponger_named);
@@ -1148,7 +1175,8 @@ mod dispatch_tests {
         // We now kill system2
         system2a.shutdown().ok();
         // Start a new pinger on system1
-        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path));
+        let (pinger_named2, pinf2) =
+            system1.create_and_register(move || PingerAct::new(named_path));
         pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         system1.start(&pinger_named2);
         // Wait for it to send its pings, system1 should recognize the remote address
@@ -1159,7 +1187,9 @@ mod dispatch_tests {
             assert_eq!(c.count, 0);
         });
         // Sleep long-enough that the remote connection will be dropped with its queue
-        thread::sleep(Duration::from_millis((MAX_RETRY_ATTEMPTS + 2) as u64 * RETRY_CONNECTIONS_INTERVAL));
+        thread::sleep(Duration::from_millis(
+            (MAX_RETRY_ATTEMPTS + 2) as u64 * RETRY_CONNECTIONS_INTERVAL,
+        ));
         // Start up system2b
         println!("Setting up system2b");
         let system2b = system2();
@@ -1179,7 +1209,8 @@ mod dispatch_tests {
         });
 
         // This one should now succeed
-        let (pinger_named2, pinf2) = system1.create_and_register(move || PingerAct::new(named_path_clone2));
+        let (pinger_named2, pinf2) =
+            system1.create_and_register(move || PingerAct::new(named_path_clone2));
         pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         system1.start(&pinger_named2);
         // Wait for it to send its pings, system1 should recognize the remote address

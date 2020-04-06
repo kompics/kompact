@@ -165,13 +165,13 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T
 
 /// Anything that can be fulfilled with a value of type `T`.
 pub trait Fulfillable<T> {
-    /// Fulfill self with the value `t`
+    /// Fulfil self with the value `t`
     ///
     /// Returns a [PromiseErr](PromiseErr) if unsuccessful.
-    fn fulfill(self, t: T) -> Result<(), PromiseErr>;
+    fn fulfil(self, t: T) -> Result<(), PromiseErr>;
 }
 
-/// A custom promise implementation, that can be fulfill its paired future.
+/// A custom promise implementation, that can be used to fulfil its paired future.
 ///
 /// # Note
 /// This API is considered temporary and will eventually be replaced with Rust's async facilities.
@@ -181,7 +181,7 @@ pub struct Promise<T: Send + Sized> {
 }
 
 impl<T: Send + Sized> Fulfillable<T> for Promise<T> {
-    fn fulfill(self, t: T) -> Result<(), PromiseErr> {
+    fn fulfil(self, t: T) -> Result<(), PromiseErr> {
         self.result_channel
             .send(t)
             .map_err(|_| PromiseErr::ChannelBroken)
@@ -236,7 +236,7 @@ where
     ///
     /// Fails with a [PromiseErr](PromiseErr) if the promise has already been fulfilled or the other end dropped the future.
     pub fn reply(self, response: Response) -> Result<(), PromiseErr> {
-        self.promise.fulfill(response)
+        self.promise.fulfil(response)
     }
 
     /// Run `f` to produce a response to this `Ask` and reply with that reponse.
@@ -247,7 +247,7 @@ where
         F: FnOnce(Request) -> Response,
     {
         let response = f(self.content);
-        self.promise.fulfill(response)
+        self.promise.fulfil(response)
     }
 }
 

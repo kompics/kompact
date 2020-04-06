@@ -6,7 +6,9 @@ use crate::{
         MsgEnvelope,
         PathResolvable,
         RegistrationEnvelope,
-        RegistrationError,
+        RegistrationId,
+        RegistrationResponse,
+        RegistrationResult,
     },
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
 };
@@ -253,7 +255,7 @@ impl KompactSystem {
             cd.setup(c.clone());
             c.core().set_component(cc);
         }
-        promise.fulfill(c.clone()).expect("Should accept component");
+        promise.fulfil(c.clone()).expect("Should accept component");
         return c;
     }
 
@@ -295,7 +297,7 @@ impl KompactSystem {
             cd.setup(c.clone());
             c.core().set_component(cc);
         }
-        promise.fulfill(c.clone()).expect("Should accept component");
+        promise.fulfil(c.clone()).expect("Should accept component");
         return c;
     }
 
@@ -325,7 +327,7 @@ impl KompactSystem {
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
-        promise.fulfill(c.clone()).expect("Should accept component");
+        promise.fulfil(c.clone()).expect("Should accept component");
         return c;
     }
 
@@ -361,7 +363,7 @@ impl KompactSystem {
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
-        promise.fulfill(c.clone()).expect("Should accept component");
+        promise.fulfil(c.clone()).expect("Should accept component");
         return c;
     }
 
@@ -389,14 +391,14 @@ impl KompactSystem {
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn register<C>(&self, c: &Arc<Component<C>>) -> Future<Result<ActorPath, RegistrationError>>
+    pub fn register<C>(&self, c: &Arc<Component<C>>) -> Future<RegistrationResult>
     where
         C: ComponentDefinition + 'static,
     {
         self.inner.assert_active();
         let id = c.core().id().clone();
         let id_path = PathResolvable::ActorId(id);
-        self.inner.register_by_path(c, id_path)
+        self.inner.register_by_path(c, false, id_path) // never update unique registrations
     }
 
     /// Creates a new component and registers it with the dispatcher
@@ -421,13 +423,7 @@ impl KompactSystem {
     /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn create_and_register<C, F>(
-        &self,
-        f: F,
-    ) -> (
-        Arc<Component<C>>,
-        Future<Result<ActorPath, RegistrationError>>,
-    )
+    pub fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, Future<RegistrationResult>)
     where
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
@@ -439,26 +435,13 @@ impl KompactSystem {
         (c, r)
     }
 
-    // NOTE this was a terribly inconsistent API which hid a lot of possible failures away.
-    // If we feel we need a shortcut for create, register, start in the future, we should design
-    // a clearer and more reliable way of doing so.
-    // pub fn create_and_start<C, F>(&self, f: F) -> Arc<Component<C>>
-    // where
-    //     F: FnOnce() -> C,
-    //     C: ComponentDefinition + 'static,
-    // {
-    //     self.inner.assert_active();
-    //     let c = self.create(f);
-    //     let path = PathResolvable::ActorId(c.core().id().clone());
-    //     self.inner.register_by_path(&c, path);
-    //     self.start(&c);
-    //     c
-    // }
-
     /// Attempts to register the provided component with a human-readable alias.
     ///
     /// The returned future will contain the named [ActorPath](ActorPath)
     /// for the given alias, once it is completed by the dispatcher.
+    ///
+    /// Alias registration will fail if a previous registration already exists.
+    /// Use [update_alias_registration](KompactSystem::update_alias_registration) to override an existing registration.
     ///
     /// # Note
     ///
@@ -489,13 +472,60 @@ impl KompactSystem {
         &self,
         c: &Arc<Component<C>>,
         alias: A,
-    ) -> Future<Result<ActorPath, RegistrationError>>
+    ) -> Future<RegistrationResult>
     where
         C: ComponentDefinition + 'static,
         A: Into<String>,
     {
         self.inner.assert_active();
-        self.inner.register_by_alias(c, alias.into())
+        self.inner.register_by_alias(c, false, alias.into())
+    }
+
+    /// Attempts to register the provided component with a human-readable alias.
+    ///
+    /// The returned future will contain the named [ActorPath](ActorPath)
+    /// for the given alias, once it is completed by the dispatcher.
+    ///
+    /// This registration will replace any previous registration, if it exists.
+    ///
+    /// # Note
+    ///
+    /// While aliases are easier to read, lookup by unique ids is significantly more efficient.
+    /// However, named aliases allow services to be taken over by another component when the original registrant failed,
+    /// something that is not possible with unique paths. Thus, this kind of addressing lends itself to lookup-service
+    /// style components, for example.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
+    /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
+    /// let alias_registration_future = system.update_alias_registration(&c, "test");
+    /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
+    /// let alias_reregistration_future = system.update_alias_registration(&c, "test");
+    /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    pub fn update_alias_registration<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+    ) -> Future<RegistrationResult>
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>,
+    {
+        self.inner.assert_active();
+        self.inner.register_by_alias(c, true, alias.into())
     }
 
     /// Start a component
@@ -948,6 +978,296 @@ pub trait SystemHandle: Dispatching {
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static;
 
+    /// Attempts to register `c` with the dispatcher using its unique id
+    ///
+    /// The returned id can be used to match a later response message
+    /// which will contain the unique id [ActorPath](ActorPath)
+    /// for the given component, once it is completed by the dispatcher.
+    ///
+    /// Once the response message is received, the component can be addressed via the network,
+    /// even if it has not been started, yet (in which case messages will simply be queued up).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// use std::sync::Arc;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct ParentComponent {
+    ///     ctx: ComponentContext<Self>,
+    ///     child: Option<Arc<Component<TestComponent1>>>,
+    ///     reg_id: Option<RegistrationId>,
+    /// }
+    /// impl ParentComponent {
+    ///     fn new() -> Self {
+    ///         ParentComponent {
+    ///             ctx: ComponentContext::new(),
+    ///             child: None,
+    ///             reg_id: None,
+    ///         }
+    ///     }
+    /// }
+    /// impl Provide<ControlPort> for ParentComponent {
+    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///             ControlEvent::Start => {
+    ///                 let child = self.ctx.system().create(TestComponent1::new);
+    ///                 let id = self.ctx.system().register(&child, self);
+    ///                 self.reg_id = Some(id);
+    ///                 self.child = Some(child);
+    ///             }
+    ///             ControlEvent::Stop | ControlEvent::Kill => {
+    ///                 let _ = self.child.take(); // don't hang on to the child
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// impl Actor for ParentComponent {
+    ///     type Message = RegistrationResponse;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
+    ///         info!(self.log(), "Child was registered");
+    ///         if let Some(ref child) = self.child {
+    ///             self.ctx.system().start(child);
+    ///             let path = msg.result.expect("actor path");
+    ///             path.tell((), self); // can send it messages via its path now
+    ///         } else {
+    ///             unreachable!("Wouldn't have asked for registration without storing the child");
+    ///         }
+    ///     }
+    ///
+    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
+    ///         unimplemented!("unused");
+    ///     }
+    /// }
+    ///
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let parent = system.create(ParentComponent::new);
+    /// # std::thread::sleep(Duration::from_millis(1000));
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn register<C>(
+        &self,
+        c: &Arc<Component<C>>,
+        reply_to: &dyn Receiver<RegistrationResponse>,
+    ) -> RegistrationId
+    where
+        C: ComponentDefinition + 'static;
+
+    /// Attempts to register `c` with the dispatcher using its unique id
+    ///
+    /// Same as [register](SystemHandle::register) except requesting that no response be send.
+    fn register_without_response<C>(&self, c: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition + 'static;
+
+    /// Attempts to register the provided component with a human-readable alias
+    ///
+    /// The returned id can be used to match a later response message
+    /// which will contain the named [ActorPath](ActorPath)
+    /// for the given alias, once it is completed by the dispatcher.
+    ///
+    /// Alias registration will fail if a previous registration already exists.
+    /// Use [update_alias_registration](SystemHandle::update_alias_registration) to override an existing registration.
+    ///
+    /// # Note
+    ///
+    /// While aliases are easier to read, lookup by unique ids is significantly more efficient.
+    /// However, named aliases allow services to be taken over by another component when the original registrant failed,
+    /// something that is not possible with unique paths. Thus, this kind of addressing lends itself to lookup-service
+    /// style components, for example.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// use std::sync::Arc;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct ParentComponent {
+    ///     ctx: ComponentContext<Self>,
+    ///     child: Option<Arc<Component<TestComponent1>>>,
+    ///     reg_id: Option<RegistrationId>,
+    /// }
+    /// impl ParentComponent {
+    ///     fn new() -> Self {
+    ///         ParentComponent {
+    ///             ctx: ComponentContext::new(),
+    ///             child: None,
+    ///             reg_id: None,
+    ///         }
+    ///     }
+    /// }
+    /// impl Provide<ControlPort> for ParentComponent {
+    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///             ControlEvent::Start => {
+    ///                 let child = self.ctx.system().create(TestComponent1::new);
+    ///                 let id = self.ctx.system().register_by_alias(&child, "test", self);
+    ///                 self.reg_id = Some(id);
+    ///                 self.child = Some(child);
+    ///             }
+    ///             ControlEvent::Stop | ControlEvent::Kill => {
+    ///                 let _ = self.child.take(); // don't hang on to the child
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// impl Actor for ParentComponent {
+    ///     type Message = RegistrationResponse;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
+    ///         info!(self.log(), "Child was registered");
+    ///         if let Some(ref child) = self.child {
+    ///             self.ctx.system().start(child);
+    ///             let path = msg.result.expect("actor path");
+    ///             path.tell((), self); // can send it messages via its path now
+    ///         } else {
+    ///             unreachable!("Wouldn't have asked for registration without storing the child");
+    ///         }
+    ///     }
+    ///
+    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
+    ///         unimplemented!("unused");
+    ///     }
+    /// }
+    ///
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let parent = system.create(ParentComponent::new);
+    /// # std::thread::sleep(Duration::from_millis(1000));
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn register_by_alias<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+        reply_to: &dyn Receiver<RegistrationResponse>,
+    ) -> RegistrationId
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>;
+
+    /// Attempts to register the provided component with a human-readable alias
+    ///
+    /// Same as [register_by_alias](SystemHandle::register_by_alias) except requesting that no response be send.
+    fn register_by_alias_without_response<C, A>(&self, c: &Arc<Component<C>>, alias: A) -> ()
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>;
+
+    /// Attempts to register the provided component with a human-readable alias.
+    ///
+    /// The returned id can be used to match a later response message
+    /// which will contain the named [ActorPath](ActorPath)
+    /// for the given alias, once it is completed by the dispatcher.
+    ///
+    /// This registration will replace any previous registration, if it exists.
+    ///
+    /// # Note
+    ///
+    /// While aliases are easier to read, lookup by unique ids is significantly more efficient.
+    /// However, named aliases allow services to be taken over by another component when the original registrant failed,
+    /// something that is not possible with unique paths. Thus, this kind of addressing lends itself to lookup-service
+    /// style components, for example.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// use std::sync::Arc;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct ParentComponent {
+    ///     ctx: ComponentContext<Self>,
+    ///     child: Option<Arc<Component<TestComponent1>>>,
+    ///     reg_id: Option<RegistrationId>,
+    /// }
+    /// impl ParentComponent {
+    ///     fn new() -> Self {
+    ///         ParentComponent {
+    ///             ctx: ComponentContext::new(),
+    ///             child: None,
+    ///             reg_id: None,
+    ///         }
+    ///     }
+    /// }
+    /// impl Provide<ControlPort> for ParentComponent {
+    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///         match event {
+    ///             ControlEvent::Start => {
+    ///                 let child = self.ctx.system().create(TestComponent1::new);
+    ///                 let id = self.ctx.system().update_alias_registration(&child, "test", self);
+    ///                 self.reg_id = Some(id);
+    ///                 self.child = Some(child);
+    ///             }
+    ///             ControlEvent::Stop | ControlEvent::Kill => {
+    ///                 let _ = self.child.take(); // don't hang on to the child
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// impl Actor for ParentComponent {
+    ///     type Message = RegistrationResponse;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
+    ///         info!(self.log(), "Child was registered");
+    ///         if let Some(ref child) = self.child {
+    ///             self.ctx.system().start(child);
+    ///             let path = msg.result.expect("actor path");
+    ///             path.tell((), self); // can send it messages via its path now
+    ///         } else {
+    ///             unreachable!("Wouldn't have asked for registration without storing the child");
+    ///         }
+    ///     }
+    ///
+    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
+    ///         unimplemented!("unused");
+    ///     }
+    /// }
+    ///
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let parent = system.create(ParentComponent::new);
+    /// # std::thread::sleep(Duration::from_millis(1000));
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn update_alias_registration<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+        reply_to: &dyn Receiver<RegistrationResponse>,
+    ) -> RegistrationId
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>;
+
+    /// Attempts to register the provided component with a human-readable alias
+    ///
+    /// Same as [update_alias_registration](SystemHandle::update_alias_registration) except requesting that no response be send.
+    fn update_alias_registration_without_response<C, A>(
+        &self,
+        c: &Arc<Component<C>>,
+        alias: A,
+    ) -> ()
+    where
+        C: ComponentDefinition + 'static,
+        A: Into<String>;
+
     /// Start a component
     ///
     /// A component only handles events/messages once it is started.
@@ -1206,8 +1526,9 @@ impl KompactRuntime {
     fn register_by_path<D>(
         &self,
         actor_ref: &D,
+        update: bool,
         path: PathResolvable,
-    ) -> Future<Result<ActorPath, RegistrationError>>
+    ) -> Future<RegistrationResult>
     where
         D: DynActorRefFactory,
     {
@@ -1215,7 +1536,7 @@ impl KompactRuntime {
         let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Typed(DispatchEnvelope::Registration(
-            RegistrationEnvelope::with_promise(actor_ref, path, promise),
+            RegistrationEnvelope::with_promise(actor_ref, path, update, promise),
         ));
         dispatcher.enqueue(envelope);
         future
@@ -1225,8 +1546,9 @@ impl KompactRuntime {
     fn register_by_alias<D>(
         &self,
         actor_ref: &D,
+        update: bool,
         alias: String,
-    ) -> Future<Result<ActorPath, RegistrationError>>
+    ) -> Future<RegistrationResult>
     where
         D: DynActorRefFactory,
     {
@@ -1235,7 +1557,7 @@ impl KompactRuntime {
             "Requesting actor alias registration for {:?}", alias
         );
         let path = PathResolvable::Alias(alias);
-        self.register_by_path(actor_ref, path)
+        self.register_by_path(actor_ref, update, path)
     }
 
     fn deadletter_ref(&self) -> ActorRef<Never> {

@@ -20,6 +20,7 @@ impl QueueManager {
             priority_queue: HashMap::new(),
         }
     }
+
     /*
     The queuemanager is really just a struct, no need to stop it?
     pub fn stop(self) -> () {
@@ -33,6 +34,7 @@ impl QueueManager {
             .or_insert(VecDeque::new())
             .push_front(frame);
     }
+
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_priority_frame(&mut self, frame: SerializedFrame, dst: SocketAddr) {
         self.priority_queue
@@ -93,7 +95,11 @@ impl QueueManager {
     // }
 
     pub fn has_frame(&self, dst: &SocketAddr) -> bool {
-        if self.priority_queue.get(dst).map_or(false, |q| !q.is_empty()) {
+        if self
+            .priority_queue
+            .get(dst)
+            .map_or(false, |q| !q.is_empty())
+        {
             return true;
         }
         self.inner.get(dst).map_or(false, |q| !q.is_empty())

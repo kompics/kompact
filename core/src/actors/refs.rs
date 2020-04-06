@@ -926,13 +926,19 @@ pub trait Receiver<T> {
     /// Produce a recipient for `T`
     fn recipient(&self) -> Recipient<T>;
 }
-impl<M, T> Receiver<T> for dyn ActorRefFactory<Message = M>
+impl<M, T, A> Receiver<T> for A
 where
     T: fmt::Debug + 'static,
     M: From<T> + MessageBounds,
+    A: ActorRefFactory<Message = M>,
 {
     fn recipient(&self) -> Recipient<T> {
         self.actor_ref().recipient()
+    }
+}
+impl<T> Receiver<T> for Recipient<T> {
+    fn recipient(&self) -> Recipient<T> {
+        self.clone()
     }
 }
 

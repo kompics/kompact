@@ -285,9 +285,9 @@ impl ActorPath {
     /// that `m` will definitely go over the network, you can use
     /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
-        where
-            S: ActorSource,
-            B: Into<Box<dyn Serialisable>>,
+    where
+        S: ActorSource,
+        B: Into<Box<dyn Serialisable>>,
     {
         let msg: Box<dyn Serialisable> = m.into();
         let src = from.path_resolvable();
@@ -302,9 +302,9 @@ impl ActorPath {
 
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
-        where
-            CD: ComponentDefinition + Sized + 'static,
-            B: Serialisable + 'static,
+    where
+        CD: ComponentDefinition + Sized + 'static,
+        B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
@@ -315,7 +315,12 @@ impl ActorPath {
             {
                 if let Some(buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
                     let mut buf = buffer.get_buffer_encoder();
-                    let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(&from.actor_path(), &self, &m, &mut buf)?;
+                    let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(
+                        &from.actor_path(),
+                        &self,
+                        &m,
+                        &mut buf,
+                    )?;
                     let env = DispatchEnvelope::Msg {
                         src: from.path_resolvable(),
                         dst: self.clone(),
@@ -329,7 +334,6 @@ impl ActorPath {
             self.tell_serialised(m, from)
         }
     }
-
 
     // TODO
     //pub fn forward(&self, serialized_message: NetMessage);

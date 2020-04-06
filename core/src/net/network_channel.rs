@@ -2,23 +2,22 @@ use crate::{
     messaging::SerializedFrame,
     net::{
         buffer::{BufferChunk, DecodeBuffer},
-        frames::{
-            Frame, Hello, FramingError, Start, Ack},
+        frames::{Ack, Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
         network_thread,
         network_thread::*,
-    }};
-use std::{
-    cmp::Ordering,
-    collections::VecDeque,
-    io,
-    io::{Error, ErrorKind, Write, Read},
-    net::{Shutdown::Both, SocketAddr},
-    fmt::Formatter,
+    },
 };
 use bytes::{Buf, BytesMut};
 use mio::{net::TcpStream, Token};
+use std::{
+    cmp::Ordering,
+    collections::VecDeque,
+    fmt::Formatter,
+    io,
+    io::{Error, ErrorKind, Read, Write},
+    net::{Shutdown::Both, SocketAddr},
+};
 use uuid::Uuid;
-use crate::net::frames::FRAME_HEAD_LEN;
 
 /// Received connection: Initialising -> Say Hello, Receive Start -> Connected, Send Ack
 /// Requested connection: Requested -> Receive Hello -> Initialised -> Send Start, Receive Ack -> Connected
@@ -44,7 +43,13 @@ pub(crate) struct TcpChannel {
 }
 
 impl TcpChannel {
-    pub fn new(stream: TcpStream, token: Token, buffer_chunk: BufferChunk, state: ChannelState, own_addr: SocketAddr) -> Self {
+    pub fn new(
+        stream: TcpStream,
+        token: Token,
+        buffer_chunk: BufferChunk,
+        state: ChannelState,
+        own_addr: SocketAddr,
+    ) -> Self {
         let input_buffer = DecodeBuffer::new(buffer_chunk);
         TcpChannel {
             stream,
@@ -91,18 +96,10 @@ impl TcpChannel {
 
     pub fn get_id(&self) -> Option<Uuid> {
         match self.state {
-            ChannelState::Connected(_, uuid) => {
-                Some(uuid)
-            }
-            ChannelState::Requested(_, uuid) => {
-                Some(uuid)
-            }
-            ChannelState::Initialised(_, uuid) => {
-                Some(uuid)
-            }
-            _ => {
-                None
-            }
+            ChannelState::Connected(_, uuid) => Some(uuid),
+            ChannelState::Requested(_, uuid) => Some(uuid),
+            ChannelState::Initialised(_, uuid) => Some(uuid),
+            _ => None,
         }
     }
 
@@ -229,9 +226,7 @@ impl TcpChannel {
                 self.messages += 1;
                 Ok(frame)
             }
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -318,31 +313,26 @@ impl std::fmt::Debug for ChannelState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ChannelState::Initialising => {
-                f.debug_struct("ChannelState")
-                    .field("State", &0)
-                    .finish()
+                f.debug_struct("ChannelState").field("State", &0).finish()
             }
-            ChannelState::Initialised(addr, id) => {
-                f.debug_struct("ChannelState")
-                    .field("State", &0)
-                    .field("addr", addr)
-                    .field("id", id)
-                    .finish()
-            }
-            ChannelState::Requested(addr, id) => {
-                f.debug_struct("ChannelState")
-                    .field("State", &0)
-                    .field("addr", addr)
-                    .field("id", id)
-                    .finish()
-            }
-            ChannelState::Connected(addr, id) => {
-                f.debug_struct("ChannelState")
-                    .field("State", &1)
-                    .field("addr", addr)
-                    .field("id", id)
-                    .finish()
-            }
+            ChannelState::Initialised(addr, id) => f
+                .debug_struct("ChannelState")
+                .field("State", &0)
+                .field("addr", addr)
+                .field("id", id)
+                .finish(),
+            ChannelState::Requested(addr, id) => f
+                .debug_struct("ChannelState")
+                .field("State", &0)
+                .field("addr", addr)
+                .field("id", id)
+                .finish(),
+            ChannelState::Connected(addr, id) => f
+                .debug_struct("ChannelState")
+                .field("State", &1)
+                .field("addr", addr)
+                .field("id", id)
+                .finish(),
         }
     }
 }

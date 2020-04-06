@@ -12,7 +12,7 @@ use crate::{
 };
 use bytes::{Buf, BufMut, BytesMut};
 use mio::{Interest, Waker};
-use std::sync::mpsc::{channel, Receiver as Recv, Sender, SendError, RecvError};
+use std::sync::mpsc::{channel, Receiver as Recv, RecvError, SendError, Sender};
 
 #[allow(missing_docs)]
 pub mod buffer;
@@ -194,7 +194,9 @@ impl Bridge {
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         self.network_input_queue.send(DispatchEvent::Stop())?;
-        self.waker.wake().expect("Network Bridge Waking NetworkThread in stop()");
+        self.waker
+            .wake()
+            .expect("Network Bridge Waking NetworkThread in stop()");
         self.network_thread_receiver.recv()?; // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())

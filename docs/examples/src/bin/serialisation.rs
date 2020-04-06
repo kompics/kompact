@@ -9,12 +9,12 @@ use std::{
 
 // ANCHOR: zstser
 struct ZSTSerialiser<T>(T)
-    where
-        T: Send + Sync + Default + Copy + SerialisationId;
+where
+    T: Send + Sync + Default + Copy + SerialisationId;
 
 impl<T> Serialiser<T> for &ZSTSerialiser<T>
-    where
-        T: Send + Sync + Default + Copy + SerialisationId,
+where
+    T: Send + Sync + Default + Copy + SerialisationId,
 {
     fn ser_id(&self) -> SerId {
         T::SER_ID
@@ -30,8 +30,8 @@ impl<T> Serialiser<T> for &ZSTSerialiser<T>
 }
 
 impl<T> Deserialiser<T> for ZSTSerialiser<T>
-    where
-        T: Send + Sync + Default + Copy + SerialisationId,
+where
+    T: Send + Sync + Default + Copy + SerialisationId,
 {
     const SER_ID: SerId = T::SER_ID;
 
@@ -335,7 +335,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
         bootstrap_socket,
         vec![BOOTSTRAP_PATH.into()],
     )
-        .into();
+    .into();
 
     let printer = system.create(TrustPrinter::new);
     let (detector, registration) =
