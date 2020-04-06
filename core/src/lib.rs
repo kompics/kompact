@@ -146,6 +146,7 @@ pub mod prelude {
             Recipient,
             Request,
             SystemPath,
+            SystemField,
             Transport,
             UniquePath,
             WithRecipient,

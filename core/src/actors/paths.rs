@@ -177,15 +177,22 @@ impl fmt::Display for SystemPath {
     }
 }
 
-pub(crate) trait SystemField {
+/// Methods for things that contain a [SystemPath](SystemPath)
+pub trait SystemField {
+    /// Returns a reference to the system path
     fn system(&self) -> &SystemPath;
 
+    /// Returns the transport protocol used in the system path
     fn protocol(&self) -> Transport {
         self.system().protocol()
     }
+
+    /// Returns the address used in the system path
     fn address(&self) -> &IpAddr {
         &self.system().address()
     }
+
+    /// Returns the port used in the system path
     fn port(&self) -> u16 {
         self.system().port()
     }
