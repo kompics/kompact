@@ -248,14 +248,14 @@ impl TcpChannel {
                         // Split the data and continue sending the rest later if we sent less than the full frame
                         SerializedFrame::Bytes(bytes) => {
                             if n < bytes.len() {
-                                eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
+                                //eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 let _ = bytes.split_to(n); // Discard the already sent split off part.
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
                         SerializedFrame::Chunk(chunk) => {
                             if n < chunk.bytes().len() {
-                                eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
+                                //eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 chunk.advance(n);
                                 self.outbound_queue.push_front(serialized_frame);
                             }

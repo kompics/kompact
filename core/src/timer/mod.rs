@@ -85,7 +85,7 @@ impl Default for TimerReturn {
     }
 }
 
-/// A concrete entry for an outstanding timout
+/// A concrete entry for an outstanding timeout
 pub enum TimerEntry {
     /// A one-off timer
     OneShot {

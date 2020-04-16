@@ -75,6 +75,9 @@ pub fn insert_benches_uuid(c: &mut Criterion) {
         g.bench_with_input(BenchmarkId::new("FX", data_size), data_size, |b, &size| {
             tests::bench_uuid_insert_fx(b, size)
         });
+        g.bench_with_input(BenchmarkId::new("XX", data_size), data_size, |b, &size| {
+            tests::bench_uuid_insert_xx(b, size)
+        });
         g.bench_with_input(
             BenchmarkId::new("BTree", data_size),
             data_size,
@@ -107,6 +110,9 @@ pub fn insert_benches_socket(c: &mut Criterion) {
         g.bench_with_input(BenchmarkId::new("FX", data_size), data_size, |b, &size| {
             tests::bench_socket_insert_fx(b, size)
         });
+        g.bench_with_input(BenchmarkId::new("XX", data_size), data_size, |b, &size| {
+            tests::bench_socket_insert_xx(b, size)
+        });
         g.bench_with_input(
             BenchmarkId::new("Radix", data_size),
             data_size,
@@ -133,6 +139,9 @@ pub fn insert_benches_usize(c: &mut Criterion) {
         });
         g.bench_with_input(BenchmarkId::new("FX", data_size), data_size, |b, &size| {
             tests::bench_usize_insert_fx(b, size)
+        });
+        g.bench_with_input(BenchmarkId::new("XX", data_size), data_size, |b, &size| {
+            tests::bench_usize_insert_xx(b, size)
         });
         g.bench_with_input(
             BenchmarkId::new("BTree", data_size),
@@ -172,6 +181,9 @@ pub fn lookup_benches_uuid(c: &mut Criterion) {
         g.bench_with_input(BenchmarkId::new("FX", data_size), data_size, |b, &size| {
             tests::bench_uuid_lookup_fx(b, size)
         });
+        g.bench_with_input(BenchmarkId::new("XX", data_size), data_size, |b, &size| {
+            tests::bench_uuid_lookup_xx(b, size)
+        });
         g.bench_with_input(
             BenchmarkId::new("BTree", data_size),
             data_size,
@@ -204,6 +216,9 @@ pub fn lookup_benches_socket(c: &mut Criterion) {
         g.bench_with_input(BenchmarkId::new("FX", data_size), data_size, |b, &size| {
             tests::bench_socket_lookup_fx(b, size)
         });
+        g.bench_with_input(BenchmarkId::new("XX", data_size), data_size, |b, &size| {
+            tests::bench_socket_lookup_xx(b, size)
+        });
         g.bench_with_input(
             BenchmarkId::new("Radix", data_size),
             data_size,
@@ -230,6 +245,9 @@ pub fn lookup_benches_usize(c: &mut Criterion) {
         });
         g.bench_with_input(BenchmarkId::new("FX", data_size), data_size, |b, &size| {
             tests::bench_usize_lookup_fx(b, size)
+        });
+        g.bench_with_input(BenchmarkId::new("XX", data_size), data_size, |b, &size| {
+            tests::bench_usize_lookup_xx(b, size)
         });
         g.bench_with_input(
             BenchmarkId::new("BTree", data_size),
@@ -259,7 +277,11 @@ mod tests {
     use fnv::FnvHashMap;
     use fxhash::FxHashMap;
     use panoradix::RadixMap;
-    use std::collections::{BTreeMap, HashMap};
+    use std::{
+        collections::{BTreeMap, HashMap},
+        hash::BuildHasherDefault,
+    };
+    use twox_hash::XxHash64;
 
     pub fn bench_uuid_insert_sip(b: &mut Bencher, data_size: usize) {
         let data = load_uuid_data(data_size);
@@ -295,6 +317,20 @@ mod tests {
         let data = load_uuid_data(data_size);
         let mut map: FxHashMap<Uuid, &'static str> =
             FxHashMap::with_capacity_and_hasher(data_size, Default::default());
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(id.clone(), VAL);
+            });
+        });
+        assert_eq!(map.len(), data_size);
+        map.drain().for_each(|v| {
+            assert_eq!(v.1, VAL);
+        });
+    }
+
+    pub fn bench_uuid_insert_xx(b: &mut Bencher, data_size: usize) {
+        let data = load_uuid_data(data_size);
+        let mut map: HashMap<Uuid, &'static str, BuildHasherDefault<XxHash64>> = Default::default();
         b.iter(|| {
             data.iter().for_each(|id| {
                 let _ = map.insert(id.clone(), VAL);
@@ -397,6 +433,21 @@ mod tests {
         });
     }
 
+    pub fn bench_socket_insert_xx(b: &mut Bencher, data_size: usize) {
+        let data = load_addr_data(data_size);
+        let mut map: HashMap<SocketAddr, &'static str, BuildHasherDefault<XxHash64>> =
+            Default::default();
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(id.clone(), VAL);
+            });
+        });
+        assert_eq!(map.len(), data_size);
+        map.drain().for_each(|v| {
+            assert_eq!(v.1, VAL);
+        });
+    }
+
     pub fn bench_socket_insert_radix(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: RadixMap<[u8], &'static str> = RadixMap::new();
@@ -464,6 +515,21 @@ mod tests {
         let data = load_usize_data(data_size);
         let mut map: FxHashMap<usize, &'static str> =
             FxHashMap::with_capacity_and_hasher(data_size, Default::default());
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let _ = map.insert(*id, VAL);
+            });
+        });
+        assert_eq!(map.len(), data_size);
+        map.drain().for_each(|v| {
+            assert_eq!(v.1, VAL);
+        });
+    }
+
+    pub fn bench_usize_insert_xx(b: &mut Bencher, data_size: usize) {
+        let data = load_usize_data(data_size);
+        let mut map: HashMap<usize, &'static str, BuildHasherDefault<XxHash64>> =
+            Default::default();
         b.iter(|| {
             data.iter().for_each(|id| {
                 let _ = map.insert(*id, VAL);
@@ -563,6 +629,22 @@ mod tests {
         let data = load_uuid_data(data_size);
         let mut map: FxHashMap<Uuid, &'static str> =
             FxHashMap::with_capacity_and_hasher(data_size, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), data_size);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    pub fn bench_uuid_lookup_xx(b: &mut Bencher, data_size: usize) {
+        let data = load_uuid_data(data_size);
+        let mut map: HashMap<Uuid, &'static str, BuildHasherDefault<XxHash64>> = Default::default();
         data.iter().for_each(|id| {
             let _ = map.insert(id.clone(), VAL);
         });
@@ -676,6 +758,23 @@ mod tests {
         map.clear();
     }
 
+    pub fn bench_socket_lookup_xx(b: &mut Bencher, data_size: usize) {
+        let data = load_addr_data(data_size);
+        let mut map: HashMap<SocketAddr, &'static str, BuildHasherDefault<XxHash64>> =
+            Default::default();
+        data.iter().for_each(|id| {
+            let _ = map.insert(id.clone(), VAL);
+        });
+        assert_eq!(map.len(), data_size);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
     pub fn bench_socket_lookup_radix(b: &mut Bencher, data_size: usize) {
         let data = load_addr_data(data_size);
         let mut map: RadixMap<[u8], &'static str> = RadixMap::new();
@@ -751,6 +850,23 @@ mod tests {
         let data = load_usize_data(data_size);
         let mut map: FxHashMap<usize, &'static str> =
             FxHashMap::with_capacity_and_hasher(data_size, Default::default());
+        data.iter().for_each(|id| {
+            let _ = map.insert(*id, VAL);
+        });
+        assert_eq!(map.len(), data_size);
+        b.iter(|| {
+            data.iter().for_each(|id| {
+                let r = map.get(id);
+                assert!(r.is_some());
+            });
+        });
+        map.clear();
+    }
+
+    pub fn bench_usize_lookup_xx(b: &mut Bencher, data_size: usize) {
+        let data = load_usize_data(data_size);
+        let mut map: HashMap<usize, &'static str, BuildHasherDefault<XxHash64>> =
+            Default::default();
         data.iter().for_each(|id| {
             let _ = map.insert(*id, VAL);
         });
