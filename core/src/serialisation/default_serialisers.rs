@@ -43,6 +43,14 @@ pub mod serialisation_ids {
     pub const PBUF: SerId = 20;
 }
 
+impl Deserialiser<Never> for Never {
+    const SER_ID: SerId = serialisation_ids::UNKNOWN;
+
+    fn deserialise(_buf: &mut dyn Buf) -> Result<Never, SerError> {
+        unreachable!("Can't instantiate Never type, so can't deserialise it either");
+    }
+}
+
 impl Serialisable for String {
     fn ser_id(&self) -> SerId {
         serialisation_ids::STR
