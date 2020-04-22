@@ -57,7 +57,6 @@ use self::{
     ports::*,
     runtime::*,
     serialisation::*,
-    timer_manager::*,
     utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
@@ -90,7 +89,6 @@ mod serialisation;
 mod supervision;
 /// Reusable timer facility internals
 pub mod timer;
-mod timer_manager;
 mod utils;
 
 /// A more readable placeholder for a stable Never (`!`) type.
@@ -189,7 +187,7 @@ pub mod prelude {
             Serialised,
             UnpackError,
         },
-        timer_manager::{ScheduledTimer, Timer, TimerRefFactory},
+        timer::timer_manager::{ScheduledTimer, Timer, TimerRefFactory},
     };
 
     pub use crate::{

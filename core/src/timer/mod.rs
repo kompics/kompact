@@ -1,66 +1,17 @@
-use std::{
-    fmt,
-    io,
-    thread,
-    time::{Duration, Instant, SystemTime},
-};
 use uuid::Uuid;
 
-pub use self::{simulation::*, thread_timer::*, wheels::*};
+use hierarchical_hash_wheel_timer::{
+    thread_timer::{TimerRef as GenericTimerRef, TimerWithThread as GenericTimerWithThread},
+    OneshotState,
+    PeriodicState,
+    TimerEntry as GenericTimerEntry,
+    TimerReturn as GenericTimerReturn,
+};
 
-mod simulation;
-mod thread_timer;
-mod wheels;
+pub use hierarchical_hash_wheel_timer::TimerError;
 
-/// The API for Kompact's timer module
-///
-/// This allows behaviours to be scheduled for later execution.
-pub trait Timer {
-    /// Schedule the `action` to be executed once after the `timeout` expires
-    ///
-    /// # Note
-    ///
-    /// Depending on your system and the implementation used,
-    /// there is always a certain lag between the execution of the `action`
-    /// and the `timeout` expiring on the system's clock.
-    /// Thus it is only guaranteed that the `action` is not run *before*
-    /// the `timeout` expires, but no bounds on the lag are given.
-    fn schedule_once<F>(&mut self, id: Uuid, timeout: Duration, action: F) -> ()
-    where
-        F: FnOnce(Uuid) + Send + 'static;
-
-    /// Schedule the `action` to be run every `timeout` time units
-    ///
-    /// The first time, the `action` will be run after `delay` expires,
-    /// and then again every `timeout` time units after.
-    ///
-    /// # Note
-    ///
-    /// Depending on your system and the implementation used,
-    /// there is always a certain lag between the execution of the `action`
-    /// and the `timeout` expiring on the system's clock.
-    /// Thus it is only guaranteed that the `action` is not run *before*
-    /// the `timeout` expires, but no bounds on the lag are given.
-    fn schedule_periodic<F>(
-        &mut self,
-        id: Uuid,
-        delay: Duration,
-        period: Duration,
-        action: F,
-    ) -> ()
-    where
-        F: Fn(Uuid) -> TimerReturn + Send + 'static;
-
-    /// Cancel the timer indicated by the `id`
-    ///
-    /// This method is asynchronous, and calling it is no guarantee
-    /// than an already scheduled timeout is not going to fire before it
-    /// is actually cancelled.
-    ///
-    /// However, calling this method will definitely prevent *periodic* timeouts
-    /// from being rescheduled.
-    fn cancel(&mut self, id: Uuid);
-}
+pub(crate) mod timer_manager;
+use timer_manager::{Timeout, TimerActorRef};
 
 /// Indicate whether or not to reschedule a periodic timer
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -84,238 +35,62 @@ impl Default for TimerReturn {
         TimerReturn::Reschedule
     }
 }
+impl From<TimerReturn> for GenericTimerReturn<()> {
+    fn from(tr: TimerReturn) -> Self {
+        match tr {
+            TimerReturn::Reschedule => GenericTimerReturn::Reschedule(()),
+            TimerReturn::Cancel => GenericTimerReturn::Cancel,
+        }
+    }
+}
 
 /// A concrete entry for an outstanding timeout
-pub enum TimerEntry {
-    /// A one-off timer
-    OneShot {
-        /// The unique of the timeout
-        id: Uuid,
-        /// The length of the timeout
-        timeout: Duration,
-        /// The action to invoke when the timeout expires
-        action: Box<dyn FnOnce(Uuid) + Send + 'static>,
-    },
-    /// A recurring timer
-    Periodic {
-        /// The unique of the timeout
-        id: Uuid,
-        /// The delay until the `action` is first invoked
-        delay: Duration,
-        /// The time between `action` invocations
-        period: Duration,
-        /// The action to invoke whenever the timeout expires
-        action: Box<dyn Fn(Uuid) -> TimerReturn + Send + 'static>,
-    },
-}
+pub type TimerEntry = GenericTimerEntry<Uuid, ActorRefState, ActorRefState>;
 
-impl TimerEntry {
-    /// Returns the unique id of the outstanding timeout
-    pub fn id(&self) -> Uuid {
-        match self {
-            TimerEntry::OneShot { id, .. } => *id,
-            TimerEntry::Periodic { id, .. } => *id,
-        }
-    }
+/// The reference type for the timer thread
+pub type TimerRef = GenericTimerRef<Uuid, ActorRefState, ActorRefState>;
 
-    /// Returns a reference to the unique id of the outstanding timeout
-    pub fn id_ref(&self) -> &Uuid {
-        match self {
-            TimerEntry::OneShot { id, .. } => id,
-            TimerEntry::Periodic { id, .. } => id,
-        }
-    }
+/// The concrete vairant of timer thread used in Kompact
+pub type TimerWithThread = GenericTimerWithThread<Uuid, ActorRefState, ActorRefState>;
 
-    /// Returns the time until the timeout is supposed to be triggered
-    pub fn delay(&self) -> Duration {
-        match self {
-            TimerEntry::OneShot { timeout, .. } => *timeout,
-            TimerEntry::Periodic { delay, .. } => *delay,
-        }
-    }
-
-    /// Returns a reference to the time until the timeout is supposed to be triggered
-    pub fn delay_ref(&self) -> &Duration {
-        match self {
-            TimerEntry::OneShot { timeout, .. } => timeout,
-            TimerEntry::Periodic { delay, .. } => delay,
-        }
-    }
-
-    /// Updates the `timeout` or `delay` value of the entry with the given duration `d`
-    pub fn with_duration(self, d: Duration) -> TimerEntry {
-        match self {
-            TimerEntry::OneShot { id, action, .. } => TimerEntry::OneShot {
-                id,
-                timeout: d,
-                action,
-            },
-            TimerEntry::Periodic {
-                id, period, action, ..
-            } => TimerEntry::Periodic {
-                id,
-                delay: d,
-                period,
-                action,
-            },
-        }
-    }
-
-    /// Execute the action associated with the timeout
-    ///
-    /// Returns a new timer entry, if it needs to be rescheduled
-    /// and `None` otherwise.
-    pub fn execute(self) -> Option<TimerEntry> {
-        match self {
-            TimerEntry::OneShot { id, action, .. } => {
-                action(id);
-                None
-            }
-            TimerEntry::Periodic {
-                id, action, period, ..
-            } => {
-                let res = action.as_ref()(id);
-                if res.should_reschedule() {
-                    let next = TimerEntry::Periodic {
-                        id,
-                        delay: period,
-                        period,
-                        action,
-                    };
-                    Some(next)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-impl fmt::Debug for TimerEntry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TimerEntry::OneShot { id, timeout, .. } => write!(
-                f,
-                "TimerEntry::OneShot(id={:?}, timeout={:?}, action=<function>)",
-                id, timeout
-            ),
-            TimerEntry::Periodic {
-                id, delay, period, ..
-            } => write!(
-                f,
-                "TimerEntry::Periodic(id={:?}, delay={:?}, period={:?} action=<function>)",
-                id, delay, period
-            ),
-        }
-    }
-}
-
-type TimerList = Vec<TimerEntry>;
-
-/// Errors encounted by a timer implementation
+/// The necessary state for Kompact timers
 #[derive(Debug)]
-pub enum TimerError {
-    /// The timeout with the given id was not found
-    NotFound,
-    /// The timout has already expired
-    Expired(TimerEntry),
+pub struct ActorRefState {
+    id: Uuid,
+    receiver: TimerActorRef,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::{Arc, Mutex};
+impl ActorRefState {
+    fn new(id: Uuid, receiver: TimerActorRef) -> Self {
+        ActorRefState { id, receiver }
+    }
+}
 
-    #[test]
-    fn simple_simulation() {
-        let num = 10usize;
-        let mut barriers: Vec<Arc<Mutex<bool>>> = Vec::with_capacity(num);
-        let mut timer = SimulationTimer::new();
-        for i in 0..num {
-            let barrier = Arc::new(Mutex::new(false));
-            barriers.push(barrier.clone());
-            let id = Uuid::new_v4();
-            let timeout = Duration::from_millis(150u64 * (i as u64));
-            timer.schedule_once(id, timeout, move |_| {
-                println!("Running action {}", i);
-                let mut guard = barrier.lock().unwrap();
-                *guard = true;
-            });
-        }
-        let mut running = true;
-        while running {
-            match timer.next() {
-                SimulationStep::Ok => println!("Next!"),
-                SimulationStep::Finished => running = false,
-            }
-        }
-        println!("Simulation run done!");
-        for b in barriers {
-            let guard = b.lock().unwrap();
-            assert_eq!(*guard, true);
-        }
+impl OneshotState for ActorRefState {
+    type Id = Uuid;
+
+    fn id(&self) -> &Self::Id {
+        &self.id
     }
 
-    // TODO test with rescheduling
+    fn trigger(self) -> () {
+        // Ignore the Result, as we are anyway not trying to reschedule this timer
+        let _res = self.receiver.enqueue(Timeout(self.id));
+    }
+}
 
-    fn fib_time(mut i: usize) -> Duration {
-        if i == 0 {
-            Duration::from_millis(0)
-        } else if i == 1 {
-            Duration::from_millis(1)
-        } else {
-            let mut fminus2: u64 = 0u64;
-            let mut fminus1: u64 = 1u64;
-            while i >= 2 {
-                let fi = fminus2 + fminus1;
-                i -= 1;
-                fminus2 = fminus1;
-                fminus1 = fi;
-            }
-            Duration::from_millis(fminus1)
-        }
+impl PeriodicState for ActorRefState {
+    type Id = Uuid;
+
+    fn id(&self) -> &Self::Id {
+        &self.id
     }
 
-    #[test]
-    fn simple_thread_timing() {
-        let num = 20usize;
-        let mut barriers: Vec<Arc<Mutex<bool>>> = Vec::with_capacity(num);
-        let timer_core = TimerWithThread::new().expect("Timer thread didn't load properly!");
-        let mut timer = timer_core.timer_ref();
-        let mut total_wait = Duration::from_millis(0);
-        println!("Starting timing run.");
-        for i in 0..num {
-            let barrier = Arc::new(Mutex::new(false));
-            barriers.push(barrier.clone());
-            let id = Uuid::new_v4();
-            let timeout = fib_time(i);
-            total_wait += timeout;
-            let now = Instant::now();
-            timer.schedule_once(id, timeout, move |_| {
-                let elap = now.elapsed().as_nanos();
-                let target = timeout.as_nanos();
-                if (elap > target) {
-                    let diff = ((elap - target) as f64) / 1000000.0;
-                    println!("Running action {} {}ms late", i, diff);
-                } else if (elap > target) {
-                    let diff = ((target - elap) as f64) / 1000000.0;
-                    println!("Running action {} {}ms early", i, diff);
-                } else {
-                    println!("Running action {} exactly on time", i);
-                }
-                let mut guard = barrier.lock().unwrap();
-                *guard = true;
-            });
-        }
-        println!("Waiting timing run to finish {}ms", total_wait.as_millis());
-        thread::sleep(total_wait);
-        timer_core
-            .shutdown()
-            .expect("Timer didn't shutdown properly!");
-        println!("Timing run done!");
-        for b in barriers {
-            let guard = b.lock().unwrap();
-            assert_eq!(*guard, true);
+    fn trigger(self) -> GenericTimerReturn<Self> {
+        // Ignore the Result, as we are anyway not trying to reschedule this timer
+        match self.receiver.enqueue(Timeout(self.id)) {
+            Ok(_) => GenericTimerReturn::Reschedule(self),
+            Err(_) => GenericTimerReturn::Cancel, // Queue has probably been deallocated, so no point in trying this over and over again
         }
     }
 }

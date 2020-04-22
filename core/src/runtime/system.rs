@@ -11,6 +11,7 @@ use crate::{
         RegistrationResult,
     },
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
+    timer::timer_manager::TimerRefFactory,
 };
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};

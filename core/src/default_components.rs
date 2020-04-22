@@ -1,5 +1,8 @@
 use super::*;
-use crate::messaging::{DispatchEnvelope, NetMessage};
+use crate::{
+    messaging::{DispatchEnvelope, NetMessage},
+    timer::timer_manager::TimerRefFactory,
+};
 use std::sync::Arc;
 
 pub(crate) struct DefaultComponents {

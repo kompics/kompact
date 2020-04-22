@@ -1,18 +1,20 @@
-use crate::timer::{Timer as TTimer, TimerReturn};
+use super::*;
+use hierarchical_hash_wheel_timer::Timer as LowlevelTimer;
 use std::{
     collections::HashMap,
+    fmt,
     rc::Rc,
     sync::{Arc, Weak},
     time::Duration,
 };
 use uuid::Uuid;
 
-use super::*;
+use crate::*;
 
 /// A factory trait to produce instances of [TimerRef](timer::TimerRef)
 pub trait TimerRefFactory {
     /// Returns the timer reference for associated with this factory
-    fn timer_ref(&self) -> timer::TimerRef;
+    fn timer_ref(&self) -> TimerRef;
 }
 
 /// Opaque reference to a scheduled instance of a timer
@@ -162,7 +164,7 @@ pub trait Timer<C: ComponentDefinition> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Timeout(Uuid);
+pub(crate) struct Timeout(pub(crate) Uuid);
 
 pub(crate) enum ExecuteAction<C: ComponentDefinition> {
     None,
@@ -228,10 +230,8 @@ impl<C: ComponentDefinition> TimerManager<C> {
         };
         self.handles.insert(id, handle);
         let tar = self.new_ref(component);
-        self.timer.schedule_once(id, timeout, move |id| {
-            // Ignore the Result, as we are anyway not trying to reschedule this timer
-            let _res = tar.enqueue(Timeout(id));
-        });
+        let state = ActorRefState::new(id, tar);
+        self.timer.schedule_once(timeout, state);
         ScheduledTimer::from_uuid(id)
     }
 
@@ -252,20 +252,13 @@ impl<C: ComponentDefinition> TimerManager<C> {
         };
         self.handles.insert(id, handle);
         let tar = self.new_ref(component);
-        self.timer.schedule_periodic(id, delay, period, move |id| {
-            let res = tar.enqueue(Timeout(id));
-            if res.is_ok() {
-                TimerReturn::Reschedule
-            } else {
-                // Queue has probably been deallocated, so no point in trying this over and over again
-                TimerReturn::Cancel
-            }
-        });
+        let state = ActorRefState::new(id, tar);
+        self.timer.schedule_periodic(delay, period, state);
         ScheduledTimer::from_uuid(id)
     }
 
     pub(crate) fn cancel_timer(&mut self, handle: ScheduledTimer) {
-        self.timer.cancel(handle.0);
+        self.timer.cancel(&handle.0);
         self.handles.remove(&handle.0);
     }
 }
@@ -274,7 +267,7 @@ impl<C: ComponentDefinition> Drop for TimerManager<C> {
     fn drop(&mut self) {
         // drop all handles in case someone forgets to clean up after their component
         for (id, _) in self.handles.drain() {
-            self.timer.cancel(id);
+            self.timer.cancel(&id);
         }
     }
 }
@@ -297,7 +290,7 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
 unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {}
 
 #[derive(Clone)]
-struct TimerActorRef {
+pub(crate) struct TimerActorRef {
     component: Weak<dyn CoreContainer>,
     msg_queue: Weak<ConcurrentQueue<Timeout>>,
 }
@@ -313,7 +306,7 @@ impl TimerActorRef {
         }
     }
 
-    fn enqueue(&self, timeout: Timeout) -> Result<(), QueueingError> {
+    pub(crate) fn enqueue(&self, timeout: Timeout) -> Result<(), QueueingError> {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
                 q.push(timeout);
@@ -335,5 +328,11 @@ impl TimerActorRef {
     }
 }
 
+impl fmt::Debug for TimerActorRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "<timer-actor-ref>")
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct QueueingError;
+pub struct QueueingError;

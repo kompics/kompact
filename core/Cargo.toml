@@ -55,6 +55,7 @@ slog-term = "2"
 fxhash = "0.2.1"
 fnv = "1.0"
 hocon = {version = "0.3", default-features = false}
+hierarchical_hash_wheel_timer = { git = "https://github.com/Bathtor/rust-hash-wheel-timer", branch = "master" }
 
 # Optional
 protobuf = {version = "2", optional = true, features = ["with-bytes"]}
