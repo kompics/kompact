@@ -342,8 +342,37 @@ impl ActorPath {
         }
     }
 
-    // TODO
-    //pub fn forward(&self, serialized_message: NetMessage);
+    /// Forwards the still serialised message to this path without changing the sender
+    ///
+    /// This can be used for routing protocls where the final recipient is supposed to reply
+    /// to the original sender, not the intermediaries.
+    pub fn forward_with_original_sender<D>(
+        &self,
+        mut serialised_message: NetMessage,
+        dispatcher: D,
+    ) -> ()
+    where
+        D: Dispatching,
+    {
+        serialised_message.receiver = self.clone();
+        let env = DispatchEnvelope::ForwardedMsg {
+            msg: serialised_message,
+        };
+        dispatcher.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+    }
+
+    /// Forwards the still serialised message to this path replacing the sender with the given one
+    pub fn forward_with_sender<CD>(&self, mut serialised_message: NetMessage, from: &CD) -> ()
+    where
+        CD: ComponentDefinition + Sized + 'static,
+    {
+        serialised_message.receiver = self.clone();
+        serialised_message.sender = from.actor_path();
+        let env = DispatchEnvelope::ForwardedMsg {
+            msg: serialised_message,
+        };
+        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+    }
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
     /// and something that can [dispatch](Dispatching) stuff
