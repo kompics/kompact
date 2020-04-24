@@ -1121,6 +1121,7 @@ mod dispatch_tests {
     /// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
     /// system1 times out in its reconnection attempts and drops the enqueued buffers.
     /// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
+    #[ignore]
     fn remote_lost_and_dropped_connection() {
         let system1 = || {
             let mut cfg = KompactConfig::new();

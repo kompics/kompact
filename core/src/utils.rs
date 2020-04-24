@@ -258,9 +258,7 @@ where
 /// # Example
 ///
 /// To ignore control events for a component `TestComponent`, write:
-/// ```ignore
-/// ignore_control!(TestComponent);
-/// ```
+/// `ignore_control!(TestComponent);`
 #[macro_export]
 macro_rules! ignore_control {
     ($component:ty) => {
@@ -285,9 +283,7 @@ macro_rules! ignore_control {
 /// # Example
 ///
 /// To ignore requests on a port `TestPort` for a component `TestComponent`, write:
-/// ```ignore
-/// ignore_requests!(TestPort, TestComponent);
-/// ```
+/// `ignore_requests!(TestPort, TestComponent);`
 #[macro_export]
 macro_rules! ignore_requests {
     ($port:ty, $component:ty) => {
@@ -307,9 +303,7 @@ macro_rules! ignore_requests {
 /// # Example
 ///
 /// To ignore indications on a port `TestPort` for a component `TestComponent`, write:
-/// ```ignore
-/// ignore_indications!(TestPort, TestComponent);
-/// ```
+/// `ignore_indications!(TestPort, TestComponent);`
 #[macro_export]
 macro_rules! ignore_indications {
     ($port:ty, $component:ty) => {
