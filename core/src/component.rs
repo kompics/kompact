@@ -462,7 +462,17 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
         match res {
             Ok(_) => (), // great
             Err(e) => {
-                error!(self.logger, "Component panicked with: {:?}", e);
+                if let Some(error_msg) = e.downcast_ref::<&str>() {
+                    error!(self.logger, "Component panicked with: {:?}", error_msg);
+                } else if let Some(error_msg) = e.downcast_ref::<String>() {
+                    error!(self.logger, "Component panicked with: {:?}", error_msg);
+                } else {
+                    error!(
+                        self.logger,
+                        "Component panicked with a non-string message with type id={:?}",
+                        e.type_id()
+                    );
+                }
                 lifecycle::set_faulty(&self.state);
                 if let Some(ref supervisor) = self.supervisor {
                     supervisor.enqueue(SupervisorMsg::Faulty(self.core.id));
