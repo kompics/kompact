@@ -349,7 +349,7 @@ impl ActorPath {
     pub fn forward_with_original_sender<D>(
         &self,
         mut serialised_message: NetMessage,
-        dispatcher: D,
+        dispatcher: &D,
     ) -> ()
     where
         D: Dispatching,

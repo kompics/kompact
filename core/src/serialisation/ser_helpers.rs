@@ -172,7 +172,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
             buf.put(bytes);
         }
         HeapOrSer::Pooled(lease) => {
-            unimplemented!("TODO @Adam how do I make it use the existing lease?");
+            buf.put(lease.bytes());
         }
     }
     match buf.get_chunk_lease() {
