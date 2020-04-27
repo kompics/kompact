@@ -1,5 +1,5 @@
 use crate::{
-    messaging::SerializedFrame,
+    messaging::SerialisedFrame,
     net::{
         buffer::{BufferChunk, DecodeBuffer},
         frames::{Ack, Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
@@ -34,7 +34,7 @@ pub(crate) enum ChannelState {
 
 pub(crate) struct TcpChannel {
     stream: TcpStream,
-    outbound_queue: VecDeque<SerializedFrame>,
+    outbound_queue: VecDeque<SerialisedFrame>,
     pub token: Token,
     input_buffer: DecodeBuffer,
     pub state: ChannelState,
@@ -86,7 +86,7 @@ impl TcpChannel {
         bytes.truncate(len);
         if let Ok(()) = frame.encode_into(&mut bytes) {
             self.outbound_queue
-                .push_back(SerializedFrame::Bytes(bytes.freeze()));
+                .push_back(SerialisedFrame::Bytes(bytes.freeze()));
             // If there is a fatal error during a handshake the connection will be re-attempted
             let _ = self.try_drain();
         } else {
@@ -149,7 +149,7 @@ impl TcpChannel {
         self.input_buffer.swap_buffer(new_buffer);
     }
 
-    pub fn take_outbound(&mut self) -> Vec<SerializedFrame> {
+    pub fn take_outbound(&mut self) -> Vec<SerialisedFrame> {
         let mut ret = Vec::new();
         while let Some(frame) = self.outbound_queue.pop_front() {
             ret.push(frame);
@@ -206,7 +206,7 @@ impl TcpChannel {
         //hello_bytes.extend_from_slice(&[0;hello.encoded_len()]);
         if let Ok(()) = bye.encode_into(&mut bye_bytes) {
             self.outbound_queue
-                .push_back(SerializedFrame::Bytes(bye_bytes.freeze()));
+                .push_back(SerialisedFrame::Bytes(bye_bytes.freeze()));
             let _ = self.try_drain(); // Try to drain outgoing
             let _ = self.receive(); // Try to drain incoming
         } else {
@@ -232,7 +232,7 @@ impl TcpChannel {
 
     /// Enqueues the frame for sending on the channel.
     /// Enquing to a non-connected channel is disallowed.
-    pub fn enqueue_serialised(&mut self, serialized: SerializedFrame) -> () {
+    pub fn enqueue_serialised(&mut self, serialized: SerialisedFrame) -> () {
         self.outbound_queue.push_back(serialized);
     }
 
@@ -246,14 +246,14 @@ impl TcpChannel {
                     sent_bytes = sent_bytes + n;
                     match &mut serialized_frame {
                         // Split the data and continue sending the rest later if we sent less than the full frame
-                        SerializedFrame::Bytes(bytes) => {
+                        SerialisedFrame::Bytes(bytes) => {
                             if n < bytes.len() {
                                 //eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 let _ = bytes.split_to(n); // Discard the already sent split off part.
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
-                        SerializedFrame::Chunk(chunk) => {
+                        SerialisedFrame::Chunk(chunk) => {
                             if n < chunk.bytes().len() {
                                 //eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 chunk.advance(n);
@@ -289,10 +289,10 @@ impl TcpChannel {
     }
 
     /// No direct writing allowed, Must use other interface.
-    fn write_serialized(&mut self, serialized: &SerializedFrame) -> io::Result<usize> {
+    fn write_serialized(&mut self, serialized: &SerialisedFrame) -> io::Result<usize> {
         match serialized {
-            SerializedFrame::Chunk(chunk) => self.stream.write(chunk.bytes()),
-            SerializedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
+            SerialisedFrame::Chunk(chunk) => self.stream.write(chunk.bytes()),
+            SerialisedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
         }
     }
 }

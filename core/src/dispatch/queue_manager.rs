@@ -1,4 +1,4 @@
-use crate::messaging::SerializedFrame;
+use crate::messaging::SerialisedFrame;
 use std::{
     collections::{HashMap, VecDeque},
     net::SocketAddr,
@@ -9,8 +9,8 @@ use std::{
 /// Used when waiting for connections to establish and drained when possible.
 /// `priority_queue` allows the NetworkDispatcher to maintain FIFO Order in the event of shaky connections
 pub struct QueueManager {
-    inner: HashMap<SocketAddr, VecDeque<SerializedFrame>>,
-    priority_queue: HashMap<SocketAddr, VecDeque<SerializedFrame>>,
+    inner: HashMap<SocketAddr, VecDeque<SerialisedFrame>>,
+    priority_queue: HashMap<SocketAddr, VecDeque<SerialisedFrame>>,
 }
 
 impl QueueManager {
@@ -28,7 +28,7 @@ impl QueueManager {
     }
     */
     /// Appends the given frame onto the SocketAddr's queue
-    pub fn enqueue_frame(&mut self, frame: SerializedFrame, dst: SocketAddr) {
+    pub fn enqueue_frame(&mut self, frame: SerialisedFrame, dst: SocketAddr) {
         self.inner
             .entry(dst)
             .or_insert(VecDeque::new())
@@ -36,7 +36,7 @@ impl QueueManager {
     }
 
     /// Appends the given frame onto the SocketAddr's queue
-    pub fn enqueue_priority_frame(&mut self, frame: SerializedFrame, dst: SocketAddr) {
+    pub fn enqueue_priority_frame(&mut self, frame: SerialisedFrame, dst: SocketAddr) {
         self.priority_queue
             .entry(dst)
             .or_insert(VecDeque::new())
@@ -46,7 +46,7 @@ impl QueueManager {
     /// Extracts the next queue-up frame for the SocketAddr, if one exists
     ///
     /// If the SocketAddr exists but its queue is empty, the entry is removed.
-    pub fn pop_frame(&mut self, dst: &SocketAddr) -> Option<SerializedFrame> {
+    pub fn pop_frame(&mut self, dst: &SocketAddr) -> Option<SerialisedFrame> {
         let mut res = self.priority_queue.get_mut(dst).and_then(|q| q.pop_back());
         if self.priority_queue.contains_key(dst) && res.is_none() {
             self.priority_queue.remove(dst);

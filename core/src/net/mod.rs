@@ -7,7 +7,7 @@ use net::events::NetworkEvent;
 use std::{io, net::SocketAddr, sync::Arc, thread};
 
 use crate::{
-    messaging::SerializedFrame,
+    messaging::SerialisedFrame,
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
 };
 use bytes::{Buf, BufMut, BytesMut};
@@ -44,7 +44,7 @@ pub mod events {
     use crate::net::frames::*;
     use std::net::SocketAddr;
 
-    use crate::messaging::SerializedFrame;
+    use crate::messaging::SerialisedFrame;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
@@ -54,14 +54,14 @@ pub mod events {
         /// Data was received
         Data(Frame),
         /// The NetworkThread lost connection to the remote host and rejects the frame
-        RejectedFrame(SocketAddr, SerializedFrame),
+        RejectedFrame(SocketAddr, SerialisedFrame),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
-        /// Send the SerializedFrame to receiver associated with the SocketAddr
-        Send(SocketAddr, SerializedFrame),
+        /// Send the SerialisedFrame to receiver associated with the SocketAddr
+        Send(SocketAddr, SerialisedFrame),
         /// Tells the network thread to Stop
         Stop(),
         /// Tells the network adress to open up a channel to the SocketAddr
@@ -211,10 +211,10 @@ impl Bridge {
     pub fn route(
         &self,
         addr: SocketAddr,
-        serialized: SerializedFrame,
+        serialized: SerialisedFrame,
     ) -> Result<(), NetworkBridgeErr> {
         match serialized {
-            SerializedFrame::Bytes(bytes) => {
+            SerialisedFrame::Bytes(bytes) => {
                 let size = FrameHead::encoded_len() + bytes.len();
                 let mut buf = BytesMut::with_capacity(size);
                 let head = FrameHead::new(FrameType::Data, bytes.len());
@@ -222,13 +222,13 @@ impl Bridge {
                 buf.put_slice(bytes.bytes());
                 self.network_input_queue.send(events::DispatchEvent::Send(
                     addr,
-                    SerializedFrame::Bytes(buf.freeze()),
+                    SerialisedFrame::Bytes(buf.freeze()),
                 ))?;
             }
-            SerializedFrame::Chunk(chunk) => {
+            SerialisedFrame::Chunk(chunk) => {
                 self.network_input_queue.send(events::DispatchEvent::Send(
                     addr,
-                    SerializedFrame::Chunk(chunk),
+                    SerialisedFrame::Chunk(chunk),
                 ))?;
             }
         }

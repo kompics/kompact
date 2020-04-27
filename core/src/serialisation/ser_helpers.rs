@@ -4,11 +4,11 @@
 //! and can be used for custom network implementations.
 use crate::{
     actors::ActorPath,
-    messaging::{NetMessage, Serialised},
+    messaging::{HeapOrSer, NetData, NetMessage, Serialised},
     net::buffer::ChunkLease,
     serialisation::{Deserialiser, SerError, SerIdBuf, Serialisable, Serialiser},
 };
-use bytes::{Buf, BytesMut};
+use bytes::{buf::BufMut, Buf, BytesMut};
 
 use crate::{
     net::{
@@ -152,6 +152,44 @@ where
         None => Err(SerError::BufferError("Could not get chunk".to_string())),
     }
 }
+
+/// Serialise a forwarded message
+///
+/// Uses the same format as [serialise_msg](serialise_msg).
+pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease, SerError> {
+    // Reserve space for the header:
+    buf.pad(FRAME_HEAD_LEN as usize);
+
+    msg.sender.serialise(buf)?; // src
+    msg.receiver.serialise(buf)?; // dst
+    let NetData { ser_id, data } = msg.data;
+    buf.put_ser_id(ser_id); // ser_id
+    match data {
+        HeapOrSer::Boxed(b) => {
+            b.serialise(buf)?;
+        }
+        HeapOrSer::Serialised(bytes) => {
+            buf.put(bytes);
+        }
+        HeapOrSer::Pooled(lease) => {
+            buf.put(lease.bytes());
+        }
+    }
+    match buf.get_chunk_lease() {
+        Some(mut chunk_lease) => {
+            let len = chunk_lease.capacity() - FRAME_HEAD_LEN as usize; // The Data portion of the Full frame.
+            chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
+            assert_eq!(
+                chunk_lease.capacity(),
+                len + FRAME_HEAD_LEN as usize,
+                "Serialized frame sizing failed"
+            );
+            Ok(chunk_lease)
+        }
+        None => Err(SerError::BufferError("Could not get chunk".to_string())),
+    }
+}
+
 /*
 /// Serialises the message's data and frame-head into the pre-allocated ChunkLease in `buf`.
 pub fn serialise_into_framed_buf<B: Serialisable, BM: BufMut + Sized>(

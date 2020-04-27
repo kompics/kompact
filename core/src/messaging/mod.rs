@@ -69,7 +69,7 @@ pub struct NetData {
     /// The serialisation id of the data
     pub ser_id: SerId,
     /// The content of the data, which can be either heap allocated or serialised
-    data: HeapOrSer,
+    pub(crate) data: HeapOrSer,
 }
 
 /// Holder for data that is either heap-allocated or
@@ -77,7 +77,7 @@ pub struct NetData {
 #[derive(Debug)]
 pub enum HeapOrSer {
     /// Data is heap-allocated and can be [downcast](std::boxed::Box::downcast)
-    Boxed(Box<dyn Any + Send + 'static>),
+    Boxed(Box<dyn Serialisable>),
     /// Data is serialised and must be [deserialised](Deserialiser::deserialise)
     Serialised(bytes::Bytes),
     /// Data is serialised in a pooled buffer and must be [deserialised](Deserialiser::deserialise)
@@ -90,7 +90,7 @@ impl NetMessage {
         ser_id: SerId,
         sender: ActorPath,
         receiver: ActorPath,
-        data: Box<dyn Any + Send + 'static>,
+        data: Box<dyn Serialisable>,
     ) -> NetMessage {
         NetMessage {
             sender,
@@ -185,11 +185,7 @@ impl NetMessage {
                     receiver,
                     data,
                 }),
-                UnpackError::NoCast(data) => UnpackError::NoCast(NetMessage {
-                    sender,
-                    receiver,
-                    data,
-                }),
+                UnpackError::NoCast(data) => UnpackError::NoCast(data),
                 UnpackError::DeserError(e) => UnpackError::DeserError(e),
             }),
         }
@@ -310,11 +306,7 @@ impl NetMessage {
                     receiver,
                     data,
                 }),
-                UnpackError::NoCast(data) => UnpackError::NoCast(NetMessage {
-                    sender,
-                    receiver,
-                    data,
-                }),
+                UnpackError::NoCast(data) => UnpackError::NoCast(data),
                 UnpackError::DeserError(e) => UnpackError::DeserError(e),
             })
     }
@@ -442,10 +434,17 @@ impl NetData {
     {
         let NetData { ser_id, data } = self;
         match data {
-            HeapOrSer::Boxed(b) => b
-                .downcast::<T>()
-                .map(|b| *b)
-                .map_err(|b| UnpackError::NoCast(Self::with(ser_id, HeapOrSer::Boxed(b)))),
+            HeapOrSer::Boxed(boxed_ser) => {
+                let b = boxed_ser.local().map_err(|_| {
+                    UnpackError::DeserError(SerError::Unknown(format!(
+                        "Serialisable with id={} can't be converted to local!",
+                        ser_id
+                    )))
+                })?;
+                b.downcast::<T>()
+                    .map(|b| *b)
+                    .map_err(|b| UnpackError::NoCast(b))
+            }
             HeapOrSer::Serialised(mut bytes) => {
                 D::deserialise(&mut bytes).map_err(|e| UnpackError::DeserError(e))
             }
@@ -500,7 +499,7 @@ pub enum UnpackError<T> {
     /// `ser_id` did not match the given [Deserialiser](crate::serialisation::Deserialiser).
     NoIdMatch(T),
     /// `Box<dyn Any>::downcast()` failed.
-    NoCast(T),
+    NoCast(Box<dyn Any + Send + 'static>),
     /// An error occurred during deserialisation of the buffer.
     ///
     /// This can not contain `T`, as the buffer may have been corrupted during the failed attempt.
@@ -512,7 +511,16 @@ impl<T> UnpackError<T> {
     pub fn get(self) -> Option<T> {
         match self {
             UnpackError::NoIdMatch(t) => Some(t),
-            UnpackError::NoCast(t) => Some(t),
+            UnpackError::NoCast(_) => None,
+            UnpackError::DeserError(_) => None,
+        }
+    }
+
+    /// Retrieve a wrapped any box, if there is any
+    pub fn get_box(self) -> Option<Box<dyn Any + Send + 'static>> {
+        match self {
+            UnpackError::NoIdMatch(_) => None,
+            UnpackError::NoCast(b) => Some(b),
             UnpackError::DeserError(_) => None,
         }
     }
@@ -697,6 +705,16 @@ impl<E> TryFrom<Result<Serialised, E>> for Serialised {
     }
 }
 
+// TODO: Move framing from the pooled data creation to the Network dispatcher!
+/// Wrapper used to wrap framed values for transfer to the Network thread
+#[derive(Debug)]
+pub enum SerialisedFrame {
+    /// Variant for Bytes allocated anywhere
+    Bytes(Bytes),
+    /// Variant for the Pooled buffers
+    Chunk(ChunkLease),
+}
+
 /// An abstraction over lazy or eagerly serialised data sent to the dispatcher
 #[derive(Debug)]
 pub enum DispatchData {
@@ -704,16 +722,6 @@ pub enum DispatchData {
     Lazy(Box<dyn Serialisable>),
     /// Should be serialised and [framed](net::frames).
     Serialised((ChunkLease, SerId)),
-}
-
-// TODO: Move framing from the pooled data creation to the Network dispatcher!
-/// Wrapper used to wrap framed values for transfer to the Network thread
-#[derive(Debug)]
-pub enum SerializedFrame {
-    /// Variant for Bytes allocated anywhere
-    Bytes(Bytes),
-    /// Variant for the Pooled buffers
-    Chunk(ChunkLease),
 }
 
 impl DispatchData {
@@ -733,10 +741,11 @@ impl DispatchData {
         match self {
             DispatchData::Lazy(ser) => {
                 let ser_id = ser.ser_id();
-                match ser.local() {
-                    Ok(s) => Ok(NetMessage::with_box(ser_id, src, dst, s)),
-                    Err(ser) => crate::serialisation::ser_helpers::serialise_to_msg(src, dst, ser),
-                }
+                Ok(NetMessage::with_box(ser_id, src, dst, ser))
+                // match ser.local() {
+                //     Ok(s) => Ok(NetMessage::with_box(ser_id, src, dst, s)),
+                //     Err(ser) => crate::serialisation::ser_helpers::serialise_to_msg(src, dst, ser),
+                // }
             }
             DispatchData::Serialised((mut chunk, _ser_id)) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
@@ -753,12 +762,12 @@ impl DispatchData {
         src: ActorPath,
         dst: ActorPath,
         buf: &mut BufferEncoder,
-    ) -> Result<SerializedFrame, SerError> {
+    ) -> Result<SerialisedFrame, SerError> {
         match self {
-            DispatchData::Lazy(ser) => Ok(SerializedFrame::Chunk(
+            DispatchData::Lazy(ser) => Ok(SerialisedFrame::Chunk(
                 crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser.deref(), buf)?,
             )),
-            DispatchData::Serialised((chunk, _ser_id)) => Ok(SerializedFrame::Chunk(chunk)),
+            DispatchData::Serialised((chunk, _ser_id)) => Ok(SerialisedFrame::Chunk(chunk)),
         }
     }
 }
@@ -774,6 +783,11 @@ pub enum DispatchEnvelope {
         dst: ActorPath,
         /// The actual data to be dispatched
         msg: DispatchData,
+    },
+    /// A message that may already be partially serialised
+    ForwardedMsg {
+        /// The message being forwarded
+        msg: NetMessage,
     },
     /// A request for actor path registration
     Registration(RegistrationEnvelope),
