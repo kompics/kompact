@@ -3,14 +3,15 @@ use crate::net::{buffer_pool::BufferPool, frames};
 use bytes::{Buf, BufMut};
 use core::{cmp, mem, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
+use std::alloc::{alloc, dealloc, Layout};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
-const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 1000;
+const BUFFER_SIZE: usize = 1000 * 64;
 // Assume 64 byte cache lines -> 1000 cache lines per chunk
 const ENCODEBUFFER_MIN_REMAINING: usize = 64; // Always have at least a full cache line available
 
 /// Required methods for a Chunk
-pub trait Chunk: Send {
+pub trait Chunk {
     /// Returns a mutable pointer to the underlying buffer
     fn as_mut_ptr(&mut self) -> *mut u8;
     /// Returns the length of the chunk
@@ -19,23 +20,27 @@ pub trait Chunk: Send {
 
 /// A Default Kompact Chunk
 pub(crate) struct DefaultChunk {
-    chunk: [u8; BUFFER_SIZE],
+    chunk: *mut u8,
+    len: usize,
 }
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
-        let slice = ([0u8; BUFFER_SIZE]);
-        DefaultChunk { chunk: slice }
+        unsafe {
+            let layout = Layout::new::<[u8; BUFFER_SIZE]>();
+            let chunk = alloc(layout);
+            DefaultChunk { chunk, len: BUFFER_SIZE }
+        }
     }
 }
 
 impl Chunk for DefaultChunk {
     fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.chunk.as_mut_ptr()
+        self.chunk
     }
 
     fn len(&self) -> usize {
-        self.chunk.len()
+        self.len
     }
 }
 
