@@ -6,7 +6,7 @@ use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
 use std::alloc::{alloc, dealloc, Layout};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
-const BUFFER_SIZE: usize = 1000 * 64;
+const BUFFER_SIZE: usize = 1000 * ENCODEBUFFER_MIN_REMAINING;
 // Assume 64 byte cache lines -> 1000 cache lines per chunk
 const ENCODEBUFFER_MIN_REMAINING: usize = 64; // Always have at least a full cache line available
 
