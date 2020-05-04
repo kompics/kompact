@@ -35,6 +35,8 @@ use arc_swap::ArcSwap;
 use fnv::FnvHashMap;
 use futures::{self, Async, AsyncSink, Poll, StartSend};
 use std::{io::ErrorKind, time::Duration};
+use std::collections::VecDeque;
+use crate::net::buffer::BufferChunk;
 
 pub mod lookup;
 pub mod queue_manager;
@@ -128,6 +130,7 @@ pub struct NetworkDispatcher {
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
     retry_map: FnvHashMap<SocketAddr, (u8)>,
+    old_buffers: VecDeque<BufferChunk>,
 }
 
 impl NetworkDispatcher {
@@ -172,6 +175,7 @@ impl NetworkDispatcher {
             notify_ready: Some(notify_ready),
             encode_buffer,
             retry_map: FnvHashMap::default(),
+            old_buffers: VecDeque::new(),
         }
     }
 
@@ -235,6 +239,15 @@ impl NetworkDispatcher {
             self.ctx().log(),
             "Scheduling reaping at {:?}ms", next_wakeup
         );
+
+        let mut retry_queue = VecDeque::new();
+        for mut trash in self.old_buffers.drain(..) {
+            if !trash.free() {
+                // not free yet
+                retry_queue.push_back(trash);
+            }
+        }
+        self.old_buffers.append(&mut retry_queue);
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
             target.schedule_reaper()
@@ -559,6 +572,7 @@ impl Actor for NetworkDispatcher {
                 }
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),
+            DispatchEnvelope::LockedChunk(trash) => self.old_buffers.push_back(trash),
         }
     }
 

@@ -3,7 +3,9 @@ use crate::net::{buffer_pool::BufferPool, frames};
 use bytes::{Buf, BufMut};
 use core::{cmp, mem, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, Layout};
+use std::fmt::Debug;
+use serde::export::Formatter;
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = 1000 * ENCODEBUFFER_MIN_REMAINING;
@@ -50,6 +52,16 @@ pub struct BufferChunk {
     chunk: *mut dyn Chunk,
     ref_count: Arc<u8>,
     locked: bool,
+}
+
+impl Debug for BufferChunk {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BufferChunk")
+            .field("Lock", &self.locked)
+//            .field("Length", &self.chunk.len())
+            .field("RefCount", &Arc::strong_count(&self.ref_count))
+            .finish()
+    }
 }
 
 impl Drop for BufferChunk {
@@ -124,7 +136,7 @@ impl BufferChunk {
         &mut self.ref_count
     }
 
-    /// Returns true if this smart_buffer is available again
+    /// Returns true if this BufferChunk is available again
     pub fn free(&mut self) -> bool {
         if self.locked {
             if Arc::strong_count(&self.ref_count) < 2 {
@@ -286,6 +298,11 @@ impl EncodeBuffer {
 
     pub fn get_write_offset(&self) -> usize {
         self.write_offset
+    }
+
+    /// Deallocates unlocked Buffers in the pool and returns the locked BufferChunks
+    pub(crate) fn destroy(self) -> (BufferChunk, BufferPool) {
+        (self.buffer, self.buffer_pool)
     }
 
     pub fn get_read_offset(&self) -> usize {

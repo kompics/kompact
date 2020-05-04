@@ -31,6 +31,7 @@ use crate::{
 };
 
 use crate::net::buffer::EncodeBuffer;
+use std::borrow::{Borrow};
 
 /// A trait for abstracting over structures that contain a component core
 ///
@@ -267,6 +268,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                         }
                         lifecycle::ControlEvent::Kill => {
                             lifecycle::set_destroyed(&self.state);
+                            guard.borrow().ctx().destroy_pool();
                             debug!(self.logger, "Component killed.");
                             SupervisorMsg::Killed(self.core.id)
                         }
@@ -721,6 +723,23 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     pub fn initialise_pool(&self) -> () {
         debug!(self.log(), "Initialising EncodeBuffer");
         *self.inner_ref().buffer.borrow_mut() = Some(EncodeBuffer::new());
+    }
+
+    /// Safely stops the components private pool ensuring that any Locked BufferChunks are not dropped.
+    fn destroy_pool(&self) -> () {
+        debug!(self.log(), "Uninitialising Components EncodeBuffer");
+        if let Some(encode_buffer) = self.inner_ref().buffer.borrow_mut().take() {
+            let (mut buffer, buffer_pool ) = encode_buffer.destroy();
+            let mut queue = buffer_pool.destroy();
+            buffer.lock();
+            queue.push_back(buffer);
+            for mut trash in queue.drain(..) {
+               if !trash.free() {
+                   // The trash buffer can't be de-allocated
+                   self.dispatcher_ref().tell(DispatchEnvelope::LockedChunk(trash));
+               }
+            }
+        }
     }
 
     /// Get a reference to the interior EncodeBuffer without retaining a self borrow
