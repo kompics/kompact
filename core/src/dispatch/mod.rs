@@ -242,11 +242,9 @@ impl NetworkDispatcher {
 
         let mut retry_queue = VecDeque::new();
         for mut trash in self.old_buffers.drain(..) {
-            if !trash.free() {
-                // not free yet
-                retry_queue.push_back(trash);
-            }
+            if !trash.free() { retry_queue.push_back(trash); }
         }
+        // info!(self.ctx().log(), "tried to clean {} buffer(s)", retry_queue.len()); // manual verification in testing
         self.old_buffers.append(&mut retry_queue);
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
@@ -1282,6 +1280,83 @@ mod dispatch_tests {
             .shutdown()
             .expect("Kompact didn't shut down properly");
     }
+
+    /*
+    /// A WIP Test case. It runs and can be verified with the muted logging in the reaper method
+    #[test]
+    /// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
+    /// system1 times out in its reconnection attempts and drops the enqueued buffers.
+    /// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
+    //#[ignore]
+    fn cleanup_bufferchunks_from_dead_actors() {
+        let system1 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9311)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+        let system2 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9312)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+
+        // Set-up system2a
+        let system2a = system2();
+        //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new);
+        let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system2a.system_path(),
+            vec!["custom_name".into()],
+        ));
+        let named_path_clone = named_path.clone();
+        // Set-up system1
+        let system1: KompactSystem = system1();
+        let (pinger_named, pinf) =
+            system1.create_and_register(move || PingerAct::new_eager(named_path_clone));
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        // Kill system2a
+        system2a.shutdown().ok();
+        // Start system1
+        system1.start(&pinger_named);
+        // Wait for the pings to be sent from the actor to the NetworkDispatch and onto the Thread
+        thread::sleep(Duration::from_millis(100));
+        // Kill the actor and wait for its BufferChunk to reach the NetworkDispatch and let the reaping try at least once
+        system1.kill(pinger_named);
+        thread::sleep(Duration::from_millis(5000));
+
+        // Start up system2b
+        println!("Setting up system2b");
+        let system2b = system2();
+        let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new);
+        let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        println!("Starting actor on system2b");
+        system2b.start(&ponger_named);
+        // We give the connection plenty of time to re-establish and transfer it's old queue and cleanup the BufferChunk
+        thread::sleep(Duration::from_millis(10000));
+        // Final assertion,
+        // ASSERT THAT Dispatcher doesn't have the Chunk
+        // TODO: ??
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2b
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+    */
 
     const PING_COUNT: u64 = 10;
 

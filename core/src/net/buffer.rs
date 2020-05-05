@@ -3,9 +3,7 @@ use crate::net::{buffer_pool::BufferPool, frames};
 use bytes::{Buf, BufMut};
 use core::{cmp, mem, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
-use std::alloc::{alloc, Layout};
-use std::fmt::Debug;
-use serde::export::Formatter;
+use std::fmt::{Debug, Formatter};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = 1000 * ENCODEBUFFER_MIN_REMAINING;
@@ -22,27 +20,24 @@ pub trait Chunk {
 
 /// A Default Kompact Chunk
 pub(crate) struct DefaultChunk {
-    chunk: *mut u8,
-    len: usize,
+    chunk: Box<[u8]>,
 }
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
-        unsafe {
-            let layout = Layout::new::<[u8; BUFFER_SIZE]>();
-            let chunk = alloc(layout);
-            DefaultChunk { chunk, len: BUFFER_SIZE }
-        }
+        let v = vec![0u8; BUFFER_SIZE];
+        let slice = v.into_boxed_slice();
+        DefaultChunk { chunk: slice }
     }
 }
 
 impl Chunk for DefaultChunk {
     fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.chunk
+        self.chunk.as_mut_ptr()
     }
 
     fn len(&self) -> usize {
-        self.len
+        self.chunk.len()
     }
 }
 
