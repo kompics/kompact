@@ -198,7 +198,7 @@ impl KompactSystem {
             cd.setup(c.clone());
             c.core().set_component(cc);
         }
-        return c;
+        c
     }
 
     /// Create a new system component
@@ -219,7 +219,7 @@ impl KompactSystem {
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
-        return c;
+        c
     }
 
     /// Create a new component, which runs on its own dedicated thread.
@@ -257,7 +257,7 @@ impl KompactSystem {
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
-        return c;
+        c
     }
 
     /// Create a new component, which runs on its own dedicated thread and is pinned to certain CPU core.
@@ -299,7 +299,7 @@ impl KompactSystem {
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
-        return c;
+        c
     }
 
     /// Create a new system component, which runs on its own dedicated thread.
@@ -329,7 +329,7 @@ impl KompactSystem {
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
-        return c;
+        c
     }
 
     /// Create a new system component, which runs on its own dedicated thread.
@@ -365,7 +365,7 @@ impl KompactSystem {
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
-        return c;
+        c
     }
 
     /// Attempts to register `c` with the dispatcher using its unique id

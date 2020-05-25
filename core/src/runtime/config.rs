@@ -361,8 +361,7 @@ impl KompactConfig {
         let tpf = self.throughput as f32;
         let mmf = tpf * self.msg_priority;
         assert!(mmf >= 0.0, "msg_priority can not be negative!");
-        let mm = mmf as usize;
-        mm
+        mmf as usize
     }
 }
 

@@ -38,6 +38,8 @@
 
 #![deny(missing_docs)]
 #![allow(unused_parens)]
+#![allow(clippy::unused_unit)]
+#![allow(clippy::match_ref_pats)]
 #![cfg_attr(nightly, feature(never_type))]
 
 #[cfg(feature = "thread_pinning")]
@@ -223,7 +225,7 @@ pub mod doctest_helpers {
     use crate::prelude::*;
 
     /// A quick test path to create an [ActorPath](ActorPath) with
-    pub const TEST_PATH: &'static str = "local://127.0.0.1:0/test_actor";
+    pub const TEST_PATH: &str = "local://127.0.0.1:0/test_actor";
 
     /// A test port
     pub struct TestPort;

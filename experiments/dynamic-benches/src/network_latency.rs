@@ -383,7 +383,7 @@ pub mod pppipelinestatic {
                 Ok(_pong) => {
                     self.remaining_recv -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining_recv);
-                    if self.remaining_recv <= 0u64 {
+                    if self.remaining_recv == 0u64 {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                         let promise = self.done.take().expect("No promise to reply to?");
@@ -599,7 +599,7 @@ pub mod pppipelineindexed {
                 Ok(_pong) => {
                     self.remaining_recv -= 1u64;
                     trace!(self.ctx.log(), "Pinger got Pong #{}!", self.remaining_recv);
-                    if self.remaining_recv <= 0u64 {
+                    if self.remaining_recv == 0u64 {
                         let time = self.start.elapsed();
                         trace!(self.ctx.log(), "Pinger is done! Run took {:?}", time);
                         let promise = self.done.take().expect("No promise to reply to?");
