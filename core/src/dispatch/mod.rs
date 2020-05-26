@@ -120,6 +120,8 @@ pub struct NetworkDispatcher {
     // Fields initialized at [Start](ControlEvent::Start) – they require ComponentContextual awareness
     /// Bridge into asynchronous networking layer
     net_bridge: Option<net::Bridge>,
+    /// A cached version of the bound system path
+    system_path: Option<SystemPath>,
     /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
     queue_manager: QueueManager,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
@@ -167,11 +169,31 @@ impl NetworkDispatcher {
             cfg,
             lookup,
             net_bridge: None,
+            system_path: None,
             queue_manager: QueueManager::new(),
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
             retry_map: FnvHashMap::default(),
+        }
+    }
+
+    /// Return a reference to the cached system path
+    ///
+    /// Mutable, since it will update the cached value, if necessary.
+    pub fn system_path_ref(&mut self) -> &SystemPath {
+        match self.system_path {
+            Some(ref path) => path,
+            None => {
+                let _ = self.system_path(); // just to fill the cache
+                if let Some(ref path) = self.system_path {
+                    path
+                } else {
+                    unreachable!(
+                        "Cached value should have been filled by calling self.system_path()!"
+                    );
+                }
+            }
         }
     }
 
@@ -187,11 +209,11 @@ impl NetworkDispatcher {
             self.lookup.clone(),
             network_thread_logger,
             bridge_logger,
-            self.cfg.addr.clone(),
+            self.cfg.addr,
             dispatcher.clone(),
         );
 
-        bridge.set_dispatcher(dispatcher.clone());
+        bridge.set_dispatcher(dispatcher);
         self.schedule_retries();
         self.net_bridge = Some(bridge);
         Ok(())
@@ -248,7 +270,7 @@ impl NetworkDispatcher {
         for (addr, retry) in drain {
             if retry < MAX_RETRY_ATTEMPTS {
                 // Make sure we will re-request connection later
-                self.retry_map.insert(addr.clone(), retry + 1);
+                self.retry_map.insert(addr, retry + 1);
                 if let Some(bridge) = &self.net_bridge {
                     // Do connection attempt
                     debug!(
@@ -325,7 +347,7 @@ impl NetworkDispatcher {
             Closed => {
                 if self.retry_map.get(&addr).is_none() {
                     warn!(self.ctx().log(), "connection closed for {:?}", addr);
-                    self.retry_map.insert(addr.clone(), 0); // Make sure we try to re-establish the connection
+                    self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
                 }
             }
             Error(ref err) => {
@@ -387,7 +409,7 @@ impl NetworkDispatcher {
         R: Routable,
     {
         let dst = msg.destination();
-        let addr = SocketAddr::new(dst.address().clone(), dst.port());
+        let addr = SocketAddr::new(*dst.address(), dst.port());
         let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
         let serialised = msg.to_serialised(buf)?;
 
@@ -403,7 +425,7 @@ impl NetworkDispatcher {
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
-                    self.retry_map.insert(addr.clone(), 0); // Make sure we will re-request connection later
+                    self.retry_map.insert(addr, 0); // Make sure we will re-request connection later
                     bridge.connect(Transport::TCP, addr).unwrap();
                     Some(ConnectionState::Initializing)
                 } else {
@@ -413,7 +435,7 @@ impl NetworkDispatcher {
             }
             ConnectionState::Connected(_) => {
                 if self.queue_manager.has_frame(&addr) {
-                    self.queue_manager.enqueue_frame(serialised, addr.clone());
+                    self.queue_manager.enqueue_frame(serialised, addr);
 
                     if let Some(bridge) = &self.net_bridge {
                         while let Some(frame) = self.queue_manager.pop_frame(&addr) {
@@ -436,7 +458,7 @@ impl NetworkDispatcher {
             }
             ConnectionState::Closed => {
                 // Enqueue the Frame. The connection will sort itself out or drop the queue eventually
-                self.queue_manager.enqueue_frame(serialised, addr.clone());
+                self.queue_manager.enqueue_frame(serialised, addr);
                 None
             }
             _ => None,
@@ -456,7 +478,7 @@ impl NetworkDispatcher {
                 vec![alias.clone()],
             )),
             PathResolvable::ActorId(uuid) => {
-                ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid.clone()))
+                ActorPath::Unique(UniquePath::with_system(self.system_path(), *uuid))
             }
             PathResolvable::System => self.actor_path(),
         }
@@ -468,7 +490,7 @@ impl NetworkDispatcher {
     where
         R: Routable,
     {
-        if msg.source().system() == msg.destination().system() {
+        if self.system_path_ref() == msg.destination().system() {
             self.route_local(msg)
         } else {
             let proto = msg.destination().system().protocol();
@@ -483,7 +505,7 @@ impl NetworkDispatcher {
     }
 
     fn actor_path(&mut self) -> ActorPath {
-        let uuid = self.ctx.id().clone();
+        let uuid = *self.ctx.id();
         ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid))
     }
 }
@@ -538,10 +560,8 @@ impl Actor for NetworkDispatcher {
                             Ok(ap)
                         };
 
-                        if res.is_ok() {
-                            if !self.reaper.is_scheduled() {
-                                self.schedule_reaper();
-                            }
+                        if res.is_ok() && !self.reaper.is_scheduled() {
+                            self.schedule_reaper();
                         }
                         match promise {
                             RegistrationPromise::Fulfil(promise) => {
@@ -572,12 +592,18 @@ impl Dispatcher for NetworkDispatcher {
     ///
     /// This is only possible after the socket is bound and will panic if attempted earlier!
     fn system_path(&mut self) -> SystemPath {
-        // TODO get protocol from configuration
-        let bound_addr = match self.net_bridge {
-            Some(ref net_bridge) => net_bridge.local_addr().clone().expect("If net bridge is ready, port should be as well!"),
-            None => panic!("You must wait until the socket is bound before attempting to create a system path!"),
-        };
-        SystemPath::new(self.cfg.transport, bound_addr.ip(), bound_addr.port())
+        match self.system_path {
+            Some(ref path) => path.clone(),
+            None => {
+                let bound_addr = match self.net_bridge {
+                    Some(ref net_bridge) => net_bridge.local_addr().clone().expect("If net bridge is ready, port should be as well!"),
+                    None => panic!("You must wait until the socket is bound before attempting to create a system path!"),
+                };
+                let sp = SystemPath::new(self.cfg.transport, bound_addr.ip(), bound_addr.port());
+                self.system_path = Some(sp.clone());
+                sp
+            }
+        }
     }
 }
 
@@ -1409,7 +1435,7 @@ mod dispatch_tests {
     }
 
     #[test]
-    fn remote_forwarding() {
+    fn remote_forwarding_unique() {
         let (system1, system2, system3) = {
             let system = || {
                 let mut cfg = KompactConfig::new();
@@ -1426,6 +1452,121 @@ mod dispatch_tests {
         let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
         let forwarder_path =
             fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+
+        let (pinger, pif) = system3.create_and_register(move || PingerAct::new(forwarder_path));
+        let _pinger_path =
+            pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system1.start(&ponger);
+        system2.start(&forwarder);
+        system3.start(&pinger);
+
+        // TODO no sleeps!
+        thread::sleep(Duration::from_millis(1000));
+
+        let pingf = system3.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
+        let forwf = system2.kill_notify(forwarder);
+        let pongf = system1.kill_notify(ponger);
+        pingf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never died!");
+        forwf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Forwarder never died!");
+        pongf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+
+        pinger.on_definition(|c| {
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system3
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    fn remote_forwarding_unique_two_systems() {
+        let (system1, system2) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+
+        let (ponger, pof) = system1.create_and_register(PongerAct::new);
+        let ponger_path =
+            pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+
+        let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
+        let forwarder_path =
+            fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+
+        let (pinger, pif) = system1.create_and_register(move || PingerAct::new(forwarder_path));
+        let _pinger_path =
+            pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system1.start(&ponger);
+        system2.start(&forwarder);
+        system1.start(&pinger);
+
+        // TODO no sleeps!
+        thread::sleep(Duration::from_millis(1000));
+
+        let pingf = system1.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
+        let forwf = system2.kill_notify(forwarder);
+        let pongf = system1.kill_notify(ponger);
+        pingf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never died!");
+        forwf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Forwarder never died!");
+        pongf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+
+        pinger.on_definition(|c| {
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    fn remote_forwarding_named() {
+        let (system1, system2, system3) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system(), system())
+        };
+
+        let (ponger, _pof) = system1.create_and_register(PongerAct::new);
+        let pnf = system1.register_by_alias(&ponger, "ponger");
+        let ponger_path =
+            pnf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+
+        let (forwarder, _fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
+        let fnf = system2.register_by_alias(&forwarder, "forwarder");
+        let forwarder_path =
+            fnf.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
         let (pinger, pif) = system3.create_and_register(move || PingerAct::new(forwarder_path));
         let _pinger_path =
@@ -1761,7 +1902,10 @@ mod dispatch_tests {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            info!(self.ctx.log(), "Forwarding some msg from {}", msg.sender);
+            info!(
+                self.ctx.log(),
+                "Forwarding some msg from {} to {}", msg.sender, self.forward_to
+            );
             self.forward_to.forward_with_original_sender(msg, self);
         }
     }
