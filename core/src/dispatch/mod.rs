@@ -1409,7 +1409,7 @@ mod dispatch_tests {
     }
 
     #[test]
-    fn remote_forwarding() {
+    fn remote_forwarding_unique() {
         let (system1, system2, system3) = {
             let system = || {
                 let mut cfg = KompactConfig::new();
@@ -1426,6 +1426,66 @@ mod dispatch_tests {
         let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
         let forwarder_path =
             fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+
+        let (pinger, pif) = system3.create_and_register(move || PingerAct::new(forwarder_path));
+        let _pinger_path =
+            pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        system1.start(&ponger);
+        system2.start(&forwarder);
+        system3.start(&pinger);
+
+        // TODO no sleeps!
+        thread::sleep(Duration::from_millis(1000));
+
+        let pingf = system3.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
+        let forwf = system2.kill_notify(forwarder);
+        let pongf = system1.kill_notify(ponger);
+        pingf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never died!");
+        forwf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Forwarder never died!");
+        pongf
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+
+        pinger.on_definition(|c| {
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system3
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    fn remote_forwarding_named() {
+        let (system1, system2, system3) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system(), system())
+        };
+
+        let (ponger, _pof) = system1.create_and_register(PongerAct::new);
+        let pnf = system1.register_by_alias(&ponger, "ponger");
+        let ponger_path =
+            pnf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+
+        let (forwarder, _fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
+        let fnf = system2.register_by_alias(&forwarder, "forwarder");
+        let forwarder_path =
+            fnf.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
         let (pinger, pif) = system3.create_and_register(move || PingerAct::new(forwarder_path));
         let _pinger_path =
@@ -1761,7 +1821,7 @@ mod dispatch_tests {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> () {
-            info!(self.ctx.log(), "Forwarding some msg from {}", msg.sender);
+            info!(self.ctx.log(), "Forwarding some msg from {} to {}", msg.sender, self.forward_to);
             self.forward_to.forward_with_original_sender(msg, self);
         }
     }
