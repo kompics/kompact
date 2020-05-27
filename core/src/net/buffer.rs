@@ -450,7 +450,6 @@ impl DecodeBuffer {
         let readable_len = (self.write_offset - self.read_offset) as usize;
         if let Some(head) = &self.next_frame_head {
             if readable_len >= head.content_length() {
-                drop(head);
                 let head = self.next_frame_head.take().unwrap();
                 let lease = self
                     .buffer

@@ -38,7 +38,6 @@ pub enum ConnectionState {
 
 /// Events on the network level
 pub mod events {
-    use std;
 
     use super::ConnectionState;
     use crate::net::frames::*;

@@ -41,8 +41,20 @@ fn default_logger() -> &'static KompactLogger {
         });
         match DEFAULT_ROOT_LOGGER {
             Some(ref l) => l,
-            None => unreachable!(),
+            None => panic!("Can't re-initialise global logger after it has been dropped!"),
         }
+    }
+}
+
+/// Removes the global default logger
+///
+/// This causes the remaining messages to be flushed to the output.
+///
+/// This can't be undone (as in, calling `default_logger()` afterwards again will panic),
+/// so make sure you use this only right before exiting the programme.
+pub fn drop_default_logger() {
+    unsafe {
+        drop(DEFAULT_ROOT_LOGGER.take());
     }
 }
 

@@ -216,7 +216,9 @@ impl fmt::Display for DynActorRef {
 impl PartialEq for DynActorRef {
     fn eq(&self, other: &DynActorRef) -> bool {
         match (self.component.upgrade(), other.component.upgrade()) {
-            (Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            // this may have some issues with comparing vtable pointers
+            //(Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            (Some(ref me), Some(ref it)) => me.id() == it.id(),
             _ => false,
         }
     }
@@ -371,7 +373,9 @@ impl<M: MessageBounds> fmt::Display for ActorRefStrong<M> {
 
 impl<M: MessageBounds> PartialEq for ActorRefStrong<M> {
     fn eq(&self, other: &ActorRefStrong<M>) -> bool {
-        Arc::ptr_eq(&self.component, &other.component)
+        // this may have some issues with comparing vtable pointers
+        //Arc::ptr_eq(&self.component, &other.component)
+        self.component.id() == other.component.id()
     }
 }
 
@@ -602,7 +606,9 @@ impl<M: MessageBounds> fmt::Display for ActorRef<M> {
 impl<M: MessageBounds> PartialEq for ActorRef<M> {
     fn eq(&self, other: &ActorRef<M>) -> bool {
         match (self.component.upgrade(), other.component.upgrade()) {
-            (Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            // this may have some issues with comparing vtable pointers
+            //(Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            (Some(ref me), Some(ref it)) => me.id() == it.id(),
             _ => false,
         }
     }
@@ -687,7 +693,9 @@ impl<M> fmt::Display for Recipient<M> {
 impl<M> PartialEq for Recipient<M> {
     fn eq(&self, other: &Recipient<M>) -> bool {
         match (self.component.upgrade(), other.component.upgrade()) {
-            (Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            // this may have some issues with comparing vtable pointers
+            //(Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
+            (Some(ref me), Some(ref it)) => me.id() == it.id(),
             _ => false,
         }
     }
