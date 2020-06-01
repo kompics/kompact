@@ -227,7 +227,7 @@ impl KompactSystem {
     pub fn create_erased<M: MessageBounds>(
         &self,
         a: Box<dyn ErasedActorDefinition<M>>,
-    ) -> ErasedComponent<M> {
+    ) -> Arc<dyn ErasedComponent<Message = M>> {
         a.spawn_on(self)
     }
 
@@ -586,7 +586,7 @@ impl KompactSystem {
 
     /// Like [start](KompactSystem::start), but for [ErasedComponent](ErasedComponent)s.
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub fn start_erased<M>(&self, c: &ErasedComponent<M>) -> ()
+    pub fn start_erased<M>(&self, c: &Arc<dyn ErasedComponent<Message = M>>) -> ()
     where
         M: MessageBounds,
     {
@@ -636,7 +636,7 @@ impl KompactSystem {
     /// Like [start_notify](KompactSystem::start_notify), but for
     /// [ErasedComponent](ErasedComponent)s.
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub fn start_erased_notify<M>(&self, c: &ErasedComponent<M>) -> Future<()>
+    pub fn start_erased_notify<M>(&self, c: &Arc<dyn ErasedComponent<Message = M>>) -> Future<()>
     where
         M: MessageBounds,
     {
@@ -645,7 +645,7 @@ impl KompactSystem {
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
             amp,
-            ListenEvent::Started(c.id().clone()),
+            ListenEvent::Started(c.comp_id().clone()),
         ));
         c.enqueue_control(ControlEvent::Start);
         f
@@ -685,7 +685,7 @@ impl KompactSystem {
 
     /// Like [stop](KompactSystem::stop), but for [ErasedComponent](ErasedComponent)s.
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub fn stop_erased<M>(&self, c: &ErasedComponent<M>) -> ()
+    pub fn stop_erased<M>(&self, c: &Arc<dyn ErasedComponent<Message = M>>) -> ()
     where
         M: MessageBounds,
     {
@@ -743,7 +743,7 @@ impl KompactSystem {
 
     /// Like [stop_notify](KompactSystem::stop_notify), but for [ErasedComponent](ErasedComponent)s.
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub fn stop_erased_notify<M>(&self, c: &ErasedComponent<M>) -> Future<()>
+    pub fn stop_erased_notify<M>(&self, c: &Arc<dyn ErasedComponent<Message = M>>) -> Future<()>
     where
         M: MessageBounds,
     {
@@ -752,7 +752,7 @@ impl KompactSystem {
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
             amp,
-            ListenEvent::Stopped(c.id().clone()),
+            ListenEvent::Stopped(c.comp_id().clone()),
         ));
         c.enqueue_control(ControlEvent::Stop);
         f
@@ -789,7 +789,7 @@ impl KompactSystem {
 
     /// Like [kill](KompactSystem::kill), but for [ErasedComponent](ErasedComponent)s.
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub fn kill_erased<M>(&self, c: ErasedComponent<M>) -> ()
+    pub fn kill_erased<M>(&self, c: &Arc<dyn ErasedComponent<Message = M>>) -> ()
     where
         M: MessageBounds,
     {
@@ -846,7 +846,7 @@ impl KompactSystem {
 
     /// Like [kill_notify](KompactSystem::kill_notify), but for [ErasedComponent](ErasedComponent)s.
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub fn kill_erased_notify<M>(&self, c: ErasedComponent<M>) -> Future<()>
+    pub fn kill_erased_notify<M>(&self, c: Arc<dyn ErasedComponent<Message = M>>) -> Future<()>
     where
         M: MessageBounds,
     {
@@ -855,7 +855,7 @@ impl KompactSystem {
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
             amp,
-            ListenEvent::Destroyed(c.id().clone()),
+            ListenEvent::Destroyed(c.comp_id().clone()),
         ));
         c.enqueue_control(ControlEvent::Kill);
         f

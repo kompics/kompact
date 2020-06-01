@@ -352,7 +352,7 @@ impl<T: Sized> IterExtras for T where T: Iterator {}
 #[cfg(all(nightly, feature = "type_erasure"))]
 pub mod erased {
     use crate::{
-        actors::{ActorRef, ActorRefFactory, MessageBounds},
+        actors::{ActorRefFactory, MessageBounds},
         component::{Component, ComponentDefinition, CoreContainer},
         lifecycle::ControlPort,
         ports::Port,
@@ -361,63 +361,27 @@ pub mod erased {
     use std::{any::Any, sync::Arc};
     use uuid::Uuid;
 
-    struct ErasedComponentVTable<M: MessageBounds> {
-        enqueue_control: fn(&Arc<dyn Any>, <ControlPort as Port>::Request) -> (),
-        id: fn(&Arc<dyn Any>) -> &Uuid,
-        actor_ref: fn(&Arc<dyn Any>) -> ActorRef<M>,
+    /// Trait representing a type-erased component.
+    pub trait ErasedComponent: ActorRefFactory + Any {
+        fn comp_id(&self) -> &Uuid;
+        fn enqueue_control(&self, event: <ControlPort as Port>::Request);
+        fn as_any(&self) -> &dyn Any;
     }
 
-    impl<M> ErasedComponentVTable<M>
+    impl<C> ErasedComponent for Component<C>
     where
-        M: MessageBounds,
+        C: ComponentDefinition,
     {
-        fn new<C: ComponentDefinition<Message = M> + 'static>() -> Self {
-            ErasedComponentVTable {
-                enqueue_control: |c, event| {
-                    c.downcast_ref::<Component<C>>()
-                        .unwrap()
-                        .enqueue_control(event)
-                },
-                id: |c| c.downcast_ref::<Component<C>>().unwrap().id(),
-                actor_ref: |c| {
-                    c.downcast_ref::<Component<C>>()
-                        .unwrap()
-                        .on_definition(|c| c.ctx().actor_ref())
-                },
-            }
-        }
-    }
-
-    pub struct ErasedComponent<M: MessageBounds> {
-        pub(crate) component: Arc<dyn Any>,
-        vtable: Box<ErasedComponentVTable<M>>,
-    }
-
-    impl<M: MessageBounds> ErasedComponent<M> {
-        fn new<C>(component: Arc<Component<C>>) -> Self
-        where
-            C: ComponentDefinition<Message = M> + 'static,
-        {
-            ErasedComponent {
-                component: component as Arc<dyn Any>,
-                vtable: Box::new(ErasedComponentVTable::new::<C>()),
-            }
+        fn comp_id(&self) -> &Uuid {
+            CoreContainer::id(self)
         }
 
-        pub(crate) fn id(&self) -> &Uuid {
-            (self.vtable.id)(&self.component)
+        fn enqueue_control(&self, event: <ControlPort as Port>::Request) {
+            Component::enqueue_control(self, event)
         }
 
-        pub(crate) fn enqueue_control(&self, event: <ControlPort as Port>::Request) {
-            (self.vtable.enqueue_control)(&self.component, event)
-        }
-    }
-
-    impl<M: MessageBounds> ActorRefFactory for ErasedComponent<M> {
-        type Message = M;
-
-        fn actor_ref(&self) -> ActorRef<M> {
-            (self.vtable.actor_ref)(&self.component)
+        fn as_any(&self) -> &dyn Any {
+            self
         }
     }
 
@@ -429,7 +393,7 @@ pub mod erased {
     pub trait ErasedActorDefinition<M: MessageBounds> {
         // this is only object-safe with unsized_locals nightly feature
         /// Creates component on the given system.
-        fn spawn_on(self, system: &KompactSystem) -> ErasedComponent<M>;
+        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn ErasedComponent<Message = M>>;
     }
 
     impl<M, C> ErasedActorDefinition<M> for C
@@ -437,9 +401,8 @@ pub mod erased {
         M: MessageBounds,
         C: ComponentDefinition<Message = M> + 'static,
     {
-        fn spawn_on(self, system: &KompactSystem) -> ErasedComponent<M> {
-            let c = system.create(|| self);
-            ErasedComponent::new(c)
+        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn ErasedComponent<Message = M>> {
+            system.create(|| self)
         }
     }
 }
@@ -542,7 +505,7 @@ mod tests {
                 .expect("Response");
 
             erased
-                .component
+                .as_any()
                 .downcast_ref::<Component<TestComponent>>()
                 .unwrap()
                 .on_definition(|c| {

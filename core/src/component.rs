@@ -374,6 +374,17 @@ where
     }
 }
 
+impl<CD> ActorRefFactory for Component<CD>
+where
+    CD: ComponentDefinition + ActorRaw + 'static,
+{
+    type Message = CD::Message;
+
+    fn actor_ref(&self) -> ActorRef<CD::Message> {
+        self.on_definition(|c| c.ctx().actor_ref())
+    }
+}
+
 impl<CD> Dispatching for CD
 where
     CD: ComponentDefinition + 'static,
