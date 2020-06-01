@@ -354,16 +354,14 @@ pub mod erased {
     use crate::{
         actors::{ActorRefFactory, MessageBounds},
         component::{Component, ComponentDefinition, CoreContainer},
-        lifecycle::ControlPort,
-        ports::Port,
+        lifecycle::ControlEvent,
         runtime::KompactSystem,
     };
     use std::{any::Any, sync::Arc};
-    use uuid::Uuid;
 
     /// Trait representing a type-erased component.
     pub trait ErasedComponent: ActorRefFactory + CoreContainer + Any {
-        fn enqueue_control(&self, event: <ControlPort as Port>::Request);
+        fn enqueue_control(&self, event: ControlEvent);
         fn as_any(&self) -> &dyn Any;
     }
 
@@ -371,7 +369,7 @@ pub mod erased {
     where
         C: ComponentDefinition,
     {
-        fn enqueue_control(&self, event: <ControlPort as Port>::Request) {
+        fn enqueue_control(&self, event: ControlEvent) {
             Component::enqueue_control(self, event)
         }
 
