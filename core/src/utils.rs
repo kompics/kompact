@@ -362,8 +362,7 @@ pub mod erased {
     use uuid::Uuid;
 
     /// Trait representing a type-erased component.
-    pub trait ErasedComponent: ActorRefFactory + Any {
-        fn comp_id(&self) -> &Uuid;
+    pub trait ErasedComponent: ActorRefFactory + CoreContainer + Any {
         fn enqueue_control(&self, event: <ControlPort as Port>::Request);
         fn as_any(&self) -> &dyn Any;
     }
@@ -372,10 +371,6 @@ pub mod erased {
     where
         C: ComponentDefinition,
     {
-        fn comp_id(&self) -> &Uuid {
-            CoreContainer::id(self)
-        }
-
         fn enqueue_control(&self, event: <ControlPort as Port>::Request) {
             Component::enqueue_control(self, event)
         }

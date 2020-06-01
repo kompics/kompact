@@ -645,7 +645,7 @@ impl KompactSystem {
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
             amp,
-            ListenEvent::Started(c.comp_id().clone()),
+            ListenEvent::Started(c.id().clone()),
         ));
         c.enqueue_control(ControlEvent::Start);
         f
@@ -752,7 +752,7 @@ impl KompactSystem {
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
             amp,
-            ListenEvent::Stopped(c.comp_id().clone()),
+            ListenEvent::Stopped(c.id().clone()),
         ));
         c.enqueue_control(ControlEvent::Stop);
         f
@@ -855,7 +855,7 @@ impl KompactSystem {
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port().enqueue(SupervisorMsg::Listen(
             amp,
-            ListenEvent::Destroyed(c.comp_id().clone()),
+            ListenEvent::Destroyed(c.id().clone()),
         ));
         c.enqueue_control(ControlEvent::Kill);
         f
