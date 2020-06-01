@@ -211,9 +211,7 @@ pub mod prelude {
     };
 
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub use crate::{
-        utils::erased::ErasedActorDefinition
-    };
+    pub use crate::utils::erased::ErasedComponentDefinition;
 }
 
 /// A module containing helper functions for (unit) testing

@@ -390,13 +390,13 @@ pub mod erased {
     /// Should not be implemented manually.
     ///
     /// See: [KompactSystem::create_erased](KompactSystem::create_erased)
-    pub trait ErasedActorDefinition<M: MessageBounds> {
+    pub trait ErasedComponentDefinition<M: MessageBounds> {
         // this is only object-safe with unsized_locals nightly feature
         /// Creates component on the given system.
         fn spawn_on(self, system: &KompactSystem) -> Arc<dyn ErasedComponent<Message = M>>;
     }
 
-    impl<M, C> ErasedActorDefinition<M> for C
+    impl<M, C> ErasedComponentDefinition<M> for C
     where
         M: MessageBounds,
         C: ComponentDefinition<Message = M> + 'static,
@@ -485,11 +485,11 @@ mod tests {
     #[cfg(all(nightly, feature = "type_erasure"))]
     #[test]
     fn test_erased_components() {
-        use utils::erased::ErasedActorDefinition;
+        use utils::erased::ErasedComponentDefinition;
         let system = KompactConfig::default().build().expect("System");
 
         {
-            let erased_definition: Box<dyn ErasedActorDefinition<Ask<u64, ()>>> =
+            let erased_definition: Box<dyn ErasedComponentDefinition<Ask<u64, ()>>> =
                 Box::new(TestComponent::new());
             let erased = system.create_erased(erased_definition);
             let actor_ref = erased.actor_ref();

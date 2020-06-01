@@ -1,7 +1,7 @@
 use super::*;
 
 #[cfg(all(nightly, feature = "type_erasure"))]
-use crate::utils::erased::{ErasedActorDefinition, ErasedComponent};
+use crate::utils::erased::{ErasedComponent, ErasedComponentDefinition};
 use crate::{
     messaging::{
         DispatchEnvelope,
@@ -226,7 +226,7 @@ impl KompactSystem {
     #[inline(always)]
     pub fn create_erased<M: MessageBounds>(
         &self,
-        a: Box<dyn ErasedActorDefinition<M>>,
+        a: Box<dyn ErasedComponentDefinition<M>>,
     ) -> Arc<dyn ErasedComponent<Message = M>> {
         a.spawn_on(self)
     }
