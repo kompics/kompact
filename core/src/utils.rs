@@ -349,6 +349,101 @@ impl<T: Sized> IterExtras for T where T: Iterator {}
 // this variant requires #![feature(unsized_locals)]
 //impl<T: ?Sized> IterExtras for T where T: Iterator {}
 
+#[cfg(all(nightly, feature = "type_erasure"))]
+pub mod erased {
+    use crate::{
+        actors::{ActorRef, ActorRefFactory, MessageBounds},
+        component::{Component, ComponentDefinition, CoreContainer},
+        lifecycle::ControlPort,
+        ports::Port,
+        runtime::KompactSystem,
+    };
+    use std::{any::Any, sync::Arc};
+    use uuid::Uuid;
+
+    struct ErasedComponentVTable<M: MessageBounds> {
+        enqueue_control: fn(&Arc<dyn Any>, <ControlPort as Port>::Request) -> (),
+        id: fn(&Arc<dyn Any>) -> &Uuid,
+        actor_ref: fn(&Arc<dyn Any>) -> ActorRef<M>,
+    }
+
+    impl<M> ErasedComponentVTable<M>
+    where
+        M: MessageBounds,
+    {
+        fn new<C: ComponentDefinition<Message = M> + 'static>() -> Self {
+            ErasedComponentVTable {
+                enqueue_control: |c, event| {
+                    c.downcast_ref::<Component<C>>()
+                        .unwrap()
+                        .enqueue_control(event)
+                },
+                id: |c| c.downcast_ref::<Component<C>>().unwrap().id(),
+                actor_ref: |c| {
+                    c.downcast_ref::<Component<C>>()
+                        .unwrap()
+                        .on_definition(|c| c.ctx().actor_ref())
+                },
+            }
+        }
+    }
+
+    pub struct ErasedComponent<M: MessageBounds> {
+        pub(crate) component: Arc<dyn Any>,
+        vtable: Box<ErasedComponentVTable<M>>,
+    }
+
+    impl<M: MessageBounds> ErasedComponent<M> {
+        fn new<C>(component: Arc<Component<C>>) -> Self
+        where
+            C: ComponentDefinition<Message = M> + 'static,
+        {
+            ErasedComponent {
+                component: component as Arc<dyn Any>,
+                vtable: Box::new(ErasedComponentVTable::new::<C>()),
+            }
+        }
+
+        pub(crate) fn id(&self) -> &Uuid {
+            (self.vtable.id)(&self.component)
+        }
+
+        pub(crate) fn enqueue_control(&self, event: <ControlPort as Port>::Request) {
+            (self.vtable.enqueue_control)(&self.component, event)
+        }
+    }
+
+    impl<M: MessageBounds> ActorRefFactory for ErasedComponent<M> {
+        type Message = M;
+
+        fn actor_ref(&self) -> ActorRef<M> {
+            (self.vtable.actor_ref)(&self.component)
+        }
+    }
+
+    /// Trait allowing to create components from type-erased definitions.
+    ///
+    /// Should not be implemented manually.
+    ///
+    /// See: [KompactSystem::create_erased](KompactSystem::create_erased)
+    pub trait ErasedActorDefinition<M: MessageBounds> {
+        // this is only object-safe with unsized_locals nightly feature
+        /// Creates component on the given system.
+        fn spawn_on(self, system: &KompactSystem) -> ErasedComponent<M>;
+    }
+
+    impl<M, C> ErasedActorDefinition<M> for C
+    where
+        M: MessageBounds,
+        C: ComponentDefinition<Message = M> + 'static,
+    {
+        fn spawn_on(self, system: &KompactSystem) -> ErasedComponent<M> {
+            let c = system.create(|| self);
+            ErasedComponent::new(c)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -419,6 +514,42 @@ mod tests {
         drop(tc_ref);
         drop(tc_sref);
         drop(tc);
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[test]
+    fn test_erased_components() {
+        use utils::erased::ErasedActorDefinition;
+        let system = KompactConfig::default().build().expect("System");
+
+        {
+            let erased_definition: Box<dyn ErasedActorDefinition<Ask<u64, ()>>> =
+                Box::new(TestComponent::new());
+            let erased = system.create_erased(erased_definition);
+            let actor_ref = erased.actor_ref();
+
+            let start_f = system.start_erased_notify(&erased);
+            start_f
+                .wait_timeout(Duration::from_millis(1000))
+                .expect("Component start");
+
+            let ask_f = actor_ref.ask(|promise| Ask::new(promise, 42u64));
+            ask_f
+                .wait_timeout(Duration::from_millis(1000))
+                .expect("Response");
+
+            erased
+                .component
+                .downcast_ref::<Component<TestComponent>>()
+                .unwrap()
+                .on_definition(|c| {
+                    assert_eq!(c.counter, 42u64);
+                });
+        }
+
         system
             .shutdown()
             .expect("Kompact didn't shut down properly");

@@ -1,5 +1,7 @@
 use super::*;
 
+#[cfg(all(nightly, feature = "type_erasure"))]
+use crate::utils::erased::{ErasedActorDefinition, ErasedComponent};
 use crate::{
     messaging::{
         DispatchEnvelope,
@@ -199,6 +201,34 @@ impl KompactSystem {
             c.core().set_component(cc);
         }
         c
+    }
+
+    /// Create a new component from type-erased definition
+    ///
+    /// Since components are shared between threads, the created component
+    /// is internally wrapped into an [Arc](std::sync::Arc).
+    ///
+    /// Newly created components are not started automatically.
+    /// Use [start_erased](KompactSystem::start) or
+    /// [start_erased_notify](KompactSystem::start_notify) to start a newly
+    /// created component, once it is connected properly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create_erased(Box::new(TestComponent1::new()));
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[inline(always)]
+    pub fn create_erased<M: MessageBounds>(
+        &self,
+        a: Box<dyn ErasedActorDefinition<M>>,
+    ) -> ErasedComponent<M> {
+        a.spawn_on(self)
     }
 
     /// Create a new system component
@@ -554,6 +584,16 @@ impl KompactSystem {
         c.enqueue_control(ControlEvent::Start);
     }
 
+    /// Like [start](KompactSystem::start), but for [ErasedComponent](ErasedComponent)s.
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub fn start_erased<M>(&self, c: &ErasedComponent<M>) -> ()
+    where
+        M: MessageBounds,
+    {
+        self.inner.assert_not_poisoned();
+        c.enqueue_control(ControlEvent::Start);
+    }
+
     /// Start a component and complete a future once it has started
     ///
     /// When the returned future completes, the component is guaranteed to have started.
@@ -593,6 +633,24 @@ impl KompactSystem {
         f
     }
 
+    /// Like [start_notify](KompactSystem::start_notify), but for
+    /// [ErasedComponent](ErasedComponent)s.
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub fn start_erased_notify<M>(&self, c: &ErasedComponent<M>) -> Future<()>
+    where
+        M: MessageBounds,
+    {
+        self.inner.assert_active();
+        let (p, f) = utils::promise();
+        let amp = Arc::new(Mutex::new(p));
+        self.supervision_port().enqueue(SupervisorMsg::Listen(
+            amp,
+            ListenEvent::Started(c.id().clone()),
+        ));
+        c.enqueue_control(ControlEvent::Start);
+        f
+    }
+
     /// Stop a component
     ///
     /// A component does not handle any events/messages while it is stopped,
@@ -620,6 +678,16 @@ impl KompactSystem {
     pub fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
     where
         C: ComponentDefinition + 'static,
+    {
+        self.inner.assert_active();
+        c.enqueue_control(ControlEvent::Stop);
+    }
+
+    /// Like [stop](KompactSystem::stop), but for [ErasedComponent](ErasedComponent)s.
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub fn stop_erased<M>(&self, c: &ErasedComponent<M>) -> ()
+    where
+        M: MessageBounds,
     {
         self.inner.assert_active();
         c.enqueue_control(ControlEvent::Stop);
@@ -673,6 +741,23 @@ impl KompactSystem {
         f
     }
 
+    /// Like [stop_notify](KompactSystem::stop_notify), but for [ErasedComponent](ErasedComponent)s.
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub fn stop_erased_notify<M>(&self, c: &ErasedComponent<M>) -> Future<()>
+    where
+        M: MessageBounds,
+    {
+        self.inner.assert_active();
+        let (p, f) = utils::promise();
+        let amp = Arc::new(Mutex::new(p));
+        self.supervision_port().enqueue(SupervisorMsg::Listen(
+            amp,
+            ListenEvent::Stopped(c.id().clone()),
+        ));
+        c.enqueue_control(ControlEvent::Stop);
+        f
+    }
+
     /// Stop and deallocate a component
     ///
     /// The supervisor will attempt to deallocate `c` once it is stopped.
@@ -697,6 +782,16 @@ impl KompactSystem {
     pub fn kill<C>(&self, c: Arc<Component<C>>) -> ()
     where
         C: ComponentDefinition + 'static,
+    {
+        self.inner.assert_active();
+        c.enqueue_control(ControlEvent::Kill);
+    }
+
+    /// Like [kill](KompactSystem::kill), but for [ErasedComponent](ErasedComponent)s.
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub fn kill_erased<M>(&self, c: ErasedComponent<M>) -> ()
+    where
+        M: MessageBounds,
     {
         self.inner.assert_active();
         c.enqueue_control(ControlEvent::Kill);
@@ -737,6 +832,23 @@ impl KompactSystem {
     pub fn kill_notify<C>(&self, c: Arc<Component<C>>) -> Future<()>
     where
         C: ComponentDefinition + 'static,
+    {
+        self.inner.assert_active();
+        let (p, f) = utils::promise();
+        let amp = Arc::new(Mutex::new(p));
+        self.supervision_port().enqueue(SupervisorMsg::Listen(
+            amp,
+            ListenEvent::Destroyed(c.id().clone()),
+        ));
+        c.enqueue_control(ControlEvent::Kill);
+        f
+    }
+
+    /// Like [kill_notify](KompactSystem::kill_notify), but for [ErasedComponent](ErasedComponent)s.
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub fn kill_erased_notify<M>(&self, c: ErasedComponent<M>) -> Future<()>
+    where
+        M: MessageBounds,
     {
         self.inner.assert_active();
         let (p, f) = utils::promise();

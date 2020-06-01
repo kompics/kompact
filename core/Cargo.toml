@@ -33,6 +33,7 @@ ser_id_16 = []
 ser_id_8 = []
 thread_pinning = ["core_affinity", "executors/thread-pinning"]
 serde_support = ["serde", "bytes/serde"]
+type_erasure = []
 
 [dependencies]
 log = "0.4"
