@@ -596,7 +596,7 @@ pub struct RegistrationEnvelope {
 impl RegistrationEnvelope {
     /// Create a registration envelope without a promise for feedback
     pub fn basic(
-        actor: &dyn DynActorRefFactory,
+        actor: &(impl DynActorRefFactory + ?Sized),
         path: PathResolvable,
         update: bool,
     ) -> RegistrationEnvelope {
@@ -610,7 +610,7 @@ impl RegistrationEnvelope {
 
     /// Create a registration envelope using a promise for feedback
     pub fn with_promise(
-        actor: &dyn DynActorRefFactory,
+        actor: &(impl DynActorRefFactory + ?Sized),
         path: PathResolvable,
         update: bool,
         promise: utils::Promise<RegistrationResult>,
@@ -625,7 +625,7 @@ impl RegistrationEnvelope {
 
     /// Create a registration envelope using an actor reference for feedback
     pub fn with_recipient(
-        actor: &dyn DynActorRefFactory,
+        actor: &(impl DynActorRefFactory + ?Sized),
         path: PathResolvable,
         update: bool,
         id: RegistrationId,

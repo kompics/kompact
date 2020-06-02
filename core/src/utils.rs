@@ -349,6 +349,37 @@ impl<T: Sized> IterExtras for T where T: Iterator {}
 // this variant requires #![feature(unsized_locals)]
 //impl<T: ?Sized> IterExtras for T where T: Iterator {}
 
+#[cfg(all(nightly, feature = "type_erasure"))]
+pub mod erased {
+    use crate::{
+        actors::MessageBounds,
+        component::{AbstractComponent, ComponentDefinition},
+        runtime::KompactSystem,
+    };
+    use std::sync::Arc;
+
+    /// Trait allowing to create components from type-erased definitions.
+    ///
+    /// Should not be implemented manually.
+    ///
+    /// See: [KompactSystem::create_erased](KompactSystem::create_erased)
+    pub trait ErasedComponentDefinition<M: MessageBounds> {
+        // this is only object-safe with unsized_locals nightly feature
+        /// Creates component on the given system.
+        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>>;
+    }
+
+    impl<M, C> ErasedComponentDefinition<M> for C
+    where
+        M: MessageBounds,
+        C: ComponentDefinition<Message = M> + 'static,
+    {
+        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>> {
+            system.create(|| self)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -419,6 +450,42 @@ mod tests {
         drop(tc_ref);
         drop(tc_sref);
         drop(tc);
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[test]
+    fn test_erased_components() {
+        use utils::erased::ErasedComponentDefinition;
+        let system = KompactConfig::default().build().expect("System");
+
+        {
+            let erased_definition: Box<dyn ErasedComponentDefinition<Ask<u64, ()>>> =
+                Box::new(TestComponent::new());
+            let erased = system.create_erased(erased_definition);
+            let actor_ref = erased.actor_ref();
+
+            let start_f = system.start_notify(&erased);
+            start_f
+                .wait_timeout(Duration::from_millis(1000))
+                .expect("Component start");
+
+            let ask_f = actor_ref.ask(|promise| Ask::new(promise, 42u64));
+            ask_f
+                .wait_timeout(Duration::from_millis(1000))
+                .expect("Response");
+
+            erased
+                .as_any()
+                .downcast_ref::<Component<TestComponent>>()
+                .unwrap()
+                .on_definition(|c| {
+                    assert_eq!(c.counter, 42u64);
+                });
+        }
+
         system
             .shutdown()
             .expect("Kompact didn't shut down properly");

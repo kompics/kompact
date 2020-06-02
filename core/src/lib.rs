@@ -41,6 +41,7 @@
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]
 #![cfg_attr(nightly, feature(never_type))]
+#![cfg_attr(all(nightly, feature = "type_erasure"), feature(unsized_locals))]
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
@@ -208,6 +209,9 @@ pub mod prelude {
             TryDualLockError,
         },
     };
+
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub use crate::utils::erased::ErasedComponentDefinition;
 }
 
 /// A module containing helper functions for (unit) testing

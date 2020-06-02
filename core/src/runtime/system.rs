@@ -1,5 +1,7 @@
 use super::*;
 
+#[cfg(all(nightly, feature = "type_erasure"))]
+use crate::utils::erased::ErasedComponentDefinition;
 use crate::{
     messaging::{
         DispatchEnvelope,
@@ -201,6 +203,36 @@ impl KompactSystem {
         c
     }
 
+    /// Create a new component from type-erased definition
+    ///
+    /// Since components are shared between threads, the created component
+    /// is internally wrapped into an [Arc](std::sync::Arc).
+    ///
+    /// Newly created components are not started automatically.
+    /// Use [start](KompactSystem::start) or
+    /// [start_notify](KompactSystem::start_notify) to start a newly
+    /// created component, once it is connected properly.
+    ///
+    /// If you need address this component via the network, see the [register](KompactSystem::register) function.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create_erased(Box::new(TestComponent1::new()));
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[inline(always)]
+    pub fn create_erased<M: MessageBounds>(
+        &self,
+        a: Box<dyn ErasedComponentDefinition<M>>,
+    ) -> Arc<dyn AbstractComponent<Message = M>> {
+        a.spawn_on(self)
+    }
+
     /// Create a new system component
     ///
     /// You *must* use this instead of [create](KompactSystem::create) to create
@@ -392,14 +424,11 @@ impl KompactSystem {
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn register<C>(&self, c: &Arc<Component<C>>) -> Future<RegistrationResult>
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<RegistrationResult> {
         self.inner.assert_active();
         let id = c.core().id().clone();
         let id_path = PathResolvable::ActorId(id);
-        self.inner.register_by_path(c, false, id_path) // never update unique registrations
+        self.inner.register_by_path(c.as_ref(), false, id_path) // never update unique registrations
     }
 
     /// Creates a new component and registers it with the dispatcher
@@ -469,17 +498,17 @@ impl KompactSystem {
     /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn register_by_alias<C, A>(
+    pub fn register_by_alias<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
     ) -> Future<RegistrationResult>
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>,
     {
         self.inner.assert_active();
-        self.inner.register_by_alias(c, false, alias.into())
+        self.inner
+            .register_by_alias(c.as_ref(), false, alias.into())
     }
 
     /// Attempts to register the provided component with a human-readable alias.
@@ -516,17 +545,16 @@ impl KompactSystem {
     /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn update_alias_registration<C, A>(
+    pub fn update_alias_registration<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
     ) -> Future<RegistrationResult>
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>,
     {
         self.inner.assert_active();
-        self.inner.register_by_alias(c, true, alias.into())
+        self.inner.register_by_alias(c.as_ref(), true, alias.into())
     }
 
     /// Start a component
@@ -546,10 +574,7 @@ impl KompactSystem {
     /// system.start(&c);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn start<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.inner.assert_not_poisoned();
         c.enqueue_control(ControlEvent::Start);
     }
@@ -578,10 +603,7 @@ impl KompactSystem {
     ///       .expect("TestComponent1 never started!");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn start_notify<C>(&self, c: &Arc<Component<C>>) -> Future<()>
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<()> {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
@@ -617,10 +639,7 @@ impl KompactSystem {
     /// system.stop(&c);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.inner.assert_active();
         c.enqueue_control(ControlEvent::Stop);
     }
@@ -658,10 +677,7 @@ impl KompactSystem {
     ///       .expect("TestComponent1 never re-started!");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn stop_notify<C>(&self, c: &Arc<Component<C>>) -> Future<()>
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<()> {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
@@ -694,10 +710,7 @@ impl KompactSystem {
     /// system.kill(c);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn kill<C>(&self, c: Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
         self.inner.assert_active();
         c.enqueue_control(ControlEvent::Kill);
     }
@@ -734,10 +747,7 @@ impl KompactSystem {
     ///       .expect("TestComponent1 never stopped!");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn kill_notify<C>(&self, c: Arc<Component<C>>) -> Future<()>
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> Future<()> {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
@@ -901,10 +911,7 @@ impl KompactSystem {
     /// a perfectly valid `ActorPath` instance, but which can not receive any messages,
     /// unless you also registered the component with this system's dispatcher.
     /// Suffice to say, crossing system boundaries in this manner is not recommended.
-    pub fn actor_path_for<C>(&self, component: &Arc<Component<C>>) -> ActorPath
-    where
-        C: ComponentDefinition + 'static,
-    {
+    pub fn actor_path_for(&self, component: &Arc<impl AbstractComponent + ?Sized>) -> ActorPath {
         let id = *component.id();
         ActorPath::Unique(UniquePath::with_system(self.system_path(), id))
     }
@@ -978,6 +985,33 @@ pub trait SystemHandle: Dispatching {
     where
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static;
+
+    /// Create a new component from type-erased definition
+    ///
+    /// Since components are shared between threads, the created component
+    /// is internally wrapped into an [Arc](std::sync::Arc).
+    ///
+    /// Newly created components are not started automatically.
+    /// Use [start](KompactSystem::start) or
+    /// [start_notify](KompactSystem::start_notify) to start a newly
+    /// created component, once it is connected properly.
+    ///
+    /// If you need address this component via the network, see the [register](KompactSystem::register) function.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create_erased(Box::new(TestComponent1::new()));
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    fn create_erased<M: MessageBounds>(
+        &self,
+        a: Box<dyn ErasedComponentDefinition<M>>,
+    ) -> Arc<dyn AbstractComponent<Message = M>>;
 
     /// Attempts to register `c` with the dispatcher using its unique id
     ///
@@ -1053,20 +1087,16 @@ pub trait SystemHandle: Dispatching {
     /// # std::thread::sleep(Duration::from_millis(1000));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn register<C>(
+    fn register(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId
-    where
-        C: ComponentDefinition + 'static;
+    ) -> RegistrationId;
 
     /// Attempts to register `c` with the dispatcher using its unique id
     ///
     /// Same as [register](SystemHandle::register) except requesting that no response be send.
-    fn register_without_response<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static;
+    fn register_without_response(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
 
     /// Attempts to register the provided component with a human-readable alias
     ///
@@ -1149,22 +1179,24 @@ pub trait SystemHandle: Dispatching {
     /// # std::thread::sleep(Duration::from_millis(1000));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn register_by_alias<C, A>(
+    fn register_by_alias<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
         reply_to: &dyn Receiver<RegistrationResponse>,
     ) -> RegistrationId
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>;
 
     /// Attempts to register the provided component with a human-readable alias
     ///
     /// Same as [register_by_alias](SystemHandle::register_by_alias) except requesting that no response be send.
-    fn register_by_alias_without_response<C, A>(&self, c: &Arc<Component<C>>, alias: A) -> ()
+    fn register_by_alias_without_response<A>(
+        &self,
+        c: &Arc<impl AbstractComponent + ?Sized>,
+        alias: A,
+    ) -> ()
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>;
 
     /// Attempts to register the provided component with a human-readable alias.
@@ -1247,26 +1279,24 @@ pub trait SystemHandle: Dispatching {
     /// # std::thread::sleep(Duration::from_millis(1000));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn update_alias_registration<C, A>(
+    fn update_alias_registration<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
         reply_to: &dyn Receiver<RegistrationResponse>,
     ) -> RegistrationId
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>;
 
     /// Attempts to register the provided component with a human-readable alias
     ///
     /// Same as [update_alias_registration](SystemHandle::update_alias_registration) except requesting that no response be send.
-    fn update_alias_registration_without_response<C, A>(
+    fn update_alias_registration_without_response<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
     ) -> ()
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>;
 
     /// Start a component
@@ -1286,9 +1316,7 @@ pub trait SystemHandle: Dispatching {
     /// system.start(&c);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn start<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static;
+    fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
 
     /// Stop a component
     ///
@@ -1314,9 +1342,7 @@ pub trait SystemHandle: Dispatching {
     /// system.stop(&c);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static;
+    fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
 
     /// Stop and deallocate a component
     ///
@@ -1339,9 +1365,7 @@ pub trait SystemHandle: Dispatching {
     /// system.kill(c);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn kill<C>(&self, c: Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static;
+    fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> ();
 
     /// Return the configured thoughput value
     ///
@@ -1531,7 +1555,7 @@ impl KompactRuntime {
         path: PathResolvable,
     ) -> Future<RegistrationResult>
     where
-        D: DynActorRefFactory,
+        D: DynActorRefFactory + ?Sized,
     {
         debug!(self.logger(), "Requesting actor registration at {:?}", path);
         let (promise, future) = utils::promise();
@@ -1551,7 +1575,7 @@ impl KompactRuntime {
         alias: String,
     ) -> Future<RegistrationResult>
     where
-        D: DynActorRefFactory,
+        D: DynActorRefFactory + ?Sized,
     {
         debug!(
             self.logger(),
