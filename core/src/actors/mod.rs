@@ -177,7 +177,7 @@ pub trait DynActorRefFactory {
 
 impl<F> DynActorRefFactory for F
 where
-    F: ActorRefFactory,
+    F: ActorRefFactory + ?Sized,
 {
     fn dyn_ref(&self) -> DynActorRef {
         self.actor_ref().dyn_ref()

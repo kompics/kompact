@@ -352,31 +352,11 @@ impl<T: Sized> IterExtras for T where T: Iterator {}
 #[cfg(all(nightly, feature = "type_erasure"))]
 pub mod erased {
     use crate::{
-        actors::{ActorRefFactory, MessageBounds},
-        component::{Component, ComponentDefinition, CoreContainer},
-        lifecycle::ControlEvent,
+        actors::MessageBounds,
+        component::{AbstractComponent, ComponentDefinition},
         runtime::KompactSystem,
     };
-    use std::{any::Any, sync::Arc};
-
-    /// Trait representing a type-erased component.
-    pub trait ErasedComponent: ActorRefFactory + CoreContainer + Any {
-        fn enqueue_control(&self, event: ControlEvent);
-        fn as_any(&self) -> &dyn Any;
-    }
-
-    impl<C> ErasedComponent for Component<C>
-    where
-        C: ComponentDefinition,
-    {
-        fn enqueue_control(&self, event: ControlEvent) {
-            Component::enqueue_control(self, event)
-        }
-
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-    }
+    use std::sync::Arc;
 
     /// Trait allowing to create components from type-erased definitions.
     ///
@@ -386,7 +366,7 @@ pub mod erased {
     pub trait ErasedComponentDefinition<M: MessageBounds> {
         // this is only object-safe with unsized_locals nightly feature
         /// Creates component on the given system.
-        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn ErasedComponent<Message = M>>;
+        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>>;
     }
 
     impl<M, C> ErasedComponentDefinition<M> for C
@@ -394,7 +374,7 @@ pub mod erased {
         M: MessageBounds,
         C: ComponentDefinition<Message = M> + 'static,
     {
-        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn ErasedComponent<Message = M>> {
+        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>> {
             system.create(|| self)
         }
     }
@@ -487,7 +467,7 @@ mod tests {
             let erased = system.create_erased(erased_definition);
             let actor_ref = erased.actor_ref();
 
-            let start_f = system.start_erased_notify(&erased);
+            let start_f = system.start_notify(&erased);
             start_f
                 .wait_timeout(Duration::from_millis(1000))
                 .expect("Component start");

@@ -31,6 +31,9 @@ use crate::{
 };
 
 use crate::net::buffer::EncodeBuffer;
+#[cfg(all(nightly, feature = "type_erasure"))]
+use crate::utils::erased::ErasedComponentDefinition;
+use std::any::Any;
 
 /// A trait for abstracting over structures that contain a component core
 ///
@@ -786,18 +789,23 @@ impl SystemHandle for ContextSystemHandle {
         self.component.system().create(f)
     }
 
-    fn register<C>(
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    fn create_erased<M: MessageBounds>(
         &self,
-        c: &Arc<Component<C>>,
+        a: Box<dyn ErasedComponentDefinition<M>>,
+    ) -> Arc<dyn AbstractComponent<Message = M>> {
+        self.component.system().create_erased(a)
+    }
+
+    fn register(
+        &self,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId
-    where
-        C: ComponentDefinition + 'static,
-    {
+    ) -> RegistrationId {
         let id = RegistrationId(Uuid::new_v4());
         let recipient = reply_to.recipient();
         let env = RegistrationEnvelope::with_recipient(
-            c,
+            c.as_ref(),
             PathResolvable::ActorId(*c.id()),
             false,
             id,
@@ -807,28 +815,24 @@ impl SystemHandle for ContextSystemHandle {
         id
     }
 
-    fn register_without_response<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
-        let env = RegistrationEnvelope::basic(c, PathResolvable::ActorId(*c.id()), false);
+    fn register_without_response(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        let env = RegistrationEnvelope::basic(c.as_ref(), PathResolvable::ActorId(*c.id()), false);
         self.send_registration(env);
     }
 
-    fn register_by_alias<C, A>(
+    fn register_by_alias<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
         reply_to: &dyn Receiver<RegistrationResponse>,
     ) -> RegistrationId
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>,
     {
         let id = RegistrationId(Uuid::new_v4());
         let recipient = reply_to.recipient();
         let env = RegistrationEnvelope::with_recipient(
-            c,
+            c.as_ref(),
             PathResolvable::Alias(alias.into()),
             false,
             id,
@@ -838,29 +842,32 @@ impl SystemHandle for ContextSystemHandle {
         id
     }
 
-    fn register_by_alias_without_response<C, A>(&self, c: &Arc<Component<C>>, alias: A) -> ()
+    fn register_by_alias_without_response<A>(
+        &self,
+        c: &Arc<impl AbstractComponent + ?Sized>,
+        alias: A,
+    ) -> ()
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>,
     {
-        let env = RegistrationEnvelope::basic(c, PathResolvable::Alias(alias.into()), false);
+        let env =
+            RegistrationEnvelope::basic(c.as_ref(), PathResolvable::Alias(alias.into()), false);
         self.send_registration(env);
     }
 
-    fn update_alias_registration<C, A>(
+    fn update_alias_registration<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
         reply_to: &dyn Receiver<RegistrationResponse>,
     ) -> RegistrationId
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>,
     {
         let id = RegistrationId(Uuid::new_v4());
         let recipient = reply_to.recipient();
         let env = RegistrationEnvelope::with_recipient(
-            c,
+            c.as_ref(),
             PathResolvable::Alias(alias.into()),
             true,
             id,
@@ -870,37 +877,28 @@ impl SystemHandle for ContextSystemHandle {
         id
     }
 
-    fn update_alias_registration_without_response<C, A>(
+    fn update_alias_registration_without_response<A>(
         &self,
-        c: &Arc<Component<C>>,
+        c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
     ) -> ()
     where
-        C: ComponentDefinition + 'static,
         A: Into<String>,
     {
-        let env = RegistrationEnvelope::basic(c, PathResolvable::Alias(alias.into()), true);
+        let env =
+            RegistrationEnvelope::basic(c.as_ref(), PathResolvable::Alias(alias.into()), true);
         self.send_registration(env);
     }
 
-    fn start<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
+    fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.component.system().start(c)
     }
 
-    fn stop<C>(&self, c: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
+    fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.component.system().stop(c)
     }
 
-    fn kill<C>(&self, c: Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition + 'static,
-    {
+    fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
         self.component.system().kill(c)
     }
 
@@ -978,6 +976,34 @@ where
     /// return whatever you like. It simply helps with debugging if it's related
     /// to the actual struct name.
     fn type_name() -> &'static str;
+}
+
+/// An object-safe trait that exposes most of functionality of a [`Component`] that isn't
+/// dependent on a particular [`ComponentDefinition`].
+///
+/// Useful if you want to reduce code bloat by removing the generic parameter from `Component<CD>`.
+///
+/// See also: [`ActorRefFactory`] and [`CoreContainer`], which this trait inherits.
+pub trait AbstractComponent: ActorRefFactory + CoreContainer + Any {
+    #[doc(hidden)] // internal api
+    fn enqueue_control(&self, event: ControlEvent);
+
+    /// Views self as [`Any`](std::any::Any). Can be used to downcast to a concrete [`Component`].
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<C> AbstractComponent for Component<C>
+where
+    C: ComponentDefinition,
+{
+    #[doc(hidden)] // internal api
+    fn enqueue_control(&self, event: ControlEvent) {
+        Component::enqueue_control(self, event)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 /// An abstraction over providers of Kompact loggers
