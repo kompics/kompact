@@ -18,7 +18,7 @@ impl Port for CounterPort {
 #[derive(ComponentDefinition)]
 struct Counter {
     ctx: ComponentContext<Self>,
-    counter_port: ProvidedPort<CounterPort, Self>,
+    counter_port: ProvidedPort<CounterPort>,
     msg_count: u64,
     event_count: u64,
 }

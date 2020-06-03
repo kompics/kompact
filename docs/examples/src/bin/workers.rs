@@ -76,7 +76,7 @@ impl Port for WorkerPort {
 #[derive(ComponentDefinition)]
 struct Manager {
     ctx: ComponentContext<Self>,
-    worker_port: RequiredPort<WorkerPort, Self>,
+    worker_port: RequiredPort<WorkerPort>,
     num_workers: usize,
     workers: Vec<Arc<Component<Worker>>>,
     worker_refs: Vec<ActorRefStrong<WorkPart>>,
@@ -192,7 +192,7 @@ impl Actor for Manager {
 #[derive(ComponentDefinition)]
 struct Worker {
     ctx: ComponentContext<Self>,
-    worker_port: ProvidedPort<WorkerPort, Self>,
+    worker_port: ProvidedPort<WorkerPort>,
 }
 impl Worker {
     fn new() -> Self {

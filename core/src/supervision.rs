@@ -45,7 +45,7 @@ pub(crate) enum SupervisorMsg {
 #[derive(ComponentDefinition, Actor)]
 pub(crate) struct ComponentSupervisor {
     ctx: ComponentContext<ComponentSupervisor>,
-    pub(crate) supervision: ProvidedPort<SupervisionPort, ComponentSupervisor>,
+    pub(crate) supervision: ProvidedPort<SupervisionPort>,
     children: HashMap<Uuid, Arc<dyn CoreContainer>>,
     listeners: HashMap<Uuid, Vec<(ListenEvent, Promise<()>)>>,
     shutdown: Option<Promise<()>>,

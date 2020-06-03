@@ -22,7 +22,7 @@ impl Port for TestPort {
 #[derive(ComponentDefinition)]
 pub struct TestActor {
     ctx: ComponentContext<Self>,
-    testp: ProvidedPort<TestPort, Self>,
+    testp: ProvidedPort<TestPort>,
 }
 
 impl TestActor {

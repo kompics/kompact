@@ -92,15 +92,7 @@ where
 /// Connect two port instances.
 ///
 /// The providing port instance must be given as first argument, and the requiring instance second.
-pub fn biconnect_ports<P, C1, C2>(
-    prov: &mut ProvidedPort<P, C1>,
-    req: &mut RequiredPort<P, C2>,
-) -> ()
-where
-    P: Port,
-    C1: ComponentDefinition + Sized + 'static + Provide<P>,
-    C2: ComponentDefinition + Sized + 'static + Require<P>,
-{
+pub fn biconnect_ports<P: Port>(prov: &mut ProvidedPort<P>, req: &mut RequiredPort<P>) -> () {
     let prov_share = prov.share();
     let req_share = req.share();
     prov.connect(req_share);

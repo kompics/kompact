@@ -57,7 +57,7 @@ impl NetworkActor for BootstrapServer {
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
-    omega_port: ProvidedPort<EventualLeaderDetection, Self>,
+    omega_port: ProvidedPort<EventualLeaderDetection>,
     bootstrap_server: ActorPath,
     processes: Box<[ActorPath]>,
     candidates: HashSet<ActorPath>,

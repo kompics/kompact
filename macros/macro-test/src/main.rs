@@ -18,8 +18,8 @@ impl Port for PingPongPort {
 #[derive(ComponentDefinition, Actor)]
 struct Pinger {
     ctx: ComponentContext<Pinger>,
-    ppp: RequiredPort<PingPongPort, Pinger>,
-    pppp: ProvidedPort<PingPongPort, Pinger>,
+    ppp: RequiredPort<PingPongPort>,
+    pppp: ProvidedPort<PingPongPort>,
     test: i32,
 }
 
