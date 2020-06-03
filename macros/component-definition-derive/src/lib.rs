@@ -209,7 +209,6 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 }
             }
             impl #impl_generics DynamicPortAccess for #name #ty_generics #where_clause {
-                #[doc(hidden)] // internal api
                 fn get_provided_port_as_any(&mut self, port_id: ::std::any::TypeId) -> Option<&mut dyn ::std::any::Any> {
                     match port_id {
                         #(#provided_matches),*
@@ -217,7 +216,6 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                     }
                 }
 
-                #[doc(hidden)] // internal api
                 fn get_required_port_as_any(&mut self, port_id: ::std::any::TypeId) -> Option<&mut dyn ::std::any::Any> {
                     match port_id {
                         #(#required_matches),*
