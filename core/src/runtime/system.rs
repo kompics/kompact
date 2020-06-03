@@ -1,7 +1,7 @@
 use super::*;
 
 #[cfg(all(nightly, feature = "type_erasure"))]
-use crate::utils::erased::ErasedComponentDefinition;
+use crate::utils::erased::CreateErased;
 use crate::{
     messaging::{
         DispatchEnvelope,
@@ -228,9 +228,9 @@ impl KompactSystem {
     #[inline(always)]
     pub fn create_erased<M: MessageBounds>(
         &self,
-        a: Box<dyn ErasedComponentDefinition<M>>,
+        a: Box<dyn CreateErased<M>>,
     ) -> Arc<dyn AbstractComponent<Message = M>> {
-        a.spawn_on(self)
+        a.create_in(self)
     }
 
     /// Create a new system component
@@ -986,7 +986,7 @@ pub trait SystemHandle: Dispatching {
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static;
 
-    /// Create a new component from type-erased definition
+    /// Create a new component from type-erased component definition
     ///
     /// Since components are shared between threads, the created component
     /// is internally wrapped into an [Arc](std::sync::Arc).
@@ -1010,7 +1010,7 @@ pub trait SystemHandle: Dispatching {
     #[cfg(all(nightly, feature = "type_erasure"))]
     fn create_erased<M: MessageBounds>(
         &self,
-        a: Box<dyn ErasedComponentDefinition<M>>,
+        a: Box<dyn CreateErased<M>>,
     ) -> Arc<dyn AbstractComponent<Message = M>>;
 
     /// Attempts to register `c` with the dispatcher using its unique id

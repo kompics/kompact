@@ -160,6 +160,7 @@ pub mod prelude {
             ComponentDefinition,
             ComponentLogging,
             CoreContainer,
+            DynamicPortAccess,
             ExecuteResult,
             LockingProvideRef,
             LockingRequireRef,
@@ -211,7 +212,7 @@ pub mod prelude {
     };
 
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub use crate::utils::erased::ErasedComponentDefinition;
+    pub use crate::utils::erased::CreateErased;
 }
 
 /// A module containing helper functions for (unit) testing

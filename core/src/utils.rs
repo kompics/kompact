@@ -350,23 +350,23 @@ pub mod erased {
     };
     use std::sync::Arc;
 
-    /// Trait allowing to create components from type-erased definitions.
+    /// Trait allowing to create components from type-erased component definitions.
     ///
     /// Should not be implemented manually.
     ///
     /// See: [KompactSystem::create_erased](KompactSystem::create_erased)
-    pub trait ErasedComponentDefinition<M: MessageBounds> {
+    pub trait CreateErased<M: MessageBounds> {
         // this is only object-safe with unsized_locals nightly feature
         /// Creates component on the given system.
-        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>>;
+        fn create_in(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>>;
     }
 
-    impl<M, C> ErasedComponentDefinition<M> for C
+    impl<M, C> CreateErased<M> for C
     where
         M: MessageBounds,
         C: ComponentDefinition<Message = M> + 'static,
     {
-        fn spawn_on(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>> {
+        fn create_in(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>> {
             system.create(|| self)
         }
     }
@@ -450,11 +450,11 @@ mod tests {
     #[cfg(all(nightly, feature = "type_erasure"))]
     #[test]
     fn test_erased_components() {
-        use utils::erased::ErasedComponentDefinition;
+        use utils::erased::CreateErased;
         let system = KompactConfig::default().build().expect("System");
 
         {
-            let erased_definition: Box<dyn ErasedComponentDefinition<Ask<u64, ()>>> =
+            let erased_definition: Box<dyn CreateErased<Ask<u64, ()>>> =
                 Box::new(TestComponent::new());
             let erased = system.create_erased(erased_definition);
             let actor_ref = erased.actor_ref();
