@@ -163,6 +163,33 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         // if !port_ref_impls.is_empty() {
         // println!("PortRefImpls: {}",port_ref_impls[0]);
         // }
+
+        fn make_match(f: &syn::Field, t: &syn::Type) -> TokenStream2 {
+            let f = &f.ident;
+            quote! {
+                id if id == ::std::any::TypeId::of::<#t>() =>
+                    Some(&mut self.#f as &mut dyn ::std::any::Any),
+            }
+        }
+
+        let provided_matches: Vec<_> = ports
+            .iter()
+            .filter_map(|(f, p)| match p {
+                PortField::Provided(t) => Some((*f, t)),
+                _ => None,
+            })
+            .map(|(f, t)| make_match(f, t))
+            .collect();
+
+        let required_matches: Vec<_> = ports
+            .iter()
+            .filter_map(|(f, p)| match p {
+                PortField::Required(t) => Some((*f, t)),
+                _ => None,
+            })
+            .map(|(f, t)| make_match(f, t))
+            .collect();
+
         quote! {
             impl #impl_generics ComponentDefinition for #name #ty_generics #where_clause {
                 fn setup(&mut self, self_component: ::std::sync::Arc<Component<Self>>) -> () {
@@ -179,6 +206,21 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 }
                 fn type_name() -> &'static str {
                     #name_str
+                }
+            }
+            impl #impl_generics DynamicPortAccess for #name #ty_generics #where_clause {
+                fn get_provided_port_as_any(&mut self, port_id: ::std::any::TypeId) -> Option<&mut dyn ::std::any::Any> {
+                    match port_id {
+                        #(#provided_matches),*
+                        _ => None,
+                    }
+                }
+
+                fn get_required_port_as_any(&mut self, port_id: ::std::any::TypeId) -> Option<&mut dyn ::std::any::Any> {
+                    match port_id {
+                        #(#required_matches),*
+                        _ => None,
+                    }
                 }
             }
             #(#port_ref_impls)*

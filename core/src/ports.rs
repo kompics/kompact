@@ -80,7 +80,7 @@ impl<P: Port + 'static> CommonPortData<P> {
 /// #[derive(ComponentDefinition, Actor)]
 /// struct UnitProvider {
 ///    ctx: ComponentContext<Self>,
-///    unit_port: ProvidedPort<UnitPort, Self>,
+///    unit_port: ProvidedPort<UnitPort>,
 /// }
 /// impl UnitProvider {
 ///     fn new() -> UnitProvider {
@@ -97,15 +97,15 @@ impl<P: Port + 'static> CommonPortData<P> {
 ///     }    
 /// }
 /// ```
-pub struct ProvidedPort<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> {
+pub struct ProvidedPort<P: Port + 'static> {
     common: CommonPortData<P>,
-    parent: Option<Weak<Component<C>>>,
+    parent: Option<Weak<dyn CoreContainer>>,
     msg_queue: Arc<ConcurrentQueue<P::Request>>,
 }
 
-impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedPort<P, C> {
+impl<P: Port + 'static> ProvidedPort<P> {
     /// Create a new provided port for port type `P` within component `C`
-    pub fn new() -> ProvidedPort<P, C> {
+    pub fn new() -> ProvidedPort<P> {
         ProvidedPort {
             common: CommonPortData::new(),
             parent: None,
@@ -140,7 +140,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
     pub fn share(&mut self) -> ProvidedRef<P> {
         match self.parent {
             Some(ref p) => {
-                let core_container = p.clone() as Weak<dyn CoreContainer>;
+                let core_container = p.clone();
                 ProvidedRef {
                     msg_queue: Arc::downgrade(&self.msg_queue),
                     component: core_container,
@@ -153,7 +153,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
     /// Mark `p` as the parent component of this port
     ///
     /// This method should only be used in custom [ComponentDefinition](ComponentDefinition) implementations!
-    pub fn set_parent(&mut self, p: Arc<Component<C>>) -> () {
+    pub fn set_parent(&mut self, p: Arc<dyn CoreContainer>) -> () {
         self.parent = Some(Arc::downgrade(&p));
     }
 
@@ -185,7 +185,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
 /// #[derive(ComponentDefinition, Actor)]
 /// struct UnitRequirer {
 ///    ctx: ComponentContext<Self>,
-///    unit_port: RequiredPort<UnitPort, Self>,
+///    unit_port: RequiredPort<UnitPort>,
 /// }
 /// impl UnitRequirer {
 ///     fn new() -> UnitRequirer {
@@ -202,15 +202,15 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
 ///     }    
 /// }
 /// ```
-pub struct RequiredPort<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> {
+pub struct RequiredPort<P: Port + 'static> {
     common: CommonPortData<P>,
-    parent: Option<Weak<Component<C>>>,
+    parent: Option<Weak<dyn CoreContainer>>,
     msg_queue: Arc<ConcurrentQueue<P::Indication>>,
 }
 
-impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredPort<P, C> {
+impl<P: Port + 'static> RequiredPort<P> {
     /// Create a new required port for port type `P` within component `C`
-    pub fn new() -> RequiredPort<P, C> {
+    pub fn new() -> RequiredPort<P> {
         RequiredPort {
             common: CommonPortData::new(),
             parent: None,
@@ -245,7 +245,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     pub fn share(&mut self) -> RequiredRef<P> {
         match self.parent {
             Some(ref p) => {
-                let core_container = p.clone() as Weak<dyn CoreContainer>;
+                let core_container = p.clone();
                 RequiredRef {
                     msg_queue: Arc::downgrade(&self.msg_queue),
                     component: core_container,
@@ -258,7 +258,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     /// Mark `p` as the parent component of this port
     ///
     /// This method should only be used in custom [ComponentDefinition](ComponentDefinition) implementations!
-    pub fn set_parent(&mut self, p: Arc<Component<C>>) -> () {
+    pub fn set_parent(&mut self, p: Arc<dyn CoreContainer>) -> () {
         self.parent = Some(Arc::downgrade(&p));
     }
 

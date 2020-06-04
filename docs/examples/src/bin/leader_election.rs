@@ -8,7 +8,7 @@ struct UpdateProcesses(Arc<[ActorPath]>);
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
-    omega_port: ProvidedPort<EventualLeaderDetection, Self>,
+    omega_port: ProvidedPort<EventualLeaderDetection>,
     processes: Arc<[ActorPath]>,
     candidates: HashSet<ActorPath>,
     period: Duration,

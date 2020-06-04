@@ -160,6 +160,7 @@ pub mod prelude {
             ComponentDefinition,
             ComponentLogging,
             CoreContainer,
+            DynamicPortAccess,
             ExecuteResult,
             LockingProvideRef,
             LockingRequireRef,
@@ -211,7 +212,7 @@ pub mod prelude {
     };
 
     #[cfg(all(nightly, feature = "type_erasure"))]
-    pub use crate::utils::erased::ErasedComponentDefinition;
+    pub use crate::utils::erased::CreateErased;
 }
 
 /// A module containing helper functions for (unit) testing
@@ -243,7 +244,7 @@ pub mod doctest_helpers {
     #[derive(ComponentDefinition, Actor)]
     pub struct TestComponent1 {
         ctx: ComponentContext<Self>,
-        test_port: ProvidedPort<TestPort, Self>,
+        test_port: ProvidedPort<TestPort>,
     }
 
     impl TestComponent1 {
@@ -266,7 +267,7 @@ pub mod doctest_helpers {
     #[derive(ComponentDefinition, Actor)]
     pub struct TestComponent2 {
         ctx: ComponentContext<Self>,
-        test_port: RequiredPort<TestPort, Self>,
+        test_port: RequiredPort<TestPort>,
     }
 
     impl TestComponent2 {
@@ -370,7 +371,7 @@ mod tests {
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
         ctx: ComponentContext<TestComponent>,
-        test_port: ProvidedPort<TestPort, TestComponent>,
+        test_port: ProvidedPort<TestPort>,
         counter: u64,
     }
 
@@ -405,7 +406,7 @@ mod tests {
     #[derive(ComponentDefinition)]
     struct RecvComponent {
         ctx: ComponentContext<RecvComponent>,
-        test_port: RequiredPort<TestPort, RecvComponent>,
+        test_port: RequiredPort<TestPort>,
         last_string: String,
     }
 
@@ -832,7 +833,7 @@ mod tests {
     #[derive(ComponentDefinition)]
     struct CrasherComponent {
         ctx: ComponentContext<CrasherComponent>,
-        crash_port: ProvidedPort<CrashPort, CrasherComponent>,
+        crash_port: ProvidedPort<CrashPort>,
         crash_on_start: bool,
     }
 

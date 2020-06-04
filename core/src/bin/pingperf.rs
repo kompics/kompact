@@ -27,7 +27,7 @@ impl Port for PingPongPort {
 #[derive(ComponentDefinition, Actor)]
 struct Pinger {
     ctx: ComponentContext<Pinger>,
-    ppp: RequiredPort<PingPongPort, Pinger>,
+    ppp: RequiredPort<PingPongPort>,
     latch: Arc<CountdownEvent>,
     repeat: u64,
     sent: u64,
@@ -81,7 +81,7 @@ impl Require<PingPongPort> for Pinger {
 #[derive(ComponentDefinition, Actor)]
 struct Ponger {
     ctx: ComponentContext<Ponger>,
-    ppp: ProvidedPort<PingPongPort, Ponger>,
+    ppp: ProvidedPort<PingPongPort>,
     received: u64,
 }
 

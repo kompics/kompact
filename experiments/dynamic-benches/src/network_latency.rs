@@ -311,7 +311,7 @@ pub mod pppipelinestatic {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining_send: u64,
         remaining_recv: u64,
@@ -526,7 +526,7 @@ pub mod pppipelineindexed {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining_send: u64,
         remaining_recv: u64,
@@ -756,7 +756,7 @@ pub mod ppstatic {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining: u64,
         done: Option<KPromise<Duration>>,
@@ -971,7 +971,7 @@ pub mod ppstatic {
         #[derive(ComponentDefinition)]
         pub struct Pinger {
             ctx: ComponentContext<Self>,
-            experiment_port: ProvidedPort<ExperimentPort, Self>,
+            experiment_port: ProvidedPort<ExperimentPort>,
             done: Option<KPromise<Duration>>,
             ponger: ActorPath,
             count: u64,
@@ -1137,7 +1137,7 @@ pub mod ppindexed {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining: u64,
         done: Option<KPromise<Duration>>,

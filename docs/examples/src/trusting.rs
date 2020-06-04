@@ -19,7 +19,7 @@ impl Port for EventualLeaderDetection {
 #[derive(ComponentDefinition, Actor)]
 pub struct TrustPrinter {
     ctx: ComponentContext<Self>,
-    omega_port: RequiredPort<EventualLeaderDetection, Self>,
+    omega_port: RequiredPort<EventualLeaderDetection>,
 }
 impl TrustPrinter {
     pub fn new() -> Self {

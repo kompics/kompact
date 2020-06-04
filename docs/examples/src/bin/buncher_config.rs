@@ -5,7 +5,7 @@ use std::time::Duration;
 #[derive(ComponentDefinition, Actor)]
 struct Buncher {
     ctx: ComponentContext<Self>,
-    batch_port: ProvidedPort<Batching, Self>,
+    batch_port: ProvidedPort<Batching>,
     batch_size: usize,
     timeout: Duration,
     current_batch: Vec<Ping>,

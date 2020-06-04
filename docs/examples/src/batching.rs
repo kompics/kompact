@@ -15,7 +15,7 @@ impl Port for Batching {
 #[derive(ComponentDefinition, Actor)]
 pub struct BatchPrinter {
     ctx: ComponentContext<Self>,
-    batch_port: RequiredPort<Batching, Self>,
+    batch_port: RequiredPort<Batching>,
 }
 impl BatchPrinter {
     pub fn new() -> Self {
