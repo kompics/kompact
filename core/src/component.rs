@@ -1601,10 +1601,8 @@ mod tests {
             }
         }
         ignore_control!(TestComp);
-        ignore_requests!(A, TestComp);
         ignore_requests!(B, TestComp);
         ignore_indications!(A, TestComp);
-        ignore_indications!(B, TestComp);
 
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(|| TestComp::new());
