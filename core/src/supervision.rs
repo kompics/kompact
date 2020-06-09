@@ -87,6 +87,25 @@ impl ComponentSupervisor {
     fn drop_listeners(&mut self, id: &Uuid) {
         self.listeners.remove(id);
     }
+
+    fn shutdown_if_no_more_children(&mut self) {
+        if self.shutdown.is_some() {
+            if self.children.is_empty() {
+                debug!(self.ctx.log(), "Last child of the Supervisor is dead or faulty!");
+                let promise = self.shutdown.take().unwrap();
+                promise
+                    .fulfil(())
+                    .expect("Could not fulfill shutdown promise!");
+                self.listeners.clear(); // we won't be fulfilling these anyway
+            } else {
+                trace!(
+                    self.ctx.log(),
+                    "Supervisor is still dying with {} children outstanding...",
+                    self.children.len()
+                );
+            }
+        }
+    }
 }
 
 impl Provide<ControlPort> for ComponentSupervisor {
@@ -168,22 +187,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     }
                     None => warn!(self.ctx.log(), "An untracked Component({}) was killed.", id),
                 }
-                if self.shutdown.is_some() {
-                    if self.children.is_empty() {
-                        debug!(self.ctx.log(), "Last child of the Supervisor is dead!");
-                        let promise = self.shutdown.take().unwrap();
-                        promise
-                            .fulfil(())
-                            .expect("Could not fulfill shutdown promise!");
-                        self.listeners.clear(); // we won't be fulfilling these anyway
-                    } else {
-                        trace!(
-                            self.ctx.log(),
-                            "Supervisor is still dying with {} children outstanding...",
-                            self.children.len()
-                        );
-                    }
-                }
+                self.shutdown_if_no_more_children()
             }
             SupervisorMsg::Faulty(id) => {
                 warn!(
@@ -195,6 +199,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     Some(carc) => drop(carc),
                     None => warn!(self.ctx.log(), "Component({}) faulted during start!.", id),
                 }
+                self.shutdown_if_no_more_children()
             }
             SupervisorMsg::Listen(amp, event) => match Arc::try_unwrap(amp) {
                 Ok(mp) => {
