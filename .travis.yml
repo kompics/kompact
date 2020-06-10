@@ -44,7 +44,7 @@ jobs:
         edge: true
         cleanup: false
         token: $GITHUB_TOKEN
-        local_dir: docs/book/html
+        local_dir: docs/book
         keep_history: false
         on:
           branch: master
