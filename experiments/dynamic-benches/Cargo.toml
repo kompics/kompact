@@ -51,3 +51,8 @@ harness = false
 name = "loop_opts"
 path = "src/loop_opts.rs"
 harness = false
+
+[[bench]]
+name = "pingperf"
+path = "src/pingperf.rs"
+harness = false
