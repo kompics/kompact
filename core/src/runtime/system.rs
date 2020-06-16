@@ -195,7 +195,7 @@ impl KompactSystem {
         self.inner.assert_active();
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
@@ -246,7 +246,7 @@ impl KompactSystem {
     {
         let c = Arc::new(Component::without_supervisor(self.clone(), f()));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
@@ -283,7 +283,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
@@ -325,7 +325,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
@@ -355,7 +355,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
@@ -391,7 +391,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);

@@ -43,15 +43,15 @@ where
     F: FnOnce(&mut C1, &mut C2) -> T,
 {
     //c1.on_definition(|cd1| c2.on_definition(|cd2| f(cd1, cd2)))
-    let mut cd1 = c1.definition().try_lock().map_err(|e| match e {
+    let mut cd1 = c1.mutable_core.try_lock().map_err(|e| match e {
         TryLockError::Poisoned(_) => TryDualLockError::LeftPoisoned,
         TryLockError::WouldBlock => TryDualLockError::LeftWouldBlock,
     })?;
-    let mut cd2 = c2.definition().try_lock().map_err(|e| match e {
+    let mut cd2 = c2.mutable_core.try_lock().map_err(|e| match e {
         TryLockError::Poisoned(_) => TryDualLockError::RightPoisoned,
         TryLockError::WouldBlock => TryDualLockError::RightWouldBlock,
     })?;
-    Ok(f(cd1.deref_mut(), cd2.deref_mut()))
+    Ok(f(&mut cd1.definition, &mut cd2.definition))
 }
 
 /// Connect two components on their instances of port type `P`.

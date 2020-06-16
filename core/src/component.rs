@@ -2,12 +2,7 @@ use std::{
     fmt,
     ops::DerefMut,
     panic,
-    sync::{
-        atomic::{AtomicU64, AtomicUsize, Ordering},
-        Arc,
-        Mutex,
-        Weak,
-    },
+    sync::{atomic::AtomicU64, Arc, Mutex, Weak},
     time::Duration,
 };
 use uuid::Uuid;
@@ -65,6 +60,11 @@ impl fmt::Debug for dyn CoreContainer {
     }
 }
 
+pub(crate) struct ComponentMutableCore<C> {
+    pub(crate) definition: C,
+    skip: usize,
+}
+
 /// A concrete component instance
 ///
 /// The component class itself is application agnostic,
@@ -72,10 +72,9 @@ impl fmt::Debug for dyn CoreContainer {
 pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     core: ComponentCore,
     custom_scheduler: Option<dedicated_scheduler::DedicatedThreadScheduler>,
-    definition: Mutex<C>,
+    pub(crate) mutable_core: Mutex<ComponentMutableCore<C>>,
     ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
     msg_queue: Arc<TypedMsgQueue<C::Message>>,
-    skip: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>,
     // system components don't have supervision
     logger: KompactLogger,
@@ -93,13 +92,16 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
         let msg_queue = Arc::new(TypedMsgQueue::new());
+        let mutable_core = ComponentMutableCore {
+            definition,
+            skip: 0,
+        };
         Component {
             core,
             custom_scheduler: None,
-            definition: Mutex::new(definition),
+            mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
-            skip: AtomicUsize::new(0),
             supervisor: Some(supervisor),
             logger,
         }
@@ -117,13 +119,16 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
         let msg_queue = Arc::new(TypedMsgQueue::new());
+        let mutable_core = ComponentMutableCore {
+            definition,
+            skip: 0,
+        };
         Component {
             core,
             custom_scheduler: Some(custom_scheduler),
-            definition: Mutex::new(definition),
+            mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
-            skip: AtomicUsize::new(0),
             supervisor: Some(supervisor),
             logger,
         }
@@ -135,13 +140,16 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
+        let mutable_core = ComponentMutableCore {
+            definition,
+            skip: 0,
+        };
         Component {
             core,
             custom_scheduler: None,
-            definition: Mutex::new(definition),
+            mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue: Arc::new(TypedMsgQueue::new()),
-            skip: AtomicUsize::new(0),
             supervisor: None,
             logger,
         }
@@ -157,13 +165,16 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
+        let mutable_core = ComponentMutableCore {
+            definition,
+            skip: 0,
+        };
         Component {
             core,
             custom_scheduler: Some(custom_scheduler),
-            definition: Mutex::new(definition),
+            mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue: Arc::new(TypedMsgQueue::new()),
-            skip: AtomicUsize::new(0),
             supervisor: None,
             logger,
         }
@@ -175,17 +186,9 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 
     pub(crate) fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> () {
         self.ctrl_queue.push(event);
-        match self.core.increment_work() {
-            SchedulingDecision::Schedule => {
-                self.schedule();
-            }
-            _ => (), // nothing
+        if let SchedulingDecision::Schedule = self.core.increment_work() {
+            self.schedule();
         }
-    }
-
-    /// Returns the mutex containing the underlying [ComponentDefinition](ComponentDefinition).
-    pub fn definition(&self) -> &Mutex<C> {
-        &self.definition
     }
 
     /// Returns a mutable reference to the underlying component definition.
@@ -195,7 +198,10 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     /// after the system shuts down and your code holds on to the last reference to a component
     /// you can use [get_mut](std::sync::Arc::get_mut) or [try_unwrap](std::sync::Arc::try_unwrap).
     pub fn definition_mut(&mut self) -> &mut C {
-        self.definition.get_mut().unwrap()
+        self.mutable_core
+            .get_mut()
+            .map(|core| &mut core.definition)
+            .unwrap()
     }
 
     /// Execute a function on the underlying [ComponentDefinition](ComponentDefinition)
@@ -207,8 +213,8 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     where
         F: FnOnce(&mut C) -> T,
     {
-        let mut cd = self.definition.lock().unwrap();
-        f(cd.deref_mut())
+        let mut cd = self.mutable_core.lock().unwrap();
+        f(&mut cd.definition)
     }
 
     /// Returns a reference to this component's logger
@@ -247,7 +253,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     fn inner_execute(&self) -> SchedulingDecision {
         let max_events = self.core.system.throughput();
         let max_messages = self.core.system.max_messages();
-        match self.definition().lock() {
+        match self.mutable_core.lock() {
             Ok(mut guard) => {
                 let mut count: usize = 0;
                 while let Ok(event) = self.ctrl_queue.pop() {
@@ -270,7 +276,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                             SupervisorMsg::Killed(self.core.id)
                         }
                     };
-                    guard.handle(event);
+                    guard.definition.handle(event);
                     count += 1;
                     // inform supervisor after local handling to make sure crashing component don't count as started
                     if let Some(ref supervisor) = self.supervisor {
@@ -283,7 +289,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 }
                 // timers have highest priority
                 while count < max_events {
-                    let c = guard.deref_mut();
+                    let c = &mut guard.definition;
                     match c.ctx_mut().timer_manager_mut().try_action() {
                         ExecuteAction::Once(id, action) => {
                             action(c, id);
@@ -299,7 +305,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 // then some messages
                 while count < max_messages {
                     if let Some(env) = self.msg_queue.pop() {
-                        guard.receive(env);
+                        guard.definition.receive(env);
                         count += 1;
                     } else {
                         break;
@@ -308,14 +314,15 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 // then events
                 let rem_events = max_events.saturating_sub(count);
                 if (rem_events > 0) {
-                    let res = guard.execute(rem_events, self.skip.load(Ordering::Relaxed));
-                    self.skip.store(res.skip, Ordering::Relaxed);
-                    count = count + res.count;
+                    let skip = guard.skip;
+                    let res = guard.definition.execute(rem_events, skip);
+                    guard.skip = res.skip;
+                    count += res.count;
 
                     // and maybe some more messages
                     while count < max_events {
                         if let Some(env) = self.msg_queue.pop() {
-                            guard.receive(env);
+                            guard.definition.receive(env);
                             count += 1;
                         } else {
                             break;
@@ -343,17 +350,6 @@ where
         ActorRef::new(comp, msgq)
     }
 }
-
-// impl<CD> DynActorRefFactory for Arc<Component<CD>>
-// where
-//     CD: ComponentDefinition + ActorRaw + 'static,
-// {
-//     fn dyn_ref(&self) -> DynActorRef {
-//         let component = Arc::downgrade(self);
-//         let msg_queue = Arc::downgrade(&self.msg_queue);
-//         DynActorRef::from(component, msg_queue)
-//     }
-// }
 
 impl<CD> ActorRefFactory for CD
 where
@@ -391,7 +387,7 @@ where
     CD: ComponentDefinition + 'static,
 {
     fn path_resolvable(&self) -> PathResolvable {
-        PathResolvable::ActorId(self.ctx().id().clone())
+        PathResolvable::ActorId(*self.ctx().id())
     }
 }
 
@@ -566,7 +562,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         CD: ComponentDefinition + 'static,
     {
         let system = c.system();
-        let id = c.id().clone();
+        let id = *c.id();
         let inner = ComponentContextInner {
             timer_manager: TimerManager::new(system.timer_ref()),
             component: Arc::downgrade(&c),
@@ -733,6 +729,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     }
 }
 
+impl<CD: ComponentDefinition + Sized + 'static> Default for ComponentContext<CD> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<CD> ActorRefFactory for ComponentContext<CD>
 where
     CD: ComponentDefinition + ActorRaw + Sized + 'static,
@@ -749,7 +751,7 @@ where
     CD: ComponentDefinition + ActorRaw + Sized + 'static,
 {
     fn actor_path(&self) -> ActorPath {
-        let id = self.id().clone();
+        let id = *self.id();
         ActorPath::Unique(UniquePath::with_system(self.system().system_path(), id))
     }
 }
@@ -1083,10 +1085,11 @@ where
     fn lock_dyn_definition(
         &self,
     ) -> Result<DynamicComponentDefinitionMutexGuard<Self::Message>, LockPoisoned> {
-        let lock = self.definition.lock().map_err(|_| LockPoisoned)?;
+        let lock = self.mutable_core.lock().map_err(|_| LockPoisoned)?;
         let res = OwningRefMut::new(Box::new(lock))
             .map_mut(|l| {
-                l.deref_mut() as &mut dyn DynamicComponentDefinition<Message = Self::Message>
+                (&mut l.deref_mut().definition)
+                    as &mut dyn DynamicComponentDefinition<Message = Self::Message>
             })
             .erase_owner();
         Ok(res)
@@ -1332,11 +1335,8 @@ mod tests {
 
     impl Provide<ControlPort> for TestComponent {
         fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting TestComponent");
-                }
-                _ => (), // ignore
+            if let ControlEvent::Start = event {
+                info!(self.ctx.log(), "Starting TestComponent");
             }
         }
     }
@@ -1587,7 +1587,7 @@ mod tests {
         ignore_indications!(A, TestComp);
 
         let system = KompactConfig::default().build().expect("System");
-        let comp = system.create(|| TestComp::new());
+        let comp = system.create(TestComp::new);
         let dynamic: Arc<dyn AbstractComponent<Message = Never>> = comp;
         dynamic.on_dyn_definition(|def| {
             assert!(def.get_required_port::<A>().is_some());
