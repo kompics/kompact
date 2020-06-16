@@ -7,6 +7,7 @@ use std::sync::{
 };
 
 mod config;
+mod lifecycle;
 mod scheduler;
 mod system;
 

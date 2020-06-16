@@ -33,25 +33,25 @@ rustc_version = "0.2"
 #[dev-dependencies]
 #criterion = {version = "0.3", features=['real_blackbox']}
 
-[[bench]]
-name = "network_latency"
-path = "src/network_latency.rs"
-harness = false
+# [[bench]]
+# name = "network_latency"
+# path = "src/network_latency.rs"
+# harness = false
 
-[[bench]]
-name = "hashes"
-path = "src/hashes.rs"
-harness = false
+# [[bench]]
+# name = "hashes"
+# path = "src/hashes.rs"
+# harness = false
 
 [[bench]]
 name = "actorrefs"
 path = "src/actorrefs.rs"
 harness = false
 
-[[bench]]
-name = "loop_opts"
-path = "src/loop_opts.rs"
-harness = false
+# [[bench]]
+# name = "loop_opts"
+# path = "src/loop_opts.rs"
+# harness = false
 
 [[bench]]
 name = "pingperf"

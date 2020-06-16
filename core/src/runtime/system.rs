@@ -607,10 +607,8 @@ impl KompactSystem {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
-        self.supervision_port().enqueue(SupervisorMsg::Listen(
-            amp,
-            ListenEvent::Started(c.id().clone()),
-        ));
+        self.supervision_port()
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Started(*c.id())));
         c.enqueue_control(ControlEvent::Start);
         f
     }
@@ -681,10 +679,8 @@ impl KompactSystem {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
-        self.supervision_port().enqueue(SupervisorMsg::Listen(
-            amp,
-            ListenEvent::Stopped(c.id().clone()),
-        ));
+        self.supervision_port()
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Stopped(*c.id())));
         c.enqueue_control(ControlEvent::Stop);
         f
     }
@@ -751,10 +747,8 @@ impl KompactSystem {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
-        self.supervision_port().enqueue(SupervisorMsg::Listen(
-            amp,
-            ListenEvent::Destroyed(c.id().clone()),
-        ));
+        self.supervision_port()
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Destroyed(*c.id())));
         c.enqueue_control(ControlEvent::Kill);
         f
     }

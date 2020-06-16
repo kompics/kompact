@@ -3,7 +3,7 @@ use std::{
     ops::DerefMut,
     panic,
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
         Arc,
         Mutex,
         Weak,
@@ -76,7 +76,6 @@ pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
     msg_queue: Arc<TypedMsgQueue<C::Message>>,
     skip: AtomicUsize,
-    state: AtomicUsize,
     supervisor: Option<ProvidedRef<SupervisionPort>>,
     // system components don't have supervision
     logger: KompactLogger,
@@ -101,7 +100,6 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
             skip: AtomicUsize::new(0),
-            state: lifecycle::initial_state(),
             supervisor: Some(supervisor),
             logger,
         }
@@ -126,7 +124,6 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue,
             skip: AtomicUsize::new(0),
-            state: lifecycle::initial_state(),
             supervisor: Some(supervisor),
             logger,
         }
@@ -145,7 +142,6 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue: Arc::new(TypedMsgQueue::new()),
             skip: AtomicUsize::new(0),
-            state: lifecycle::initial_state(),
             supervisor: None,
             logger,
         }
@@ -168,7 +164,6 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
             msg_queue: Arc::new(TypedMsgQueue::new()),
             skip: AtomicUsize::new(0),
-            state: lifecycle::initial_state(),
             supervisor: None,
             logger,
         }
@@ -223,17 +218,17 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 
     /// Returns `true` if the component is marked as *faulty*.
     pub fn is_faulty(&self) -> bool {
-        lifecycle::is_faulty(&self.state)
+        lifecycle::is_faulty(&self.core.state)
     }
 
     /// Returns `true` if the component is marked as *active*.
     pub fn is_active(&self) -> bool {
-        lifecycle::is_active(&self.state)
+        lifecycle::is_active(&self.core.state)
     }
 
     /// Returns `true` if the component is marked as *destroyed*.
     pub fn is_destroyed(&self) -> bool {
-        lifecycle::is_destroyed(&self.state)
+        lifecycle::is_destroyed(&self.core.state)
     }
 
     /// Wait synchronously for this component be either *destroyed* or *faulty*
@@ -260,17 +255,17 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                     // println!("Executing event: {:?}", event);
                     let supervisor_msg = match event {
                         lifecycle::ControlEvent::Start => {
-                            lifecycle::set_active(&self.state);
+                            lifecycle::set_active(&self.core.state);
                             debug!(self.logger, "Component started.");
                             SupervisorMsg::Started(self.core.component())
                         }
                         lifecycle::ControlEvent::Stop => {
-                            lifecycle::set_passive(&self.state);
+                            lifecycle::set_passive(&self.core.state);
                             debug!(self.logger, "Component stopped.");
                             SupervisorMsg::Stopped(self.core.id)
                         }
                         lifecycle::ControlEvent::Kill => {
-                            lifecycle::set_destroyed(&self.state);
+                            lifecycle::set_destroyed(&self.core.state);
                             debug!(self.logger, "Component killed.");
                             SupervisorMsg::Killed(self.core.id)
                         }
@@ -282,7 +277,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                         supervisor.enqueue(supervisor_msg);
                     }
                 }
-                if (!lifecycle::is_active(&self.state)) {
+                if (!lifecycle::is_active(&self.core.state)) {
                     trace!(self.logger, "Not running inactive scheduled.");
                     return self.core.decrement_work(count);
                 }
@@ -454,15 +449,16 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
     }
 
     fn execute(&self) -> SchedulingDecision {
-        if (lifecycle::is_destroyed(&self.state)) {
-            return SchedulingDecision::NoWork; // don't execute anything
-        }
-        if (lifecycle::is_faulty(&self.state)) {
-            warn!(
-                self.logger,
-                "Ignoring attempt to execute a faulty component!"
-            );
-            return SchedulingDecision::NoWork; // don't execute anything
+        match self.core.load_state() {
+            LifecycleState::Destroyed => return SchedulingDecision::NoWork, // don't execute anything
+            LifecycleState::Faulty => {
+                warn!(
+                    self.logger,
+                    "Ignoring attempt to execute a faulty component!"
+                );
+                return SchedulingDecision::NoWork; // don't execute anything
+            }
+            _ => (), // it's fine to continue
         }
         let res = panic::catch_unwind(panic::AssertUnwindSafe(|| self.inner_execute()));
         match res {
@@ -479,7 +475,7 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
                         e.type_id()
                     );
                 }
-                lifecycle::set_faulty(&self.state);
+                lifecycle::set_faulty(&self.core.state);
                 if let Some(ref supervisor) = self.supervisor {
                     supervisor.enqueue(SupervisorMsg::Faulty(self.core.id));
                 } else {
@@ -1250,7 +1246,7 @@ pub enum SchedulingDecision {
 pub struct ComponentCore {
     id: Uuid,
     system: KompactSystem,
-    work_count: AtomicUsize,
+    state: AtomicU64,
     component: UnsafeCell<Weak<dyn CoreContainer>>,
 }
 
@@ -1263,9 +1259,13 @@ impl ComponentCore {
         ComponentCore {
             id: Uuid::new_v4(),
             system,
-            work_count: AtomicUsize::new(0),
+            state: lifecycle::initial_state(),
             component: UnsafeCell::new(weak),
         }
+    }
+
+    fn load_state(&self) -> LifecycleState {
+        LifecycleState::load(&self.state)
     }
 
     /// Returns a reference to the Kompact system this component is a part of
@@ -1296,21 +1296,11 @@ impl ComponentCore {
     }
 
     pub(crate) fn increment_work(&self) -> SchedulingDecision {
-        if self.work_count.fetch_add(1, Ordering::SeqCst) == 0 {
-            SchedulingDecision::Schedule
-        } else {
-            SchedulingDecision::AlreadyScheduled
-        }
+        LifecycleState::increment_work(&self.state)
     }
 
     pub(crate) fn decrement_work(&self, work_done: usize) -> SchedulingDecision {
-        let oldv = self.work_count.fetch_sub(work_done, Ordering::SeqCst);
-        let newv = oldv - work_done;
-        if (newv > 0) {
-            SchedulingDecision::Schedule
-        } else {
-            SchedulingDecision::NoWork
-        }
+        LifecycleState::decrement_work(&self.state, work_done)
     }
 }
 
@@ -1358,11 +1348,11 @@ mod tests {
         let core = cc.core();
         is_send(&core.id);
         is_send(&core.system);
-        is_send(&core.work_count);
+        is_send(&core.state);
         // component is clearly not Send, but that's ok
         is_sync(&core.id);
         is_sync(&core.system);
-        is_sync(&core.work_count);
+        is_sync(&core.state);
         // component is clearly not Sync, but that's ok
     }
 
