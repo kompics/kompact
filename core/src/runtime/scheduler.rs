@@ -72,9 +72,7 @@ impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
 
 impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
-        self.exec.execute(move || {
-            c.execute();
-        });
+        self.exec.execute(move || maybe_reschedule(c));
     }
 
     fn shutdown_async(&self) -> () {
@@ -93,3 +91,28 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
         self.exec.shutdown_async();
     }
 }
+
+fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
+    if let SchedulingDecision::Schedule = c.execute() {
+        if cfg!(feature = "use_local_executor") {
+            let res = try_execute_locally(move || maybe_reschedule(c));
+            if res.is_err() {
+                panic!("Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
+            }
+        } else {
+            let c2 = c.clone();
+            c.system().schedule(c2);
+        }
+    }
+}
+
+// pub(crate) fn schedule_local_or_on_pool(core: &ComponentCore) {
+//     if cfg!(feature = "avoid_executor_lookups") {
+//         let component = core.component();
+//         if try_execute_locally(move || component.execute()).is_err() {
+//             core.system().schedule(core.component());
+//         }
+//     } else {
+//         core.system().schedule(core.component());
+//     }
+// }

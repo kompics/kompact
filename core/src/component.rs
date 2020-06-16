@@ -46,7 +46,7 @@ pub trait CoreContainer: Send + Sync {
     /// Returns a reference to the actual component core
     fn core(&self) -> &ComponentCore;
     /// Executes this component on the current thread
-    fn execute(&self) -> ();
+    fn execute(&self) -> SchedulingDecision;
     /// Returns a reference to this component's control port
     fn control_port(&self) -> ProvidedRef<ControlPort>;
     /// Returns this component's system
@@ -249,7 +249,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
         }
     }
 
-    fn inner_execute(&self) {
+    fn inner_execute(&self) -> SchedulingDecision {
         let max_events = self.core.system.throughput();
         let max_messages = self.core.system.max_messages();
         match self.definition().lock() {
@@ -284,11 +284,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 }
                 if (!lifecycle::is_active(&self.state)) {
                     trace!(self.logger, "Not running inactive scheduled.");
-                    match self.core.decrement_work(count) {
-                        SchedulingDecision::Schedule => self.schedule(),
-                        _ => (), // ignore
-                    }
-                    return;
+                    return self.core.decrement_work(count);
                 }
                 // timers have highest priority
                 while count < max_events {
@@ -331,10 +327,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                         }
                     }
                 }
-                match self.core.decrement_work(count) {
-                    SchedulingDecision::Schedule => self.schedule(),
-                    _ => (), // ignore
-                }
+                self.core.decrement_work(count)
             }
             _ => {
                 panic!("Component {} is poisoned but not faulty!", self.id());
@@ -460,22 +453,20 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
         &self.core
     }
 
-    fn execute(&self) -> () {
+    fn execute(&self) -> SchedulingDecision {
         if (lifecycle::is_destroyed(&self.state)) {
-            return; // don't execute anything
+            return SchedulingDecision::NoWork; // don't execute anything
         }
         if (lifecycle::is_faulty(&self.state)) {
             warn!(
                 self.logger,
                 "Ignoring attempt to execute a faulty component!"
             );
-            return; // don't execute anything
+            return SchedulingDecision::NoWork; // don't execute anything
         }
-        let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-            self.inner_execute();
-        }));
+        let res = panic::catch_unwind(panic::AssertUnwindSafe(|| self.inner_execute()));
         match res {
-            Ok(_) => (), // great
+            Ok(decision) => decision, // great
             Err(e) => {
                 if let Some(error_msg) = e.downcast_ref::<&str>() {
                     error!(self.logger, "Component panicked with: {:?}", error_msg);
@@ -499,6 +490,7 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
                     );
                     self.system().poison();
                 }
+                SchedulingDecision::NoWork
             }
         }
     }

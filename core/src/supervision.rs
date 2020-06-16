@@ -91,7 +91,10 @@ impl ComponentSupervisor {
     fn shutdown_if_no_more_children(&mut self) {
         if self.shutdown.is_some() {
             if self.children.is_empty() {
-                debug!(self.ctx.log(), "Last child of the Supervisor is dead or faulty!");
+                debug!(
+                    self.ctx.log(),
+                    "Last child of the Supervisor is dead or faulty!"
+                );
                 let promise = self.shutdown.take().unwrap();
                 promise
                     .fulfil(())
