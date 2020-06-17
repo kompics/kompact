@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentContext, ExecuteResult, Provide},
     lifecycle::{ControlEvent, ControlPort},
 };
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, pin::Pin, sync::Arc};
 
 use crate::{
     actors::{NamedPath, UniquePath},
@@ -33,7 +33,10 @@ use crate::{
 };
 use arc_swap::ArcSwap;
 use fnv::FnvHashMap;
-use futures::{self, Async, AsyncSink, Poll, StartSend};
+use futures::{
+    self,
+    task::{Context, Poll},
+};
 use std::{io::ErrorKind, time::Duration};
 
 pub mod lookup;
@@ -644,40 +647,46 @@ impl Provide<ControlPort> for NetworkDispatcher {
 }
 
 /// Helper for forwarding [MsgEnvelope]s to actor references
-impl futures::Sink for ActorRefStrong<DispatchEnvelope> {
-    type SinkError = ();
-    type SinkItem = DispatchEnvelope;
+impl futures::sink::Sink<DispatchEnvelope> for ActorRefStrong<DispatchEnvelope> {
+    type Error = ();
 
-    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn start_send(self: Pin<&mut Self>, item: DispatchEnvelope) -> Result<(), Self::Error> {
         self.tell(item);
-        Ok(AsyncSink::Ready)
+        Ok(())
     }
 
-    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
-    fn close(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 
 /// Helper for forwarding [MsgEnvelope]s to actor references
-impl futures::Sink for DynActorRef {
-    type SinkError = ();
-    type SinkItem = NetMessage;
+impl futures::sink::Sink<NetMessage> for DynActorRef {
+    type Error = ();
 
-    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
-        DynActorRef::enqueue(self, item);
-        Ok(AsyncSink::Ready)
+    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
-    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn start_send(self: Pin<&mut Self>, item: NetMessage) -> Result<(), Self::Error> {
+        DynActorRef::enqueue(&self.as_ref(), item);
+        Ok(())
     }
 
-    fn close(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 

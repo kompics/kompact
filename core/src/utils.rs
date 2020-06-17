@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use std::{
     fmt,
-    ops::DerefMut,
     sync::{mpsc, TryLockError},
     time::Duration,
 };
