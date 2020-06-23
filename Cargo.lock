@@ -70,6 +70,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62eaa19b325e1b3dc2f7b9b6de544dd536619e3dcf986fc391b2c643f10d68c0"
 
 [[package]]
+name = "async-task"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c17772156ef2829aadc587461c7753af20b7e8db1529bc66855add962a3b35d3"
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -470,11 +476,11 @@ name = "executors"
 version = "0.6.1"
 dependencies = [
  "arr_macro",
+ "async-task",
  "core_affinity",
  "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-utils 0.7.2",
- "futures",
  "log",
  "num_cpus",
  "rand",

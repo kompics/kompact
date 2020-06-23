@@ -36,11 +36,13 @@
 //! system.await_termination();
 //! ```
 
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 #![allow(unused_parens)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]
 #![cfg_attr(nightly, feature(never_type))]
+#![cfg_attr(nightly, feature(option_expect_none))]
+#![cfg_attr(nightly, feature(async_closure))]
 #![cfg_attr(all(nightly, feature = "type_erasure"), feature(unsized_locals))]
 
 #[cfg(feature = "thread_pinning")]
@@ -80,7 +82,6 @@ mod dedicated_scheduler;
 /// Default implementations for system components
 pub mod default_components;
 mod dispatch;
-mod lifecycle;
 /// Facilities and utilities for dealing with network messages
 pub mod messaging;
 /// Default networking implementation

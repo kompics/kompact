@@ -93,16 +93,20 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
 }
 
 fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
-    if let SchedulingDecision::Schedule = c.execute() {
-        if cfg!(feature = "use_local_executor") {
-            let res = try_execute_locally(move || maybe_reschedule(c));
-            if res.is_err() {
-                panic!("Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
+    match c.execute() {
+        SchedulingDecision::Schedule => {
+            if cfg!(feature = "use_local_executor") {
+                let res = try_execute_locally(move || maybe_reschedule(c));
+                if res.is_err() {
+                    panic!("Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
+                }
+            } else {
+                let c2 = c.clone();
+                c.system().schedule(c2);
             }
-        } else {
-            let c2 = c.clone();
-            c.system().schedule(c2);
         }
+        SchedulingDecision::Resume => maybe_reschedule(c),
+        _ => (),
     }
 }
 

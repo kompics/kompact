@@ -75,7 +75,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 quote! {
                     if skip <= #i {
                         if count >= max_events {
-                            return ExecuteResult::new(count, #i);
+                            return ExecuteResult::new(false, count, #i);
                         }
                         #[allow(unreachable_code)]
                         { // can be Never type, which is ok, so just suppress this warning
@@ -83,6 +83,9 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                                 #handle
                                 count += 1;
                                 done_work = true;
+                                if self.ctx().is_blocking() {
+                                    return ExecuteResult::new(true, count, #i);
+                                }
                             }
                         }
                     }
@@ -98,7 +101,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 let handle = t.as_handle();
                 quote! {
                     if count >= max_events {
-                        return ExecuteResult::new(count, #i);
+                        return ExecuteResult::new(false, count, #i);
                     }
                     #[allow(unreachable_code)]
                     { // can be Never type, which is ok, so just suppress this warning
@@ -106,6 +109,9 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                             #handle
                             count += 1;
                             done_work = true;
+                            if self.ctx().is_blocking() {
+                                return ExecuteResult::new(true, count, #i);
+                            }
                         }
                     }
                 }
@@ -114,7 +120,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         let exec = if port_handles.is_empty() {
             quote! {
                 fn execute(&mut self, _max_events: usize, _skip: usize) -> ExecuteResult {
-                    ExecuteResult::new(0, 0)
+                    ExecuteResult::new(false, 0, 0)
                 }
             }
         } else {
@@ -127,7 +133,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                         done_work = false;
                         #(#port_handles)*
                     }
-                    ExecuteResult::new(count, 0)
+                    ExecuteResult::new(false, count, 0)
                 }
             }
         };

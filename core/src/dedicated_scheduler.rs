@@ -1,10 +1,9 @@
 use crate::{
-    component::{Component, ComponentDefinition, CoreContainer},
+    component::{Component, ComponentDefinition, CoreContainer, SchedulingDecision},
     runtime::Scheduler,
     utils,
 };
 use std::{
-    cell::UnsafeCell,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -13,24 +12,6 @@ use std::{
 };
 
 use crossbeam_utils::Backoff;
-
-struct ThreadLocalInfo {
-    reschedule: bool,
-}
-
-impl ThreadLocalInfo {
-    fn reset(&mut self) {
-        self.reschedule = false;
-    }
-
-    fn set(&mut self) {
-        self.reschedule = true;
-    }
-}
-
-thread_local!(
-    static LOCAL_RESCHEDULE: UnsafeCell<Option<ThreadLocalInfo>> = UnsafeCell::new(Option::None);
-);
 
 #[derive(Clone)]
 pub(crate) struct DedicatedThreadScheduler {
@@ -102,10 +83,6 @@ impl DedicatedThreadScheduler {
     ) where
         CD: ComponentDefinition + 'static,
     {
-        LOCAL_RESCHEDULE.with(|info| unsafe {
-            let s = ThreadLocalInfo { reschedule: false };
-            *info.get() = Some(s);
-        });
         let c = f.wait(); //.expect("Should have gotten a component");
         DedicatedThreadScheduler::run(c, stop, stopped)
     }
@@ -116,22 +93,17 @@ impl DedicatedThreadScheduler {
     {
         let backoff = Backoff::new();
         'main: loop {
-            LOCAL_RESCHEDULE.with(|info| unsafe {
-                match *info.get() {
-                    Some(ref mut i) => i.reset(),
-                    None => unreachable!(),
-                }
-            });
-            c.execute();
+            let res = c.execute();
             if c.is_destroyed() || stop.load(Ordering::Relaxed) {
                 break 'main;
             }
-            let park = LOCAL_RESCHEDULE.with(|info| unsafe {
-                match *info.get() {
-                    Some(ref mut info) => !info.reschedule,
-                    None => unreachable!("Did set this up there!"),
+            let park = match res {
+                SchedulingDecision::NoWork | SchedulingDecision::Blocked => true,
+                SchedulingDecision::Resume | SchedulingDecision::Schedule => false,
+                SchedulingDecision::AlreadyScheduled => {
+                    panic!("Don't know what to do with AlreadyScheduled here")
                 }
-            });
+            };
 
             if park {
                 if backoff.is_completed() {
@@ -143,23 +115,11 @@ impl DedicatedThreadScheduler {
                 backoff.reset();
             }
         }
-        LOCAL_RESCHEDULE.with(|info| unsafe {
-            *info.get() = None;
-        });
         stopped.store(true, Ordering::Relaxed);
     }
 
     pub(crate) fn schedule_custom(&self) -> () {
-        LOCAL_RESCHEDULE.with(|info| unsafe {
-            match *info.get() {
-                Some(ref mut i) if self.id == thread::current().id() => {
-                    i.set();
-                }
-                _ => {
-                    self.handle.thread().unpark();
-                }
-            }
-        });
+        self.handle.thread().unpark();
     }
 }
 
