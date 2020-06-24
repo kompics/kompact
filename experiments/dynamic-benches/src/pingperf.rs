@@ -72,8 +72,8 @@ mod port_pingpong {
     impl Pinger {
         pub fn with(repeat: u64) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
-                ppp: RequiredPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                ppp: RequiredPort::uninitialised(),
                 latch: None,
                 repeat,
                 sent: 0,
@@ -83,13 +83,13 @@ mod port_pingpong {
     }
 
     impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, _event: ControlEvent) {
-            // nothing
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // nothing
         }
     }
 
     impl Require<PingPongPort> for Pinger {
-        fn handle(&mut self, _event: Pong) {
+        fn handle(&mut self, _event: Pong) -> Handled {
             self.received += 1;
             if self.sent < self.repeat {
                 self.ppp.trigger(Ping);
@@ -97,13 +97,14 @@ mod port_pingpong {
             } else if self.received >= self.repeat {
                 let _ = self.latch.take().unwrap().decrement();
             }
+            Handled::Ok
         }
     }
 
     impl Actor for Pinger {
         type Message = Start;
 
-        fn receive_local(&mut self, msg: Self::Message) {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             self.sent = 0;
             self.received = 0;
             self.latch = Some(msg.0);
@@ -112,9 +113,10 @@ mod port_pingpong {
                 self.ppp.trigger(Ping);
                 self.sent += 1;
             }
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("not needed");
         }
     }
@@ -129,24 +131,25 @@ mod port_pingpong {
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
-                ppp: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                ppp: ProvidedPort::uninitialised(),
                 received: 0,
             }
         }
     }
 
     impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, _event: ControlEvent) {
-            // nothing
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // nothing
         }
     }
 
     impl Provide<PingPongPort> for Ponger {
-        fn handle(&mut self, _event: Ping) {
+        fn handle(&mut self, _event: Ping) -> Handled {
             self.received += 1;
             //println!("Got Ping #{}", self.received);
             self.ppp.trigger(Pong);
+            Handled::Ok
         }
     }
 }
@@ -187,7 +190,7 @@ mod strong_ref_pingpong {
     impl Pinger {
         pub fn with(repeat: u64) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 ponger: None,
                 latch: None,
                 repeat,
@@ -198,15 +201,15 @@ mod strong_ref_pingpong {
     }
 
     impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, _event: ControlEvent) {
-            // nothing
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // nothing
         }
     }
 
     impl Actor for Pinger {
         type Message = PingerMsg;
 
-        fn receive_local(&mut self, msg: Self::Message) {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             match msg {
                 PingerMsg::Start { ponger, latch } => {
                     self.sent = 0;
@@ -233,9 +236,10 @@ mod strong_ref_pingpong {
                     }
                 }
             }
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("not needed");
         }
     }
@@ -250,7 +254,7 @@ mod strong_ref_pingpong {
     impl Ponger {
         pub fn new(pinger: ActorRefStrong<PingerMsg>) -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 pinger,
                 received: 0,
             }
@@ -258,20 +262,21 @@ mod strong_ref_pingpong {
     }
 
     impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, _event: ControlEvent) {
-            // nothing
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // nothing
         }
     }
 
     impl Actor for Ponger {
         type Message = Ping;
 
-        fn receive_local(&mut self, _msg: Self::Message) {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             self.received += 1;
             self.pinger.tell(PingerMsg::Pong);
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("not needed");
         }
     }
@@ -313,7 +318,7 @@ mod weak_ref_pingpong {
     impl Pinger {
         pub fn with(repeat: u64) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 ponger: None,
                 latch: None,
                 repeat,
@@ -324,15 +329,15 @@ mod weak_ref_pingpong {
     }
 
     impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, _event: ControlEvent) {
-            // nothing
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // nothing
         }
     }
 
     impl Actor for Pinger {
         type Message = PingerMsg;
 
-        fn receive_local(&mut self, msg: Self::Message) {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             match msg {
                 PingerMsg::Start { ponger, latch } => {
                     self.sent = 0;
@@ -359,9 +364,10 @@ mod weak_ref_pingpong {
                     }
                 }
             }
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("not needed");
         }
     }
@@ -376,7 +382,7 @@ mod weak_ref_pingpong {
     impl Ponger {
         pub fn new(pinger: ActorRef<PingerMsg>) -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 pinger,
                 received: 0,
             }
@@ -384,20 +390,21 @@ mod weak_ref_pingpong {
     }
 
     impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, _event: ControlEvent) {
-            // nothing
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // nothing
         }
     }
 
     impl Actor for Ponger {
         type Message = Ping;
 
-        fn receive_local(&mut self, _msg: Self::Message) {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             self.received += 1;
             self.pinger.tell(PingerMsg::Pong);
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("not needed");
         }
     }
