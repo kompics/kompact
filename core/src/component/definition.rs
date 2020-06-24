@@ -1,7 +1,5 @@
 use super::*;
 
-use std::pin::Pin;
-
 /// Object-safe part of [`ComponentDefinition`].
 ///
 /// This trait aggregates all the object-safe super-traits of [`ComponentDefinition`] to make
@@ -64,14 +62,14 @@ where
     /// to the actual struct name.
     fn type_name() -> &'static str;
 
-    fn block_on<'a, F>(&'a mut self, fun: impl FnOnce(Pin<&'static mut Self>) -> F)
-    where
-        Self: 'static,
-        F: std::future::Future + Send + 'static,
-    {
-        let blocking = future_task::blocking(self, fun);
-        self.ctx_mut().set_blocking(blocking);
-    }
+    // fn block_on<F>(&mut self, fun: impl FnOnce(ComponentDefinitionAccess<Self>) -> F)
+    // where
+    //     Self: 'static,
+    //     F: std::future::Future + Send + 'static,
+    // {
+    //     let blocking = future_task::blocking(self, fun);
+    //     self.ctx_mut().set_blocking(blocking);
+    // }
 }
 
 /// A mechanism for dynamically getting references to provided/required ports from a component.

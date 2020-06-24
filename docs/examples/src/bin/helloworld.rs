@@ -7,18 +7,19 @@ struct HelloWorldComponent {
 impl HelloWorldComponent {
     pub fn new() -> Self {
         HelloWorldComponent {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
         }
     }
 }
 impl Provide<ControlPort> for HelloWorldComponent {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 info!(self.ctx.log(), "Hello World!");
                 self.ctx().system().shutdown_async();
+                Handled::Ok
             }
-            _ => (), // ignore other control events
+            _ => Handled::Ok, // ignore other control events
         }
     }
 }

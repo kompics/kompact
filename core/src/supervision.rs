@@ -54,8 +54,8 @@ pub(crate) struct ComponentSupervisor {
 impl ComponentSupervisor {
     pub(crate) fn new() -> ComponentSupervisor {
         ComponentSupervisor {
-            ctx: ComponentContext::new(),
-            supervision: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            supervision: ProvidedPort::uninitialised(),
             children: HashMap::new(),
             listeners: HashMap::new(),
             shutdown: None,
@@ -112,10 +112,11 @@ impl ComponentSupervisor {
 }
 
 impl Provide<ControlPort> for ComponentSupervisor {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Started.");
+                Handled::Ok
             }
             ControlEvent::Stop => {
                 error!(self.ctx.log(), "Do not stop the supervisor!");
@@ -133,7 +134,7 @@ impl Provide<ControlPort> for ComponentSupervisor {
 }
 
 impl Provide<SupervisionPort> for ComponentSupervisor {
-    fn handle(&mut self, event: SupervisorMsg) -> () {
+    fn handle(&mut self, event: SupervisorMsg) -> Handled {
         match event {
             SupervisorMsg::Started(c) => {
                 let id = c.id().clone();
@@ -239,5 +240,6 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 }
             }
         }
+        Handled::Ok
     }
 }

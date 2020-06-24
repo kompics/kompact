@@ -279,8 +279,8 @@ macro_rules! ignore_control {
 macro_rules! ignore_requests {
     ($port:ty, $component:ty) => {
         impl Provide<$port> for $component {
-            fn handle(&mut self, _event: <$port as Port>::Request) -> () {
-                () // ignore all
+            fn handle(&mut self, _event: <$port as Port>::Request) -> Handled {
+                Handled::Ok // ignore all
             }
         }
     };
@@ -299,8 +299,8 @@ macro_rules! ignore_requests {
 macro_rules! ignore_indications {
     ($port:ty, $component:ty) => {
         impl Require<$port> for $component {
-            fn handle(&mut self, _event: <$port as Port>::Indication) -> () {
-                () // ignore all
+            fn handle(&mut self, _event: <$port as Port>::Indication) -> Handled {
+                Handled::Ok // ignore all
             }
         }
     };
@@ -385,7 +385,7 @@ mod tests {
     impl TestComponent {
         fn new() -> TestComponent {
             TestComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 counter: 0u64,
             }
         }
@@ -396,14 +396,15 @@ mod tests {
     impl Actor for TestComponent {
         type Message = Ask<u64, ()>;
 
-        fn receive_local(&mut self, msg: Self::Message) -> () {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             msg.complete(|num| {
                 self.counter += num;
             })
             .expect("Should work!");
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) -> () {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }
     }

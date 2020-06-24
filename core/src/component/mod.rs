@@ -45,6 +45,38 @@ pub use component_core::*;
 mod future_task;
 use future_task::*;
 
+/// State transition indication at the end of a message or event handler
+#[must_use = "The Handled value must be returned fromt a handle or receive function to take effect."]
+#[derive(Debug)]
+pub enum Handled {
+    /// Continue as normal
+    Ok,
+    /// Immediately suspend processing of any messages and events
+    /// until the `BlockingFuture` has completed.
+    BlockOn(BlockingFuture),
+}
+impl Handled {
+    /// Constructs a state transition instruction which causes
+    /// the component to suspend processing of any messages and events
+    /// until the async `fun` (the returned [Future](std::future::Future)) has completed.
+    pub fn block_on<CD, F>(
+        component: &mut CD,
+        fun: impl FnOnce(ComponentDefinitionAccess<CD>) -> F,
+    ) -> Self
+    where
+        CD: ComponentDefinition + 'static,
+        F: std::future::Future + Send + 'static,
+    {
+        let blocking = future_task::blocking(component, fun);
+        Handled::BlockOn(blocking)
+    }
+}
+impl Default for Handled {
+    fn default() -> Self {
+        Handled::Ok
+    }
+}
+
 /// A trait for abstracting over structures that contain a component core
 ///
 /// Used for implementing scheduling and execution logic,
@@ -127,7 +159,7 @@ pub trait Provide<P: Port + 'static> {
     ///
     /// Remember that components usually run on a shared thread pool,
     /// so you shouldn't ever block in this method unless you know what you are doing.
-    fn handle(&mut self, event: P::Request) -> ();
+    fn handle(&mut self, event: P::Request) -> Handled;
 }
 
 /// A trait implementing handling of required events of `P`
@@ -140,7 +172,7 @@ pub trait Require<P: Port + 'static> {
     ///
     /// Remember that components usually run on a shared thread pool,
     /// so you shouldn't ever block in this method unless you know what you are doing.
-    fn handle(&mut self, event: P::Indication) -> ();
+    fn handle(&mut self, event: P::Indication) -> Handled;
 }
 
 /// A convenience abstraction over concrete port instance fields
@@ -259,16 +291,17 @@ mod tests {
     impl TestComponent {
         fn new() -> TestComponent {
             TestComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
             }
         }
     }
 
     impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
+        fn handle(&mut self, event: ControlEvent) -> Handled {
             if let ControlEvent::Start = event {
                 info!(self.ctx.log(), "Starting TestComponent");
             }
+            Handled::Ok
         }
     }
 
@@ -333,7 +366,7 @@ mod tests {
     impl ChildComponent {
         fn new() -> Self {
             ChildComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 got_message: false,
             }
         }
@@ -343,9 +376,10 @@ mod tests {
         type Deserialiser = TestMessage;
         type Message = TestMessage;
 
-        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> () {
+        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> Handled {
             info!(self.log(), "Child got message");
             self.got_message = true;
+            Handled::Ok
         }
     }
 
@@ -371,7 +405,7 @@ mod tests {
     impl ParentComponent {
         fn unique() -> Self {
             ParentComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 alias_opt: None,
                 child: None,
                 reg_id: None,
@@ -380,7 +414,7 @@ mod tests {
 
         fn alias(s: String) -> Self {
             ParentComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 alias_opt: Some(s),
                 child: None,
                 reg_id: None,
@@ -388,7 +422,7 @@ mod tests {
         }
     }
     impl Provide<ControlPort> for ParentComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
+        fn handle(&mut self, event: ControlEvent) -> Handled {
             match event {
                 ControlEvent::Start => {
                     let child = self.ctx.system().create(ChildComponent::new);
@@ -403,12 +437,13 @@ mod tests {
                     let _ = self.child.take(); // don't hang on to the child
                 }
             }
+            Handled::Ok
         }
     }
     impl Actor for ParentComponent {
         type Message = ParentMessage;
 
-        fn receive_local(&mut self, msg: Self::Message) -> () {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             match msg {
                 ParentMessage::GetChild(promise) => {
                     if let Some(ref child) = self.child {
@@ -429,9 +464,10 @@ mod tests {
                     }
                 }
             }
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) -> () {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("Shouldn't be used");
         }
     }
@@ -507,9 +543,9 @@ mod tests {
         impl TestComp {
             fn new() -> TestComp {
                 TestComp {
-                    ctx: ComponentContext::new(),
-                    req_a: RequiredPort::new(),
-                    prov_b: ProvidedPort::new(),
+                    ctx: ComponentContext::uninitialised(),
+                    req_a: RequiredPort::uninitialised(),
+                    prov_b: ProvidedPort::uninitialised(),
                 }
             }
         }
@@ -546,45 +582,46 @@ mod tests {
     impl BlockingComponent {
         fn new() -> Self {
             BlockingComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 test_string: "started".to_string(),
             }
         }
     }
 
     impl Provide<ControlPort> for BlockingComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
+        fn handle(&mut self, event: ControlEvent) -> Handled {
             if let ControlEvent::Start = event {
                 info!(self.log(), "Starting BlockingComponent");
             }
+            Handled::Ok
         }
     }
 
     impl Actor for BlockingComponent {
         type Message = BlockMe;
 
-        fn receive_local(&mut self, msg: Self::Message) {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             match msg {
                 BlockMe::Now => {
-                	info!(self.log(), "Got BlockMe::Now");
-                    self.block_on(async move |mut async_self| {
+                    info!(self.log(), "Got BlockMe::Now");
+                    Handled::block_on(self, async move |mut async_self| {
                         async_self.test_string = "done".to_string();
                         info!(async_self.log(), "Ran BlockMe::Now future");
-                    });
+                    })
                 }
                 BlockMe::OnChannel(receiver) => {
-                	info!(self.log(), "Got BlockMe::OnChannel");
-                    self.block_on(async move |mut async_self| {
-                    	info!(async_self.log(), "Started BlockMe::OnChannel future");
+                    info!(self.log(), "Got BlockMe::OnChannel");
+                    Handled::block_on(self, async move |mut async_self| {
+                        info!(async_self.log(), "Started BlockMe::OnChannel future");
                         let s = receiver.await;
                         async_self.test_string = s.expect("Some string");
                         info!(async_self.log(), "Completed BlockMe::OnChannel future");
-                    });
+                    })
                 }
             }
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("No networking here!");
         }
     }

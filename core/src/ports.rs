@@ -85,15 +85,15 @@ impl<P: Port + 'static> CommonPortData<P> {
 /// impl UnitProvider {
 ///     fn new() -> UnitProvider {
 ///         UnitProvider {
-///             ctx: ComponentContext::new(),
-///             unit_port: ProvidedPort::new(),
+///             ctx: ComponentContext::uninitialised(),
+///             unit_port: ProvidedPort::uninitialised(),
 ///         }
 ///     }    
 /// }
 /// ignore_control!(UnitProvider);
 /// impl Provide<UnitPort> for UnitProvider {
-///     fn handle(&mut self, event: ()) -> () {
-///         event // handle event
+///     fn handle(&mut self, event: ()) -> Handled {
+///         Handled::Ok // handle event
 ///     }    
 /// }
 /// ```
@@ -104,8 +104,13 @@ pub struct ProvidedPort<P: Port + 'static> {
 }
 
 impl<P: Port + 'static> ProvidedPort<P> {
-    /// Create a new provided port for port type `P` within component `C`
-    pub fn new() -> ProvidedPort<P> {
+    /// Create a new provided port for port type `P`
+    ///
+    /// # Note
+    ///
+    /// This port instance can only be used *after* the parent component has been created,
+    /// and *not* during the constructor or anywhere else!
+    pub fn uninitialised() -> ProvidedPort<P> {
         ProvidedPort {
             common: CommonPortData::new(),
             parent: None,
@@ -190,15 +195,15 @@ impl<P: Port + 'static> ProvidedPort<P> {
 /// impl UnitRequirer {
 ///     fn new() -> UnitRequirer {
 ///         UnitRequirer {
-///             ctx: ComponentContext::new(),
-///             unit_port: RequiredPort::new(),
+///             ctx: ComponentContext::uninitialised(),
+///             unit_port: RequiredPort::uninitialised(),
 ///         }
 ///     }    
 /// }
 /// ignore_control!(UnitRequirer);
 /// impl Require<UnitPort> for UnitRequirer {
-///     fn handle(&mut self, event: ()) -> () {
-///         event // handle event
+///     fn handle(&mut self, event: ()) -> Handled {
+///         Handled::Ok // handle event
 ///     }    
 /// }
 /// ```
@@ -209,8 +214,13 @@ pub struct RequiredPort<P: Port + 'static> {
 }
 
 impl<P: Port + 'static> RequiredPort<P> {
-    /// Create a new required port for port type `P` within component `C`
-    pub fn new() -> RequiredPort<P> {
+    /// Create a new required port for port type `P`
+    ///
+    /// # Note
+    ///
+    /// This port instance can only be used *after* the parent component has been created,
+    /// and *not* during the constructor or anywhere else!
+    pub fn uninitialised() -> RequiredPort<P> {
         RequiredPort {
             common: CommonPortData::new(),
             parent: None,

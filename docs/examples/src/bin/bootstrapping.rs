@@ -27,7 +27,7 @@ struct BootstrapServer {
 impl BootstrapServer {
     fn new() -> Self {
         BootstrapServer {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             processes: HashSet::new(),
         }
     }
@@ -45,12 +45,13 @@ impl NetworkActor for BootstrapServer {
     type Deserialiser = Serde;
     type Message = CheckIn;
 
-    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> () {
+    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
         if let Some(process) = source {
             if self.processes.insert(process) {
                 self.broadcast_processess();
             }
         }
+        Handled::Ok
     }
 }
 
@@ -70,8 +71,8 @@ impl EventualLeaderElector {
     fn new(bootstrap_server: ActorPath) -> Self {
         let minimal_period = Duration::from_millis(1);
         EventualLeaderElector {
-            ctx: ComponentContext::new(),
-            omega_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: ProvidedPort::uninitialised(),
             bootstrap_server,
             processes: Vec::new().into_boxed_slice(),
             candidates: HashSet::new(),
@@ -89,7 +90,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -111,13 +112,17 @@ impl EventualLeaderElector {
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 
-    fn send_heartbeats(&self) -> () {
+    fn send_heartbeats(&self) {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
@@ -125,7 +130,7 @@ impl EventualLeaderElector {
 }
 
 impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 self.bootstrap_server.tell((CheckIn, Serde), self);
@@ -149,6 +154,7 @@ impl Provide<ControlPort> for EventualLeaderElector {
                 }
             }
         }
+        Handled::Ok
     }
 }
 // Doesn't have any requests
@@ -157,11 +163,11 @@ ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         unreachable!();
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
         match_deser!(msg.data; {
@@ -178,6 +184,7 @@ impl Actor for EventualLeaderElector {
                 self.processes = processes.into_boxed_slice();
             },
         });
+        Handled::Ok
     }
 }
 

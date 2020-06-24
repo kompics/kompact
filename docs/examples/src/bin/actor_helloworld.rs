@@ -8,7 +8,7 @@ struct HelloWorldActor {
 impl HelloWorldActor {
     pub fn new() -> Self {
         HelloWorldActor {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
         }
     }
 }
@@ -17,12 +17,13 @@ ignore_control!(HelloWorldActor);
 impl Actor for HelloWorldActor {
     type Message = ();
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         info!(self.ctx.log(), "Hello World!");
         self.ctx().system().shutdown_async();
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("We are ignoring network messages for now.");
     }
 }

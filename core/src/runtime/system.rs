@@ -426,7 +426,7 @@ impl KompactSystem {
     /// ```
     pub fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<RegistrationResult> {
         self.inner.assert_active();
-        let id = c.core().id().clone();
+        let id = *c.core().id();
         let id_path = PathResolvable::ActorId(id);
         self.inner.register_by_path(c.as_ref(), false, id_path) // never update unique registrations
     }
@@ -857,18 +857,19 @@ impl KompactSystem {
     /// impl Stopper {
     ///     fn new() -> Stopper {
     ///         Stopper {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
     /// impl Provide<ControlPort> for Stopper {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         match event {
     ///            ControlEvent::Start => {
     ///                self.ctx().system().shutdown_async();
     ///            }
     ///            _ => (), // ignore
     ///        }
+    ///        Handled::Ok
     ///     }
     /// }
     /// let system = KompactConfig::default().build().expect("system");
@@ -1033,14 +1034,14 @@ pub trait SystemHandle: Dispatching {
     /// impl ParentComponent {
     ///     fn new() -> Self {
     ///         ParentComponent {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///             child: None,
     ///             reg_id: None,
     ///         }
     ///     }
     /// }
     /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         match event {
     ///             ControlEvent::Start => {
     ///                 let child = self.ctx.system().create(TestComponent1::new);
@@ -1052,12 +1053,13 @@ pub trait SystemHandle: Dispatching {
     ///                 let _ = self.child.take(); // don't hang on to the child
     ///             }
     ///         }
+    ///         Handled::Ok
     ///     }
     /// }
     /// impl Actor for ParentComponent {
     ///     type Message = RegistrationResponse;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
     ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
     ///         info!(self.log(), "Child was registered");
     ///         if let Some(ref child) = self.child {
@@ -1067,9 +1069,10 @@ pub trait SystemHandle: Dispatching {
     ///         } else {
     ///             unreachable!("Wouldn't have asked for registration without storing the child");
     ///         }
+    ///         Handled::Ok
     ///     }
     ///
-    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
+    ///     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     ///         unimplemented!("unused");
     ///     }
     /// }
@@ -1125,14 +1128,14 @@ pub trait SystemHandle: Dispatching {
     /// impl ParentComponent {
     ///     fn new() -> Self {
     ///         ParentComponent {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///             child: None,
     ///             reg_id: None,
     ///         }
     ///     }
     /// }
     /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         match event {
     ///             ControlEvent::Start => {
     ///                 let child = self.ctx.system().create(TestComponent1::new);
@@ -1144,12 +1147,13 @@ pub trait SystemHandle: Dispatching {
     ///                 let _ = self.child.take(); // don't hang on to the child
     ///             }
     ///         }
+    ///         Handled::Ok
     ///     }
     /// }
     /// impl Actor for ParentComponent {
     ///     type Message = RegistrationResponse;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
     ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
     ///         info!(self.log(), "Child was registered");
     ///         if let Some(ref child) = self.child {
@@ -1159,9 +1163,10 @@ pub trait SystemHandle: Dispatching {
     ///         } else {
     ///             unreachable!("Wouldn't have asked for registration without storing the child");
     ///         }
+    ///         Handled::Ok
     ///     }
     ///
-    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
+    ///     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     ///         unimplemented!("unused");
     ///     }
     /// }
@@ -1225,14 +1230,14 @@ pub trait SystemHandle: Dispatching {
     /// impl ParentComponent {
     ///     fn new() -> Self {
     ///         ParentComponent {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///             child: None,
     ///             reg_id: None,
     ///         }
     ///     }
     /// }
     /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         match event {
     ///             ControlEvent::Start => {
     ///                 let child = self.ctx.system().create(TestComponent1::new);
@@ -1244,12 +1249,13 @@ pub trait SystemHandle: Dispatching {
     ///                 let _ = self.child.take(); // don't hang on to the child
     ///             }
     ///         }
+    ///         Handled::Ok
     ///     }
     /// }
     /// impl Actor for ParentComponent {
     ///     type Message = RegistrationResponse;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
     ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
     ///         info!(self.log(), "Child was registered");
     ///         if let Some(ref child) = self.child {
@@ -1259,9 +1265,10 @@ pub trait SystemHandle: Dispatching {
     ///         } else {
     ///             unreachable!("Wouldn't have asked for registration without storing the child");
     ///         }
+    ///         Handled::Ok
     ///     }
     ///
-    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
+    ///     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     ///         unimplemented!("unused");
     ///     }
     /// }
@@ -1391,18 +1398,19 @@ pub trait SystemHandle: Dispatching {
     /// impl Stopper {
     ///     fn new() -> Stopper {
     ///         Stopper {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
     /// impl Provide<ControlPort> for Stopper {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
+    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         match event {
     ///            ControlEvent::Start => {
     ///                self.ctx().system().shutdown_async();
     ///            }
     ///            _ => (), // ignore
     ///        }
+    ///        Handled::Ok
     ///     }
     /// }
     /// let system = KompactConfig::default().build().expect("system");

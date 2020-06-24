@@ -15,8 +15,8 @@ struct Buncher {
 impl Buncher {
     fn new() -> Buncher {
         Buncher {
-            ctx: ComponentContext::new(),
-            batch_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            batch_port: ProvidedPort::uninitialised(),
             batch_size: 0,
             timeout: Duration::from_millis(1),
             current_batch: Vec::new(),
@@ -30,21 +30,25 @@ impl Buncher {
         self.batch_port.trigger(Batch(new_batch))
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id => {
                 self.trigger_batch();
                 let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
                 self.outstanding_timeout = Some(new_timeout);
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 }
 
 impl Provide<ControlPort> for Buncher {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 self.batch_size = self.ctx.config()["buncher"]["batch-size"]
@@ -56,18 +60,20 @@ impl Provide<ControlPort> for Buncher {
                 self.current_batch.reserve(self.batch_size);
                 let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
                 self.outstanding_timeout = Some(timeout);
+                Handled::Ok
             }
             ControlEvent::Stop | ControlEvent::Kill => {
                 if let Some(timeout) = self.outstanding_timeout.take() {
                     self.cancel_timer(timeout);
                 }
+                Handled::Ok
             }
         }
     }
 }
 
 impl Provide<Batching> for Buncher {
-    fn handle(&mut self, event: Ping) -> () {
+    fn handle(&mut self, event: Ping) -> Handled {
         self.current_batch.push(event);
         if self.current_batch.len() >= self.batch_size {
             self.trigger_batch();
@@ -77,6 +83,7 @@ impl Provide<Batching> for Buncher {
             let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
             self.outstanding_timeout = Some(new_timeout);
         }
+        Handled::Ok
     }
 }
 

@@ -28,33 +28,33 @@ pub struct TestActor {
 impl TestActor {
     pub fn new() -> TestActor {
         TestActor {
-            ctx: ComponentContext::new(),
-            testp: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            testp: ProvidedPort::uninitialised(),
         }
     }
 }
 
 impl Provide<ControlPort> for TestActor {
-    fn handle(&mut self, _event: ControlEvent) -> () {
-        // ignore
+    fn handle(&mut self, _event: ControlEvent) -> Handled {
+        Handled::Ok // discard
     }
 }
 
 impl Provide<TestPort> for TestActor {
-    fn handle(&mut self, _event: &'static Ping) -> () {
-        // discard
+    fn handle(&mut self, _event: &'static Ping) -> Handled {
+        Handled::Ok // discard
     }
 }
 
 impl Actor for TestActor {
     type Message = &'static Ping;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
-        // discard
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        Handled::Ok // discard
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
-        // discard
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        Handled::Ok // discard
     }
 }
 

@@ -102,13 +102,13 @@ struct BootstrapServer {
 impl BootstrapServer {
     fn new() -> Self {
         BootstrapServer {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             processes: HashSet::new(),
         }
     }
 
     // ANCHOR: tell_serialised
-    fn broadcast_processess(&self) -> () {
+    fn broadcast_processess(&self) -> Handled {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
 
@@ -117,6 +117,7 @@ impl BootstrapServer {
                 .tell_serialised(msg.clone(), self)
                 .unwrap_or_else(|e| warn!(self.log(), "Error during serialisation: {}", e));
         });
+        Handled::Ok
     }
     // ANCHOR_END: tell_serialised
 }
@@ -127,12 +128,13 @@ impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;
     type Message = CheckIn;
 
-    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> () {
+    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
         if let Some(process) = source {
             if self.processes.insert(process) {
                 self.broadcast_processess();
             }
         }
+        Handled::Ok
     }
 }
 
@@ -153,8 +155,8 @@ impl EventualLeaderElector {
     fn new(bootstrap_server: ActorPath) -> Self {
         let minimal_period = Duration::from_millis(1);
         EventualLeaderElector {
-            ctx: ComponentContext::new(),
-            omega_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: ProvidedPort::uninitialised(),
             bootstrap_server,
             processes: Vec::new().into_boxed_slice(),
             candidates: HashSet::new(),
@@ -172,7 +174,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -194,23 +196,28 @@ impl EventualLeaderElector {
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 
     // ANCHOR: send_heartbeats
-    fn send_heartbeats(&self) -> () {
+    fn send_heartbeats(&self) -> Handled {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
+        Handled::Ok
     }
     // ANCHOR_END: send_heartbeats
 }
 
 impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 // ANCHOR: tell_checkin
@@ -229,11 +236,13 @@ impl Provide<ControlPort> for EventualLeaderElector {
                     EventualLeaderElector::handle_timeout,
                 );
                 self.timer_handle = Some(timeout);
+                Handled::Ok
             }
             ControlEvent::Stop | ControlEvent::Kill => {
                 if let Some(timeout) = self.timer_handle.take() {
                     self.cancel_timer(timeout);
                 }
+                Handled::Ok
             }
         }
     }
@@ -244,12 +253,12 @@ ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         unreachable!();
     }
 
     // ANCHOR: receive_network
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
         match_deser!(msg.data; {
@@ -266,6 +275,7 @@ impl Actor for EventualLeaderElector {
                 self.processes = processes.into_boxed_slice();
             },
         });
+        Handled::Ok
     }
     // ANCHOR_END: receive_network
 }

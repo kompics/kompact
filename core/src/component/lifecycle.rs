@@ -40,11 +40,11 @@ pub enum ControlEvent {
 ///     ctx: ComponentContext<TestComponent>,
 /// }
 /// impl Provide<ControlPort> for TestComponent {
-///     fn handle(&mut self, event: ControlEvent) -> () {
+///     fn handle(&mut self, event: ControlEvent) -> Handled {
 ///         match event {
-///             ControlEvent::Start => (), // handle start event
-///             ControlEvent::Stop => (), // handle stop event
-///             ControlEvent::Kill => (), // handle kill event
+///             ControlEvent::Start => Handled::Ok, // handle start event
+///             ControlEvent::Stop => Handled::Ok, // handle stop event
+///             ControlEvent::Kill => Handled::Ok, // handle kill event
 ///         }
 ///     }
 /// }

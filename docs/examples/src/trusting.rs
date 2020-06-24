@@ -24,8 +24,8 @@ pub struct TrustPrinter {
 impl TrustPrinter {
     pub fn new() -> Self {
         TrustPrinter {
-            ctx: ComponentContext::new(),
-            omega_port: RequiredPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: RequiredPort::uninitialised(),
         }
     }
 }
@@ -33,7 +33,8 @@ impl TrustPrinter {
 ignore_control!(TrustPrinter);
 
 impl Require<EventualLeaderDetection> for TrustPrinter {
-    fn handle(&mut self, event: Trust) -> () {
+    fn handle(&mut self, event: Trust) -> Handled {
         info!(self.log(), "Got leader: {}.", event.0);
+        Handled::Ok
     }
 }

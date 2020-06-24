@@ -167,7 +167,7 @@ impl NetworkDispatcher {
         let encode_buffer = crate::net::buffer::EncodeBuffer::new();
 
         NetworkDispatcher {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             connections: FnvHashMap::default(),
             cfg,
             lookup,
@@ -262,7 +262,8 @@ impl NetworkDispatcher {
         );
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
-            target.schedule_reaper()
+            target.schedule_reaper();
+            Handled::Ok
         });
     }
 
@@ -297,7 +298,10 @@ impl NetworkDispatcher {
         }
         self.schedule_once(
             Duration::from_millis(RETRY_CONNECTIONS_INTERVAL),
-            move |target, _id| target.schedule_retries(),
+            move |target, _id| {
+                target.schedule_retries();
+                Handled::Ok
+            },
         );
     }
 
@@ -516,7 +520,7 @@ impl NetworkDispatcher {
 impl Actor for NetworkDispatcher {
     type Message = DispatchEnvelope;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
             DispatchEnvelope::Msg { src, dst, msg } => {
                 // Look up destination (local or remote), then route or err
@@ -583,10 +587,12 @@ impl Actor for NetworkDispatcher {
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),
         }
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         warn!(self.ctx.log(), "Received network message: {:?}", msg,);
+        Handled::Ok
     }
 }
 
@@ -611,7 +617,7 @@ impl Dispatcher for NetworkDispatcher {
 }
 
 impl Provide<ControlPort> for NetworkDispatcher {
-    fn handle(&mut self, event: ControlEvent) {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 info!(self.ctx.log(), "Starting network...");
@@ -643,6 +649,7 @@ impl Provide<ControlPort> for NetworkDispatcher {
                 info!(self.ctx.log(), "Killed network.");
             }
         }
+        Handled::Ok
     }
 }
 
@@ -1768,7 +1775,7 @@ mod dispatch_tests {
     impl PingerAct {
         fn new(target: ActorPath) -> PingerAct {
             PingerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 target,
                 count: 0,
                 eager: false,
@@ -1777,7 +1784,7 @@ mod dispatch_tests {
 
         fn new_eager(target: ActorPath) -> PingerAct {
             PingerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 target,
                 count: 0,
                 eager: true,
@@ -1786,7 +1793,7 @@ mod dispatch_tests {
     }
 
     impl Provide<ControlPort> for PingerAct {
-        fn handle(&mut self, event: ControlEvent) -> () {
+        fn handle(&mut self, event: ControlEvent) -> Handled {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
@@ -1800,17 +1807,18 @@ mod dispatch_tests {
                 }
                 _ => (),
             }
+            Handled::Ok
         }
     }
 
     impl Actor for PingerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _pong: Self::Message) -> () {
+        fn receive_local(&mut self, _pong: Self::Message) -> Handled {
             unimplemented!();
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
@@ -1827,6 +1835,7 @@ mod dispatch_tests {
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
+            Handled::Ok
         }
     }
 
@@ -1839,38 +1848,39 @@ mod dispatch_tests {
     impl PongerAct {
         fn new() -> PongerAct {
             PongerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 eager: false,
             }
         }
 
         fn new_eager() -> PongerAct {
             PongerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 eager: true,
             }
         }
     }
 
     impl Provide<ControlPort> for PongerAct {
-        fn handle(&mut self, event: ControlEvent) -> () {
+        fn handle(&mut self, event: ControlEvent) -> Handled {
             match event {
                 ControlEvent::Start => {
                     info!(self.ctx.log(), "Starting");
                 }
                 _ => (),
             }
+            Handled::Ok
         }
     }
 
     impl Actor for PongerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> () {
+        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
             unimplemented!();
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             let sender = msg.sender;
             match_deser! {msg.data; {
                 ping: PingMsg [PingPongSer] => {
@@ -1886,6 +1896,7 @@ mod dispatch_tests {
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
             }}
+            Handled::Ok
         }
     }
 
@@ -1897,7 +1908,7 @@ mod dispatch_tests {
     impl ForwarderAct {
         fn new(forward_to: ActorPath) -> Self {
             ForwarderAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 forward_to,
             }
         }
@@ -1906,16 +1917,17 @@ mod dispatch_tests {
     impl Actor for ForwarderAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> () {
+        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
             unimplemented!();
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             info!(
                 self.ctx.log(),
                 "Forwarding some msg from {} to {}", msg.sender, self.forward_to
             );
             self.forward_to.forward_with_original_sender(msg, self);
+            Handled::Ok
         }
     }
 }

@@ -25,6 +25,7 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
         q as Arc<dyn DynMsgQueue>
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub(crate) fn into_dyn_weak(q: Weak<Self>) -> Weak<dyn DynMsgQueue> {
         q as Weak<dyn DynMsgQueue>
     }
@@ -34,6 +35,7 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
         self.inner.push(value)
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub(crate) fn into_adapter<In: 'static>(
         q: Weak<Self>,
         convert: fn(In) -> M,
@@ -168,11 +170,8 @@ impl DynActorRef {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push_net(msg);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        c.schedule();
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    c.schedule();
                 }
             }
             (_q, _c) =>
@@ -257,11 +256,8 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         let c = &self.component;
         let sd = c.core().increment_work();
         q.push(env);
-        match sd {
-            SchedulingDecision::Schedule => {
-                c.schedule();
-            }
-            _ => (), // nothing
+        if let SchedulingDecision::Schedule = sd {
+            c.schedule();
         }
     }
 
@@ -291,7 +287,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// # impl AskComponent {
     /// #  fn new() -> AskComponent {
     /// #        AskComponent {
-    /// #            ctx: ComponentContext::new()
+    /// #            ctx: ComponentContext::uninitialised()
     /// #        }
     /// #    }
     /// # }
@@ -301,14 +297,15 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
     ///         msg.complete(|num| {
     ///             format!("{}", num)
     ///         })
     ///         .expect("completion");
+    ///         Handled::Ok
     ///     }
     ///
-    /// #    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
     /// }
@@ -425,11 +422,8 @@ impl<M: MessageBounds> ActorRef<M> {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(env);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        c.schedule();
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    c.schedule();
                 }
             }
             (_q, _c) =>
@@ -488,7 +482,7 @@ impl<M: MessageBounds> ActorRef<M> {
     /// # impl AskComponent {
     /// #  fn new() -> AskComponent {
     /// #        AskComponent {
-    /// #            ctx: ComponentContext::new()
+    /// #            ctx: ComponentContext::uninitialised()
     /// #        }
     /// #    }
     /// # }
@@ -498,14 +492,15 @@ impl<M: MessageBounds> ActorRef<M> {
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
     ///         msg.complete(|num| {
     ///             format!("{}", num)
     ///         })
     ///         .expect("completion");
+    ///         Handled::Ok
     ///     }
     ///
-    /// #    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
     /// }
@@ -645,11 +640,8 @@ impl<M: fmt::Debug> Recipient<M> {
             Some(c) => {
                 let sd = c.core().increment_work();
                 self.msg_queue.push_into(env);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        c.schedule();
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    c.schedule();
                 }
             }
             None =>
@@ -965,7 +957,7 @@ mod tests {
         let ldactor = system.create(move || LatchDropActor::new(latch2));
         system.start(&ldactor);
         let ldref = ldactor.actor_ref();
-        let ldrecipient: Recipient<Countdown> = ldref.recipient_with(|c| CountdownWrapper(c));
+        let ldrecipient: Recipient<Countdown> = ldref.recipient_with(CountdownWrapper);
         ldrecipient.tell(Countdown);
         let count = latch.wait_timeout(Duration::from_millis(500));
         assert_eq!(count, 0, "Latch should have triggered by now!");
@@ -1003,27 +995,28 @@ mod tests {
     impl LatchDropActor {
         fn new(latch: Arc<CountdownEvent>) -> LatchDropActor {
             LatchDropActor {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 latch,
             }
         }
     }
     impl Provide<ControlPort> for LatchDropActor {
-        fn handle(&mut self, _event: ControlEvent) -> () {
-            // ignore
+        fn handle(&mut self, _event: ControlEvent) -> Handled {
+            Handled::Ok // ignore
         }
     }
     impl Actor for LatchDropActor {
         type Message = CountdownWrapper;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             self.latch
                 .decrement()
                 .expect("Latch should have decremented!");
+            Handled::Ok
         }
 
         /// Handles (serialised or reflected) messages from the network.
-        fn receive_network(&mut self, _msg: NetMessage) -> () {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }
     }

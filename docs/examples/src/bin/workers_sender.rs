@@ -85,7 +85,7 @@ struct Manager {
 impl Manager {
     fn new(num_workers: usize) -> Self {
         Manager {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             num_workers,
             workers: Vec::with_capacity(num_workers),
             worker_refs: Vec::with_capacity(num_workers),
@@ -95,7 +95,7 @@ impl Manager {
     }
 }
 impl Provide<ControlPort> for Manager {
-    fn handle(&mut self, event: ControlEvent) {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 // set up our workers
@@ -116,13 +116,14 @@ impl Provide<ControlPort> for Manager {
                 });
             }
         }
+        Handled::Ok
     }
 }
 
 impl Actor for Manager {
     type Message = ManagerMessage;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
             ManagerMessage::Work(msg) => {
                 assert!(
@@ -182,9 +183,10 @@ impl Actor for Manager {
                 }
             }
         }
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }
@@ -196,7 +198,7 @@ struct Worker {
 impl Worker {
     fn new() -> Self {
         Worker {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
         }
     }
 }
@@ -205,13 +207,14 @@ ignore_control!(Worker);
 impl Actor for Worker {
     type Message = WithSender<WorkPart, ManagerMessage>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         let my_slice = &msg.data[msg.range.clone()];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         msg.reply(ManagerMessage::Result(WorkResult(res)));
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }

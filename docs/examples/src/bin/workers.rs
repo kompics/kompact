@@ -86,8 +86,8 @@ struct Manager {
 impl Manager {
     fn new(num_workers: usize) -> Self {
         Manager {
-            ctx: ComponentContext::new(),
-            worker_port: RequiredPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            worker_port: RequiredPort::uninitialised(),
             num_workers,
             workers: Vec::with_capacity(num_workers),
             worker_refs: Vec::with_capacity(num_workers),
@@ -97,7 +97,7 @@ impl Manager {
     }
 }
 impl Provide<ControlPort> for Manager {
-    fn handle(&mut self, event: ControlEvent) {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 // set up our workers
@@ -109,6 +109,7 @@ impl Provide<ControlPort> for Manager {
                     self.workers.push(worker);
                     self.worker_refs.push(worker_ref);
                 }
+                Handled::Ok
             }
             ControlEvent::Stop | ControlEvent::Kill => {
                 // clean up after ourselves
@@ -117,12 +118,13 @@ impl Provide<ControlPort> for Manager {
                 self.workers.drain(..).for_each(|worker| {
                     system.stop(&worker);
                 });
+                Handled::Ok
             }
         }
     }
 }
 impl Require<WorkerPort> for Manager {
-    fn handle(&mut self, event: WorkResult) {
+    fn handle(&mut self, event: WorkResult) -> Handled {
         if self.outstanding_request.is_some() {
             self.result_accumulator.push(event.0);
             if self.result_accumulator.len() == (self.num_workers + 1) {
@@ -142,12 +144,13 @@ impl Require<WorkerPort> for Manager {
                 "Got a response without an outstanding promise: {:?}", event
             );
         }
+        Handled::Ok
     }
 }
 impl Actor for Manager {
     type Message = Ask<Work, WorkResult>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         assert!(
             self.outstanding_request.is_none(),
             "One request at a time, please!"
@@ -182,9 +185,10 @@ impl Actor for Manager {
             }
             self.outstanding_request = Some(msg);
         }
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }
@@ -197,8 +201,8 @@ struct Worker {
 impl Worker {
     fn new() -> Self {
         Worker {
-            ctx: ComponentContext::new(),
-            worker_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            worker_port: ProvidedPort::uninitialised(),
         }
     }
 }
@@ -208,13 +212,14 @@ ignore_requests!(WorkerPort, Worker);
 impl Actor for Worker {
     type Message = WorkPart;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         let my_slice = &msg.data[msg.range];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         self.worker_port.trigger(WorkResult(res));
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }

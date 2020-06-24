@@ -20,8 +20,8 @@ impl EventualLeaderElector {
     fn new() -> Self {
         let minimal_period = Duration::from_millis(1);
         EventualLeaderElector {
-            ctx: ComponentContext::new(),
-            omega_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: ProvidedPort::uninitialised(),
             processes: Vec::new().into_boxed_slice().into(),
             candidates: HashSet::new(),
             period: minimal_period,
@@ -38,7 +38,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -60,9 +60,13 @@ impl EventualLeaderElector {
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 
@@ -74,7 +78,7 @@ impl EventualLeaderElector {
 }
 
 impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 self.period = self.ctx.config()["omega"]["initial-period"]
@@ -89,11 +93,13 @@ impl Provide<ControlPort> for EventualLeaderElector {
                     EventualLeaderElector::handle_timeout,
                 );
                 self.timer_handle = Some(timeout);
+                Handled::Ok
             }
             ControlEvent::Stop | ControlEvent::Kill => {
                 if let Some(timeout) = self.timer_handle.take() {
                     self.cancel_timer(timeout);
                 }
+                Handled::Ok
             }
         }
     }
@@ -104,7 +110,7 @@ ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 impl Actor for EventualLeaderElector {
     type Message = UpdateProcesses;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         info!(
             self.log(),
             "Received new process set with {} processes",
@@ -112,9 +118,10 @@ impl Actor for EventualLeaderElector {
         );
         let UpdateProcesses(processes) = msg;
         self.processes = processes;
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
         match msg.data.try_deserialise::<Heartbeat, Serde>() {
             Ok(_heartbeat) => {
@@ -122,6 +129,7 @@ impl Actor for EventualLeaderElector {
             }
             Err(e) => warn!(self.log(), "Invalid data: {:?}", e),
         }
+        Handled::Ok
     }
 }
 

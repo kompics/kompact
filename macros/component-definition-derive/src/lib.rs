@@ -23,7 +23,7 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
     // Build the impl
     let gen = impl_component_definition(&ast);
 
-    //println!("Derived code:\n{}", gen.clone().into_string());
+    //println!("Derived code:\n{}", gen);
 
     // Return the generated impl
     gen.into()
@@ -80,10 +80,11 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                         #[allow(unreachable_code)]
                         { // can be Never type, which is ok, so just suppress this warning
                             if let Some(event) = self.#id.dequeue() {
-                                #handle
+                                let res = #handle
                                 count += 1;
                                 done_work = true;
-                                if self.ctx().is_blocking() {
+                                if let Handled::BlockOn(blocking_future) = res {
+                                    self.ctx_mut().set_blocking(blocking_future);
                                     return ExecuteResult::new(true, count, #i);
                                 }
                             }
@@ -106,10 +107,11 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                     #[allow(unreachable_code)]
                     { // can be Never type, which is ok, so just suppress this warning
                         if let Some(event) = self.#id.dequeue() {
-                            #handle
+                            let res = #handle
                             count += 1;
                             done_work = true;
-                            if self.ctx().is_blocking() {
+                            if let Handled::BlockOn(blocking_future) = res {
+                                self.ctx_mut().set_blocking(blocking_future);
                                 return ExecuteResult::new(true, count, #i);
                             }
                         }

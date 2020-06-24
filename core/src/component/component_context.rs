@@ -21,7 +21,11 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// Create a new, uninitialised component context
-    pub fn new() -> ComponentContext<CD> {
+    ///
+    /// # Note
+    ///
+    /// Nothing in this context may be used *before* the parent component is actually initialised!
+    pub fn uninitialised() -> ComponentContext<CD> {
         ComponentContext { inner: None }
     }
 
@@ -79,16 +83,17 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// impl HelloLogging {
     ///     fn new() -> HelloLogging {
     ///         HelloLogging {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
     /// impl Provide<ControlPort> for HelloLogging {
-    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         info!(self.ctx().log(), "Hello control event: {:?}", event);
     ///         if event == ControlEvent::Start {
     ///             self.ctx().system().shutdown_async();
     ///         }
+    ///         Handled::Ok
     ///     }    
     /// }
     ///
@@ -119,12 +124,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// impl ConfigComponent {
     ///     fn new() -> ConfigComponent {
     ///         ConfigComponent {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
     /// impl Provide<ControlPort> for ConfigComponent {
-    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         match event {
     ///             ControlEvent::Start => {
     ///                 assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
@@ -132,6 +137,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     ///             }
     ///             _ => (), // ignore
     ///         }
+    ///         Handled::Ok
     ///     }    
     /// }
     /// let default_values = r#"{ a = 7 }"#;
@@ -157,7 +163,15 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         }
     }
 
-    pub(super) fn set_blocking(&mut self, f: BlockingFuture) {
+    /// Sets the component to block on the provided blocking future `f`
+    ///
+    /// This should *only* be used when implementing custom [execute](ComponentDefinition::execute) logic!
+    /// Otherwise the correct way to block is to return the [Handled::BlockOn](Handled::BlockOn) variant from a handler.
+    ///
+    /// If this is used for custom [execute](ComponentDefinition::execute) logic, then the next call
+    /// should be a `return ExecuteResult::new(true, count, skip)`, as continuing to execute handlers violates
+    /// blocking semantics.
+    pub fn set_blocking(&mut self, f: BlockingFuture) {
         let inner_mut = self.inner_mut();
         inner_mut
             .blocking_future
@@ -260,12 +274,6 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// initializes the private pool if it has not already been initialized
     pub fn get_buffer(&self) -> &RefCell<Option<EncodeBuffer>> {
         &self.inner_ref().buffer
-    }
-}
-
-impl<CD: ComponentDefinition + Sized + 'static> Default for ComponentContext<CD> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

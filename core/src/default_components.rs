@@ -70,8 +70,7 @@ impl DefaultTimer {
 
     pub(crate) fn new_timer_component() -> Box<dyn TimerComponent> {
         let t = DefaultTimer::new();
-        let bt = Box::new(t) as Box<dyn TimerComponent>;
-        bt
+        Box::new(t) as Box<dyn TimerComponent>
     }
 }
 
@@ -151,7 +150,7 @@ impl DeadletterBox {
     /// received a [Start](ControlEvent::Start) event.
     pub fn new(notify_ready: Promise<()>) -> DeadletterBox {
         DeadletterBox {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),
         }
     }
@@ -161,21 +160,22 @@ impl Actor for DeadletterBox {
     type Message = Never;
 
     /// Handles local messages.
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         unimplemented!(); // this can't actually happen
     }
 
     /// Handles (serialised or reflected) messages from the network.
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         info!(
             self.ctx.log(),
             "DeadletterBox received network message {:?}", msg,
         );
+        Handled::Ok
     }
 }
 
 impl Provide<ControlPort> for DeadletterBox {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting DeadletterBox");
@@ -186,6 +186,7 @@ impl Provide<ControlPort> for DeadletterBox {
             }
             _ => (), // ignore
         }
+        Handled::Ok
     }
 }
 
@@ -206,7 +207,7 @@ impl LocalDispatcher {
     /// received a [Start](ControlEvent::Start) event.
     pub fn new(notify_ready: Promise<()>) -> LocalDispatcher {
         LocalDispatcher {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),
         }
     }
@@ -215,19 +216,21 @@ impl LocalDispatcher {
 impl Actor for LocalDispatcher {
     type Message = DispatchEnvelope;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         warn!(
             self.ctx.log(),
             "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
             msg,
         );
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         info!(
             self.ctx.log(),
             "LocalDispatcher received network message {:?}", msg,
         );
+        Handled::Ok
     }
 }
 
@@ -238,7 +241,7 @@ impl Dispatcher for LocalDispatcher {
 }
 
 impl Provide<ControlPort> for LocalDispatcher {
-    fn handle(&mut self, event: ControlEvent) -> () {
+    fn handle(&mut self, event: ControlEvent) -> Handled {
         match event {
             ControlEvent::Start => {
                 debug!(self.ctx.log(), "Starting LocalDispatcher");
@@ -249,5 +252,6 @@ impl Provide<ControlPort> for LocalDispatcher {
             }
             _ => (), // ignore
         }
+        Handled::Ok
     }
 }

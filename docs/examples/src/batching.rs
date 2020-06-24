@@ -20,8 +20,8 @@ pub struct BatchPrinter {
 impl BatchPrinter {
     pub fn new() -> Self {
         BatchPrinter {
-            ctx: ComponentContext::new(),
-            batch_port: RequiredPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            batch_port: RequiredPort::uninitialised(),
         }
     }
 }
@@ -29,7 +29,8 @@ impl BatchPrinter {
 ignore_control!(BatchPrinter);
 
 impl Require<Batching> for BatchPrinter {
-    fn handle(&mut self, batch: Batch) -> () {
+    fn handle(&mut self, batch: Batch) -> Handled {
         info!(self.log(), "Got a batch with {} Pings.", batch.0.len());
+        Handled::Ok
     }
 }

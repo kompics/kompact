@@ -60,18 +60,20 @@ pub trait Timer<C: ComponentDefinition> {
     /// impl TimerComponent {
     ///     fn new() -> TimerComponent {
     ///         TimerComponent {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
     /// impl Provide<ControlPort> for TimerComponent {
-    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         if event == ControlEvent::Start {
     ///             self.schedule_once(Duration::from_millis(10), move |new_self, _id| {
     ///                 info!(new_self.log(), "Timeout was triggered!");
     ///                 new_self.ctx().system().shutdown_async();
+    ///                 Handled::Ok
     ///             });
     ///         }
+    ///         Handled::Ok
     ///     }    
     /// }
     ///
@@ -82,7 +84,7 @@ pub trait Timer<C: ComponentDefinition> {
     /// ```
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, ScheduledTimer) + Send + 'static;
+        F: FnOnce(&mut C, ScheduledTimer) -> Handled + Send + 'static;
 
     /// Schedule the `action` to be run every `timeout` time units
     ///
@@ -112,29 +114,32 @@ pub trait Timer<C: ComponentDefinition> {
     /// impl TimerComponent {
     ///     fn new() -> TimerComponent {
     ///         TimerComponent {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///             counter: 0usize,
     ///             timeout: None,
     ///         }
     ///     }    
     /// }
     /// impl Provide<ControlPort> for TimerComponent {
-    ///     fn handle(&mut self, event: ControlEvent) -> () {
+    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
     ///         if event == ControlEvent::Start {
     ///             let timeout = self.schedule_periodic(
     ///                     Duration::from_millis(10),
     ///                     Duration::from_millis(100),
     ///                     move |new_self, _id| {
-    ///                 info!(new_self.log(), "Timeout was triggered!");
-    ///                 new_self.counter += 1usize;
-    ///                 if new_self.counter > 10usize {
-    ///                     let timeout = new_self.timeout.take().expect("timeout");
-    ///                     new_self.cancel_timer(timeout);
-    ///                     new_self.ctx().system().shutdown_async();
-    ///                 }
-    ///             });
+    ///                         info!(new_self.log(), "Timeout was triggered!");
+    ///                         new_self.counter += 1usize;
+    ///                         if new_self.counter > 10usize {
+    ///                            let timeout = new_self.timeout.take().expect("timeout");
+    ///                            new_self.cancel_timer(timeout);
+    ///                            new_self.ctx().system().shutdown_async();
+    ///                         }
+    ///                         Handled::Ok
+    ///                    }
+    ///             );
     ///             self.timeout = Some(timeout);
     ///         }
+    ///         Handled::Ok
     ///     }    
     /// }
     ///
@@ -150,7 +155,7 @@ pub trait Timer<C: ComponentDefinition> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, ScheduledTimer) + Send + 'static;
+        F: Fn(&mut C, ScheduledTimer) -> Handled + Send + 'static;
 
     /// Cancel the timer indicated by the `handle`
     ///
@@ -168,8 +173,8 @@ pub(crate) struct Timeout(pub(crate) Uuid);
 
 pub(crate) enum ExecuteAction<C: ComponentDefinition> {
     None,
-    Periodic(Uuid, Rc<dyn Fn(&mut C, Uuid)>),
-    Once(Uuid, Box<dyn FnOnce(&mut C, Uuid)>),
+    Periodic(Uuid, Rc<dyn Fn(&mut C, Uuid) -> Handled>),
+    Once(Uuid, Box<dyn FnOnce(&mut C, Uuid) -> Handled>),
 }
 
 pub(crate) struct TimerManager<C: ComponentDefinition> {
@@ -221,7 +226,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: FnOnce(&mut C, ScheduledTimer) + Send + 'static,
+        F: FnOnce(&mut C, ScheduledTimer) -> Handled + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::OneShot {
@@ -243,7 +248,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut C, ScheduledTimer) + Send + 'static,
+        F: Fn(&mut C, ScheduledTimer) -> Handled + Send + 'static,
     {
         let id = Uuid::new_v4();
         let handle = TimerHandle::Periodic {
@@ -276,11 +281,11 @@ impl<C: ComponentDefinition> Drop for TimerManager<C> {
 pub(crate) enum TimerHandle<C: ComponentDefinition> {
     OneShot {
         _id: Uuid, // not used atm
-        action: Box<dyn FnOnce(&mut C, Uuid) + Send + 'static>,
+        action: Box<dyn FnOnce(&mut C, Uuid) -> Handled + Send + 'static>,
     },
     Periodic {
         _id: Uuid, // not used atm
-        action: Rc<dyn Fn(&mut C, Uuid) + Send + 'static>,
+        action: Rc<dyn Fn(&mut C, Uuid) -> Handled + Send + 'static>,
     },
 }
 

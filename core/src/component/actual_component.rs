@@ -2,13 +2,17 @@ use super::*;
 
 // just define these expansions, so I don't have to write it multiple times
 macro_rules! check_and_handle_blocking {
-    ($self:ident, $guard:ident,$count:ident) => {
-        if $guard.definition.ctx().is_blocking() {
-            handle_blocking!($self, $guard, $count);
+    ($self:ident, $guard:ident,$count:ident,$res:ident) => {
+        match $res {
+            Handled::Ok => (),
+            Handled::BlockOn(blocking_future) => {
+                $guard.definition.ctx_mut().set_blocking(blocking_future);
+                run_blocking!($self, $guard, $count);
+            }
         }
     };
 }
-macro_rules! handle_blocking {
+macro_rules! run_blocking {
     ($self:ident, $guard:ident,$count:ident) => {
         trace!($self.logger, "Component has been blocked");
         let original = $self.core.decrement_work($count);
@@ -248,14 +252,19 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                             SupervisorMsg::Killed(self.core.id)
                         }
                     };
-                    guard.definition.handle(event);
+                    let res = guard.definition.handle(event);
                     count += 1;
                     // inform supervisor after local handling to make sure crashing component don't count as started
                     if let Some(ref supervisor) = self.supervisor {
                         supervisor.enqueue(supervisor_msg);
                     }
-                    if guard.definition.ctx().is_blocking() {
-                        unimplemented!("Blocking in lifecycle events is not yet supported!");
+                    match res {
+                        Handled::Ok => (), // fine continue
+                        Handled::BlockOn(_blocking_future) => {
+                            // There are some tricky edge cases here about delaying shutdown when blocking on futures, etc
+                            unimplemented!("Blocking in lifecycle events is not yet supported!");
+                            //guard.definition.ctx_mut().set_blocking(blocking_future);
+                        }
                     }
                 }
                 if (!lifecycle::is_active(&self.core.state)) {
@@ -265,25 +274,27 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 // timers have highest priority
                 while count < max_events {
                     let c = &mut guard.definition;
-                    match c.ctx_mut().timer_manager_mut().try_action() {
+                    let res: Handled = match c.ctx_mut().timer_manager_mut().try_action() {
                         ExecuteAction::Once(id, action) => {
-                            action(c, id);
+                            let res = action(c, id);
                             count += 1;
+                            res
                         }
                         ExecuteAction::Periodic(id, action) => {
-                            action(c, id);
+                            let res = action(c, id);
                             count += 1;
+                            res
                         }
                         ExecuteAction::None => break,
-                    }
-                    check_and_handle_blocking!(self, guard, count);
+                    };
+                    check_and_handle_blocking!(self, guard, count, res);
                 }
                 // then some messages
                 while count < max_messages {
                     if let Some(env) = self.msg_queue.pop() {
-                        guard.definition.receive(env);
+                        let res = guard.definition.receive(env);
                         count += 1;
-                        check_and_handle_blocking!(self, guard, count);
+                        check_and_handle_blocking!(self, guard, count, res);
                     } else {
                         break;
                     }
@@ -296,15 +307,15 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                     guard.skip = res.skip;
                     count += res.count;
                     if res.blocking {
-                        handle_blocking!(self, guard, count);
+                        run_blocking!(self, guard, count);
                     }
 
                     // and maybe some more messages
                     while count < max_events {
                         if let Some(env) = self.msg_queue.pop() {
-                            guard.definition.receive(env);
+                            let res = guard.definition.receive(env);
                             count += 1;
-                            check_and_handle_blocking!(self, guard, count);
+                            check_and_handle_blocking!(self, guard, count, res);
                         } else {
                             break;
                         }
@@ -387,7 +398,7 @@ where
 {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut CD, ScheduledTimer) + Send + 'static,
+        F: FnOnce(&mut CD, ScheduledTimer) -> Handled + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -402,7 +413,7 @@ where
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut CD, ScheduledTimer) + Send + 'static,
+        F: Fn(&mut CD, ScheduledTimer) -> Handled + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
