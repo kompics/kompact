@@ -1,6 +1,7 @@
 use super::*;
 
 use std::{fmt, ops::Deref};
+use uuid::Uuid;
 
 /// The type of actor references for [dispatcher](Dispatcher) implementations
 pub type DispatcherRef = ActorRefStrong<DispatchEnvelope>;
@@ -25,123 +26,118 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
         q as Arc<dyn DynMsgQueue>
     }
 
-    #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn into_dyn_weak(q: Weak<Self>) -> Weak<dyn DynMsgQueue> {
-        q as Weak<dyn DynMsgQueue>
-    }
+    // #[allow(clippy::wrong_self_convention)]
+    // pub(crate) fn into_dyn_weak(q: Weak<Self>) -> Weak<dyn DynMsgQueue> {
+    //     q as Weak<dyn DynMsgQueue>
+    // }
 
     #[inline(always)]
     pub(crate) fn push(&self, value: MsgEnvelope<M>) {
         self.inner.push(value)
     }
 
-    #[allow(clippy::wrong_self_convention)]
     pub(crate) fn into_adapter<In: 'static>(
-        q: Weak<Self>,
+        component: Weak<dyn MsgQueueContainer<Message = M>>,
         convert: fn(In) -> M,
-    ) -> Box<dyn AdapterQueue<In>> {
-        let converting_queue = Box::new(ConvertingMsgQueue::from(q, convert));
-        converting_queue as Box<dyn AdapterQueue<In>>
+    ) -> Box<dyn AdaptedQueueContainer<In>> {
+        let converting_container = Box::new(ConvertingMsgQueueContainer::from(component, convert));
+        converting_container as Box<dyn AdaptedQueueContainer<In>>
     }
 }
 impl<M: MessageBounds> DynMsgQueue for TypedMsgQueue<M> {
-    // #[inline(always)]
-    // fn push_dispatch(&self, value: DispatchEnvelope) {
-    //     self.push(MsgEnvelope::Dispatch(value));
-    // }
-
     #[inline(always)]
     fn push_net(&self, value: NetMessage) {
         self.push(MsgEnvelope::Net(value));
     }
 }
 
-pub(crate) trait DynMsgQueue: fmt::Debug + Sync + Send {
-    //fn push_dispatch(&self, value: DispatchEnvelope);
+/// A message queue handle that only deals with
+/// net messages.
+pub trait DynMsgQueue: fmt::Debug + Sync + Send {
     fn push_net(&self, value: NetMessage);
 }
-pub(crate) trait AdapterQueue<M>: fmt::Debug + Sync + Send {
-    fn push_into(&self, value: M);
-    fn box_clone(&self) -> Box<dyn AdapterQueue<M>>;
+pub(crate) trait AdaptedQueueContainer<M>: fmt::Debug + Sync + Send {
+    fn id(&self) -> Option<Uuid>;
+    fn enqueue_into(&self, value: M);
+    fn box_clone(&self) -> Box<dyn AdaptedQueueContainer<M>>;
 }
 
-// /// Just a trait bound alias for a function that can be used in auto-wrapping queues.
-// pub trait ConverterFunction<In, Out>: Fn(In) -> Out + Sync + Send {
-//     type In;
-//     type Out;
-// }
-// impl<In, Out, F> ConverterFunction<In, Out> for F
-// where
-//     F: Fn(In) -> Out + Sync + Send,
-// {
-//     // also empty
-// }
-
-pub(crate) struct ConvertingMsgQueue<In, Out>
+pub(crate) struct ConvertingMsgQueueContainer<In, Out>
 where
     Out: MessageBounds,
 {
-    inner: Weak<TypedMsgQueue<Out>>,
+    inner: Weak<dyn MsgQueueContainer<Message = Out>>,
     convert: fn(In) -> Out,
 }
-impl<In, Out> ConvertingMsgQueue<In, Out>
+impl<In, Out> ConvertingMsgQueueContainer<In, Out>
 where
     Out: MessageBounds,
 {
     pub(crate) fn from(
-        inner: Weak<TypedMsgQueue<Out>>,
+        inner: Weak<dyn MsgQueueContainer<Message = Out>>,
         convert: fn(In) -> Out,
-    ) -> ConvertingMsgQueue<In, Out> {
-        ConvertingMsgQueue { inner, convert }
+    ) -> Self {
+        ConvertingMsgQueueContainer { inner, convert }
     }
 
     fn convert(&self, value: In) -> Out {
         (self.convert)(value)
     }
 
-    pub(crate) fn push(&self, value: In) {
+    pub(crate) fn push_and_schedule(&self, value: In) {
         let out = self.convert(value);
         let msg = MsgEnvelope::Typed(out);
         match self.inner.upgrade() {
-            Some(q) => q.push(msg),
+            Some(c) => {
+                let q = c.message_queue();
+                let sd = c.core().increment_work();
+                q.push(msg);
+                if let SchedulingDecision::Schedule = sd {
+                    c.schedule();
+                }
+            }
             None =>
             {
                 #[cfg(test)]
-                println!("Dropping msg as target queueis unavailable: {:?}", msg)
+                println!("Dropping msg as target component is unavailable: {:?}", msg)
             }
         }
     }
 }
-impl<In, Out> Clone for ConvertingMsgQueue<In, Out>
+impl<In, Out> Clone for ConvertingMsgQueueContainer<In, Out>
 where
     Out: MessageBounds,
 {
     fn clone(&self) -> Self {
-        ConvertingMsgQueue {
+        ConvertingMsgQueueContainer {
             inner: self.inner.clone(),
             convert: self.convert,
         }
     }
 }
-impl<In, Out> AdapterQueue<In> for ConvertingMsgQueue<In, Out>
+impl<In, Out> AdaptedQueueContainer<In> for ConvertingMsgQueueContainer<In, Out>
 where
     In: 'static,
     Out: MessageBounds,
 {
-    fn push_into(&self, value: In) {
-        self.push(value)
+    fn id(&self) -> Option<Uuid> {
+        self.inner.upgrade().map(|c| c.id())
     }
 
-    fn box_clone(&self) -> Box<dyn AdapterQueue<In>> {
+    fn enqueue_into(&self, value: In) {
+        self.push_and_schedule(value)
+    }
+
+    fn box_clone(&self) -> Box<dyn AdaptedQueueContainer<In>> {
         Box::new((*self).clone())
     }
 }
-impl<In, Out> fmt::Debug for ConvertingMsgQueue<In, Out>
+impl<In, Out> fmt::Debug for ConvertingMsgQueueContainer<In, Out>
 where
     Out: MessageBounds,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "ConvertingMsgQueue{{...}}")
+        write!(f, "ConvertingMsgQueueContainer{{...}}")
     }
 }
 
@@ -152,37 +148,22 @@ where
 #[derive(Clone)]
 pub struct DynActorRef {
     component: Weak<dyn CoreContainer>,
-    msg_queue: Weak<dyn DynMsgQueue>,
 }
 impl DynActorRef {
-    // pub(crate) fn from(
-    //     component: Weak<dyn CoreContainer>,
-    //     msg_queue: Weak<dyn DynMsgQueue>,
-    // ) -> DynActorRef {
-    //     DynActorRef {
-    //         component,
-    //         msg_queue,
-    //     }
-    // }
-
     pub(crate) fn enqueue(&self, msg: NetMessage) -> () {
-        match (self.msg_queue.upgrade(), self.component.upgrade()) {
-            (Some(q), Some(c)) => {
+        match self.component.upgrade() {
+            Some(c) => {
+                let q = c.dyn_message_queue();
                 let sd = c.core().increment_work();
                 q.push_net(msg);
                 if let SchedulingDecision::Schedule = sd {
                     c.schedule();
                 }
             }
-            (_q, _c) =>
+            _ =>
             {
                 #[cfg(test)]
-                println!(
-                    "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                    _q.is_some(),
-                    _c.is_some(),
-                    msg
-                )
+                println!("Dropping msg as target component is unavailable: {:?}", msg)
             }
         }
     }
@@ -236,8 +217,7 @@ impl PartialEq for DynActorRef {
 /// if many messages will be sent in a loop to it. After the loop, the strong reference
 /// can be dropped again.
 pub struct ActorRefStrong<M: MessageBounds> {
-    component: Arc<dyn CoreContainer>,
-    msg_queue: Arc<TypedMsgQueue<M>>,
+    component: Arc<dyn MsgQueueContainer<Message = M>>,
 }
 
 // Because the derive macro adds the wrong trait bound for this -.-
@@ -245,15 +225,14 @@ impl<M: MessageBounds> Clone for ActorRefStrong<M> {
     fn clone(&self) -> Self {
         ActorRefStrong {
             component: self.component.clone(),
-            msg_queue: self.msg_queue.clone(),
         }
     }
 }
 
 impl<M: MessageBounds> ActorRefStrong<M> {
     pub(crate) fn enqueue(&self, env: MsgEnvelope<M>) -> () {
-        let q = &self.msg_queue;
         let c = &self.component;
+        let q = c.message_queue();
         let sd = c.core().increment_work();
         q.push(env);
         if let SchedulingDecision::Schedule = sd {
@@ -341,11 +320,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// Downgrade this strong reference to a "normal" actor reference
     pub fn weak_ref(&self) -> ActorRef<M> {
         let c = Arc::downgrade(&self.component);
-        let q = Arc::downgrade(&self.msg_queue);
-        ActorRef {
-            component: c,
-            msg_queue: q,
-        }
+        ActorRef { component: c }
     }
 }
 impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
@@ -392,8 +367,7 @@ impl<M: MessageBounds> PartialEq for ActorRefStrong<M> {
 /// Upgrading this to an [ActorRefStrong](ActorRefStrong) also improves performance somewhat,
 /// and is recommended when using the same actor reference over and over again in a loop, for example.
 pub struct ActorRef<M: MessageBounds> {
-    component: Weak<dyn CoreContainer>,
-    msg_queue: Weak<TypedMsgQueue<M>>,
+    component: Weak<dyn MsgQueueContainer<Message = M>>,
 }
 
 // Because the derive macro adds the wrong trait bound for this -.-
@@ -401,40 +375,29 @@ impl<M: MessageBounds> Clone for ActorRef<M> {
     fn clone(&self) -> Self {
         ActorRef {
             component: self.component.clone(),
-            msg_queue: self.msg_queue.clone(),
         }
     }
 }
 
 impl<M: MessageBounds> ActorRef<M> {
-    pub(crate) fn new(
-        component: Weak<dyn CoreContainer>,
-        msg_queue: Weak<TypedMsgQueue<M>>,
-    ) -> ActorRef<M> {
-        ActorRef {
-            component,
-            msg_queue,
-        }
+    pub(crate) fn new(component: Weak<dyn MsgQueueContainer<Message = M>>) -> ActorRef<M> {
+        ActorRef { component }
     }
 
     pub(crate) fn enqueue(&self, env: MsgEnvelope<M>) -> () {
-        match (self.msg_queue.upgrade(), self.component.upgrade()) {
-            (Some(q), Some(c)) => {
+        match self.component.upgrade() {
+            Some(c) => {
+                let q = c.message_queue();
                 let sd = c.core().increment_work();
                 q.push(env);
                 if let SchedulingDecision::Schedule = sd {
                     c.schedule();
                 }
             }
-            (_q, _c) =>
+            _ =>
             {
                 #[cfg(test)]
-                println!(
-                    "Dropping msg as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
-                    _q.is_some(),
-                    _c.is_some(),
-                    env
-                )
+                println!("Dropping msg as target component is unavailable: {:?}", env)
             }
         }
     }
@@ -444,12 +407,9 @@ impl<M: MessageBounds> ActorRef<M> {
     /// This is only possible if the target actor has not already been
     /// deallocated. If it has, `None` will be returned.
     pub fn hold(&self) -> Option<ActorRefStrong<M>> {
-        match (self.msg_queue.upgrade(), self.component.upgrade()) {
-            (Some(q), Some(c)) => {
-                let r = ActorRefStrong {
-                    component: c,
-                    msg_queue: q,
-                };
+        match self.component.upgrade() {
+            Some(c) => {
+                let r = ActorRefStrong { component: c };
                 Some(r)
             }
             _ => None,
@@ -535,10 +495,23 @@ impl<M: MessageBounds> ActorRef<M> {
 
     /// Returns a version of this actor ref that can only be used for [network messages](NetMessage),
     /// but not for `M`
+    ///
+    /// This can fail if the component pointed to by this ref is already deallocated,
+    /// in which case `None` is returned.
     pub fn dyn_ref(&self) -> DynActorRef {
-        DynActorRef {
-            component: self.component.clone(),
-            msg_queue: TypedMsgQueue::into_dyn_weak(self.msg_queue.clone()),
+        // self.component.upgrade().map(|c| {
+        //     let component: Weak<dyn CoreContainer> = c.clone_dyn();
+        //     DynActorRef { component }
+        // })
+        match self.component.upgrade() {
+            Some(c) => {
+                let component: Weak<dyn CoreContainer> = c.downgrade_dyn();
+                DynActorRef { component }
+            }
+            None => {
+                let component: Weak<dyn CoreContainer> = Weak::<FakeCoreContainer>::new(); // since the component is already deallocated, this'll have the same behaviour, producing `None` on every upgrade
+                DynActorRef { component }
+            }
         }
     }
 
@@ -555,8 +528,8 @@ impl<M: MessageBounds> ActorRef<M> {
     where
         T: Into<M> + fmt::Debug + 'static,
     {
-        let adapter = TypedMsgQueue::into_adapter(self.msg_queue.clone(), Into::into);
-        Recipient::from(self.component.clone(), adapter)
+        let adapter = TypedMsgQueue::into_adapter(self.component.clone(), Into::into);
+        Recipient::from(adapter)
     }
 
     /// Returns a version of this actor ref that can only be used to send `T`, which is then auto-wrapped into `M`
@@ -573,8 +546,8 @@ impl<M: MessageBounds> ActorRef<M> {
     where
         T: fmt::Debug + 'static,
     {
-        let adapter = TypedMsgQueue::into_adapter(self.msg_queue.clone(), convert);
-        Recipient::from(self.component.clone(), adapter)
+        let adapter = TypedMsgQueue::into_adapter(self.component.clone(), convert);
+        Recipient::from(adapter)
     }
 }
 
@@ -620,36 +593,12 @@ impl<M: MessageBounds> PartialEq for ActorRef<M> {
 /// Use benchmarking to establish whether or not the better encapsulation is worth
 /// the performance loss in your scenario.
 pub struct Recipient<M> {
-    component: Weak<dyn CoreContainer>,
-    msg_queue: Box<dyn AdapterQueue<M>>,
+    component: Box<dyn AdaptedQueueContainer<M>>,
 }
 
 impl<M: fmt::Debug> Recipient<M> {
-    fn from(
-        component: Weak<dyn CoreContainer>,
-        msg_queue: Box<dyn AdapterQueue<M>>,
-    ) -> Recipient<M> {
-        Recipient {
-            component,
-            msg_queue,
-        }
-    }
-
-    pub(crate) fn enqueue(&self, env: M) -> () {
-        match self.component.upgrade() {
-            Some(c) => {
-                let sd = c.core().increment_work();
-                self.msg_queue.push_into(env);
-                if let SchedulingDecision::Schedule = sd {
-                    c.schedule();
-                }
-            }
-            None =>
-            {
-                #[cfg(test)]
-                println!("Dropping msg as target component is unavailable: {:?}", env)
-            }
-        }
+    fn from(component: Box<dyn AdaptedQueueContainer<M>>) -> Recipient<M> {
+        Recipient { component }
     }
 
     /// Send message `v` to the actor instance referenced by this `Recipient`
@@ -658,15 +607,14 @@ impl<M: fmt::Debug> Recipient<M> {
         I: Into<M>,
     {
         let msg: M = v.into();
-        self.enqueue(msg)
+        self.component.enqueue_into(msg)
     }
 }
 // Because the derive macro adds the wrong trait bound for this -.-
 impl<M> Clone for Recipient<M> {
     fn clone(&self) -> Self {
         Recipient {
-            component: self.component.clone(),
-            msg_queue: self.msg_queue.box_clone(),
+            component: self.component.box_clone(),
         }
     }
 }
@@ -684,12 +632,7 @@ impl<M> fmt::Display for Recipient<M> {
 
 impl<M> PartialEq for Recipient<M> {
     fn eq(&self, other: &Recipient<M>) -> bool {
-        match (self.component.upgrade(), other.component.upgrade()) {
-            // this may have some issues with comparing vtable pointers
-            //(Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
-            (Some(ref me), Some(ref it)) => me.id() == it.id(),
-            _ => false,
-        }
+        self.component.id() == other.component.id()
     }
 }
 

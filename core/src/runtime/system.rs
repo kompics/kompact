@@ -608,7 +608,7 @@ impl KompactSystem {
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port()
-            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Started(*c.id())));
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Started(c.id())));
         c.enqueue_control(ControlEvent::Start);
         f
     }
@@ -680,7 +680,7 @@ impl KompactSystem {
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port()
-            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Stopped(*c.id())));
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Stopped(c.id())));
         c.enqueue_control(ControlEvent::Stop);
         f
     }
@@ -748,7 +748,7 @@ impl KompactSystem {
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
         self.supervision_port()
-            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Destroyed(*c.id())));
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Destroyed(c.id())));
         c.enqueue_control(ControlEvent::Kill);
         f
     }
@@ -907,8 +907,7 @@ impl KompactSystem {
     /// unless you also registered the component with this system's dispatcher.
     /// Suffice to say, crossing system boundaries in this manner is not recommended.
     pub fn actor_path_for(&self, component: &Arc<impl AbstractComponent + ?Sized>) -> ActorPath {
-        let id = *component.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), id))
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), component.id()))
     }
 
     pub(crate) fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {

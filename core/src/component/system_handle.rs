@@ -41,7 +41,7 @@ impl SystemHandle for ContextSystemHandle {
         let recipient = reply_to.recipient();
         let env = RegistrationEnvelope::with_recipient(
             c.as_ref(),
-            PathResolvable::ActorId(*c.id()),
+            PathResolvable::ActorId(c.id()),
             false,
             id,
             recipient,
@@ -51,7 +51,7 @@ impl SystemHandle for ContextSystemHandle {
     }
 
     fn register_without_response(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
-        let env = RegistrationEnvelope::basic(c.as_ref(), PathResolvable::ActorId(*c.id()), false);
+        let env = RegistrationEnvelope::basic(c.as_ref(), PathResolvable::ActorId(c.id()), false);
         self.send_registration(env);
     }
 

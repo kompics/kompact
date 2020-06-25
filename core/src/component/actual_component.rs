@@ -33,9 +33,9 @@ pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
     custom_scheduler: Option<dedicated_scheduler::DedicatedThreadScheduler>,
     pub(crate) mutable_core: Mutex<ComponentMutableCore<C>>,
     ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
-    msg_queue: Arc<TypedMsgQueue<C::Message>>,
-    supervisor: Option<ProvidedRef<SupervisionPort>>,
+    msg_queue: TypedMsgQueue<C::Message>,
     // system components don't have supervision
+    supervisor: Option<ProvidedRef<SupervisionPort>>,
     logger: KompactLogger,
 }
 
@@ -50,7 +50,6 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let msg_queue = Arc::new(TypedMsgQueue::new());
         let mutable_core = ComponentMutableCore {
             definition,
             skip: 0,
@@ -60,7 +59,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             custom_scheduler: None,
             mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
-            msg_queue,
+            msg_queue: TypedMsgQueue::new(),
             supervisor: Some(supervisor),
             logger,
         }
@@ -77,7 +76,6 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let msg_queue = Arc::new(TypedMsgQueue::new());
         let mutable_core = ComponentMutableCore {
             definition,
             skip: 0,
@@ -87,7 +85,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             custom_scheduler: Some(custom_scheduler),
             mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
-            msg_queue,
+            msg_queue: TypedMsgQueue::new(),
             supervisor: Some(supervisor),
             logger,
         }
@@ -108,7 +106,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             custom_scheduler: None,
             mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
-            msg_queue: Arc::new(TypedMsgQueue::new()),
+            msg_queue: TypedMsgQueue::new(),
             supervisor: None,
             logger,
         }
@@ -133,7 +131,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             custom_scheduler: Some(custom_scheduler),
             mutable_core: Mutex::new(mutable_core),
             ctrl_queue: Arc::new(ConcurrentQueue::new()),
-            msg_queue: Arc::new(TypedMsgQueue::new()),
+            msg_queue: TypedMsgQueue::new(),
             supervisor: None,
             logger,
         }
@@ -338,8 +336,7 @@ where
 
     fn actor_ref(&self) -> ActorRef<CD::Message> {
         let comp = Arc::downgrade(self);
-        let msgq = Arc::downgrade(&self.msg_queue);
-        ActorRef::new(comp, msgq)
+        ActorRef::new(comp)
     }
 }
 
@@ -428,8 +425,8 @@ where
 }
 
 impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
-    fn id(&self) -> &Uuid {
-        &self.core.id
+    fn id(&self) -> Uuid {
+        self.core.id
     }
 
     fn core(&self) -> &ComponentCore {
@@ -497,6 +494,23 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
 
     fn type_name(&self) -> &'static str {
         C::type_name()
+    }
+
+    fn dyn_message_queue(&self) -> &dyn DynMsgQueue {
+        &self.msg_queue
+    }
+}
+
+impl<C: ComponentDefinition + Sized> MsgQueueContainer for Component<C> {
+    type Message = C::Message;
+
+    fn message_queue(&self) -> &TypedMsgQueue<Self::Message> {
+        &self.msg_queue
+    }
+
+    fn downgrade_dyn(self: Arc<Self>) -> Weak<dyn CoreContainer> {
+        let c: Arc<dyn CoreContainer> = self;
+        Arc::downgrade(&c)
     }
 }
 

@@ -83,7 +83,7 @@ impl Default for Handled {
 /// such as [Scheduler](runtime::Scheduler).
 pub trait CoreContainer: Send + Sync {
     /// Returns the component's unique id
-    fn id(&self) -> &Uuid;
+    fn id(&self) -> Uuid;
     /// Returns a reference to the actual component core
     fn core(&self) -> &ComponentCore;
     /// Executes this component on the current thread
@@ -98,11 +98,56 @@ pub trait CoreContainer: Send + Sync {
     fn schedule(&self) -> ();
     /// The descriptive string of the [ComponentDefinition](ComponentDefinition) type wrapped in this container
     fn type_name(&self) -> &'static str;
+
+    /// Returns the underlying message queue of this component
+    /// without the type information
+    fn dyn_message_queue(&self) -> &dyn DynMsgQueue;
 }
 
 impl fmt::Debug for dyn CoreContainer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CoreContainer({})", self.id())
+    }
+}
+
+pub(crate) trait MsgQueueContainer: CoreContainer {
+    type Message: MessageBounds;
+    fn message_queue(&self) -> &TypedMsgQueue<Self::Message>;
+    fn downgrade_dyn(self: Arc<Self>) -> Weak<dyn CoreContainer>;
+}
+
+pub(crate) struct FakeCoreContainer;
+impl CoreContainer for FakeCoreContainer {
+    fn id(&self) -> Uuid {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn core(&self) -> &ComponentCore {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn execute(&self) -> SchedulingDecision {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn control_port(&self) -> ProvidedRef<ControlPort> {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn system(&self) -> &KompactSystem {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn schedule(&self) -> () {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn type_name(&self) -> &'static str {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
+
+    fn dyn_message_queue(&self) -> &dyn DynMsgQueue {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
     }
 }
 

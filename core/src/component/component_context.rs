@@ -37,7 +37,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         CD: ComponentDefinition + 'static,
     {
         let system = c.system();
-        let id = *c.id();
+        let id = c.id();
         let inner = ComponentContextInner {
             timer_manager: TimerManager::new(system.timer_ref()),
             component: Arc::downgrade(&c),
