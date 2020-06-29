@@ -648,6 +648,9 @@ impl Provide<ControlPort> for NetworkDispatcher {
                 self.kill();
                 info!(self.ctx.log(), "Killed network.");
             }
+            ControlEvent::Poll(tag) => {
+                unimplemented!("TODO just change this API completely!");
+            }
         }
         Handled::Ok
     }

@@ -24,6 +24,7 @@ use crate::{
     supervision::*,
     timer::timer_manager::{ExecuteAction, ScheduledTimer, Timer, TimerManager, TimerRefFactory},
 };
+use fxhash::FxHashMap;
 
 use crate::net::buffer::EncodeBuffer;
 #[cfg(all(nightly, feature = "type_erasure"))]
@@ -102,6 +103,12 @@ pub trait CoreContainer: Send + Sync {
     /// Returns the underlying message queue of this component
     /// without the type information
     fn dyn_message_queue(&self) -> &dyn DynMsgQueue;
+
+    /// Enqueue an event on the component's control queue
+    ///
+    /// Not usually something you need to manually,
+    /// unless you nned custom supervisor behaviours, for example.
+    fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> ();
 }
 
 impl fmt::Debug for dyn CoreContainer {
@@ -149,11 +156,23 @@ impl CoreContainer for FakeCoreContainer {
     fn dyn_message_queue(&self) -> &dyn DynMsgQueue {
         unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
     }
+
+    fn enqueue_control(&self, _event: <ControlPort as Port>::Request) -> () {
+        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
+    }
 }
 
 pub(crate) struct ComponentMutableCore<C> {
     pub(crate) definition: C,
     skip: usize,
+}
+impl<C> ComponentMutableCore<C> {
+    fn from(definition: C) -> Self {
+        ComponentMutableCore {
+            definition,
+            skip: 0,
+        }
+    }
 }
 
 /// Statistics about the last invocation of [execute](ComponentDefinition::execute).
@@ -481,6 +500,9 @@ mod tests {
                 ControlEvent::Stop | ControlEvent::Kill => {
                     let _ = self.child.take(); // don't hang on to the child
                 }
+                ControlEvent::Poll(tag) => {
+                    unimplemented!("TODO just change this API completely!");
+                }
             }
             Handled::Ok
         }
@@ -732,6 +754,174 @@ mod tests {
         thread::sleep(timeout);
         comp.actor_ref().tell(BlockMe::Now);
         sender.send("gotcha".to_string()).expect("Should have sent");
+        thread::sleep(timeout);
+        system
+            .kill_notify(comp.clone())
+            .wait_timeout(timeout)
+            .expect("Component didn't die");
+        comp.on_definition(|cd| {
+            assert_eq!(cd.test_string, "done");
+        });
+        system.shutdown().expect("shutdown");
+    }
+
+    #[derive(Debug)]
+    enum AsyncMe {
+        Now,
+        OnChannel(oneshot::Receiver<String>),
+        ConcurrentMessage(oneshot::Receiver<String>),
+        JustAMessage(String),
+    }
+
+    #[derive(ComponentDefinition)]
+    struct AsyncComponent {
+        ctx: ComponentContext<Self>,
+        test_string: String,
+    }
+
+    impl AsyncComponent {
+        fn new() -> Self {
+            AsyncComponent {
+                ctx: ComponentContext::uninitialised(),
+                test_string: "started".to_string(),
+            }
+        }
+    }
+
+    impl Provide<ControlPort> for AsyncComponent {
+        fn handle(&mut self, event: ControlEvent) -> Handled {
+            if let ControlEvent::Start = event {
+                info!(self.log(), "Starting AsyncComponent");
+            }
+            Handled::Ok
+        }
+    }
+
+    impl Actor for AsyncComponent {
+        type Message = AsyncMe;
+
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            match msg {
+                AsyncMe::Now => {
+                    info!(self.log(), "Got AsyncMe::Now");
+                    self.spawn_local(async move |mut async_self| {
+                        async_self.test_string = "done".to_string();
+                        info!(async_self.log(), "Ran AsyncMe::Now future");
+                        Handled::Ok
+                    });
+                    Handled::Ok
+                }
+                AsyncMe::OnChannel(receiver) => {
+                    info!(self.log(), "Got AsyncMe::OnChannel");
+                    self.spawn_local(async move |mut async_self| {
+                        info!(async_self.log(), "Started AsyncMe::OnChannel future");
+                        let s = receiver.await;
+                        async_self.test_string = s.expect("Some string");
+                        info!(async_self.log(), "Completed Async::OnChannel future");
+                        Handled::Ok
+                    });
+                    Handled::Ok
+                }
+                AsyncMe::ConcurrentMessage(receiver) => {
+                    info!(self.log(), "Got AsyncMe::OnChannel");
+                    self.spawn_local(async move |mut async_self| {
+                        info!(async_self.log(), "Started AsyncMe::ConcurrentMessag future");
+                        let s = receiver.await.expect("Some string");
+                        info!(
+                            async_self.log(),
+                            "Got message {} as state={}", s, async_self.test_string
+                        );
+                        assert_eq!(
+                            s, async_self.test_string,
+                            "Message was not processed before future!"
+                        );
+                        async_self.test_string = "done".to_string();
+                        info!(
+                            async_self.log(),
+                            "Completed AsyncMe::ConcurrentMessage future with state={}",
+                            async_self.test_string
+                        );
+                        Handled::Ok
+                    });
+                    Handled::Ok
+                }
+                AsyncMe::JustAMessage(s) => {
+                    info!(self.log(), "Got AsyncMe::JustAMessage({})", s);
+                    self.test_string = s;
+                    Handled::Ok
+                }
+            }
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!("No networking here!");
+        }
+    }
+
+    #[test]
+    fn test_immediate_non_blocking() {
+        let timeout = Duration::from_millis(1000);
+        let system = KompactConfig::default().build().expect("System");
+        let comp = system.create(AsyncComponent::new);
+        system
+            .start_notify(&comp)
+            .wait_timeout(timeout)
+            .expect("Component didn't start");
+        comp.actor_ref().tell(AsyncMe::Now);
+        thread::sleep(timeout);
+        system
+            .kill_notify(comp.clone())
+            .wait_timeout(timeout)
+            .expect("Component didn't die");
+        comp.on_definition(|cd| {
+            assert_eq!(cd.test_string, "done");
+        });
+        system.shutdown().expect("shutdown");
+    }
+
+    #[test]
+    fn test_channel_non_blocking() {
+        let timeout = Duration::from_millis(1000);
+        let system = KompactConfig::default().build().expect("System");
+        let comp = system.create(AsyncComponent::new);
+        system
+            .start_notify(&comp)
+            .wait_timeout(timeout)
+            .expect("Component didn't start");
+
+        let (sender, receiver) = oneshot::channel();
+        comp.actor_ref().tell(AsyncMe::OnChannel(receiver));
+        thread::sleep(timeout);
+        sender.send("gotcha".to_string()).expect("Should have sent");
+        thread::sleep(timeout);
+        system
+            .kill_notify(comp.clone())
+            .wait_timeout(timeout)
+            .expect("Component didn't die");
+        comp.on_definition(|cd| {
+            assert_eq!(cd.test_string, "gotcha");
+        });
+        system.shutdown().expect("shutdown");
+    }
+
+    #[test]
+    fn test_concurrent_non_blocking() {
+        let timeout = Duration::from_millis(1000);
+        let system = KompactConfig::default().build().expect("System");
+        let comp = system.create(AsyncComponent::new);
+        system
+            .start_notify(&comp)
+            .wait_timeout(timeout)
+            .expect("Component didn't start");
+
+        let (sender, receiver) = oneshot::channel();
+        comp.actor_ref().tell(AsyncMe::ConcurrentMessage(receiver));
+        thread::sleep(timeout);
+        let msg = "gotcha";
+        comp.actor_ref()
+            .tell(AsyncMe::JustAMessage(msg.to_string()));
+        thread::sleep(timeout);
+        sender.send(msg.to_string()).expect("Should have sent");
         thread::sleep(timeout);
         system
             .kill_notify(comp.clone())

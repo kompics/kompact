@@ -8,7 +8,7 @@ use std::{
     fmt,
     future::Future as RustFuture,
     ops::{Deref, DerefMut},
-    task::{Context, Poll},
+    task::{Context, Poll, Waker},
 };
 
 impl<CD> ArcWake for Component<CD>
@@ -72,6 +72,78 @@ where
     BlockingFuture { future: boxed }
 }
 
+/// A future that is supposed to be polled
+/// while the component is running normally
+pub struct NonBlockingFuture {
+    future: BoxFuture<'static, Handled>,
+    waker: Waker,
+    tag: Uuid,
+}
+impl fmt::Debug for NonBlockingFuture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NonBlockingFuture")
+            .field("future", &"<anonymous boxed future>")
+            .finish()
+    }
+}
+
+impl NonBlockingFuture {
+    pub(super) fn run(&mut self) -> Poll<Handled> {
+        let ctx = &mut Context::from_waker(&self.waker);
+        let fut = self.future.as_mut();
+        RustFuture::poll(fut, ctx)
+    }
+
+    pub(super) fn tag(&self) -> Uuid {
+        self.tag
+    }
+
+    pub(super) fn schedule(&self) -> () {
+        self.waker.wake_by_ref()
+    }
+}
+
+pub(super) fn non_blocking<F, CD>(
+    component: &mut CD,
+    f: impl FnOnce(ComponentDefinitionAccess<CD>) -> F,
+) -> NonBlockingFuture
+where
+    F: RustFuture<Output = Handled> + Send + 'static,
+    CD: ComponentDefinition + 'static,
+{
+    let id = Uuid::new_v4();
+    let future = f(ComponentDefinitionAccess::from_ref(component));
+    let core = component.ctx().component();
+    let waker = async_task::waker_fn(move || {
+        let id = id; // move id
+        core.enqueue_control(ControlEvent::Poll(id));
+    });
+    let boxed = Box::pin(future);
+    NonBlockingFuture {
+        future: boxed,
+        waker,
+        tag: id,
+    }
+}
+
+/// Gives access to the component definition within a future/async function
+///
+/// This is *only* guaranteed to be correct when accessed as part of the future's `poll` function.
+///
+/// This also means you may not hold references to fields within the component across `await` points.
+/// You must either drop them manually before calling `await`, or simply use a sub-scope and let them go
+/// out of scope first.
+/// It is then safe to reacquire them following the `await`.
+///
+/// If the future is not being used as a blocking variant,
+/// no assumptions about the state of the component should be made after the `await` point
+/// and everthing previously established must be re-verified on the new references
+/// if it could at all have changed between two `poll` invocations.
+///
+/// In particular, under no circumstances should you ever send this anywhere else
+/// (e.g. on a channel, or as part of spawned off closure).
+/// The only reason this is marked as `Send` is so the futures it produces can be sent
+/// with their parent component.
 pub struct ComponentDefinitionAccess<CD>
 where
     CD: ComponentDefinition + 'static,

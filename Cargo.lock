@@ -730,6 +730,7 @@ version = "0.9.0"
 dependencies = [
  "arc-swap",
  "as_num",
+ "async-task",
  "bitfields",
  "bytes",
  "core_affinity",

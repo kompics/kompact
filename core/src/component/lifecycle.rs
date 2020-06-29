@@ -16,6 +16,8 @@ pub enum ControlEvent {
     Stop,
     /// Stops and deallocates a component
     Kill,
+    /// Ask the component to poll a non-blocking future
+    Poll(Uuid),
 }
 
 /// Kompact lifecycle port type

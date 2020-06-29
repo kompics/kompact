@@ -1,11 +1,16 @@
 use super::*;
 
+use std::task::Poll;
+
 /// The contextual object for a Kompact component
 ///
 /// Gives access compact internal features like
 /// timers, logging, confguration, an the self reference.
 pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
     inner: Option<ComponentContextInner<CD>>,
+    buffer: RefCell<Option<EncodeBuffer>>,
+    blocking_future: Option<BlockingFuture>,
+    pub(super) non_blocking_futures: FxHashMap<Uuid, NonBlockingFuture>,
 }
 
 struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'static> {
@@ -13,10 +18,8 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     pub(super) component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
-    buffer: RefCell<Option<EncodeBuffer>>,
     config: Arc<Hocon>,
     id: Uuid,
-    blocking_future: Option<BlockingFuture>,
 }
 
 impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
@@ -26,7 +29,12 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     ///
     /// Nothing in this context may be used *before* the parent component is actually initialised!
     pub fn uninitialised() -> ComponentContext<CD> {
-        ComponentContext { inner: None }
+        ComponentContext {
+            inner: None,
+            buffer: RefCell::new(None),
+            blocking_future: None,
+            non_blocking_futures: FxHashMap::default(),
+        }
     }
 
     /// Initialise the component context with the actual component instance
@@ -43,10 +51,8 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
             component: Arc::downgrade(&c),
             logger: c.logger().new(o!("ctype" => CD::type_name())),
             actor_ref: c.actor_ref(),
-            buffer: RefCell::new(None),
             config: system.config_owned(),
             id,
-            blocking_future: None,
         };
         self.inner = Some(inner);
         trace!(self.log(), "Initialised.");
@@ -172,15 +178,10 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// should be a `return ExecuteResult::new(true, count, skip)`, as continuing to execute handlers violates
     /// blocking semantics.
     pub fn set_blocking(&mut self, f: BlockingFuture) {
-        let inner_mut = self.inner_mut();
-        inner_mut
-            .blocking_future
+        self.blocking_future
             .replace(f)
             .expect_none("Replacing a blocking future without completing it first is invalid!");
-        let component = match inner_mut.component.upgrade() {
-            Some(ac) => ac,
-            None => panic!("Component already deallocated!"),
-        };
+        let component = self.typed_component();
         component.set_blocking();
     }
 
@@ -190,42 +191,42 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// aborted and the returned result must have the form
     /// `ExecuteResult::new(true, count, skip)`.
     pub fn is_blocking(&self) -> bool {
-        self.inner_ref().blocking_future.is_some()
+        self.blocking_future.is_some()
     }
 
     pub(super) fn run_blocking_task(&mut self) -> SchedulingDecision {
-        let blocking_future;
-        let component;
-        {
-            let inner_mut = self.inner_mut();
-            blocking_future = inner_mut
-                .blocking_future
-                .take()
-                .expect("Called run_blocking while not blocking!");
-            component = match inner_mut.component.upgrade() {
-                Some(ac) => ac,
-                None => panic!("Component already deallocated!"),
-            };
-            // let inner_mut go out of scope here, as it would illegal to hold a mutable reference to it
-            // while running the blocking_future, which also gets a mutable reference
-        }
+        let blocking_future = self
+            .blocking_future
+            .take()
+            .expect("Called run_blocking while not blocking!");
+        let component = self.typed_component();
         match blocking_future.run(&component) {
             BlockingRunResult::BlockOn(f) => {
-                let inner_mut = self.inner_mut();
-                inner_mut.blocking_future.replace(f).expect_none(
+                self.blocking_future.replace(f).expect_none(
                     "Replacing a blocking future without completing it first is invalid!",
                 );
                 SchedulingDecision::Blocked
             }
             BlockingRunResult::Unblock => {
-                let inner_mut = self.inner_mut();
                 assert!(
-                    inner_mut.blocking_future.is_none(),
+                    self.blocking_future.is_none(),
                     "Don't block within a blocking future! Just call await on the future instead."
                 );
                 component.set_active();
                 SchedulingDecision::NoWork
             }
+        }
+    }
+
+    pub(super) fn run_nonblocking_task(&mut self, tag: Uuid) -> Handled {
+        if let Some(future) = self.non_blocking_futures.get_mut(&tag) {
+            match future.run() {
+                Poll::Pending => Handled::Ok,
+                Poll::Ready(handled) => handled,
+            }
+        } else {
+            warn!(self.log(), "Future with tag {} was scheduled but not available. May have been scheduled after completion.", tag);
+            Handled::Ok
         }
     }
 
@@ -267,13 +268,26 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// Initializes a buffer pool which [tell_serialised(ActorPath::tell_serialised) can use.
     pub fn initialise_pool(&self) -> () {
         debug!(self.log(), "Initialising EncodeBuffer");
-        *self.inner_ref().buffer.borrow_mut() = Some(EncodeBuffer::new());
+        *self.buffer.borrow_mut() = Some(EncodeBuffer::new());
     }
 
-    /// Get a reference to the interior EncodeBuffer without retaining a self borrow
-    /// initializes the private pool if it has not already been initialized
-    pub fn get_buffer(&self) -> &RefCell<Option<EncodeBuffer>> {
-        &self.inner_ref().buffer
+    // /// Get a reference to the interior EncodeBuffer without retaining a self borrow
+    // /// initializes the private pool if it has not already been initialized
+    // /// pub
+    // fn get_buffer(&self) -> &RefCell<Option<EncodeBuffer>> {
+    //     &self.buffer
+    // }
+    pub(crate) fn with_buffer<R>(&self, f: impl FnOnce(&mut EncodeBuffer) -> R) -> R {
+        let mut buffer_location = self.buffer.borrow_mut();
+        match buffer_location.as_mut() {
+            Some(buffer) => f(buffer),
+            None => {
+                let mut buffer = EncodeBuffer::new();
+                let res = f(&mut buffer);
+                *buffer_location = Some(buffer);
+                res
+            }
+        }
     }
 }
 

@@ -59,6 +59,7 @@ hocon 							= {version = "0.3", default-features = false}
 hierarchical_hash_wheel_timer 	= "1.0"
 owning_ref 						= "0.4"
 futures 						= "0.3"
+async-task 						= "3.0"
 
 # Optional
 protobuf 						= {version = "2", optional = true, features = ["with-bytes"]}

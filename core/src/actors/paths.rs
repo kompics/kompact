@@ -316,29 +316,45 @@ impl ActorPath {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
             self.tell(m, from);
-            return Ok(());
+            Ok(())
         } else {
-            // Scope the buffer check so we can safely initialise it if we need to
-            {
-                if let Some(buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
-                    let mut buf = buffer.get_buffer_encoder();
-                    let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(
-                        &from.actor_path(),
-                        &self,
-                        &m,
-                        &mut buf,
-                    )?;
-                    let env = DispatchEnvelope::Msg {
-                        src: from.path_resolvable(),
-                        dst: self.clone(),
-                        msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
-                    };
-                    from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-                    return Ok(());
-                } // Else Branch outside of the scope below:
-            }
-            from.ctx().initialise_pool();
-            self.tell_serialised(m, from)
+            from.ctx().with_buffer(|buffer| {
+                let mut buf = buffer.get_buffer_encoder();
+                let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(
+                    &from.actor_path(),
+                    &self,
+                    &m,
+                    &mut buf,
+                )?;
+                let env = DispatchEnvelope::Msg {
+                    src: from.path_resolvable(),
+                    dst: self.clone(),
+                    msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+                };
+                from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+                Ok(())
+            })
+            // // Scope the buffer check so we can safely initialise it if we need to
+            // {
+            //     if let Some(buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
+            //         let mut buf = buffer.get_buffer_encoder();
+            //         let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(
+            //             &from.actor_path(),
+            //             &self,
+            //             &m,
+            //             &mut buf,
+            //         )?;
+            //         let env = DispatchEnvelope::Msg {
+            //             src: from.path_resolvable(),
+            //             dst: self.clone(),
+            //             msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+            //         };
+            //         from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+            //         return Ok(());
+            //     } // Else Branch outside of the scope below:
+            // }
+            // from.ctx().initialise_pool();
+            // self.tell_serialised(m, from)
         }
     }
 

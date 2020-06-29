@@ -129,6 +129,9 @@ impl Provide<ControlPort> for ComponentSupervisor {
                 );
                 panic!("Invalid supervisor handling!");
             }
+            ControlEvent::Poll(tag) => {
+                unimplemented!("TODO just change this API completely!");
+            }
         }
     }
 }

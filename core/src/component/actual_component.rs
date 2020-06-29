@@ -50,10 +50,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let mutable_core = ComponentMutableCore {
-            definition,
-            skip: 0,
-        };
+        let mutable_core = ComponentMutableCore::from(definition);
         Component {
             core,
             custom_scheduler: None,
@@ -76,10 +73,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let mutable_core = ComponentMutableCore {
-            definition,
-            skip: 0,
-        };
+        let mutable_core = ComponentMutableCore::from(definition);
         Component {
             core,
             custom_scheduler: Some(custom_scheduler),
@@ -97,10 +91,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let mutable_core = ComponentMutableCore {
-            definition,
-            skip: 0,
-        };
+        let mutable_core = ComponentMutableCore::from(definition);
         Component {
             core,
             custom_scheduler: None,
@@ -122,10 +113,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             .system
             .logger()
             .new(o!("cid" => format!("{}", core.id)));
-        let mutable_core = ComponentMutableCore {
-            definition,
-            skip: 0,
-        };
+        let mutable_core = ComponentMutableCore::from(definition);
         Component {
             core,
             custom_scheduler: Some(custom_scheduler),
@@ -233,29 +221,50 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                 while let Ok(event) = self.ctrl_queue.pop() {
                     // ignore max_events for lifecyle events
                     // println!("Executing event: {:?}", event);
-                    let supervisor_msg = match event {
+                    let res = match event {
                         lifecycle::ControlEvent::Start => {
                             lifecycle::set_active(&self.core.state);
                             debug!(self.logger, "Component started.");
-                            SupervisorMsg::Started(self.core.component())
+                            let supervisor_msg = SupervisorMsg::Started(self.core.component());
+                            let res = guard.definition.handle(event);
+                            count += 1;
+                            // inform supervisor after local handling to make sure crashing component don't count as started
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(supervisor_msg);
+                            }
+                            res
                         }
                         lifecycle::ControlEvent::Stop => {
                             lifecycle::set_passive(&self.core.state);
                             debug!(self.logger, "Component stopped.");
-                            SupervisorMsg::Stopped(self.core.id)
+                            let supervisor_msg = SupervisorMsg::Stopped(self.core.id);
+                            let res = guard.definition.handle(event);
+                            count += 1;
+                            // inform supervisor after local handling to make sure crashing component don't count as started
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(supervisor_msg);
+                            }
+                            res
                         }
                         lifecycle::ControlEvent::Kill => {
                             lifecycle::set_destroyed(&self.core.state);
                             debug!(self.logger, "Component killed.");
-                            SupervisorMsg::Killed(self.core.id)
+                            let supervisor_msg = SupervisorMsg::Killed(self.core.id);
+                            let res = guard.definition.handle(event);
+                            count += 1;
+                            // inform supervisor after local handling to make sure crashing component don't count as started
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(supervisor_msg);
+                            }
+                            res
+                        }
+                        lifecycle::ControlEvent::Poll(tag) => {
+                            let res = guard.definition.ctx_mut().run_nonblocking_task(tag);
+                            count += 1;
+                            res
                         }
                     };
-                    let res = guard.definition.handle(event);
-                    count += 1;
-                    // inform supervisor after local handling to make sure crashing component don't count as started
-                    if let Some(ref supervisor) = self.supervisor {
-                        supervisor.enqueue(supervisor_msg);
-                    }
+
                     match res {
                         Handled::Ok => (), // fine continue
                         Handled::BlockOn(_blocking_future) => {
@@ -498,6 +507,10 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
 
     fn dyn_message_queue(&self) -> &dyn DynMsgQueue {
         &self.msg_queue
+    }
+
+    fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> () {
+        Component::enqueue_control(self, event)
     }
 }
 

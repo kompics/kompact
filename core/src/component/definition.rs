@@ -70,6 +70,21 @@ where
     //     let blocking = future_task::blocking(self, fun);
     //     self.ctx_mut().set_blocking(blocking);
     // }
+
+    /// Run a Future on this component, allowing it mutable
+    /// access to the component's internal state on every poll.
+    fn spawn_local<F>(&mut self, f: impl FnOnce(ComponentDefinitionAccess<Self>) -> F)
+    where
+        Self: 'static,
+        F: futures::Future<Output = Handled> + Send + 'static,
+    {
+        let future = future_task::non_blocking(self, f);
+        future.schedule();
+        let tag = future.tag();
+        self.ctx_mut().non_blocking_futures.insert(tag, future);
+    }
+
+    // TODO "spawn off" where the future is run elsewhere on the pool and only the join handle is returned
 }
 
 /// A mechanism for dynamically getting references to provided/required ports from a component.
@@ -132,9 +147,6 @@ impl std::error::Error for LockPoisoned {}
 ///
 /// See also: [`ActorRefFactory`] and [`CoreContainer`], which this trait inherits.
 pub trait AbstractComponent: ActorRefFactory + CoreContainer + Any {
-    #[doc(hidden)] // internal api
-    fn enqueue_control(&self, event: ControlEvent);
-
     /// Returns a mutable reference to the underlying component definition as a
     /// [`DynamicComponentDefinition`] trait object.
     ///
@@ -160,11 +172,6 @@ impl<C> AbstractComponent for Component<C>
 where
     C: ComponentDefinition + 'static,
 {
-    #[doc(hidden)] // internal api
-    fn enqueue_control(&self, event: ControlEvent) {
-        Component::enqueue_control(self, event)
-    }
-
     fn dyn_definition_mut(
         &mut self,
     ) -> &mut dyn DynamicComponentDefinition<Message = Self::Message> {
