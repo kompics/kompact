@@ -122,7 +122,7 @@ impl BootstrapServer {
     // ANCHOR_END: tell_serialised
 }
 
-ignore_control!(BootstrapServer);
+ignore_lifecycle!(BootstrapServer);
 
 impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;
@@ -131,10 +131,13 @@ impl NetworkActor for BootstrapServer {
     fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
         if let Some(process) = source {
             if self.processes.insert(process) {
-                self.broadcast_processess();
+                self.broadcast_processess()
+            } else {
+                Handled::Ok
             }
+        } else {
+            Handled::Ok
         }
-        Handled::Ok
     }
 }
 
@@ -179,7 +182,7 @@ impl EventualLeaderElector {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
                 if new_leader != self.leader {
-                    self.period = self.period + self.delta;
+                    self.period += self.delta;
                     self.leader = new_leader;
                     if let Some(ref leader) = self.leader {
                         self.omega_port.trigger(Trust(leader.clone()));
@@ -195,8 +198,7 @@ impl EventualLeaderElector {
                     // just put it back
                     self.timer_handle = Some(timeout);
                 }
-                self.send_heartbeats();
-                Handled::Ok
+                self.send_heartbeats()
             }
             Some(_) => Handled::Ok, // just ignore outdated timeouts
             None => {
@@ -216,35 +218,32 @@ impl EventualLeaderElector {
     // ANCHOR_END: send_heartbeats
 }
 
-impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                // ANCHOR: tell_checkin
-                self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
-                // ANCHOR_END: tell_checkin
+impl ComponentLifecycle for EventualLeaderElector {
+    fn on_start(&mut self) -> Handled {
+        self.period = self.ctx.config()["omega"]["initial-period"]
+            .as_duration()
+            .expect("initial period");
+        self.delta = self.ctx.config()["omega"]["delta"]
+            .as_duration()
+            .expect("delta");
+        let timeout = self.schedule_periodic(
+            self.period,
+            self.period,
+            EventualLeaderElector::handle_timeout,
+        );
+        self.timer_handle = Some(timeout);
+        Handled::Ok
+    }
 
-                self.period = self.ctx.config()["omega"]["initial-period"]
-                    .as_duration()
-                    .expect("initial period");
-                self.delta = self.ctx.config()["omega"]["delta"]
-                    .as_duration()
-                    .expect("delta");
-                let timeout = self.schedule_periodic(
-                    self.period,
-                    self.period,
-                    EventualLeaderElector::handle_timeout,
-                );
-                self.timer_handle = Some(timeout);
-                Handled::Ok
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.timer_handle.take() {
-                    self.cancel_timer(timeout);
-                }
-                Handled::Ok
-            }
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.timer_handle.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
 // Doesn't have any requests

@@ -6,14 +6,14 @@ use std::task::Poll;
 ///
 /// Gives access compact internal features like
 /// timers, logging, confguration, an the self reference.
-pub struct ComponentContext<CD: ComponentDefinition + Sized + 'static> {
+pub struct ComponentContext<CD: ComponentTraits> {
     inner: Option<ComponentContextInner<CD>>,
     buffer: RefCell<Option<EncodeBuffer>>,
     blocking_future: Option<BlockingFuture>,
     pub(super) non_blocking_futures: FxHashMap<Uuid, NonBlockingFuture>,
 }
 
-struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'static> {
+struct ComponentContextInner<CD: ComponentTraits> {
     timer_manager: TimerManager<CD>,
     pub(super) component: Weak<Component<CD>>,
     logger: KompactLogger,
@@ -22,7 +22,10 @@ struct ComponentContextInner<CD: ComponentDefinition + ActorRaw + Sized + 'stati
     id: Uuid,
 }
 
-impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
+impl<CD> ComponentContext<CD>
+where
+    CD: ComponentTraits + ComponentLifecycle,
+{
     /// Create a new, uninitialised component context
     ///
     /// # Note
@@ -40,10 +43,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     /// Initialise the component context with the actual component instance
     ///
     /// This *must* be invoked from [setup](ComponentDefinition::setup).
-    pub fn initialise(&mut self, c: Arc<Component<CD>>) -> ()
-    where
-        CD: ComponentDefinition + 'static,
-    {
+    pub fn initialise(&mut self, c: Arc<Component<CD>>) -> () {
         let system = c.system();
         let id = c.id();
         let inner = ComponentContextInner {
@@ -93,12 +93,10 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for HelloLogging {
-    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         info!(self.ctx().log(), "Hello control event: {:?}", event);
-    ///         if event == ControlEvent::Start {
-    ///             self.ctx().system().shutdown_async();
-    ///         }
+    /// impl ComponentLifecycle for HelloLogging {
+    ///     fn on_start(&mut self) -> Handled {
+    ///         info!(self.ctx().log(), "Hello Start event");
+    ///         self.ctx().system().shutdown_async();
     ///         Handled::Ok
     ///     }    
     /// }
@@ -134,15 +132,10 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for ConfigComponent {
-    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
-    ///                 self.ctx().system().shutdown_async();
-    ///             }
-    ///             _ => (), // ignore
-    ///         }
+    /// impl ComponentLifecycle for ConfigComponent {
+    ///     fn on_start(&mut self) -> Handled {
+    ///         assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
+    ///         self.ctx().system().shutdown_async();
     ///         Handled::Ok
     ///     }    
     /// }
@@ -258,11 +251,16 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
         &self.inner_ref().id
     }
 
-    /// Destroys this component
+    /// Destroys this component lazily
     ///
-    /// Simply sends a [Kill](ControlEvent::Kill) event to itself.
+    /// This simply sends a `Kill` event to itself,
+    /// which means that other events may still be handled
+    /// before the component is actually killed.
+    ///
+    /// For a more immediate alternative
+    /// see [Handled::DieNow](Handled::DieNow).
     pub fn suicide(&self) -> () {
-        self.component().control_port().enqueue(ControlEvent::Kill);
+        self.component().enqueue_control(ControlEvent::Kill);
     }
 
     /// Initializes a buffer pool which [tell_serialised(ActorPath::tell_serialised) can use.
@@ -293,7 +291,7 @@ impl<CD: ComponentDefinition + Sized + 'static> ComponentContext<CD> {
 
 impl<CD> ActorRefFactory for ComponentContext<CD>
 where
-    CD: ComponentDefinition + ActorRaw + Sized + 'static,
+    CD: ComponentTraits + ComponentLifecycle,
 {
     type Message = CD::Message;
 
@@ -304,7 +302,7 @@ where
 
 impl<CD> ActorPathFactory for ComponentContext<CD>
 where
-    CD: ComponentDefinition + ActorRaw + Sized + 'static,
+    CD: ComponentTraits + ComponentLifecycle,
 {
     fn actor_path(&self) -> ActorPath {
         let id = *self.id();

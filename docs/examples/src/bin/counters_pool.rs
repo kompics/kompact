@@ -39,9 +39,21 @@ impl Counter {
         }
     }
 }
-impl Provide<ControlPort> for Counter {
-    fn handle(&mut self, _event: ControlEvent) -> Handled {
-        info!(self.ctx.log(), "Got a control event!");
+impl ComponentLifecycle for Counter {
+    fn on_start(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a start event!");
+        self.event_count += 1u64;
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a stop event!");
+        self.event_count += 1u64;
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a kill event!");
         self.event_count += 1u64;
         Handled::Ok
     }

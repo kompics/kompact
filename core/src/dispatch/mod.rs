@@ -2,8 +2,7 @@ use super::*;
 
 use crate::{
     actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport},
-    component::{Component, ComponentContext, ExecuteResult, Provide},
-    lifecycle::{ControlEvent, ControlPort},
+    component::{Component, ComponentContext, ExecuteResult},
 };
 use std::{net::SocketAddr, pin::Pin, sync::Arc};
 
@@ -616,42 +615,39 @@ impl Dispatcher for NetworkDispatcher {
     }
 }
 
-impl Provide<ControlPort> for NetworkDispatcher {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                info!(self.ctx.log(), "Starting network...");
-                let res = self.start(); //.expect("Could not create NetworkDispatcher!");
-                match res {
-                    Ok(_) => {
-                        info!(self.ctx.log(), "Started network just fine.");
-                        match self.notify_ready.take() {
-                            Some(promise) => promise.fulfil(()).unwrap_or_else(|e| {
-                                error!(self.ctx.log(), "Could not start network! {:?}", e)
-                            }),
-                            None => (),
-                        }
-                    }
-                    Err(e) => {
-                        error!(self.ctx.log(), "Could not start network! {:?}", e);
-                        panic!("Kill me now!");
-                    }
+impl ComponentLifecycle for NetworkDispatcher {
+    fn on_start(&mut self) -> Handled {
+        info!(self.ctx.log(), "Starting network...");
+        let res = self.start(); //.expect("Could not create NetworkDispatcher!");
+        match res {
+            Ok(_) => {
+                info!(self.ctx.log(), "Started network just fine.");
+                match self.notify_ready.take() {
+                    Some(promise) => promise.fulfil(()).unwrap_or_else(|e| {
+                        error!(self.ctx.log(), "Could not start network! {:?}", e)
+                    }),
+                    None => (),
                 }
             }
-            ControlEvent::Stop => {
-                info!(self.ctx.log(), "Stopping network...");
-                self.stop();
-                info!(self.ctx.log(), "Stopped network.");
-            }
-            ControlEvent::Kill => {
-                info!(self.ctx.log(), "Killing network...");
-                self.kill();
-                info!(self.ctx.log(), "Killed network.");
-            }
-            ControlEvent::Poll(tag) => {
-                unimplemented!("TODO just change this API completely!");
+            Err(e) => {
+                error!(self.ctx.log(), "Could not start network! {:?}", e);
+                panic!("Kill me now!");
             }
         }
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        info!(self.ctx.log(), "Stopping network...");
+        self.stop();
+        info!(self.ctx.log(), "Stopped network.");
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        info!(self.ctx.log(), "Killing network...");
+        self.kill();
+        info!(self.ctx.log(), "Killed network.");
         Handled::Ok
     }
 }
@@ -1795,20 +1791,15 @@ mod dispatch_tests {
         }
     }
 
-    impl Provide<ControlPort> for PingerAct {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting");
-                    if self.eager {
-                        self.target
-                            .tell_serialised(PingMsg { i: 0 }, self)
-                            .expect("serialise");
-                    } else {
-                        self.target.tell(PingMsg { i: 0 }, self);
-                    }
-                }
-                _ => (),
+    impl ComponentLifecycle for PingerAct {
+        fn on_start(&mut self) -> Handled {
+            info!(self.ctx.log(), "Starting");
+            if self.eager {
+                self.target
+                    .tell_serialised(PingMsg { i: 0 }, self)
+                    .expect("serialise");
+            } else {
+                self.target.tell(PingMsg { i: 0 }, self);
             }
             Handled::Ok
         }
@@ -1864,17 +1855,7 @@ mod dispatch_tests {
         }
     }
 
-    impl Provide<ControlPort> for PongerAct {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting");
-                }
-                _ => (),
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(PongerAct);
 
     impl Actor for PongerAct {
         type Message = Never;
@@ -1916,7 +1897,7 @@ mod dispatch_tests {
             }
         }
     }
-    ignore_control!(ForwarderAct);
+    ignore_lifecycle!(ForwarderAct);
     impl Actor for ForwarderAct {
         type Message = Never;
 

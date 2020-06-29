@@ -1,5 +1,8 @@
 use super::prelude::*;
-use crate::utils::{Fulfillable, Promise};
+use crate::{
+    utils::{Fulfillable, Promise},
+    ControlEvent,
+};
 
 use std::{
     collections::HashMap,
@@ -111,28 +114,23 @@ impl ComponentSupervisor {
     }
 }
 
-impl Provide<ControlPort> for ComponentSupervisor {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                debug!(self.ctx.log(), "Started.");
-                Handled::Ok
-            }
-            ControlEvent::Stop => {
-                error!(self.ctx.log(), "Do not stop the supervisor!");
-                panic!("Invalid supervisor handling!");
-            }
-            ControlEvent::Kill => {
-                error!(
-                    self.ctx.log(),
-                    "Use SupervisorMsg::Shutdown to kill the supervisor!"
-                );
-                panic!("Invalid supervisor handling!");
-            }
-            ControlEvent::Poll(tag) => {
-                unimplemented!("TODO just change this API completely!");
-            }
-        }
+impl ComponentLifecycle for ComponentSupervisor {
+    fn on_start(&mut self) -> Handled {
+        debug!(self.ctx.log(), "Started supervisor.");
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        error!(self.ctx.log(), "Do not stop the supervisor!");
+        panic!("Invalid supervisor handling!");
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        error!(
+            self.ctx.log(),
+            "Use SupervisorMsg::Shutdown to kill the supervisor!"
+        );
+        panic!("Invalid supervisor handling!");
     }
 }
 
@@ -140,9 +138,8 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
     fn handle(&mut self, event: SupervisorMsg) -> Handled {
         match event {
             SupervisorMsg::Started(c) => {
-                let id = c.id().clone();
-                let ctrl = c.control_port();
-                self.children.insert(id, c);
+                let id = c.id();
+                self.children.insert(id, c.clone());
                 debug!(self.ctx.log(), "Component({}) was started.", id);
                 self.notify_listeners(&id, |l| {
                     if let ListenEvent::Started(_) = l {
@@ -156,7 +153,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         self.ctx.log(),
                         "Child {} just started during shutdown. Killing it immediately!", id
                     );
-                    ctrl.enqueue(ControlEvent::Kill);
+                    c.enqueue_control(ControlEvent::Kill);
                 }
             }
             SupervisorMsg::Stopped(id) => {
@@ -238,7 +235,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     trace!(self.ctx.log(), "Killing {} children.", self.children.len());
                     self.shutdown = Some(promise);
                     for child in self.children.values() {
-                        child.control_port().enqueue(ControlEvent::Kill);
+                        child.enqueue_control(ControlEvent::Kill);
                     }
                 }
             }

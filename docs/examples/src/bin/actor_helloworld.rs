@@ -12,7 +12,7 @@ impl HelloWorldActor {
         }
     }
 }
-ignore_control!(HelloWorldActor);
+ignore_lifecycle!(HelloWorldActor);
 
 impl Actor for HelloWorldActor {
     type Message = ();

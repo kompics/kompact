@@ -45,22 +45,22 @@ impl Buncher {
     }
 }
 
-impl Provide<ControlPort> for Buncher {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                let timeout =
-                    self.schedule_periodic(self.timeout, self.timeout, Buncher::handle_timeout);
-                self.outstanding_timeout = Some(timeout);
-                Handled::Ok
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.outstanding_timeout.take() {
-                    self.cancel_timer(timeout);
-                }
-                Handled::Ok
-            }
+impl ComponentLifecycle for Buncher {
+    fn on_start(&mut self) -> Handled {
+        let timeout = self.schedule_periodic(self.timeout, self.timeout, Buncher::handle_timeout);
+        self.outstanding_timeout = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.outstanding_timeout.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
 

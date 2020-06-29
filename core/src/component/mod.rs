@@ -55,6 +55,8 @@ pub enum Handled {
     /// Immediately suspend processing of any messages and events
     /// until the `BlockingFuture` has completed.
     BlockOn(BlockingFuture),
+    /// Kills the component without handling any further messages
+    DieNow,
 }
 impl Handled {
     /// Constructs a state transition instruction which causes
@@ -78,6 +80,11 @@ impl Default for Handled {
     }
 }
 
+/// A trait bound alias for the trait required by the
+/// generic parameter of a [Component](Component)
+pub trait ComponentTraits: ComponentDefinition + ActorRaw + Sized + 'static {}
+impl<CD> ComponentTraits for CD where CD: ComponentDefinition + ActorRaw + Sized + 'static {}
+
 /// A trait for abstracting over structures that contain a component core
 ///
 /// Used for implementing scheduling and execution logic,
@@ -89,8 +96,6 @@ pub trait CoreContainer: Send + Sync {
     fn core(&self) -> &ComponentCore;
     /// Executes this component on the current thread
     fn execute(&self) -> SchedulingDecision;
-    /// Returns a reference to this component's control port
-    fn control_port(&self) -> ProvidedRef<ControlPort>;
     /// Returns this component's system
     fn system(&self) -> &KompactSystem {
         self.core().system()
@@ -108,7 +113,7 @@ pub trait CoreContainer: Send + Sync {
     ///
     /// Not usually something you need to manually,
     /// unless you nned custom supervisor behaviours, for example.
-    fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> ();
+    fn enqueue_control(&self, event: ControlEvent) -> ();
 }
 
 impl fmt::Debug for dyn CoreContainer {
@@ -137,10 +142,6 @@ impl CoreContainer for FakeCoreContainer {
         unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
     }
 
-    fn control_port(&self) -> ProvidedRef<ControlPort> {
-        unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
-    }
-
     fn system(&self) -> &KompactSystem {
         unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
     }
@@ -157,7 +158,7 @@ impl CoreContainer for FakeCoreContainer {
         unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
     }
 
-    fn enqueue_control(&self, _event: <ControlPort as Port>::Request) -> () {
+    fn enqueue_control(&self, _event: ControlEvent) -> () {
         unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
     }
 }
@@ -206,7 +207,7 @@ pub trait ComponentLogging {
 
 impl<CD> ComponentLogging for CD
 where
-    CD: ComponentDefinition + 'static,
+    CD: ComponentTraits + ComponentLifecycle,
 {
     fn log(&self) -> &KompactLogger {
         self.ctx().log()
@@ -282,7 +283,7 @@ pub trait LockingRequireRef<P: Port + 'static> {
 impl<P, CD> LockingProvideRef<P> for Arc<Component<CD>>
 where
     P: Port + 'static,
-    CD: ComponentDefinition + Provide<P> + ProvideRef<P>,
+    CD: ComponentTraits + ComponentLifecycle + Provide<P> + ProvideRef<P>,
 {
     fn provided_ref(&self) -> ProvidedRef<P> {
         self.on_definition(|cd| ProvideRef::provided_ref(cd))
@@ -296,7 +297,7 @@ where
 impl<P, CD> LockingRequireRef<P> for Arc<Component<CD>>
 where
     P: Port + 'static,
-    CD: ComponentDefinition + Require<P> + RequireRef<P>,
+    CD: ComponentTraits + ComponentLifecycle + Require<P> + RequireRef<P>,
 {
     fn required_ref(&self) -> RequiredRef<P> {
         self.on_definition(|cd| RequireRef::required_ref(cd))
@@ -360,14 +361,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                info!(self.ctx.log(), "Starting TestComponent");
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(TestComponent);
 
     #[test]
     fn component_core_send() -> () {
@@ -435,7 +429,7 @@ mod tests {
             }
         }
     }
-    ignore_control!(ChildComponent);
+    ignore_lifecycle!(ChildComponent);
     impl NetworkActor for ChildComponent {
         type Deserialiser = TestMessage;
         type Message = TestMessage;
@@ -485,25 +479,26 @@ mod tests {
             }
         }
     }
-    impl Provide<ControlPort> for ParentComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    let child = self.ctx.system().create(ChildComponent::new);
-                    let id = match self.alias_opt.take() {
-                        Some(s) => self.ctx.system().register_by_alias(&child, s, self),
-                        None => self.ctx.system().register(&child, self),
-                    };
-                    self.reg_id = Some(id);
-                    self.child = Some(child);
-                }
-                ControlEvent::Stop | ControlEvent::Kill => {
-                    let _ = self.child.take(); // don't hang on to the child
-                }
-                ControlEvent::Poll(tag) => {
-                    unimplemented!("TODO just change this API completely!");
-                }
-            }
+
+    impl ComponentLifecycle for ParentComponent {
+        fn on_start(&mut self) -> Handled {
+            let child = self.ctx.system().create(ChildComponent::new);
+            let id = match self.alias_opt.take() {
+                Some(s) => self.ctx.system().register_by_alias(&child, s, self),
+                None => self.ctx.system().register(&child, self),
+            };
+            self.reg_id = Some(id);
+            self.child = Some(child);
+            Handled::Ok
+        }
+
+        fn on_stop(&mut self) -> Handled {
+            let _ = self.child.take(); // don't hang on to the child
+            Handled::Ok
+        }
+
+        fn on_kill(&mut self) -> Handled {
+            let _ = self.child.take(); // don't hang on to the child
             Handled::Ok
         }
     }
@@ -616,7 +611,7 @@ mod tests {
                 }
             }
         }
-        ignore_control!(TestComp);
+        ignore_lifecycle!(TestComp);
         ignore_requests!(B, TestComp);
         ignore_indications!(A, TestComp);
 
@@ -655,14 +650,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for BlockingComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                info!(self.log(), "Starting BlockingComponent");
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(BlockingComponent);
 
     impl Actor for BlockingComponent {
         type Message = BlockMe;
@@ -788,14 +776,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for AsyncComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                info!(self.log(), "Starting AsyncComponent");
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(AsyncComponent);
 
     impl Actor for AsyncComponent {
         type Message = AsyncMe;

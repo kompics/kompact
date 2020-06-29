@@ -5,12 +5,12 @@ use super::*;
 /// This trait aggregates all the object-safe super-traits of [`ComponentDefinition`] to make
 /// trait objects possible while rust doesn't have multi-trait trait-objects.
 pub trait DynamicComponentDefinition:
-    DynamicPortAccess + Provide<ControlPort> + ActorRaw + Send
+    DynamicPortAccess + ActorRaw + ComponentLifecycle + Send
 {
 }
 
 impl<T> DynamicComponentDefinition for T where
-    T: DynamicPortAccess + Provide<ControlPort> + ActorRaw + Send
+    T: DynamicPortAccess + ActorRaw + ComponentLifecycle + Send
 {
 }
 
@@ -29,7 +29,7 @@ impl<T> DynamicComponentDefinition for T where
 /// using the derive macro, as it enables some rather convenient APIs.
 pub trait ComponentDefinition: DynamicComponentDefinition
 where
-    Self: Sized,
+    Self: Sized + 'static,
 {
     /// Prepare the component for being run
     ///
@@ -85,6 +85,44 @@ where
     }
 
     // TODO "spawn off" where the future is run elsewhere on the pool and only the join handle is returned
+}
+
+/// A trait to customise handling of lifecycle events
+///
+/// This trait replaces the pre-v0.9 `Provide<ControlPort>` requirement.
+pub trait ComponentLifecycle: ComponentLogging {
+    /// Gets invoked every time a component receives a Start event
+    ///
+    /// The default implementation simply logs something at debug level.
+    fn on_start(&mut self) -> Handled
+    where
+        Self: 'static,
+    {
+        debug!(self.log(), "Starting...");
+        Handled::Ok
+    }
+
+    /// Gets invoked every time a component receives a Stop event
+    ///
+    /// The default implementation simply logs something at debug level.
+    fn on_stop(&mut self) -> Handled
+    where
+        Self: 'static,
+    {
+        debug!(self.log(), "Stopping...");
+        Handled::Ok
+    }
+
+    /// Gets invoked every time a component receives a Kill event
+    ///
+    /// The default implementation simply logs something at debug level.
+    fn on_kill(&mut self) -> Handled
+    where
+        Self: 'static,
+    {
+        debug!(self.log(), "Killing...");
+        Handled::Ok
+    }
 }
 
 /// A mechanism for dynamically getting references to provided/required ports from a component.
@@ -170,7 +208,7 @@ pub trait AbstractComponent: ActorRefFactory + CoreContainer + Any {
 
 impl<C> AbstractComponent for Component<C>
 where
-    C: ComponentDefinition + 'static,
+    C: ComponentTraits + ComponentLifecycle,
 {
     fn dyn_definition_mut(
         &mut self,

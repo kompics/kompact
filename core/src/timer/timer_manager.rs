@@ -64,15 +64,13 @@ pub trait Timer<C: ComponentDefinition> {
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for TimerComponent {
-    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         if event == ControlEvent::Start {
-    ///             self.schedule_once(Duration::from_millis(10), move |new_self, _id| {
-    ///                 info!(new_self.log(), "Timeout was triggered!");
-    ///                 new_self.ctx().system().shutdown_async();
-    ///                 Handled::Ok
-    ///             });
-    ///         }
+    /// impl ComponentLifecycle for TimerComponent {
+    ///     fn on_start(&mut self) -> Handled {
+    ///         self.schedule_once(Duration::from_millis(10), move |new_self, _id| {
+    ///             info!(new_self.log(), "Timeout was triggered!");
+    ///             new_self.ctx().system().shutdown_async();
+    ///             Handled::Ok
+    ///         });
     ///         Handled::Ok
     ///     }    
     /// }
@@ -120,27 +118,38 @@ pub trait Timer<C: ComponentDefinition> {
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for TimerComponent {
-    ///     fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         if event == ControlEvent::Start {
-    ///             let timeout = self.schedule_periodic(
-    ///                     Duration::from_millis(10),
-    ///                     Duration::from_millis(100),
-    ///                     move |new_self, _id| {
-    ///                         info!(new_self.log(), "Timeout was triggered!");
-    ///                         new_self.counter += 1usize;
-    ///                         if new_self.counter > 10usize {
-    ///                            let timeout = new_self.timeout.take().expect("timeout");
-    ///                            new_self.cancel_timer(timeout);
-    ///                            new_self.ctx().system().shutdown_async();
-    ///                         }
-    ///                         Handled::Ok
-    ///                    }
-    ///             );
-    ///             self.timeout = Some(timeout);
+    /// impl ComponentLifecycle for TimerComponent {
+    ///     fn on_start(&mut self) -> Handled {
+    ///         let timeout = self.schedule_periodic(
+    ///                 Duration::from_millis(10),
+    ///                 Duration::from_millis(100),
+    ///                 move |new_self, _id| {
+    ///                     info!(new_self.log(), "Timeout was triggered!");
+    ///                     new_self.counter += 1usize;
+    ///                     if new_self.counter > 10usize {
+    ///                        let timeout = new_self.timeout.take().expect("timeout");
+    ///                        new_self.cancel_timer(timeout);
+    ///                        new_self.ctx().system().shutdown_async();
+    ///                     }
+    ///                     Handled::Ok
+    ///                 }
+    ///         );
+    ///         self.timeout = Some(timeout);
+    ///         Handled::Ok
+    ///     }  
+    ///     // cleanup timeouts if shut down early, so they don't keep running  
+    ///     fn on_stop(&mut self) -> Handled {
+    ///         if let Some(timeout) = self.timeout.take() {
+    ///             self.cancel_timer(timeout);
     ///         }
     ///         Handled::Ok
-    ///     }    
+    ///     }
+    ///     fn on_kill(&mut self) -> Handled {
+    ///         if let Some(timeout) = self.timeout.take() {
+    ///             self.cancel_timer(timeout);
+    ///         }
+    ///         Handled::Ok
+    ///     }
     /// }
     ///
     /// let system = KompactConfig::default().build().expect("system");

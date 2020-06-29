@@ -13,7 +13,7 @@ use std::{
 
 impl<CD> ArcWake for Component<CD>
 where
-    CD: ComponentDefinition + 'static,
+    CD: ComponentTraits + ComponentLifecycle,
 {
     fn wake_by_ref(arc_self: &Arc<Self>) {
         arc_self.schedule()
@@ -43,7 +43,7 @@ impl fmt::Debug for BlockingFuture {
 impl BlockingFuture {
     pub(super) fn run<CD>(mut self, component: &Arc<Component<CD>>) -> BlockingRunResult
     where
-        CD: ComponentDefinition + 'static,
+        CD: ComponentTraits + ComponentLifecycle,
     {
         let waker = waker_ref(component);
         let ctx = &mut Context::from_waker(&waker);

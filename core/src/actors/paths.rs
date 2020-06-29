@@ -310,7 +310,7 @@ impl ActorPath {
     /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
     where
-        CD: ComponentDefinition + Sized + 'static,
+        CD: ComponentTraits + ComponentLifecycle,
         B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {

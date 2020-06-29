@@ -47,28 +47,29 @@ impl Buncher {
     }
 }
 
-impl Provide<ControlPort> for Buncher {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                self.batch_size = self.ctx.config()["buncher"]["batch-size"]
-                    .as_i64()
-                    .expect("batch size") as usize;
-                self.timeout = self.ctx.config()["buncher"]["timeout"]
-                    .as_duration()
-                    .expect("timeout");
-                self.current_batch.reserve(self.batch_size);
-                let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
-                self.outstanding_timeout = Some(timeout);
-                Handled::Ok
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.outstanding_timeout.take() {
-                    self.cancel_timer(timeout);
-                }
-                Handled::Ok
-            }
+impl ComponentLifecycle for Buncher {
+    fn on_start(&mut self) -> Handled {
+        self.batch_size = self.ctx.config()["buncher"]["batch-size"]
+            .as_i64()
+            .expect("batch size") as usize;
+        self.timeout = self.ctx.config()["buncher"]["timeout"]
+            .as_duration()
+            .expect("timeout");
+        self.current_batch.reserve(self.batch_size);
+        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+        self.outstanding_timeout = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.outstanding_timeout.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
 

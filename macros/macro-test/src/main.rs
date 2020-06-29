@@ -34,14 +34,9 @@ impl Pinger {
     }
 }
 
-impl Provide<ControlPort> for Pinger {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                println!("Starting Pinger... {}", self.test);
-            }
-            _ => (), // ignore
-        }
+impl ComponentLifecycle for Pinger {
+    fn on_start(&mut self) -> Handled {
+        println!("Starting Pinger... {}", self.test);
         Handled::Ok
     }
 }
@@ -75,11 +70,7 @@ impl<A: MessageBounds> GenericComp<A> {
     }
 }
 
-impl<A: MessageBounds> Provide<ControlPort> for GenericComp<A> {
-    fn handle(&mut self, _event: ControlEvent) -> Handled {
-        Handled::Ok
-    }
-}
+impl<A: MessageBounds> ComponentLifecycle for GenericComp<A> {}
 
 impl<A: MessageBounds> Actor for GenericComp<A> {
     type Message = A;

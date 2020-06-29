@@ -18,17 +18,12 @@
 //!         }
 //!     }
 //! }
-//! impl Provide<ControlPort> for HelloWorldComponent {
-//!     fn handle(&mut self, event: ControlEvent) -> Handled {
-//!            match event {
-//!                ControlEvent::Start => {
-//!                    info!(self.ctx.log(), "Hello World!");
-//!                    self.ctx().system().shutdown_async();
-//!                }
-//!                _ => (), // ignore other control events
-//!            }
-//!            Handled::Ok
-//!       }
+//! impl ComponentLifecycle for HelloWorldComponent {
+//!     fn on_start(&mut self) -> Handled {
+//!         info!(self.ctx.log(), "Hello World!");
+//!         self.ctx().system().shutdown_async();
+//!         Handled::Ok
+//!     }
 //! }
 //!
 //! let system = KompactConfig::default().build().expect("system");
@@ -126,7 +121,14 @@ pub mod prelude {
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
-    pub use crate::{ignore_control, ignore_indications, ignore_requests, match_deser};
+    #[allow(deprecated)]
+    pub use crate::{
+        ignore_control,
+        ignore_indications,
+        ignore_lifecycle,
+        ignore_requests,
+        match_deser,
+    };
 
     pub use crate::{
         actors::{
@@ -160,6 +162,7 @@ pub mod prelude {
             Component,
             ComponentContext,
             ComponentDefinition,
+            ComponentLifecycle,
             ComponentLogging,
             CoreContainer,
             DynamicPortAccess,
@@ -172,7 +175,6 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        lifecycle::{ControlEvent, ControlPort},
         net::{buffer::*, buffer_pool::*},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
@@ -259,7 +261,7 @@ pub mod doctest_helpers {
             }
         }
     }
-    ignore_control!(TestComponent1);
+    ignore_lifecycle!(TestComponent1);
     impl Provide<TestPort> for TestComponent1 {
         fn handle(&mut self, _event: Never) -> Handled {
             unreachable!();
@@ -282,7 +284,7 @@ pub mod doctest_helpers {
             }
         }
     }
-    ignore_control!(TestComponent2);
+    ignore_lifecycle!(TestComponent2);
     impl Require<TestPort> for TestComponent2 {
         fn handle(&mut self, _event: Never) -> Handled {
             unreachable!();
@@ -388,14 +390,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                info!(self.ctx.log(), "Starting TestComponent");
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(TestComponent);
 
     impl Provide<TestPort> for TestComponent {
         fn handle(&mut self, event: Arc<u64>) -> Handled {
@@ -437,14 +432,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for RecvComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                info!(self.ctx.log(), "Starting RecvComponent");
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(RecvComponent);
 
     impl Require<TestPort> for RecvComponent {
         fn handle(&mut self, event: Arc<String>) -> Handled {
@@ -545,20 +533,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for DedicatedComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting DedicatedComponent");
-                }
-                ControlEvent::Stop => {
-                    info!(self.ctx.log(), "Stopping DedicatedComponent");
-                }
-                _ => (), // ignore
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(DedicatedComponent);
 
     impl Actor for DedicatedComponent {
         type Message = String;
@@ -696,15 +671,14 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for TimerRecvComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                info!(self.ctx.log(), "Starting TimerRecvComponent");
-                self.schedule_once(Duration::from_millis(100), |self_c, _| {
-                    self_c.last_string = String::from("TimerTest");
-                    Handled::Ok
-                });
-            }
+    impl ComponentLifecycle for TimerRecvComponent {
+        fn on_start(&mut self) -> Handled {
+            info!(self.ctx.log(), "Starting TimerRecvComponent");
+            self.schedule_once(Duration::from_millis(100), |self_c, _| {
+                self_c.last_string = String::from("TimerTest");
+                Handled::Ok
+            });
+
             Handled::Ok
         }
     }
@@ -742,20 +716,7 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for CounterComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting CounterComponent");
-                }
-                ControlEvent::Stop => {
-                    info!(self.ctx.log(), "Stopping CounterComponent");
-                }
-                _ => (), // ignore
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(CounterComponent);
 
     impl Actor for CounterComponent {
         type Message = Box<dyn Any + Send>;
@@ -852,23 +813,15 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for CrasherComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    if self.crash_on_start {
-                        info!(self.ctx.log(), "Crashing CounterComponent");
-                        panic!("Test panic please ignore");
-                    } else {
-                        info!(self.ctx.log(), "Starting CounterComponent");
-                    }
-                }
-                ControlEvent::Stop => {
-                    info!(self.ctx.log(), "Stopping CounterComponent");
-                }
-                _ => (), // ignore
+    impl ComponentLifecycle for CrasherComponent {
+        fn on_start(&mut self) -> Handled {
+            if self.crash_on_start {
+                info!(self.ctx.log(), "Crashing CrasherComponent");
+                panic!("Test panic please ignore");
+            } else {
+                info!(self.ctx.log(), "Starting CrasherComponent");
+                Handled::Ok
             }
-            Handled::Ok
         }
     }
 
@@ -961,11 +914,9 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for Stopper {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                self.ctx().system().shutdown_async();
-            }
+    impl ComponentLifecycle for Stopper {
+        fn on_start(&mut self) -> Handled {
+            self.ctx().system().shutdown_async();
             Handled::Ok
         }
     }
@@ -993,12 +944,10 @@ mod tests {
         }
     }
 
-    impl Provide<ControlPort> for ConfigComponent {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            if let ControlEvent::Start = event {
-                self.test_value = self.ctx().config()["a"].as_i64();
-                self.ctx().system().shutdown_async();
-            }
+    impl ComponentLifecycle for ConfigComponent {
+        fn on_start(&mut self) -> Handled {
+            self.test_value = self.ctx().config()["a"].as_i64();
+            self.ctx().system().shutdown_async();
             Handled::Ok
         }
     }

@@ -94,29 +94,32 @@ impl Manager {
         }
     }
 }
-impl Provide<ControlPort> for Manager {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                // set up our workers
-                for _i in 0..self.num_workers {
-                    let worker = self.ctx.system().create(Worker::new);
-                    let worker_ref = worker.actor_ref().hold().expect("live");
-                    self.ctx.system().start(&worker);
-                    self.workers.push(worker);
-                    self.worker_refs.push(worker_ref);
-                }
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                // clean up after ourselves
-                self.worker_refs.clear();
-                let system = self.ctx.system();
-                self.workers.drain(..).for_each(|worker| {
-                    system.stop(&worker);
-                });
-            }
+
+impl ComponentLifecycle for Manager {
+    fn on_start(&mut self) -> Handled {
+        // set up our workers
+        for _i in 0..self.num_workers {
+            let worker = self.ctx.system().create(Worker::new);
+            let worker_ref = worker.actor_ref().hold().expect("live");
+            self.ctx.system().start(&worker);
+            self.workers.push(worker);
+            self.worker_refs.push(worker_ref);
         }
         Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        // clean up after ourselves
+        self.worker_refs.clear();
+        let system = self.ctx.system();
+        self.workers.drain(..).for_each(|worker| {
+            system.stop(&worker);
+        });
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
 

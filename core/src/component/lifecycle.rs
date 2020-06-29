@@ -20,44 +20,6 @@ pub enum ControlEvent {
     Poll(Uuid),
 }
 
-/// Kompact lifecycle port type
-///
-/// The port only has requests associated with it, and they are lifecyle events of type [ControlEvent](ControlEvent).
-///
-/// Every Kompact component *must* implement `Provide<ControlPort>`.
-///
-/// If no custom handling of lifecycle events is needed for a component,
-/// the [ignore_control](ignore_control!) macro can be used instead.
-///
-/// Lifecycle events are produced and triggered on instances of this port by the Kompact system
-/// in response to certain API calls, such as [start](KompactSystem::start), for example.
-///
-/// # Example
-///
-/// ```
-/// use kompact::prelude::*;
-///
-/// #[derive(ComponentDefinition, Actor)]
-/// struct TestComponent {
-///     ctx: ComponentContext<TestComponent>,
-/// }
-/// impl Provide<ControlPort> for TestComponent {
-///     fn handle(&mut self, event: ControlEvent) -> Handled {
-///         match event {
-///             ControlEvent::Start => Handled::Ok, // handle start event
-///             ControlEvent::Stop => Handled::Ok, // handle stop event
-///             ControlEvent::Kill => Handled::Ok, // handle kill event
-///         }
-///     }
-/// }
-/// ```
-pub struct ControlPort;
-
-impl Port for ControlPort {
-    type Indication = Never;
-    type Request = ControlEvent;
-}
-
 const ACTIVE: u64 = 0u64;
 const PASSIVE: u64 = 1u64 << 61;
 const DESTROYED: u64 = 2u64 << 61;
@@ -215,6 +177,7 @@ pub(crate) fn is_destroyed(state: &AtomicU64) -> bool {
     remove_count(current_state) == DESTROYED
 }
 
+#[allow(dead_code)]
 pub(crate) fn is_blocking(state: &AtomicU64) -> bool {
     let current_state = state.load(Ordering::SeqCst);
     remove_count(current_state) == BLOCKING

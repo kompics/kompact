@@ -861,14 +861,9 @@ impl KompactSystem {
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for Stopper {
-    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         match event {
-    ///            ControlEvent::Start => {
-    ///                self.ctx().system().shutdown_async();
-    ///            }
-    ///            _ => (), // ignore
-    ///        }
+    /// impl ComponentLifecycle for Stopper {
+    ///    fn on_start(&mut self) -> Handled {
+    ///        self.ctx().system().shutdown_async();
     ///        Handled::Ok
     ///     }
     /// }
@@ -1039,19 +1034,20 @@ pub trait SystemHandle: Dispatching {
     ///         }
     ///     }
     /// }
-    /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 let child = self.ctx.system().create(TestComponent1::new);
-    ///                 let id = self.ctx.system().register(&child, self);
-    ///                 self.reg_id = Some(id);
-    ///                 self.child = Some(child);
-    ///             }
-    ///             ControlEvent::Stop | ControlEvent::Kill => {
-    ///                 let _ = self.child.take(); // don't hang on to the child
-    ///             }
-    ///         }
+    /// impl ComponentLifecycle for ParentComponent {
+    ///    fn on_start(&mut self) -> Handled {
+    ///         let child = self.ctx.system().create(TestComponent1::new);
+    ///         let id = self.ctx.system().register(&child, self);
+    ///         self.reg_id = Some(id);
+    ///         self.child = Some(child);
+    ///         Handled::Ok
+    ///     }
+    ///     fn on_stop(&mut self) -> Handled {
+    ///         let _ = self.child.take(); // don't hang on to the child
+    ///         Handled::Ok
+    ///     }
+    ///     fn on_kill(&mut self) -> Handled {
+    ///         let _ = self.child.take(); // don't hang on to the child
     ///         Handled::Ok
     ///     }
     /// }
@@ -1133,19 +1129,20 @@ pub trait SystemHandle: Dispatching {
     ///         }
     ///     }
     /// }
-    /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 let child = self.ctx.system().create(TestComponent1::new);
-    ///                 let id = self.ctx.system().register_by_alias(&child, "test", self);
-    ///                 self.reg_id = Some(id);
-    ///                 self.child = Some(child);
-    ///             }
-    ///             ControlEvent::Stop | ControlEvent::Kill => {
-    ///                 let _ = self.child.take(); // don't hang on to the child
-    ///             }
-    ///         }
+    /// impl ComponentLifecycle for ParentComponent {
+    ///    fn on_start(&mut self) -> Handled {
+    ///         let child = self.ctx.system().create(TestComponent1::new);
+    ///         let id = self.ctx.system().register_by_alias(&child, "test", self);
+    ///         self.reg_id = Some(id);
+    ///         self.child = Some(child);
+    ///         Handled::Ok
+    ///     }
+    ///     fn on_stop(&mut self) -> Handled {
+    ///         let _ = self.child.take(); // don't hang on to the child
+    ///         Handled::Ok
+    ///     }
+    ///     fn on_kill(&mut self) -> Handled {
+    ///         let _ = self.child.take(); // don't hang on to the child
     ///         Handled::Ok
     ///     }
     /// }
@@ -1235,19 +1232,20 @@ pub trait SystemHandle: Dispatching {
     ///         }
     ///     }
     /// }
-    /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 let child = self.ctx.system().create(TestComponent1::new);
-    ///                 let id = self.ctx.system().update_alias_registration(&child, "test", self);
-    ///                 self.reg_id = Some(id);
-    ///                 self.child = Some(child);
-    ///             }
-    ///             ControlEvent::Stop | ControlEvent::Kill => {
-    ///                 let _ = self.child.take(); // don't hang on to the child
-    ///             }
-    ///         }
+    /// impl ComponentLifecycle for ParentComponent {
+    ///    fn on_start(&mut self) -> Handled {
+    ///         let child = self.ctx.system().create(TestComponent1::new);
+    ///         let id = self.ctx.system().update_alias_registration(&child, "test", self);
+    ///         self.reg_id = Some(id);
+    ///         self.child = Some(child);
+    ///         Handled::Ok
+    ///     }
+    ///     fn on_stop(&mut self) -> Handled {
+    ///         let _ = self.child.take(); // don't hang on to the child
+    ///         Handled::Ok
+    ///     }
+    ///     fn on_kill(&mut self) -> Handled {
+    ///         let _ = self.child.take(); // don't hang on to the child
     ///         Handled::Ok
     ///     }
     /// }
@@ -1401,14 +1399,9 @@ pub trait SystemHandle: Dispatching {
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for Stopper {
-    ///    fn handle(&mut self, event: ControlEvent) -> Handled {
-    ///         match event {
-    ///            ControlEvent::Start => {
-    ///                self.ctx().system().shutdown_async();
-    ///            }
-    ///            _ => (), // ignore
-    ///        }
+    /// impl ComponentLifecycle for Stopper {
+    ///    fn on_start(&mut self) -> Handled {
+    ///        self.ctx().system().shutdown_async();
     ///        Handled::Ok
     ///     }
     /// }

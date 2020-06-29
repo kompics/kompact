@@ -9,6 +9,19 @@ macro_rules! check_and_handle_blocking {
                 $guard.definition.ctx_mut().set_blocking(blocking_future);
                 run_blocking!($self, $guard, $count);
             }
+            Handled::DieNow => {
+                lifecycle::set_destroyed(&$self.core.state);
+                debug!($self.logger, "Component killed via Handled.");
+                let supervisor_msg = SupervisorMsg::Killed($self.core.id);
+                let _res = $guard.definition.on_kill();
+                // count is irrelevant if we are anyway dying
+                // $count += 1;
+                // inform supervisor after local handling to make sure crashing component don't count as killed
+                if let Some(ref supervisor) = $self.supervisor {
+                    supervisor.enqueue(supervisor_msg);
+                }
+                return SchedulingDecision::NoWork
+            }
         }
     };
 }
@@ -28,24 +41,24 @@ macro_rules! run_blocking {
 ///
 /// The component class itself is application agnostic,
 /// but it contains the application specific [ComponentDefinition](ComponentDefinition).
-pub struct Component<C: ComponentDefinition + ActorRaw + Sized + 'static> {
+pub struct Component<CD: ComponentTraits> {
     core: ComponentCore,
     custom_scheduler: Option<dedicated_scheduler::DedicatedThreadScheduler>,
-    pub(crate) mutable_core: Mutex<ComponentMutableCore<C>>,
-    ctrl_queue: Arc<ConcurrentQueue<<ControlPort as Port>::Request>>,
-    msg_queue: TypedMsgQueue<C::Message>,
+    pub(crate) mutable_core: Mutex<ComponentMutableCore<CD>>,
+    ctrl_queue: ConcurrentQueue<ControlEvent>,
+    msg_queue: TypedMsgQueue<CD::Message>,
     // system components don't have supervision
     supervisor: Option<ProvidedRef<SupervisionPort>>,
     logger: KompactLogger,
 }
 
-impl<C: ComponentDefinition + Sized> Component<C> {
+impl<CD: ComponentTraits> Component<CD> {
     pub(crate) fn new(
         system: KompactSystem,
-        definition: C,
+        definition: CD,
         supervisor: ProvidedRef<SupervisionPort>,
-    ) -> Component<C> {
-        let core = ComponentCore::with::<Component<C>>(system);
+    ) -> Self {
+        let core = ComponentCore::with::<Component<CD>>(system);
         let logger = core
             .system
             .logger()
@@ -55,7 +68,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             core,
             custom_scheduler: None,
             mutable_core: Mutex::new(mutable_core),
-            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            ctrl_queue: ConcurrentQueue::new(),
             msg_queue: TypedMsgQueue::new(),
             supervisor: Some(supervisor),
             logger,
@@ -64,11 +77,11 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 
     pub(crate) fn with_dedicated_scheduler(
         system: KompactSystem,
-        definition: C,
+        definition: CD,
         supervisor: ProvidedRef<SupervisionPort>,
         custom_scheduler: dedicated_scheduler::DedicatedThreadScheduler,
-    ) -> Component<C> {
-        let core = ComponentCore::with::<Component<C>>(system);
+    ) -> Self {
+        let core = ComponentCore::with::<Component<CD>>(system);
         let logger = core
             .system
             .logger()
@@ -78,15 +91,15 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             core,
             custom_scheduler: Some(custom_scheduler),
             mutable_core: Mutex::new(mutable_core),
-            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            ctrl_queue: ConcurrentQueue::new(),
             msg_queue: TypedMsgQueue::new(),
             supervisor: Some(supervisor),
             logger,
         }
     }
 
-    pub(crate) fn without_supervisor(system: KompactSystem, definition: C) -> Component<C> {
-        let core = ComponentCore::with::<Component<C>>(system);
+    pub(crate) fn without_supervisor(system: KompactSystem, definition: CD) -> Self {
+        let core = ComponentCore::with::<Component<CD>>(system);
         let logger = core
             .system
             .logger()
@@ -96,7 +109,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             core,
             custom_scheduler: None,
             mutable_core: Mutex::new(mutable_core),
-            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            ctrl_queue: ConcurrentQueue::new(),
             msg_queue: TypedMsgQueue::new(),
             supervisor: None,
             logger,
@@ -105,10 +118,10 @@ impl<C: ComponentDefinition + Sized> Component<C> {
 
     pub(crate) fn without_supervisor_with_dedicated_scheduler(
         system: KompactSystem,
-        definition: C,
+        definition: CD,
         custom_scheduler: dedicated_scheduler::DedicatedThreadScheduler,
-    ) -> Component<C> {
-        let core = ComponentCore::with::<Component<C>>(system);
+    ) -> Self {
+        let core = ComponentCore::with::<Component<CD>>(system);
         let logger = core
             .system
             .logger()
@@ -118,18 +131,14 @@ impl<C: ComponentDefinition + Sized> Component<C> {
             core,
             custom_scheduler: Some(custom_scheduler),
             mutable_core: Mutex::new(mutable_core),
-            ctrl_queue: Arc::new(ConcurrentQueue::new()),
+            ctrl_queue: ConcurrentQueue::new(),
             msg_queue: TypedMsgQueue::new(),
             supervisor: None,
             logger,
         }
     }
 
-    // pub(crate) fn msg_queue_wref(&self) -> Weak<ConcurrentQueue<MsgEnvelope>> {
-    //     Arc::downgrade(&self.msg_queue)
-    // }
-
-    pub(crate) fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> () {
+    pub(crate) fn enqueue_control(&self, event: ControlEvent) -> () {
         self.ctrl_queue.push(event);
         if let SchedulingDecision::Schedule = self.core.increment_work() {
             self.schedule();
@@ -142,7 +151,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     /// that isn't hidden behind an [Arc](std::sync::Arc). For example,
     /// after the system shuts down and your code holds on to the last reference to a component
     /// you can use [get_mut](std::sync::Arc::get_mut) or [try_unwrap](std::sync::Arc::try_unwrap).
-    pub fn definition_mut(&mut self) -> &mut C {
+    pub fn definition_mut(&mut self) -> &mut CD {
         self.mutable_core
             .get_mut()
             .map(|core| &mut core.definition)
@@ -156,7 +165,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     /// inside the guard.
     pub fn on_definition<T, F>(&self, f: F) -> T
     where
-        F: FnOnce(&mut C) -> T,
+        F: FnOnce(&mut CD) -> T,
     {
         let mut cd = self.mutable_core.lock().unwrap();
         f(&mut cd.definition)
@@ -226,7 +235,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                             lifecycle::set_active(&self.core.state);
                             debug!(self.logger, "Component started.");
                             let supervisor_msg = SupervisorMsg::Started(self.core.component());
-                            let res = guard.definition.handle(event);
+                            let res = guard.definition.on_start();
                             count += 1;
                             // inform supervisor after local handling to make sure crashing component don't count as started
                             if let Some(ref supervisor) = self.supervisor {
@@ -238,7 +247,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                             lifecycle::set_passive(&self.core.state);
                             debug!(self.logger, "Component stopped.");
                             let supervisor_msg = SupervisorMsg::Stopped(self.core.id);
-                            let res = guard.definition.handle(event);
+                            let res = guard.definition.on_stop();
                             count += 1;
                             // inform supervisor after local handling to make sure crashing component don't count as started
                             if let Some(ref supervisor) = self.supervisor {
@@ -250,7 +259,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                             lifecycle::set_destroyed(&self.core.state);
                             debug!(self.logger, "Component killed.");
                             let supervisor_msg = SupervisorMsg::Killed(self.core.id);
-                            let res = guard.definition.handle(event);
+                            let res = guard.definition.on_kill();
                             count += 1;
                             // inform supervisor after local handling to make sure crashing component don't count as started
                             if let Some(ref supervisor) = self.supervisor {
@@ -271,6 +280,17 @@ impl<C: ComponentDefinition + Sized> Component<C> {
                             // There are some tricky edge cases here about delaying shutdown when blocking on futures, etc
                             unimplemented!("Blocking in lifecycle events is not yet supported!");
                             //guard.definition.ctx_mut().set_blocking(blocking_future);
+                        }
+                        Handled::DieNow => {
+                            lifecycle::set_destroyed(&self.core.state);
+                            debug!(self.logger, "Component killed via Handled.");
+                            let supervisor_msg = SupervisorMsg::Killed(self.core.id);
+                            let _res = guard.definition.on_kill();
+                            // count is irrelevant when we are dying
+                            if let Some(ref supervisor) = self.supervisor {
+                                supervisor.enqueue(supervisor_msg);
+                            }
+                            return SchedulingDecision::NoWork;
                         }
                     }
                 }
@@ -337,10 +357,7 @@ impl<C: ComponentDefinition + Sized> Component<C> {
     }
 }
 
-impl<CD> ActorRefFactory for Arc<Component<CD>>
-where
-    CD: ComponentDefinition + ActorRaw + 'static,
-{
+impl<CD: ComponentTraits> ActorRefFactory for Arc<Component<CD>> {
     type Message = CD::Message;
 
     fn actor_ref(&self) -> ActorRef<CD::Message> {
@@ -349,10 +366,7 @@ where
     }
 }
 
-impl<CD> ActorRefFactory for CD
-where
-    CD: ComponentDefinition + ActorRaw + 'static,
-{
+impl<CD: ComponentTraits> ActorRefFactory for CD {
     type Message = CD::Message;
 
     fn actor_ref(&self) -> ActorRef<CD::Message> {
@@ -360,10 +374,7 @@ where
     }
 }
 
-impl<CD> ActorRefFactory for Component<CD>
-where
-    CD: ComponentDefinition + ActorRaw + 'static,
-{
+impl<CD: ComponentTraits> ActorRefFactory for Component<CD> {
     type Message = CD::Message;
 
     fn actor_ref(&self) -> ActorRef<CD::Message> {
@@ -371,37 +382,25 @@ where
     }
 }
 
-impl<CD> Dispatching for CD
-where
-    CD: ComponentDefinition + 'static,
-{
+impl<CD: ComponentTraits> Dispatching for CD {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx().dispatcher_ref()
     }
 }
 
-impl<CD> ActorSource for CD
-where
-    CD: ComponentDefinition + 'static,
-{
+impl<CD: ComponentTraits> ActorSource for CD {
     fn path_resolvable(&self) -> PathResolvable {
         PathResolvable::ActorId(*self.ctx().id())
     }
 }
 
-impl<CD> ActorPathFactory for CD
-where
-    CD: ComponentDefinition + 'static,
-{
+impl<CD: ComponentTraits> ActorPathFactory for CD {
     fn actor_path(&self) -> ActorPath {
         self.ctx().actor_path()
     }
 }
 
-impl<CD> Timer<CD> for CD
-where
-    CD: ComponentDefinition + 'static,
-{
+impl<CD: ComponentTraits> Timer<CD> for CD {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
         F: FnOnce(&mut CD, ScheduledTimer) -> Handled + Send + 'static,
@@ -433,7 +432,7 @@ where
     }
 }
 
-impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
+impl<CD: ComponentTraits> CoreContainer for Component<CD> {
     fn id(&self) -> Uuid {
         self.core.id
     }
@@ -485,12 +484,6 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
         }
     }
 
-    fn control_port(&self) -> ProvidedRef<ControlPort> {
-        let cq = Arc::downgrade(&self.ctrl_queue);
-        let cc = Arc::downgrade(&self.core.component());
-        ProvidedRef::new(cc, cq)
-    }
-
     fn schedule(&self) -> () {
         match self.custom_scheduler {
             Some(ref scheduler) => scheduler.schedule_custom(),
@@ -502,20 +495,20 @@ impl<C: ComponentDefinition + Sized> CoreContainer for Component<C> {
     }
 
     fn type_name(&self) -> &'static str {
-        C::type_name()
+        CD::type_name()
     }
 
     fn dyn_message_queue(&self) -> &dyn DynMsgQueue {
         &self.msg_queue
     }
 
-    fn enqueue_control(&self, event: <ControlPort as Port>::Request) -> () {
+    fn enqueue_control(&self, event: ControlEvent) -> () {
         Component::enqueue_control(self, event)
     }
 }
 
-impl<C: ComponentDefinition + Sized> MsgQueueContainer for Component<C> {
-    type Message = C::Message;
+impl<CD: ComponentTraits> MsgQueueContainer for Component<CD> {
+    type Message = CD::Message;
 
     fn message_queue(&self) -> &TypedMsgQueue<Self::Message> {
         &self.msg_queue
@@ -527,7 +520,7 @@ impl<C: ComponentDefinition + Sized> MsgQueueContainer for Component<C> {
     }
 }
 
-impl<C: ComponentDefinition + Sized> fmt::Debug for Component<C> {
+impl<CD: ComponentTraits> fmt::Debug for Component<CD> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Component(id={}, ctype={})", self.id(), self.type_name())
     }

@@ -174,17 +174,12 @@ impl Actor for DeadletterBox {
     }
 }
 
-impl Provide<ControlPort> for DeadletterBox {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                debug!(self.ctx.log(), "Starting DeadletterBox");
-                match self.notify_ready.take() {
-                    Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
-                    None => (),
-                }
-            }
-            _ => (), // ignore
+impl ComponentLifecycle for DeadletterBox {
+    fn on_start(&mut self) -> Handled {
+        debug!(self.ctx.log(), "Starting DeadletterBox");
+        match self.notify_ready.take() {
+            Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
+            None => (),
         }
         Handled::Ok
     }
@@ -240,17 +235,12 @@ impl Dispatcher for LocalDispatcher {
     }
 }
 
-impl Provide<ControlPort> for LocalDispatcher {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                debug!(self.ctx.log(), "Starting LocalDispatcher");
-                match self.notify_ready.take() {
-                    Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
-                    None => (),
-                }
-            }
-            _ => (), // ignore
+impl ComponentLifecycle for LocalDispatcher {
+    fn on_start(&mut self) -> Handled {
+        debug!(self.ctx.log(), "Starting LocalDispatcher");
+        match self.notify_ready.take() {
+            Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
+            None => (),
         }
         Handled::Ok
     }

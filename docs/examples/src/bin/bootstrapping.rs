@@ -40,7 +40,7 @@ impl BootstrapServer {
         });
     }
 }
-ignore_control!(BootstrapServer);
+ignore_lifecycle!(BootstrapServer);
 impl NetworkActor for BootstrapServer {
     type Deserialiser = Serde;
     type Message = CheckIn;
@@ -129,34 +129,37 @@ impl EventualLeaderElector {
     }
 }
 
-impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                self.bootstrap_server.tell((CheckIn, Serde), self);
+impl ComponentLifecycle for EventualLeaderElector {
+    fn on_start(&mut self) -> Handled {
+        self.bootstrap_server.tell((CheckIn, Serde), self);
 
-                self.period = self.ctx.config()["omega"]["initial-period"]
-                    .as_duration()
-                    .expect("initial period");
-                self.delta = self.ctx.config()["omega"]["delta"]
-                    .as_duration()
-                    .expect("delta");
-                let timeout = self.schedule_periodic(
-                    self.period,
-                    self.period,
-                    EventualLeaderElector::handle_timeout,
-                );
-                self.timer_handle = Some(timeout);
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.timer_handle.take() {
-                    self.cancel_timer(timeout);
-                }
-            }
+        self.period = self.ctx.config()["omega"]["initial-period"]
+            .as_duration()
+            .expect("initial period");
+        self.delta = self.ctx.config()["omega"]["delta"]
+            .as_duration()
+            .expect("delta");
+        let timeout = self.schedule_periodic(
+            self.period,
+            self.period,
+            EventualLeaderElector::handle_timeout,
+        );
+        self.timer_handle = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.timer_handle.take() {
+            self.cancel_timer(timeout);
         }
         Handled::Ok
     }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
+    }
 }
+
 // Doesn't have any requests
 ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 

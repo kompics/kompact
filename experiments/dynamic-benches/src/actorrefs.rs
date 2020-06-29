@@ -34,11 +34,7 @@ impl TestActor {
     }
 }
 
-impl Provide<ControlPort> for TestActor {
-    fn handle(&mut self, _event: ControlEvent) -> Handled {
-        Handled::Ok // discard
-    }
-}
+ignore_lifecycle!(TestActor);
 
 impl Provide<TestPort> for TestActor {
     fn handle(&mut self, _event: &'static Ping) -> Handled {

@@ -242,6 +242,21 @@ where
     }
 }
 
+/// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
+///
+/// Use this in components that do not require any special treatment of lifecycle events.
+///
+/// # Example
+///
+/// To ignore lifecycle events for a component `TestComponent`, write:
+/// `ignore_lifecycle!(TestComponent);`
+#[macro_export]
+macro_rules! ignore_lifecycle {
+    ($component:ty) => {
+        impl ComponentLifecycle for $component {}
+    };
+}
+
 /// A macro that provides an empty implementation of the [ControlPort](ControlPort) handler.
 ///
 /// Use this in components that do not require any special treatment of control events.
@@ -250,10 +265,14 @@ where
 ///
 /// To ignore control events for a component `TestComponent`, write:
 /// `ignore_control!(TestComponent);`
+#[deprecated(
+    since = "0.9.0",
+    note = "Use the ignore_lifecyle macro instead. This macro will be removed in future version of Kompact"
+)]
 #[macro_export]
 macro_rules! ignore_control {
     ($component:ty) => {
-        ignore_requests!(ControlPort, $component);
+        ignore_lifecycle!($component);
     };
 }
 // macro_rules! ignore_control {
@@ -391,7 +410,7 @@ mod tests {
         }
     }
 
-    ignore_control!(TestComponent);
+    ignore_lifecycle!(TestComponent);
 
     impl Actor for TestComponent {
         type Message = Ask<u64, ()>;

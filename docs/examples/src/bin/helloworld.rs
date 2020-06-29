@@ -11,16 +11,11 @@ impl HelloWorldComponent {
         }
     }
 }
-impl Provide<ControlPort> for HelloWorldComponent {
-    fn handle(&mut self, event: ControlEvent) -> Handled {
-        match event {
-            ControlEvent::Start => {
-                info!(self.ctx.log(), "Hello World!");
-                self.ctx().system().shutdown_async();
-                Handled::Ok
-            }
-            _ => Handled::Ok, // ignore other control events
-        }
+impl ComponentLifecycle for HelloWorldComponent {
+    fn on_start(&mut self) -> Handled {
+        info!(self.ctx.log(), "Hello World!");
+        self.ctx().system().shutdown_async();
+        Handled::Ok
     }
 }
 

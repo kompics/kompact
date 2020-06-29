@@ -943,11 +943,7 @@ mod tests {
             }
         }
     }
-    impl Provide<ControlPort> for LatchDropActor {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // ignore
-        }
-    }
+    ignore_lifecycle!(LatchDropActor);
     impl Actor for LatchDropActor {
         type Message = CountdownWrapper;
 

@@ -337,19 +337,7 @@ pub mod pppipelinestatic {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> Handled {
@@ -414,19 +402,7 @@ pub mod pppipelinestatic {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
@@ -557,19 +533,7 @@ pub mod pppipelineindexed {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> Handled {
@@ -635,19 +599,7 @@ pub mod pppipelineindexed {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
@@ -790,19 +742,7 @@ pub mod ppstatic {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> Handled {
@@ -868,19 +808,7 @@ pub mod ppstatic {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
@@ -1018,11 +946,7 @@ pub mod ppstatic {
             }
         }
 
-        impl Provide<ControlPort> for Pinger {
-            fn handle(&mut self, _event: ControlEvent) -> Handled {
-                Handled::Ok // ignore
-            }
-        }
+        ignore_lifecycle!(Pinger);
 
         impl Provide<ExperimentPort> for Pinger {
             fn handle(&mut self, event: Run) -> Handled {
@@ -1115,11 +1039,7 @@ pub mod ppstatic {
             }
         }
 
-        impl Provide<ControlPort> for Ponger {
-            fn handle(&mut self, _event: ControlEvent) -> Handled {
-                Handled::Ok // ignore
-            }
-        }
+        ignore_lifecycle!(Ponger);
 
         impl Actor for Ponger {
             type Message = Never;
@@ -1179,19 +1099,7 @@ pub mod ppindexed {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
         fn handle(&mut self, event: Run) -> Handled {
@@ -1256,19 +1164,7 @@ pub mod ppindexed {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> Handled {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-            Handled::Ok
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
