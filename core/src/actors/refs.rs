@@ -36,7 +36,7 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
         self.inner.push(value)
     }
 
-    pub(crate) fn into_adapter<In: 'static>(
+    pub(crate) fn create_adapter<In: 'static>(
         component: Weak<dyn MsgQueueContainer<Message = M>>,
         convert: fn(In) -> M,
     ) -> Box<dyn AdaptedQueueContainer<In>> {
@@ -87,20 +87,16 @@ where
     pub(crate) fn push_and_schedule(&self, value: In) {
         let out = self.convert(value);
         let msg = MsgEnvelope::Typed(out);
-        match self.inner.upgrade() {
-            Some(c) => {
-                let q = c.message_queue();
-                let sd = c.core().increment_work();
-                q.push(msg);
-                if let SchedulingDecision::Schedule = sd {
-                    c.schedule();
-                }
+        if let Some(c) = self.inner.upgrade() {
+            let q = c.message_queue();
+            let sd = c.core().increment_work();
+            q.push(msg);
+            if let SchedulingDecision::Schedule = sd {
+                c.schedule();
             }
-            None =>
-            {
-                #[cfg(test)]
-                println!("Dropping msg as target component is unavailable: {:?}", msg)
-            }
+        } else {
+            #[cfg(test)]
+            println!("Dropping msg as target component is unavailable: {:?}", msg)
         }
     }
 }
@@ -151,20 +147,16 @@ pub struct DynActorRef {
 }
 impl DynActorRef {
     pub(crate) fn enqueue(&self, msg: NetMessage) -> () {
-        match self.component.upgrade() {
-            Some(c) => {
-                let q = c.dyn_message_queue();
-                let sd = c.core().increment_work();
-                q.push_net(msg);
-                if let SchedulingDecision::Schedule = sd {
-                    c.schedule();
-                }
+        if let Some(c) = self.component.upgrade() {
+            let q = c.dyn_message_queue();
+            let sd = c.core().increment_work();
+            q.push_net(msg);
+            if let SchedulingDecision::Schedule = sd {
+                c.schedule();
             }
-            _ =>
-            {
-                #[cfg(test)]
-                println!("Dropping msg as target component is unavailable: {:?}", msg)
-            }
+        } else {
+            #[cfg(test)]
+            println!("Dropping msg as target component is unavailable: {:?}", msg)
         }
     }
 
@@ -271,7 +263,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// #    }
     /// # }
     ///
-    /// # ignore_control!(AskComponent);
+    /// # ignore_lifecycle!(AskComponent);
     ///
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
@@ -385,20 +377,16 @@ impl<M: MessageBounds> ActorRef<M> {
     }
 
     pub(crate) fn enqueue(&self, env: MsgEnvelope<M>) -> () {
-        match self.component.upgrade() {
-            Some(c) => {
-                let q = c.message_queue();
-                let sd = c.core().increment_work();
-                q.push(env);
-                if let SchedulingDecision::Schedule = sd {
-                    c.schedule();
-                }
+        if let Some(c) = self.component.upgrade() {
+            let q = c.message_queue();
+            let sd = c.core().increment_work();
+            q.push(env);
+            if let SchedulingDecision::Schedule = sd {
+                c.schedule();
             }
-            _ =>
-            {
-                #[cfg(test)]
-                println!("Dropping msg as target component is unavailable: {:?}", env)
-            }
+        } else {
+            #[cfg(test)]
+            println!("Dropping msg as target component is unavailable: {:?}", env)
         }
     }
 
@@ -447,7 +435,7 @@ impl<M: MessageBounds> ActorRef<M> {
     /// #    }
     /// # }
     ///
-    /// # ignore_control!(AskComponent);
+    /// # ignore_lifecycle!(AskComponent);
     ///
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
@@ -528,7 +516,7 @@ impl<M: MessageBounds> ActorRef<M> {
     where
         T: Into<M> + fmt::Debug + 'static,
     {
-        let adapter = TypedMsgQueue::into_adapter(self.component.clone(), Into::into);
+        let adapter = TypedMsgQueue::create_adapter(self.component.clone(), Into::into);
         Recipient::from(adapter)
     }
 
@@ -546,7 +534,7 @@ impl<M: MessageBounds> ActorRef<M> {
     where
         T: fmt::Debug + 'static,
     {
-        let adapter = TypedMsgQueue::into_adapter(self.component.clone(), convert);
+        let adapter = TypedMsgQueue::create_adapter(self.component.clone(), convert);
         Recipient::from(adapter)
     }
 }

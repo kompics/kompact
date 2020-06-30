@@ -26,7 +26,7 @@ impl BatchPrinter {
     }
 }
 
-ignore_control!(BatchPrinter);
+ignore_lifecycle!(BatchPrinter);
 
 impl Require<Batching> for BatchPrinter {
     fn handle(&mut self, batch: Batch) -> Handled {

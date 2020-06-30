@@ -56,7 +56,7 @@ impl LifecycleState {
         Self::from_current(current_state)
     }
 
-    pub(crate) fn as_scheduling_decision(self) -> SchedulingDecision {
+    pub(crate) fn into_scheduling_decision(self) -> SchedulingDecision {
         match self {
             LifecycleState::Active(work_count) => {
                 if work_count == 0 {
@@ -81,7 +81,7 @@ impl LifecycleState {
     pub(crate) fn increment_work(state: &AtomicU64) -> SchedulingDecision {
         let old_state = state.fetch_add(1, Ordering::SeqCst);
         validate_add(old_state);
-        Self::from_current(old_state).as_scheduling_decision()
+        Self::from_current(old_state).into_scheduling_decision()
     }
 
     pub(crate) fn decrement_work(state: &AtomicU64, work_done: usize) -> SchedulingDecision {

@@ -446,10 +446,10 @@ impl NetData {
                     .map_err(|b| UnpackError::NoCast(b))
             }
             HeapOrSer::Serialised(mut bytes) => {
-                D::deserialise(&mut bytes).map_err(|e| UnpackError::DeserError(e))
+                D::deserialise(&mut bytes).map_err(UnpackError::DeserError)
             }
             HeapOrSer::Pooled(mut chunk) => {
-                D::deserialise(&mut chunk).map_err(|e| UnpackError::DeserError(e))
+                D::deserialise(&mut chunk).map_err(UnpackError::DeserError)
             }
         }
     }
@@ -737,7 +737,7 @@ impl DispatchData {
     ///
     /// This can fail, if the data can't be moved onto the heap, and serialisation
     /// also fails.
-    pub fn to_local(self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
+    pub fn into_local(self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
         match self {
             DispatchData::Lazy(ser) => {
                 let ser_id = ser.ser_id();
@@ -757,7 +757,7 @@ impl DispatchData {
     }
 
     /// Try to serialise this to data to bytes for remote delivery
-    pub fn to_serialised(
+    pub fn into_serialised(
         self,
         src: ActorPath,
         dst: ActorPath,
@@ -1050,7 +1050,7 @@ mod deser_macro_tests {
         .expect("MsgA should serialise!");
         let msg_b_ser = crate::serialisation::ser_helpers::serialise_to_msg(
             ap.clone(),
-            ap.clone(),
+            ap,
             (msg_b, BSer).into(),
         )
         .expect("MsgB should serialise!");
@@ -1064,7 +1064,7 @@ mod deser_macro_tests {
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
-        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap.clone(), Bytes::default());
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap, Bytes::default());
 
         f(msg);
     }

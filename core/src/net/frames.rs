@@ -430,7 +430,7 @@ impl FrameExt for Start {
                 let ip = Ipv6Addr::from(src.get_u128());
                 let port = src.get_u16();
                 let addr = SocketAddr::new(IpAddr::V6(ip), port);
-                let uuid = Uuid::from_u128(src.get_u128().into());
+                let uuid = Uuid::from_u128(src.get_u128());
                 Ok(Frame::Start(Start::new(addr, uuid)))
             }
             _ => {
@@ -478,7 +478,8 @@ impl FrameExt for Ack {
     }
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
-        Ok(dst.put_u128(self.offset))
+        dst.put_u128(self.offset);
+        Ok(())
     }
 
     fn encoded_len(&self) -> usize {

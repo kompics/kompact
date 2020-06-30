@@ -1,7 +1,7 @@
 use super::*;
 use crate::net::{buffer_pool::BufferPool, frames};
 use bytes::{Buf, BufMut};
-use core::{cmp, mem, ptr};
+use core::{cmp, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
@@ -15,6 +15,10 @@ pub trait Chunk: Send {
     fn as_mut_ptr(&mut self) -> *mut u8;
     /// Returns the length of the chunk
     fn len(&self) -> usize;
+    /// Returns `true` if the length of the chunk is 0
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// A Default Kompact Chunk
@@ -36,6 +40,10 @@ impl Chunk for DefaultChunk {
 
     fn len(&self) -> usize {
         self.chunk.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.chunk.is_empty()
     }
 }
 
@@ -82,11 +90,15 @@ impl BufferChunk {
         unsafe { Chunk::len(&*self.chunk) }
     }
 
+    pub fn is_empty(&self) -> bool {
+        unsafe { Chunk::is_empty(&*self.chunk) }
+    }
+
     /// Return a pointer to a subslice of the chunk
-    pub unsafe fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
+    unsafe fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
         assert!(from < to && to <= self.len() && !self.locked);
         let ptr = (&mut *self.chunk).as_mut_ptr();
-        let offset_ptr = ptr.offset(from as isize);
+        let offset_ptr = ptr.add(from);
         std::slice::from_raw_parts_mut(offset_ptr, to - from)
     }
 
@@ -189,11 +201,11 @@ impl<'a> BufMut for BufferEncoder<'a> {
     fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         unsafe {
             let ptr = (&mut *self.encode_buffer.buffer.chunk).as_mut_ptr();
-            let offset_ptr = ptr.offset(self.encode_buffer.write_offset as isize);
-            return mem::transmute(std::slice::from_raw_parts_mut(
+            let offset_ptr = ptr.add(self.encode_buffer.write_offset);
+            &mut *(std::slice::from_raw_parts_mut(
                 offset_ptr,
                 self.encode_buffer.buffer.len() - self.encode_buffer.write_offset,
-            ));
+            ) as *mut [u8] as *mut [std::mem::MaybeUninit<u8>])
         }
     }
 
@@ -369,6 +381,11 @@ impl DecodeBuffer {
         unsafe { Some(self.buffer.get_slice(self.write_offset, self.buffer.len())) }
     }
 
+    /// Returns `true` if the buffer's read-portion has a length of 0.
+    pub fn is_empty(&self) -> bool {
+        self.write_offset == self.read_offset
+    }
+
     /// Returns the length of the read-portion of the buffer
     pub fn len(&self) -> usize {
         self.write_offset - self.read_offset
@@ -397,9 +414,7 @@ impl DecodeBuffer {
     /// Get the first 24 bytes of the DecodeBuffer, used for testing/debugging
     /// get_slice does the bounds checking
     pub fn get_buffer_head(&mut self) -> &mut [u8] {
-        unsafe {
-            return self.buffer.get_slice(0, 24);
-        }
+        unsafe { self.buffer.get_slice(0, 24) }
     }
 
     /// Swaps the underlying buffer in place with other
@@ -442,64 +457,66 @@ impl DecodeBuffer {
                     // Frames with empty bodies should be handled in frame-head decoding below.
                     FrameType::Data => {
                         if let Ok(data) = Data::decode_from(lease) {
-                            return Ok(data);
+                            Ok(data)
+                        } else {
+                            Err(FramingError::InvalidFrame)
                         }
-                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::StreamRequest => {
                         if let Ok(data) = StreamRequest::decode_from(lease) {
-                            return Ok(data);
+                            Ok(data)
+                        } else {
+                            Err(FramingError::InvalidFrame)
                         }
-                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::Hello => {
                         if let Ok(hello) = Hello::decode_from(lease) {
-                            return Ok(hello);
+                            Ok(hello)
+                        } else {
+                            Err(FramingError::InvalidFrame)
                         }
-                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::Start => {
                         if let Ok(start) = Start::decode_from(lease) {
-                            return Ok(start);
+                            Ok(start)
+                        } else {
+                            Err(FramingError::InvalidFrame)
                         }
-                        return Err(FramingError::InvalidFrame);
                     }
                     FrameType::Ack => {
                         if let Ok(ack) = Ack::decode_from(lease) {
-                            return Ok(ack);
+                            Ok(ack)
+                        } else {
+                            Err(FramingError::InvalidFrame)
                         }
-                        return Err(FramingError::InvalidFrame);
                     }
-                    _ => {
-                        return Err(FramingError::UnsupportedFrameType);
+                    _ => Err(FramingError::UnsupportedFrameType),
+                }
+            } else {
+                Err(FramingError::NoData)
+            }
+        } else if readable_len >= FRAME_HEAD_LEN {
+            unsafe {
+                let slice = self
+                    .buffer
+                    .get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
+                self.read_offset += FRAME_HEAD_LEN;
+                let mut cursor = Cursor::new(slice);
+                let head = FrameHead::decode_from(&mut cursor)?;
+                if head.content_length() == 0 {
+                    match head.frame_type() {
+                        // Frames without content match here for expediency, Decoder doesn't allow 0 length.
+                        FrameType::Bye => Ok(Frame::Bye()),
+                        _ => Err(FramingError::NoData),
                     }
+                } else {
+                    self.next_frame_head = Some(head);
+                    self.get_frame()
                 }
             }
         } else {
-            if readable_len >= FRAME_HEAD_LEN {
-                unsafe {
-                    let slice = self
-                        .buffer
-                        .get_slice(self.read_offset, self.read_offset + FRAME_HEAD_LEN);
-                    self.read_offset += FRAME_HEAD_LEN;
-                    let mut cursor = Cursor::new(slice);
-                    let head = FrameHead::decode_from(&mut cursor)?;
-                    if head.content_length() == 0 {
-                        match head.frame_type() {
-                            // Frames without content match here for expediency, Decoder doesn't allow 0 length.
-                            FrameType::Bye => {
-                                return Ok(Frame::Bye());
-                            }
-                            _ => {}
-                        }
-                    } else {
-                        self.next_frame_head = Some(head);
-                        return self.get_frame();
-                    }
-                }
-            }
+            Err(FramingError::NoData)
         }
-        return Err(FramingError::NoData);
     }
 
     pub(crate) fn get_overflow(&mut self) -> Option<ChunkLease> {
@@ -613,7 +630,8 @@ impl BufMut for ChunkLease {
     fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         unsafe {
             let slice: &mut [u8] = &mut *self.content;
-            mem::transmute(&mut slice[self.written..self.capacity])
+            &mut *(&mut slice[self.written..self.capacity] as *mut [u8]
+                as *mut [std::mem::MaybeUninit<u8>])
         }
     }
 }

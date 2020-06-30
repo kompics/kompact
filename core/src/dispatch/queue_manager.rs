@@ -31,7 +31,7 @@ impl QueueManager {
     pub fn enqueue_frame(&mut self, frame: SerialisedFrame, dst: SocketAddr) {
         self.inner
             .entry(dst)
-            .or_insert(VecDeque::new())
+            .or_insert_with(VecDeque::new)
             .push_front(frame);
     }
 
@@ -39,7 +39,7 @@ impl QueueManager {
     pub fn enqueue_priority_frame(&mut self, frame: SerialisedFrame, dst: SocketAddr) {
         self.priority_queue
             .entry(dst)
-            .or_insert(VecDeque::new())
+            .or_insert_with(VecDeque::new)
             .push_front(frame);
     }
 

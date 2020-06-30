@@ -25,11 +25,11 @@ pub(crate) enum ListenEvent {
 }
 
 impl ListenEvent {
-    fn id(&self) -> &Uuid {
+    fn id(&self) -> Uuid {
         match self {
-            ListenEvent::Started(ref id) => id,
-            ListenEvent::Stopped(ref id) => id,
-            ListenEvent::Destroyed(ref id) => id,
+            ListenEvent::Started(id) => *id,
+            ListenEvent::Stopped(id) => *id,
+            ListenEvent::Destroyed(id) => *id,
         }
     }
 }
@@ -70,10 +70,7 @@ impl ComponentSupervisor {
         S: Fn(&ListenEvent) -> bool,
     {
         if let Some(l) = self.listeners.get_mut(id) {
-            let (mut selected, mut unselected): (
-                Vec<(ListenEvent, Promise<()>)>,
-                Vec<(ListenEvent, Promise<()>)>,
-            ) = l.drain(..).partition(|entry| selector(&entry.0));
+            let (mut selected, mut unselected) = l.drain(..).partition(|entry| selector(&entry.0));
             std::mem::swap(l, &mut unselected);
             // requires #![feature(drain_filter)]
             // let mut selected = l
@@ -211,10 +208,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         .into_inner()
                         .expect("Someone broke the promise mutex -.-");
                     trace!(self.ctx.log(), "Subscribing listener for {}.", event.id());
-                    let l = self
-                        .listeners
-                        .entry(event.id().clone())
-                        .or_insert(Vec::new());
+                    let l = self.listeners.entry(event.id()).or_insert_with(Vec::new);
                     l.push((event, p));
                 }
                 Err(_) => error!(

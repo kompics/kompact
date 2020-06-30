@@ -115,9 +115,9 @@ impl TcpChannel {
     pub fn handle_hello(&mut self, hello: Hello) -> () {
         if let ChannelState::Requested(_, id) = self.state {
             // Has now received Hello(addr), must send Start(addr, uuid) and await ack
-            let start = Frame::Start(Start::new(self.own_addr.clone(), id));
+            let start = Frame::Start(Start::new(self.own_addr, id));
             self.send_frame(start);
-            self.state = ChannelState::Initialised(hello.addr.clone(), id);
+            self.state = ChannelState::Initialised(hello.addr, id);
         }
     }
 
@@ -128,7 +128,7 @@ impl TcpChannel {
             // Method called because we received Start and want to send Ack.
             let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
             self.send_frame(ack);
-            self.state = ChannelState::Connected(addr.clone(), id);
+            self.state = ChannelState::Connected(*addr, id);
         }
     }
 
@@ -154,7 +154,7 @@ impl TcpChannel {
         while let Some(frame) = self.outbound_queue.pop_front() {
             ret.push(frame);
         }
-        return ret;
+        ret
     }
 
     /// This tries to read from the Tcp buffer into the DecodeBuffer, nothing else.
@@ -174,7 +174,7 @@ impl TcpChannel {
                         return Ok(sum_read_bytes);
                     }
                     Ok(n) => {
-                        sum_read_bytes = sum_read_bytes + n;
+                        sum_read_bytes += n;
                         read_bytes = n;
                         // continue looping and reading
                     }
@@ -243,7 +243,7 @@ impl TcpChannel {
         while let Some(mut serialized_frame) = self.outbound_queue.pop_front() {
             match self.write_serialized(&serialized_frame) {
                 Ok(n) => {
-                    sent_bytes = sent_bytes + n;
+                    sent_bytes += n;
                     match &mut serialized_frame {
                         // Split the data and continue sending the rest later if we sent less than the full frame
                         SerialisedFrame::Bytes(bytes) => {
@@ -354,23 +354,19 @@ impl Ord for SocketWrapper {
             SocketAddr::V4(_self_v4) => {
                 if other.inner.is_ipv6() {
                     Ordering::Greater
+                } else if self.inner.ip() == other.inner.ip() {
+                    self.inner.port().cmp(&other.inner.port())
                 } else {
-                    if self.inner.ip() == other.inner.ip() {
-                        self.inner.port().cmp(&other.inner.port())
-                    } else {
-                        self.inner.ip().cmp(&other.inner.ip())
-                    }
+                    self.inner.ip().cmp(&other.inner.ip())
                 }
             }
             SocketAddr::V6(_self_v6) => {
                 if other.inner.is_ipv4() {
                     Ordering::Greater
+                } else if self.inner.ip() == other.inner.ip() {
+                    self.inner.port().cmp(&other.inner.port())
                 } else {
-                    if self.inner.ip() == other.inner.ip() {
-                        self.inner.port().cmp(&other.inner.port())
-                    } else {
-                        self.inner.ip().cmp(&other.inner.ip())
-                    }
+                    self.inner.ip().cmp(&other.inner.ip())
                 }
             }
         }

@@ -45,7 +45,7 @@ where
 /// struct RawActor {
 ///    ctx: ComponentContext<Self>
 /// }
-/// ignore_control!(RawActor);
+/// ignore_lifecycle!(RawActor);
 /// impl ActorRaw for RawActor {
 ///     type Message = ();
 ///
@@ -94,7 +94,7 @@ pub trait ActorRaw {
 /// struct NormalActor {
 ///    ctx: ComponentContext<Self>
 /// }
-/// ignore_control!(NormalActor);
+/// ignore_lifecycle!(NormalActor);
 /// impl Actor for NormalActor {
 ///     type Message = ();
 ///
@@ -214,7 +214,7 @@ pub trait Dispatching {
 /// struct NetActor {
 ///    ctx: ComponentContext<Self>
 /// }
-/// ignore_control!(NetActor);
+/// ignore_lifecycle!(NetActor);
 /// impl NetworkActor for NetActor {
 ///     type Message = ();
 ///     type Deserialiser = ();

@@ -451,8 +451,8 @@ impl From<NamedPath> for ActorPath {
     }
 }
 
-const PATH_SEP: &'static str = "/";
-const UNIQUE_PATH_SEP: &'static str = "#";
+const PATH_SEP: &str = "/";
+const UNIQUE_PATH_SEP: &str = "#";
 
 impl fmt::Display for ActorPath {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -529,13 +529,8 @@ impl UniquePath {
     }
 
     /// Returns a reference to this path's unique id
-    pub fn uuid_ref(&self) -> &Uuid {
-        &self.id
-    }
-
-    /// Returns a copy of this path's unique id
-    pub fn clone_id(&self) -> Uuid {
-        self.id.clone()
+    pub fn id(&self) -> Uuid {
+        self.id
     }
 
     /// Returns a mutable reference to this path's system path part
@@ -669,7 +664,7 @@ impl FromStr for NamedPath {
         }
         let proto: Transport = s1[0].parse()?;
         let mut s2: Vec<&str> = s1[1].split(PATH_SEP).collect();
-        if s2.len() < 1 {
+        if s2.is_empty() {
             return Err(PathParseError::Form(s.to_string()));
         }
         let socket = SocketAddr::from_str(s2[0])?;
@@ -678,7 +673,7 @@ impl FromStr for NamedPath {
         } else {
             Vec::default()
         };
-        Ok(NamedPath::with_socket(proto, socket, path.clone()))
+        Ok(NamedPath::with_socket(proto, socket, path))
     }
 }
 
@@ -707,7 +702,7 @@ impl FromStr for NamedPath {
 mod tests {
     use super::*;
 
-    const PATH: &'static str = "local://127.0.0.1:0/test_actor";
+    const PATH: &str = "local://127.0.0.1:0/test_actor";
 
     #[test]
     fn actor_path_strings() {

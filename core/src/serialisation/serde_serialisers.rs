@@ -59,7 +59,7 @@ impl<'a> BufSerializer<'a> {
         BufSerializer { buffer }
     }
 
-    fn reborrow<'b>(&'b mut self) -> BufSerializer<'b> {
+    fn reborrow(&mut self) -> BufSerializer<'_> {
         BufSerializer {
             buffer: &mut *self.buffer,
         }
@@ -224,9 +224,9 @@ impl<'a> Serializer for BufSerializer<'a> {
     // explicitly in the serialized form. Some serializers may only be able to
     // support sequences for which the length is known up front.
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, SerError> {
-        let len = len.ok_or(SerError::InvalidData(
-            "Sequence length must be known ahead of time!".into(),
-        ))?;
+        let len = len.ok_or_else(|| {
+            SerError::InvalidData("Sequence length must be known ahead of time!".into())
+        })?;
         self.buffer.put_u64(len as u64);
         Ok(self)
     }
@@ -261,9 +261,9 @@ impl<'a> Serializer for BufSerializer<'a> {
 
     // Maps are represented as sequences of key-value pairs
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, SerError> {
-        let len = len.ok_or(SerError::InvalidData(
-            "Map length must be known ahead of time!".into(),
-        ))?;
+        let len = len.ok_or_else(|| {
+            SerError::InvalidData("Map length must be known ahead of time!".into())
+        })?;
         self.buffer.put_u64(len as u64);
         Ok(self)
     }
@@ -590,10 +590,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
         V: Visitor<'de>,
     {
         let num = self.buffer.get_u32();
-        let v = std::char::from_u32(num).ok_or(SerError::Unknown(format!(
-            "Number {} does not represent a valid char!",
-            num
-        )))?;
+        let v = std::char::from_u32(num).ok_or_else(|| {
+            SerError::Unknown(format!("Number {} does not represent a valid char!", num))
+        })?;
         visitor.visit_char(v)
     }
 
@@ -614,8 +613,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
         // If you need different guarantees, write a different String serde implementation, that fulfills them
-        let mut data: Vec<u8> = Vec::with_capacity(len);
-        data.resize(len, 0u8);
+        let mut data: Vec<u8> = vec![0; len];
         self.buffer.copy_to_slice(data.as_mut_slice());
         let s = String::from_utf8(data).map_err(SerError::from_debug)?;
         visitor.visit_string(s)
@@ -637,8 +635,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
         // If you need different guarantees, write a different serde implementation, that fulfills them
-        let mut data: Vec<u8> = Vec::with_capacity(len);
-        data.resize(len, 0u8);
+        let mut data: Vec<u8> = vec![0; len];
         self.buffer.copy_to_slice(data.as_mut_slice());
         visitor.visit_byte_buf(data)
     }
@@ -930,7 +927,7 @@ impl Serialize for ActorPath {
     {
         let size = self.size_hint().unwrap_or(0);
         let mut buf: Vec<u8> = Vec::with_capacity(size);
-        ActorPath::serialise(self, &mut buf).map_err(|e| ser::Error::custom(e))?;
+        ActorPath::serialise(self, &mut buf).map_err(ser::Error::custom)?;
         serializer.serialize_bytes(&buf)
     }
 }
@@ -947,7 +944,7 @@ impl<'de> Visitor<'de> for ActorPathVisitor {
         E: de::Error,
     {
         let mut slice: &[u8] = &value;
-        let path = ActorPath::deserialise(&mut slice).map_err(|e| de::Error::custom(e))?;
+        let path = ActorPath::deserialise(&mut slice).map_err(de::Error::custom)?;
         Ok(path)
     }
 }

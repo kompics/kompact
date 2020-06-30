@@ -198,7 +198,7 @@ impl NetworkThread {
                 // lookup it's corresponding addr
                 let addr = {
                     if let Some(addr) = self.token_map.get(&token) {
-                        addr.clone()
+                        *addr
                     } else {
                         debug!(
                             self.log,
@@ -212,12 +212,9 @@ impl NetworkThread {
                 let mut swap_buffer = false;
                 let mut close_channel = false;
                 if event.is_writable() {
-                    match self.try_write(&addr) {
-                        IOReturn::Close => {
-                            // Remove and deregister
-                            close_channel = true;
-                        }
-                        _ => {}
+                    if let IOReturn::Close = self.try_write(&addr) {
+                        // Remove and deregister
+                        close_channel = true;
                     }
                 }
                 if event.is_readable() {
@@ -240,7 +237,7 @@ impl NetworkThread {
                             // Remove and deregister
                             close_channel = true;
                         }
-                        _ => {}
+                        _ => (),
                     }
                     if close_channel {
                         self.close_channel(addr);
@@ -355,7 +352,7 @@ impl NetworkThread {
                     &channel.token.0
                 );
                 channel.handle_start(&remote_addr, id);
-                channel.token = token.clone();
+                channel.token = token;
                 self.token_map.insert(token, remote_addr);
                 if let Err(e) = self.poll.registry().reregister(
                     channel.stream_mut(),
@@ -384,18 +381,15 @@ impl NetworkThread {
     }
 
     fn handle_ack(&mut self, addr: &SocketAddr) -> () {
-        if let Some(channel) = self.channel_map.get_mut(&addr) {
+        if let Some(channel) = self.channel_map.get_mut(addr) {
             debug!(
                 self.log,
-                "NetworkThread {} handling ack for {}", self.addr, &addr
+                "NetworkThread {} handling ack for {}", self.addr, addr
             );
             channel.handle_ack();
             self.dispatcher_ref
                 .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                    NetworkEvent::Connection(
-                        addr.clone(),
-                        ConnectionState::Connected(addr.clone()),
-                    ),
+                    NetworkEvent::Connection(*addr, ConnectionState::Connected(*addr)),
                 )));
         }
     }
@@ -407,7 +401,7 @@ impl NetworkThread {
                     return IOReturn::Close;
                 }
                 Ok(n) => {
-                    self.sent_bytes = self.sent_bytes + n as u64;
+                    self.sent_bytes += n as u64;
                 }
                 Err(e) => {
                     error!(
@@ -577,7 +571,7 @@ impl NetworkThread {
                 );
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::Connection(addr.clone(), ConnectionState::Connected(addr)),
+                        NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
                     )));
                 self.channel_map.insert(addr, channel);
                 return Ok(());
@@ -590,7 +584,7 @@ impl NetworkThread {
             self.log,
             "NetworkThread {} requesting connection to {}", self.addr, &addr
         );
-        match TcpStream::connect(addr.clone()) {
+        match TcpStream::connect(addr) {
             Ok(stream) => {
                 self.store_stream(stream, &addr, ChannelState::Requested(addr, Uuid::new_v4()))?;
                 Ok(())
@@ -627,17 +621,17 @@ impl NetworkThread {
         state: ChannelState,
     ) -> io::Result<()> {
         if let Some(buffer) = self.buffer_pool.get_buffer() {
-            self.token_map.insert(self.token.clone(), addr.clone());
+            self.token_map.insert(self.token, *addr);
             let mut channel = TcpChannel::new(stream, self.token, buffer, state, self.addr);
             debug!(
                 self.log,
-                "NetworkThread {} saying Hello to {}", self.addr, &addr
+                "NetworkThread {} saying Hello to {}", self.addr, addr
             );
             // Whatever error is thrown here will be re-triggered and handled later.
             channel.initialise(&self.addr);
             if let Err(e) = self.poll.registry().register(
                 channel.stream_mut(),
-                self.token.clone(),
+                self.token,
                 Interest::READABLE | Interest::WRITABLE,
             ) {
                 error!(
@@ -645,7 +639,7 @@ impl NetworkThread {
                     "NetworkThread {} failed to register polling for {}\n{:?}", self.addr, addr, e
                 );
             }
-            self.channel_map.insert(addr.clone(), channel);
+            self.channel_map.insert(*addr, channel);
             self.next_token();
             Ok(())
         } else {
@@ -667,10 +661,7 @@ impl NetworkThread {
                         } else {
                             debug!(self.log, "Dispatch trying to route to non connected channel {:?}, rejecting the message", channel);
                             self.dispatcher_ref.tell(DispatchEnvelope::Event(
-                                EventEnvelope::Network(NetworkEvent::RejectedFrame(
-                                    addr.clone(),
-                                    frame,
-                                )),
+                                EventEnvelope::Network(NetworkEvent::RejectedFrame(addr, frame)),
                             ));
                             break;
                         }
@@ -679,15 +670,12 @@ impl NetworkThread {
                         debug!(self.log, "Dispatch trying to route to unrecognized address {}, rejecting the message", addr);
                         self.dispatcher_ref
                             .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                                NetworkEvent::RejectedFrame(addr.clone(), frame),
+                                NetworkEvent::RejectedFrame(addr, frame),
                             )));
                         break;
                     }
-                    match self.try_write(&addr) {
-                        IOReturn::Close => {
-                            self.close_channel(addr);
-                        }
-                        _ => {}
+                    if let IOReturn::Close = self.try_write(&addr) {
+                        self.close_channel(addr);
                     }
                 }
                 DispatchEvent::Stop() => {
@@ -698,7 +686,7 @@ impl NetworkThread {
                         self.log,
                         "NetworkThread got DispatchEvent::Connect({})", addr
                     );
-                    self.request_stream(addr.clone())?;
+                    self.request_stream(addr)?;
                 }
             }
         }
@@ -709,12 +697,12 @@ impl NetworkThread {
         if let Some(mut channel) = self.channel_map.remove(&addr) {
             self.dispatcher_ref
                 .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                    NetworkEvent::Connection(addr.clone(), ConnectionState::Closed),
+                    NetworkEvent::Connection(addr, ConnectionState::Closed),
                 )));
             for rejected_frame in channel.take_outbound() {
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::RejectedFrame(addr.clone(), rejected_frame),
+                        NetworkEvent::RejectedFrame(addr, rejected_frame),
                     )));
             }
             channel.shutdown();
@@ -758,7 +746,7 @@ fn bind_with_retries(
     retries: usize,
     log: &KompactLogger,
 ) -> io::Result<TcpListener> {
-    match TcpListener::bind(addr.clone()) {
+    match TcpListener::bind(*addr) {
         Ok(listener) => Ok(listener),
         Err(e) => {
             if retries > 0 {
@@ -845,7 +833,7 @@ mod tests {
         // Set up the two network threads
         let (network_thread1, _) = NetworkThread::new(
             logger.clone(),
-            addr1.clone(),
+            addr1,
             lookup.clone(),
             input_queue_1_receiver,
             dispatch_shutdown_sender1,
@@ -853,12 +841,12 @@ mod tests {
         );
 
         let (network_thread2, _) = NetworkThread::new(
-            logger.clone(),
-            addr2.clone(),
-            lookup.clone(),
+            logger,
+            addr2,
+            lookup,
             input_queue_2_receiver,
             dispatch_shutdown_sender2,
-            dispatcher_ref.clone(),
+            dispatcher_ref,
         );
 
         (
@@ -877,11 +865,11 @@ mod tests {
         let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7780);
 
         let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
-            setup_two_threads(addr1.clone(), addr2.clone());
+            setup_two_threads(addr1, addr2);
 
         // Tell both to connect to each-other before they start running:
-        input_queue_1_sender.send(DispatchEvent::Connect(addr2.clone()));
-        input_queue_2_sender.send(DispatchEvent::Connect(addr1.clone()));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2));
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1));
 
         // Let both handle the connect event:
         network_thread1.receive_dispatch();
@@ -950,10 +938,10 @@ mod tests {
         let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8780);
 
         let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
-            setup_two_threads(addr1.clone(), addr2.clone());
+            setup_two_threads(addr1, addr2);
 
         // 2 Requests connection to 1 and sends Hello
-        input_queue_2_sender.send(DispatchEvent::Connect(addr1.clone()));
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1));
         network_thread2.receive_dispatch();
         thread::sleep(Duration::from_millis(100));
 
@@ -968,7 +956,7 @@ mod tests {
 
         // 1 Receives Request Connection Event, this is the tricky part
         // 1 Requests connection to 2 and sends Hello
-        input_queue_1_sender.send(DispatchEvent::Connect(addr2.clone()));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2));
         network_thread1.receive_dispatch();
         thread::sleep(Duration::from_millis(100));
 

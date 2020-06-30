@@ -30,7 +30,7 @@ impl TrustPrinter {
     }
 }
 
-ignore_control!(TrustPrinter);
+ignore_lifecycle!(TrustPrinter);
 
 impl Require<EventualLeaderDetection> for TrustPrinter {
     fn handle(&mut self, event: Trust) -> Handled {

@@ -386,7 +386,7 @@ impl NetworkDispatcher {
         use crate::dispatch::lookup::ActorLookup;
         let lookup = self.lookup.lease();
         let actor_opt = lookup.get_by_actor_path(msg.destination());
-        match msg.to_local() {
+        match msg.into_local() {
             Ok(netmsg) => {
                 if let Some(ref actor) = actor_opt {
                     actor.enqueue(netmsg);
@@ -417,7 +417,7 @@ impl NetworkDispatcher {
         let dst = msg.destination();
         let addr = SocketAddr::new(*dst.address(), dst.port());
         let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
-        let serialised = msg.to_serialised(buf)?;
+        let serialised = msg.into_serialised(buf)?;
 
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
@@ -537,51 +537,48 @@ impl Actor for NetworkDispatcher {
             DispatchEnvelope::Registration(reg) => {
                 use lookup::ActorLookup;
 
-                match reg {
-                    RegistrationEnvelope {
-                        actor,
-                        path,
-                        update,
-                        promise,
-                    } => {
-                        let ap = self.resolve_path(&path);
-                        let lease = self.lookup.lease();
-                        let res = if lease.contains(&path) && !update {
-                            warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
-                            drop(lease);
-                            Err(RegistrationError::DuplicateEntry)
-                        } else {
-                            drop(lease);
-                            let mut replaced = false;
-                            self.lookup.rcu(|current| {
-                                let mut next = (*current).clone();
-                                if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
-                                    replaced = true;
-                                }
-                                Arc::new(next)
-                            });
-                            if replaced {
-                                info!(self.ctx.log(), "Replaced entry for path={:?}", path.clone());
-                            }
-                            Ok(ap)
-                        };
-
-                        if res.is_ok() && !self.reaper.is_scheduled() {
-                            self.schedule_reaper();
+                let RegistrationEnvelope {
+                    actor,
+                    path,
+                    update,
+                    promise,
+                } = reg;
+                let ap = self.resolve_path(&path);
+                let lease = self.lookup.lease();
+                let res = if lease.contains(&path) && !update {
+                    warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
+                    drop(lease);
+                    Err(RegistrationError::DuplicateEntry)
+                } else {
+                    drop(lease);
+                    let mut replaced = false;
+                    self.lookup.rcu(|current| {
+                        let mut next = (*current).clone();
+                        if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
+                            replaced = true;
                         }
-                        match promise {
-                            RegistrationPromise::Fulfil(promise) => {
-                                promise.fulfil(res).unwrap_or_else(|e| {
-                                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
-                                });
-                            }
-                            RegistrationPromise::Reply { id, recipient } => {
-                                let msg = RegistrationResponse::new(id, res);
-                                recipient.tell(msg);
-                            }
-                            RegistrationPromise::None => (), // ignore
-                        }
+                        Arc::new(next)
+                    });
+                    if replaced {
+                        info!(self.ctx.log(), "Replaced entry for path={:?}", path);
                     }
+                    Ok(ap)
+                };
+
+                if res.is_ok() && !self.reaper.is_scheduled() {
+                    self.schedule_reaper();
+                }
+                match promise {
+                    RegistrationPromise::Fulfil(promise) => {
+                        promise.fulfil(res).unwrap_or_else(|e| {
+                            error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                        });
+                    }
+                    RegistrationPromise::Reply { id, recipient } => {
+                        let msg = RegistrationResponse::new(id, res);
+                        recipient.tell(msg);
+                    }
+                    RegistrationPromise::None => (), // ignore
                 }
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),
@@ -622,11 +619,10 @@ impl ComponentLifecycle for NetworkDispatcher {
         match res {
             Ok(_) => {
                 info!(self.ctx.log(), "Started network just fine.");
-                match self.notify_ready.take() {
-                    Some(promise) => promise.fulfil(()).unwrap_or_else(|e| {
+                if let Some(promise) = self.notify_ready.take() {
+                    promise.fulfil(()).unwrap_or_else(|e| {
                         error!(self.ctx.log(), "Could not start network! {:?}", e)
-                    }),
-                    None => (),
+                    })
                 }
             }
             Err(e) => {
@@ -699,8 +695,8 @@ impl futures::sink::Sink<NetMessage> for DynActorRef {
 trait Routable {
     fn source(&self) -> &ActorPath;
     fn destination(&self) -> &ActorPath;
-    fn to_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError>;
-    fn to_local(self) -> Result<NetMessage, SerError>;
+    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError>;
+    fn into_local(self) -> Result<NetMessage, SerError>;
 }
 
 impl Routable for NetMessage {
@@ -712,11 +708,11 @@ impl Routable for NetMessage {
         &self.receiver
     }
 
-    fn to_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
-        crate::ser_helpers::embed_msg(self, buf).map(|chunk| SerialisedFrame::Chunk(chunk))
+    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
+        crate::ser_helpers::embed_msg(self, buf).map(SerialisedFrame::Chunk)
     }
 
-    fn to_local(self) -> Result<NetMessage, SerError> {
+    fn into_local(self) -> Result<NetMessage, SerError> {
         Ok(self)
     }
 }
@@ -729,12 +725,12 @@ impl Routable for (ActorPath, ActorPath, DispatchData) {
         &self.1
     }
 
-    fn to_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
-        self.2.to_serialised(self.0, self.1, buf)
+    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
+        self.2.into_serialised(self.0, self.1, buf)
     }
 
-    fn to_local(self) -> Result<NetMessage, SerError> {
-        self.2.to_local(self.0, self.1)
+    fn into_local(self) -> Result<NetMessage, SerError> {
+        self.2.into_local(self.0, self.1)
     }
 }
 
@@ -759,7 +755,7 @@ mod dispatch_tests {
         println!("Starting KompactSystem");
         let system = cfg.build().expect("KompactSystem");
         thread::sleep(Duration::from_secs(1));
-        assert!(false, "System should not start correctly!");
+        //unreachable!("System should not start correctly! {:?}", system.label());
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -969,7 +965,7 @@ mod dispatch_tests {
 
         let unique_path = ActorPath::Unique(UniquePath::with_system(
             remote.system_path(),
-            ponger_unique.id().clone(),
+            ponger_unique.id(),
         ));
 
         let (pinger_unique, piuf) =
@@ -1048,7 +1044,7 @@ mod dispatch_tests {
 
         let unique_path = ActorPath::Unique(UniquePath::with_system(
             remote.system_path(),
-            ponger_unique.id().clone(),
+            ponger_unique.id(),
         ));
 
         let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new(unique_path));
@@ -1731,9 +1727,10 @@ mod dispatch_tests {
                 PONG_ID => Err(SerError::InvalidType(
                     "Found PongMsg, but expected PingMsg.".into(),
                 )),
-                id => Err(SerError::InvalidType(
-                    format!("Found unknown id {}, but expected PingMsg.", id).into(),
-                )),
+                id => Err(SerError::InvalidType(format!(
+                    "Found unknown id {}, but expected PingMsg.",
+                    id
+                ))),
             }
         }
     }
@@ -1756,9 +1753,10 @@ mod dispatch_tests {
                 PING_ID => Err(SerError::InvalidType(
                     "Found PingMsg, but expected PongMsg.".into(),
                 )),
-                id => Err(SerError::InvalidType(
-                    format!("Found unknown id {}, but expected PingMsg.", id).into(),
-                )),
+                id => Err(SerError::InvalidType(format!(
+                    "Found unknown id {}, but expected PingMsg.",
+                    id
+                ))),
             }
         }
     }

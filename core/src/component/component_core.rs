@@ -65,7 +65,7 @@ impl ComponentCore {
     }
 
     pub(super) fn get_scheduling_decision(&self) -> SchedulingDecision {
-        LifecycleState::load(&self.state).as_scheduling_decision()
+        LifecycleState::load(&self.state).into_scheduling_decision()
     }
 }
 

@@ -36,6 +36,7 @@
 #![allow(unused_parens)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]
+#![allow(clippy::new_without_default)]
 #![cfg_attr(nightly, feature(never_type))]
 #![cfg_attr(nightly, feature(option_expect_none))]
 #![cfg_attr(nightly, feature(async_closure))]

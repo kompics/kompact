@@ -90,7 +90,7 @@ impl<P: Port + 'static> CommonPortData<P> {
 ///         }
 ///     }    
 /// }
-/// ignore_control!(UnitProvider);
+/// ignore_lifecycle!(UnitProvider);
 /// impl Provide<UnitPort> for UnitProvider {
 ///     fn handle(&mut self, event: ()) -> Handled {
 ///         Handled::Ok // handle event
@@ -200,7 +200,7 @@ impl<P: Port + 'static> ProvidedPort<P> {
 ///         }
 ///     }    
 /// }
-/// ignore_control!(UnitRequirer);
+/// ignore_lifecycle!(UnitRequirer);
 /// impl Require<UnitPort> for UnitRequirer {
 ///     fn handle(&mut self, event: ()) -> Handled {
 ///         Handled::Ok // handle event
@@ -313,12 +313,9 @@ impl<P: Port + 'static> ProvidedRef<P> {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(event);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    let system = c.core().system();
+                    system.schedule(c.clone());
                 }
             }
             (_q, _c) =>
@@ -358,12 +355,9 @@ impl<P: Port + 'static> RequiredRef<P> {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(event);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    let system = c.core().system();
+                    system.schedule(c.clone());
                 }
             }
             (_q, _c) =>

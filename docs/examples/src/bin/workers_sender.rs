@@ -205,7 +205,7 @@ impl Worker {
         }
     }
 }
-ignore_control!(Worker);
+ignore_lifecycle!(Worker);
 
 impl Actor for Worker {
     type Message = WithSender<WorkPart, ManagerMessage>;

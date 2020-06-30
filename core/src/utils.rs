@@ -149,8 +149,8 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T
     /// this method will panic with an appropriate error message.
     pub fn wait_expect(self, timeout: Duration, error_msg: &'static str) -> T {
         self.wait_timeout(timeout)
-            .expect(&format!("{} (caused by timeout)", error_msg))
-            .expect(&format!("{} (caused by result)", error_msg))
+            .unwrap_or_else(|_| panic!("{} (caused by timeout)", error_msg))
+            .unwrap_or_else(|_| panic!("{} (caused by result)", error_msg))
     }
 }
 
@@ -349,9 +349,8 @@ pub trait IterExtras: Iterator + Sized {
             current = next;
             next = self.next();
         }
-        match current.take() {
-            Some(item) => f(item, t),
-            None => (), // nothing to do
+        if let Some(item) = current.take() {
+            f(item, t)
         }
     }
 }
