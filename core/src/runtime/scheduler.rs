@@ -41,6 +41,9 @@ pub trait Scheduler: Send + Sync {
     /// Usually this should just cause the scheduler to be
     /// shut down in an appropriate manner.
     fn poison(&self) -> ();
+
+    /// Run a Future on this pool
+    fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> ();
 }
 
 impl Clone for Box<dyn Scheduler> {
@@ -53,12 +56,12 @@ impl Clone for Box<dyn Scheduler> {
 #[derive(Clone)]
 pub struct ExecutorScheduler<E>
 where
-    E: Executor + Sync,
+    E: FuturesExecutor + Sync,
 {
     exec: E,
 }
 
-impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
+impl<E: FuturesExecutor + Sync + 'static> ExecutorScheduler<E> {
     /// Produce a new `ExecutorScheduler` from an [Executor](executors::Executor) `E`.
     pub fn with(exec: E) -> ExecutorScheduler<E> {
         ExecutorScheduler { exec }
@@ -70,7 +73,7 @@ impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
     }
 }
 
-impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
+impl<E: FuturesExecutor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
         self.exec.execute(move || maybe_reschedule(c));
     }
@@ -89,6 +92,10 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
 
     fn poison(&self) -> () {
         self.exec.shutdown_async();
+    }
+
+    fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> () {
+        let _handle = self.exec.spawn(future);
     }
 }
 
@@ -109,14 +116,3 @@ fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
         _ => (),
     }
 }
-
-// pub(crate) fn schedule_local_or_on_pool(core: &ComponentCore) {
-//     if cfg!(feature = "avoid_executor_lookups") {
-//         let component = core.component();
-//         if try_execute_locally(move || component.execute()).is_err() {
-//             core.system().schedule(core.component());
-//         }
-//     } else {
-//         core.system().schedule(core.component());
-//     }
-// }

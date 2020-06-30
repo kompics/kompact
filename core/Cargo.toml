@@ -75,9 +75,9 @@ iovec 							= "0.1.1" # Match MIOs Version
 [dependencies.executors]
 #version = "0.6"
 default_features = true
-#git = "https://github.com/Bathtor/rust-executors"
-#branch = "master"
-path = "../../../rust-executors/executors"
+git = "https://github.com/Bathtor/rust-executors"
+branch = "futures"
+#path = "../../../rust-executors/executors"
 
 #[dependencies.spaniel]
 #git = "https://github.com/jarlopez/spaniel"

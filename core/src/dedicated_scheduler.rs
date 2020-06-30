@@ -150,4 +150,8 @@ impl Scheduler for DedicatedThreadScheduler {
     fn poison(&self) -> () {
         self.stop.store(true, Ordering::Relaxed);
     }
+
+    fn spawn(&self, _future: futures::future::BoxFuture<'static, ()>) -> () {
+        unimplemented!("Don't call spawn on a dedicated scheudler!");
+    }
 }

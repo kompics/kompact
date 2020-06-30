@@ -162,7 +162,7 @@ impl KompactConfig {
     /// Takes a function `f` from the number of threads to a concrete executor as argument.
     pub fn executor<E, F>(&mut self, f: F) -> &mut Self
     where
-        E: Executor + Sync + 'static,
+        E: FuturesExecutor + Sync + 'static,
         F: Fn(usize) -> E + 'static,
     {
         let sb = move |t: usize| ExecutorScheduler::from(f(t));

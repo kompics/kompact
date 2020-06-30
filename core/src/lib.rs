@@ -108,6 +108,8 @@ pub type Never = !;
 #[cfg(not(nightly))]
 pub type Never = std::convert::Infallible;
 
+pub type JoinHandle<R> = futures::channel::oneshot::Receiver<R>;
+
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
@@ -1004,5 +1006,13 @@ mod tests {
         c.on_definition(|cd| {
             assert_eq!(7i64, cd.test_value.take().unwrap());
         });
+    }
+
+    #[test]
+    fn test_system_spawn() -> () {
+        let system = KompactConfig::default().build().expect("system");
+        let handle = system.spawn(async move { "test".to_string() });
+        let res = futures::executor::block_on(handle).expect("result");
+        assert_eq!(res, "test");
     }
 }

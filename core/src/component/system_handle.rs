@@ -156,6 +156,13 @@ impl SystemHandle for ContextSystemHandle {
     fn deadletter_ref(&self) -> ActorRef<Never> {
         self.component.system().actor_ref()
     }
+
+    fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        self.component.system().spawn(future)
+    }
 }
 
 impl Dispatching for ContextSystemHandle {

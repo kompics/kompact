@@ -633,6 +633,7 @@ mod tests {
     enum BlockMe {
         Now,
         OnChannel(oneshot::Receiver<String>),
+        SpawnOff(String),
     }
 
     #[derive(ComponentDefinition)]
@@ -671,6 +672,13 @@ mod tests {
                         let s = receiver.await;
                         async_self.test_string = s.expect("Some string");
                         info!(async_self.log(), "Completed BlockMe::OnChannel future");
+                    })
+                }
+                BlockMe::SpawnOff(s) => {
+                    let handle = self.spawn_off(async move { s });
+                    Handled::block_on(self, async move |mut async_self| {
+                        let res = handle.await.expect("result");
+                        async_self.test_string = res;
                     })
                 }
             }
@@ -749,6 +757,28 @@ mod tests {
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
+        });
+        system.shutdown().expect("shutdown");
+    }
+
+    #[test]
+    fn test_component_spawn_off() -> () {
+        let timeout = Duration::from_millis(1000);
+        let system = KompactConfig::default().build().expect("System");
+        let comp = system.create(BlockingComponent::new);
+        system
+            .start_notify(&comp)
+            .wait_timeout(timeout)
+            .expect("Component didn't start");
+        comp.actor_ref()
+            .tell(BlockMe::SpawnOff("gotcha".to_string()));
+        thread::sleep(timeout);
+        system
+            .kill_notify(comp.clone())
+            .wait_timeout(timeout)
+            .expect("Component didn't die");
+        comp.on_definition(|cd| {
+            assert_eq!(cd.test_string, "gotcha");
         });
         system.shutdown().expect("shutdown");
     }

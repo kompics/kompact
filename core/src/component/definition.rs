@@ -84,7 +84,15 @@ where
         self.ctx_mut().non_blocking_futures.insert(tag, future);
     }
 
-    // TODO "spawn off" where the future is run elsewhere on the pool and only the join handle is returned
+    /// Run a Future on this system's executor pool and return a handle to the result
+    ///
+    /// Handles can be awaited like any other future.
+    fn spawn_off<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        self.ctx().system().spawn(future)
+    }
 }
 
 /// A trait to customise handling of lifecycle events

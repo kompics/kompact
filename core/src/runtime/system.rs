@@ -905,6 +905,27 @@ impl KompactSystem {
         ActorPath::Unique(UniquePath::with_system(self.system_path(), component.id()))
     }
 
+    /// Run a Future on this system's executor pool and return a handle to the result
+    ///
+    /// Handles can be awaited like any other future.
+    pub fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        // Having to use the channel here kinda sucks,
+        // since the executor pool could do this without.
+        // But there doesn't seem to be any way to pass the
+        // required generic types through the `dyn Scheduler`
+        // trait object :(
+        let (tx, rx) = futures::channel::oneshot::channel();
+        let unit_future = async move {
+            let res = future.await;
+            let _ignore = tx.send(res); // if it can't send the handle was dropped, which is fine
+        };
+        self.scheduler.spawn(Box::pin(unit_future));
+        rx
+    }
+
     pub(crate) fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
         self.inner.supervision_port()
     }
@@ -1419,6 +1440,14 @@ pub trait SystemHandle: Dispatching {
 
     /// Returns a reference to the system's deadletter box
     fn deadletter_ref(&self) -> ActorRef<Never>;
+
+    /// Run a Future on this system's executor pool and return a handle to the result
+    ///
+    /// Handles can be awaited like any other future.
+    fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R>;
 }
 
 /// A trait to provide custom implementations of all system components
