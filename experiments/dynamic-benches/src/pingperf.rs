@@ -82,11 +82,7 @@ mod port_pingpong {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // nothing
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Require<PingPongPort> for Pinger {
         fn handle(&mut self, _event: Pong) -> Handled {
@@ -138,11 +134,7 @@ mod port_pingpong {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // nothing
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Provide<PingPongPort> for Ponger {
         fn handle(&mut self, _event: Ping) -> Handled {
@@ -200,11 +192,7 @@ mod strong_ref_pingpong {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // nothing
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Actor for Pinger {
         type Message = PingerMsg;
@@ -261,11 +249,7 @@ mod strong_ref_pingpong {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // nothing
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Ping;
@@ -328,11 +312,7 @@ mod weak_ref_pingpong {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // nothing
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Actor for Pinger {
         type Message = PingerMsg;
@@ -389,11 +369,7 @@ mod weak_ref_pingpong {
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, _event: ControlEvent) -> Handled {
-            Handled::Ok // nothing
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Ping;
