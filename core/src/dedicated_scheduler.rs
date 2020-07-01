@@ -77,7 +77,7 @@ impl DedicatedThreadScheduler {
     }
 
     fn pre_run<CD>(
-        f: utils::Future<Arc<Component<CD>>>,
+        f: utils::KFuture<Arc<Component<CD>>>,
         stop: Arc<AtomicBool>,
         stopped: Arc<AtomicBool>,
     ) where

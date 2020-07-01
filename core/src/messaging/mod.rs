@@ -1,7 +1,7 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
 use crate::{
-    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds, Recipient},
+    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
     net::{buffer::BufferEncoder, events::NetworkEvent},
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
     utils,
@@ -538,39 +538,11 @@ pub enum RegistrationError {
 /// Convenience alias for the result of a path registration attempt
 pub type RegistrationResult = Result<ActorPath, RegistrationError>;
 
-/// A handle to uniquely identify which registration request a [RegistrationResponse](RegistrationResponse) answers
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct RegistrationId(pub Uuid);
-
-/// The response sent by the dispatcher after processing an actor path registration
-#[derive(Debug, Clone)]
-pub struct RegistrationResponse {
-    /// The id of the registration request
-    pub id: RegistrationId,
-    /// The actualt result of the processing
-    pub result: RegistrationResult,
-}
-impl RegistrationResponse {
-    /// Creates a new registration response
-    pub fn new(id: RegistrationId, result: RegistrationResult) -> Self {
-        RegistrationResponse { id, result }
-    }
-}
-
 /// A holder for different variants of how feedback for a registration can be provided
 #[derive(Debug)]
 pub enum RegistrationPromise {
     /// Provide feedback via fulfilling the promise
     Fulfil(utils::Promise<RegistrationResult>),
-    /// Provide feedback by replying to the recipient
-    ///
-    /// The `id` must be supplied as part of the response message.
-    Reply {
-        /// Unique id of this registration request
-        id: RegistrationId,
-        /// The actor to respond to
-        recipient: Recipient<RegistrationResponse>,
-    },
     /// Do not provide feedback
     None,
 }
@@ -620,22 +592,6 @@ impl RegistrationEnvelope {
             path,
             update,
             promise: RegistrationPromise::Fulfil(promise),
-        }
-    }
-
-    /// Create a registration envelope using an actor reference for feedback
-    pub fn with_recipient(
-        actor: &(impl DynActorRefFactory + ?Sized),
-        path: PathResolvable,
-        update: bool,
-        id: RegistrationId,
-        recipient: Recipient<RegistrationResponse>,
-    ) -> RegistrationEnvelope {
-        RegistrationEnvelope {
-            actor: actor.dyn_ref(),
-            path,
-            update,
-            promise: RegistrationPromise::Reply { id, recipient },
         }
     }
 }

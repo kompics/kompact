@@ -13,14 +13,7 @@ use std::cell::{RefCell, UnsafeCell};
 use super::*;
 use crate::{
     actors::TypedMsgQueue,
-    messaging::{
-        DispatchEnvelope,
-        MsgEnvelope,
-        PathResolvable,
-        RegistrationEnvelope,
-        RegistrationId,
-        RegistrationResponse,
-    },
+    messaging::PathResolvable,
     supervision::*,
     timer::timer_manager::{ExecuteAction, ScheduledTimer, Timer, TimerManager, TimerRefFactory},
 };
@@ -348,6 +341,8 @@ mod tests {
     use futures::channel::oneshot;
     use std::{sync::Arc, thread, time::Duration};
 
+    use std::ops::Deref;
+
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
         ctx: ComponentContext<TestComponent>,
@@ -444,13 +439,6 @@ mod tests {
     #[derive(Debug)]
     enum ParentMessage {
         GetChild(KPromise<Arc<Component<ChildComponent>>>),
-        RegResp(RegistrationResponse),
-    }
-
-    impl From<RegistrationResponse> for ParentMessage {
-        fn from(rr: RegistrationResponse) -> Self {
-            ParentMessage::RegResp(rr)
-        }
     }
 
     #[derive(ComponentDefinition)]
@@ -458,7 +446,6 @@ mod tests {
         ctx: ComponentContext<Self>,
         alias_opt: Option<String>,
         child: Option<Arc<Component<ChildComponent>>>,
-        reg_id: Option<RegistrationId>,
     }
     impl ParentComponent {
         fn unique() -> Self {
@@ -466,7 +453,6 @@ mod tests {
                 ctx: ComponentContext::uninitialised(),
                 alias_opt: None,
                 child: None,
-                reg_id: None,
             }
         }
 
@@ -475,7 +461,6 @@ mod tests {
                 ctx: ComponentContext::uninitialised(),
                 alias_opt: Some(s),
                 child: None,
-                reg_id: None,
             }
         }
     }
@@ -483,13 +468,22 @@ mod tests {
     impl ComponentLifecycle for ParentComponent {
         fn on_start(&mut self) -> Handled {
             let child = self.ctx.system().create(ChildComponent::new);
-            let id = match self.alias_opt.take() {
-                Some(s) => self.ctx.system().register_by_alias(&child, s, self),
-                None => self.ctx.system().register(&child, self),
+            let f = match self.alias_opt.take() {
+                Some(s) => self.ctx.system().register_by_alias(&child, s),
+                None => self.ctx.system().register(&child),
             };
-            self.reg_id = Some(id);
             self.child = Some(child);
-            Handled::Ok
+            // async move closure syntax is nightly only
+            Handled::block_on(self, move |async_self| async move {
+                let path = f.await.expect("actor path").expect("actor path");
+                info!(async_self.log(), "Child was registered");
+                if let Some(ref child) = async_self.child {
+                    async_self.ctx.system().start(child);
+                    path.tell(TestMessage, async_self.deref());
+                } else {
+                    unreachable!();
+                }
+            })
         }
 
         fn on_stop(&mut self) -> Handled {
@@ -512,17 +506,6 @@ mod tests {
                         promise.fulfil(child.clone()).expect("fulfilled");
                     } else {
                         drop(promise); // this will cause an error on the Future side
-                    }
-                }
-                ParentMessage::RegResp(res) => {
-                    assert_eq!(res.id, self.reg_id.take().unwrap());
-                    info!(self.log(), "Child was registered");
-                    if let Some(ref child) = self.child {
-                        self.ctx.system().start(child);
-                        let path = res.result.expect("actor path");
-                        path.tell(TestMessage, self);
-                    } else {
-                        unreachable!();
                     }
                 }
             }
@@ -660,14 +643,16 @@ mod tests {
             match msg {
                 BlockMe::Now => {
                     info!(self.log(), "Got BlockMe::Now");
-                    Handled::block_on(self, async move |mut async_self| {
+                    // async move closure syntax is nightly only
+                    Handled::block_on(self, move |mut async_self| async move {
                         async_self.test_string = "done".to_string();
                         info!(async_self.log(), "Ran BlockMe::Now future");
                     })
                 }
                 BlockMe::OnChannel(receiver) => {
                     info!(self.log(), "Got BlockMe::OnChannel");
-                    Handled::block_on(self, async move |mut async_self| {
+                    // async move closure syntax is nightly only
+                    Handled::block_on(self, move |mut async_self| async move {
                         info!(async_self.log(), "Started BlockMe::OnChannel future");
                         let s = receiver.await;
                         async_self.test_string = s.expect("Some string");
@@ -676,7 +661,8 @@ mod tests {
                 }
                 BlockMe::SpawnOff(s) => {
                     let handle = self.spawn_off(async move { s });
-                    Handled::block_on(self, async move |mut async_self| {
+                    // async move closure syntax is nightly only
+                    Handled::block_on(self, move |mut async_self| async move {
                         let res = handle.await.expect("result");
                         async_self.test_string = res;
                     })
@@ -815,7 +801,8 @@ mod tests {
             match msg {
                 AsyncMe::Now => {
                     info!(self.log(), "Got AsyncMe::Now");
-                    self.spawn_local(async move |mut async_self| {
+                    // async move closure syntax is nightly only
+                    self.spawn_local(move |mut async_self| async move {
                         async_self.test_string = "done".to_string();
                         info!(async_self.log(), "Ran AsyncMe::Now future");
                         Handled::Ok
@@ -824,7 +811,8 @@ mod tests {
                 }
                 AsyncMe::OnChannel(receiver) => {
                     info!(self.log(), "Got AsyncMe::OnChannel");
-                    self.spawn_local(async move |mut async_self| {
+                    // async move closure syntax is nightly only
+                    self.spawn_local(move |mut async_self| async move {
                         info!(async_self.log(), "Started AsyncMe::OnChannel future");
                         let s = receiver.await;
                         async_self.test_string = s.expect("Some string");
@@ -835,7 +823,8 @@ mod tests {
                 }
                 AsyncMe::ConcurrentMessage(receiver) => {
                     info!(self.log(), "Got AsyncMe::OnChannel");
-                    self.spawn_local(async move |mut async_self| {
+                    // async move closure syntax is nightly only
+                    self.spawn_local(move |mut async_self| async move {
                         info!(async_self.log(), "Started AsyncMe::ConcurrentMessag future");
                         let s = receiver.await.expect("Some string");
                         info!(

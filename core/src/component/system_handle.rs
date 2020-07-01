@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::messaging::RegistrationResult;
+
 pub(super) struct ContextSystemHandle {
     component: Arc<dyn CoreContainer>,
 }
@@ -7,11 +9,6 @@ pub(super) struct ContextSystemHandle {
 impl ContextSystemHandle {
     pub(super) fn from(component: Arc<dyn CoreContainer>) -> Self {
         ContextSystemHandle { component }
-    }
-
-    fn send_registration(&self, env: RegistrationEnvelope) -> () {
-        let envelope = MsgEnvelope::Typed(DispatchEnvelope::Registration(env));
-        self.component.system().dispatcher_ref().enqueue(envelope);
     }
 }
 
@@ -32,109 +29,62 @@ impl SystemHandle for ContextSystemHandle {
         self.component.system().create_erased(a)
     }
 
-    fn register(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-        reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId {
-        let id = RegistrationId(Uuid::new_v4());
-        let recipient = reply_to.recipient();
-        let env = RegistrationEnvelope::with_recipient(
-            c.as_ref(),
-            PathResolvable::ActorId(c.id()),
-            false,
-            id,
-            recipient,
-        );
-        self.send_registration(env);
-        id
+    fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<RegistrationResult> {
+        self.component.system().register(c)
     }
 
-    fn register_without_response(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
-        let env = RegistrationEnvelope::basic(c.as_ref(), PathResolvable::ActorId(c.id()), false);
-        self.send_registration(env);
+    fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        self.component.system().create_and_register(f)
     }
 
     fn register_by_alias<A>(
         &self,
         c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
-        reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId
+    ) -> KFuture<RegistrationResult>
     where
         A: Into<String>,
     {
-        let id = RegistrationId(Uuid::new_v4());
-        let recipient = reply_to.recipient();
-        let env = RegistrationEnvelope::with_recipient(
-            c.as_ref(),
-            PathResolvable::Alias(alias.into()),
-            false,
-            id,
-            recipient,
-        );
-        self.send_registration(env);
-        id
-    }
-
-    fn register_by_alias_without_response<A>(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-        alias: A,
-    ) -> ()
-    where
-        A: Into<String>,
-    {
-        let env =
-            RegistrationEnvelope::basic(c.as_ref(), PathResolvable::Alias(alias.into()), false);
-        self.send_registration(env);
+        self.component.system().register_by_alias(c, alias)
     }
 
     fn update_alias_registration<A>(
         &self,
         c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
-        reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId
+    ) -> KFuture<RegistrationResult>
     where
         A: Into<String>,
     {
-        let id = RegistrationId(Uuid::new_v4());
-        let recipient = reply_to.recipient();
-        let env = RegistrationEnvelope::with_recipient(
-            c.as_ref(),
-            PathResolvable::Alias(alias.into()),
-            true,
-            id,
-            recipient,
-        );
-        self.send_registration(env);
-        id
-    }
-
-    fn update_alias_registration_without_response<A>(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-        alias: A,
-    ) -> ()
-    where
-        A: Into<String>,
-    {
-        let env =
-            RegistrationEnvelope::basic(c.as_ref(), PathResolvable::Alias(alias.into()), true);
-        self.send_registration(env);
+        self.component.system().update_alias_registration(c, alias)
     }
 
     fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.component.system().start(c)
     }
 
+    fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        self.component.system().start_notify(c)
+    }
+
     fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.component.system().stop(c)
     }
 
+    fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        self.component.system().stop_notify(c)
+    }
+
     fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
         self.component.system().kill(c)
+    }
+
+    fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        self.component.system().kill_notify(c)
     }
 
     fn throughput(&self) -> usize {

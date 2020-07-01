@@ -297,7 +297,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// assert_eq!("42".to_string(), response);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn ask<R, F>(&self, f: F) -> Future<R>
+    pub fn ask<R, F>(&self, f: F) -> KFuture<R>
     where
         R: Send + Sized,
         F: FnOnce(Promise<R>) -> M,
@@ -469,7 +469,7 @@ impl<M: MessageBounds> ActorRef<M> {
     /// assert_eq!("42".to_string(), response);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn ask<R, F>(&self, f: F) -> Future<R>
+    pub fn ask<R, F>(&self, f: F) -> KFuture<R>
     where
         R: Send + Sized,
         F: FnOnce(Promise<R>) -> M,

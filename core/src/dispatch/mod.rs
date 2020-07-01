@@ -19,7 +19,6 @@ use crate::{
         RegistrationEnvelope,
         RegistrationError,
         RegistrationPromise,
-        RegistrationResponse,
         SerialisedFrame,
     },
     net::{
@@ -573,10 +572,6 @@ impl Actor for NetworkDispatcher {
                         promise.fulfil(res).unwrap_or_else(|e| {
                             error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
                         });
-                    }
-                    RegistrationPromise::Reply { id, recipient } => {
-                        let msg = RegistrationResponse::new(id, res);
-                        recipient.tell(msg);
                     }
                     RegistrationPromise::None => (), // ignore
                 }

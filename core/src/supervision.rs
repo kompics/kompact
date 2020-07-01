@@ -42,7 +42,7 @@ pub(crate) enum SupervisorMsg {
     Killed(Uuid),
     Faulty(Uuid),
     Listen(Arc<Mutex<Promise<()>>>, ListenEvent),
-    Shutdown(Promise<()>),
+    Shutdown(Arc<Mutex<Promise<()>>>),
 }
 
 #[derive(ComponentDefinition, Actor)]
@@ -217,22 +217,31 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     event.id()
                 ),
             },
-            SupervisorMsg::Shutdown(promise) => {
-                debug!(self.ctx.log(), "Supervisor got shutdown request.");
-                if self.children.is_empty() {
-                    trace!(self.ctx.log(), "Supervisor has no children!");
-                    promise
-                        .fulfil(())
-                        .expect("Could not fulfill shutdown promise!");
-                    self.listeners.clear(); // we won't be fulfilling these anyway
-                } else {
-                    trace!(self.ctx.log(), "Killing {} children.", self.children.len());
-                    self.shutdown = Some(promise);
-                    for child in self.children.values() {
-                        child.enqueue_control(ControlEvent::Kill);
+            SupervisorMsg::Shutdown(amp) => match Arc::try_unwrap(amp) {
+                Ok(mp) => {
+                    let promise = mp
+                        .into_inner()
+                        .expect("Someone broke the promise mutex -.-");
+                    debug!(self.ctx.log(), "Supervisor got shutdown request.");
+                    if self.children.is_empty() {
+                        trace!(self.ctx.log(), "Supervisor has no children!");
+                        promise
+                            .fulfil(())
+                            .expect("Could not fulfill shutdown promise!");
+                        self.listeners.clear(); // we won't be fulfilling these anyway
+                    } else {
+                        trace!(self.ctx.log(), "Killing {} children.", self.children.len());
+                        self.shutdown = Some(promise);
+                        for child in self.children.values() {
+                            child.enqueue_control(ControlEvent::Kill);
+                        }
                     }
                 }
-            }
+                Err(_) => error!(
+                    self.ctx.log(),
+                    "Can't unwrap listen event on Shutdown. Dropping."
+                ),
+            },
         }
         Handled::Ok
     }

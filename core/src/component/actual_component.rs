@@ -276,10 +276,18 @@ impl<CD: ComponentTraits> Component<CD> {
 
                     match res {
                         Handled::Ok => (), // fine continue
-                        Handled::BlockOn(_blocking_future) => {
-                            // There are some tricky edge cases here about delaying shutdown when blocking on futures, etc
-                            unimplemented!("Blocking in lifecycle events is not yet supported!");
-                            //guard.definition.ctx_mut().set_blocking(blocking_future);
+                        Handled::BlockOn(blocking_future) => {
+                            if event == lifecycle::ControlEvent::Stop
+                                || event == lifecycle::ControlEvent::Kill
+                            {
+                                // There are some tricky edge cases here about delaying shutdown when blocking on futures, etc
+                                unimplemented!(
+                                    "Blocking in Stop and Kill events is not yet supported!"
+                                );
+                            } else {
+                                guard.definition.ctx_mut().set_blocking(blocking_future);
+                                run_blocking!(self, guard, count);
+                            }
                         }
                         Handled::DieNow => {
                             lifecycle::set_destroyed(&self.core.state);

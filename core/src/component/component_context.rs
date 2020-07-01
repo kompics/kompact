@@ -171,9 +171,19 @@ where
     /// should be a `return ExecuteResult::new(true, count, skip)`, as continuing to execute handlers violates
     /// blocking semantics.
     pub fn set_blocking(&mut self, f: BlockingFuture) {
-        self.blocking_future
-            .replace(f)
-            .expect_none("Replacing a blocking future without completing it first is invalid!");
+        #[cfg(nightly)]
+        {
+            self.blocking_future
+                .replace(f)
+                .expect_none("Replacing a blocking future without completing it first is invalid!");
+        }
+        #[cfg(not(nightly))]
+        {
+            assert!(
+                self.blocking_future.replace(f).is_none(),
+                "Replacing a blocking future without completing it first is invalid!"
+            );
+        }
         let component = self.typed_component();
         component.set_blocking();
     }
@@ -195,9 +205,19 @@ where
         let component = self.typed_component();
         match blocking_future.run(&component) {
             BlockingRunResult::BlockOn(f) => {
-                self.blocking_future.replace(f).expect_none(
-                    "Replacing a blocking future without completing it first is invalid!",
-                );
+                #[cfg(nightly)]
+                {
+                    self.blocking_future.replace(f).expect_none(
+                        "Replacing a blocking future without completing it first is invalid!",
+                    );
+                }
+                #[cfg(not(nightly))]
+                {
+                    assert!(
+                        self.blocking_future.replace(f).is_none(),
+                        "Replacing a blocking future without completing it first is invalid!"
+                    );
+                }
                 SchedulingDecision::Blocked
             }
             BlockingRunResult::Unblock => {

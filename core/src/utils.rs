@@ -1,8 +1,13 @@
 use std::sync::Arc;
 
+use futures::channel::oneshot;
 use std::{
+    error,
     fmt,
-    sync::{mpsc, TryLockError},
+    future::Future,
+    pin::Pin,
+    sync::TryLockError,
+    task::{Context, Poll},
     time::Duration,
 };
 
@@ -99,12 +104,9 @@ pub fn biconnect_ports<P: Port>(prov: &mut ProvidedPort<P>, req: &mut RequiredPo
 }
 
 /// Produces a new `Promise`/`Future` pair.
-///
-/// # Note
-/// This API is considered temporary and will eventually be replaced with Rust's async facilities.
-pub fn promise<T: Send + Sized>() -> (Promise<T>, Future<T>) {
-    let (tx, rx) = mpsc::channel();
-    let f = Future { result_channel: rx };
+pub fn promise<T: Send + Sized>() -> (Promise<T>, KFuture<T>) {
+    let (tx, rx) = oneshot::channel();
+    let f = KFuture { result_channel: rx };
     let p = Promise { result_channel: tx };
     (p, f)
 }
@@ -117,32 +119,106 @@ pub enum PromiseErr {
     /// Indicates that this promise has somehow been fulfilled before.
     AlreadyFulfilled,
 }
-
-/// A custom future implementation, that can be fulfilled via its paired promise.
-///
-/// # Note
-/// This API is considered temporary and will eventually be replaced with Rust's async facilities.
-#[derive(Debug)]
-pub struct Future<T: Send + Sized> {
-    result_channel: mpsc::Receiver<T>,
+impl error::Error for PromiseErr {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
+}
+impl fmt::Display for PromiseErr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PromiseErr::ChannelBroken => write!(f, "The Future corresponding to this Promise was dropped without waiting for completion first."),
+            PromiseErr::AlreadyFulfilled => write!(f, "This Promise has already been fulfilled. Double fulfilling a promise is illegal."),
+        }
+    }
 }
 
-impl<T: Send + Sized> Future<T> {
+/// A custom future implementation, that can be fulfilled via its paired promise.
+#[derive(Debug)]
+pub struct KFuture<T: Send + Sized> {
+    result_channel: oneshot::Receiver<T>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PromiseDropped;
+impl error::Error for PromiseDropped {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
+}
+impl fmt::Display for PromiseDropped {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "The Promise corresponding to this Future was dropped without completing first."
+        )
+    }
+}
+
+impl<T: Send + Sized> Future for KFuture<T> {
+    type Output = Result<T, PromiseDropped>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        unsafe {
+            self.map_unchecked_mut(|s| &mut s.result_channel)
+                .poll(cx)
+                .map(|res| res.map_err(|_e| PromiseDropped))
+        }
+    }
+}
+
+pub enum WaitErr<T> {
+    /// A timeout occurred and the original `T`
+    /// that was waited on is returned
+    Timeout(T),
+    /// The promise that was waited on was dropped
+    ///
+    /// Since the `T` can never be completed now, it is not returned.
+    PromiseDropped(PromiseDropped),
+}
+impl<T> error::Error for WaitErr<T> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            WaitErr::Timeout(_) => None,
+            WaitErr::PromiseDropped(ref p) => Some(p),
+        }
+    }
+}
+impl<T> fmt::Debug for WaitErr<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WaitErr::Timeout(_) => write!(f, "WaitErr::Timeout(<some future>)"),
+            WaitErr::PromiseDropped(ref p) => fmt::Debug::fmt(p, f),
+        }
+    }
+}
+impl<T> fmt::Display for WaitErr<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WaitErr::Timeout(_) => write!(f, "The timeout expired."),
+            WaitErr::PromiseDropped(ref p) => fmt::Display::fmt(p, f),
+        }
+    }
+}
+
+impl<T: Send + Sized> KFuture<T> {
     /// Wait for the future to be fulfilled and return the value.
     ///
     /// This method panics, if there is an error with the link to the promise.
     pub fn wait(self) -> T {
-        self.result_channel.recv().unwrap()
+        futures::executor::block_on(self.result_channel).unwrap()
     }
 
     /// Wait for the future to be fulfilled or the timeout to expire.
     ///
     /// If the timeout expires, the future itself is returned, so it can be retried later.
-    pub fn wait_timeout(self, timeout: Duration) -> Result<T, Future<T>> {
-        self.result_channel.recv_timeout(timeout).map_err(|_| self)
+    pub fn wait_timeout(self, timeout: Duration) -> Result<T, WaitErr<Self>> {
+        block_until(timeout, self)
+            .map_err(WaitErr::Timeout)
+            .and_then(|res| res.map_err(WaitErr::PromiseDropped))
     }
 }
-impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T, E>> {
+impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> KFuture<Result<T, E>> {
     /// Wait for the future to be fulfilled or the timeout to expire.
     ///
     /// If the result of the future is an error or the the timeout expires,
@@ -152,6 +228,20 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> Future<Result<T
             .unwrap_or_else(|_| panic!("{} (caused by timeout)", error_msg))
             .unwrap_or_else(|_| panic!("{} (caused by result)", error_msg))
     }
+}
+
+pub use futures::executor::block_on;
+
+pub fn block_until<F>(timeout: Duration, mut f: F) -> Result<<F as Future>::Output, F>
+where
+    F: Future + Unpin,
+{
+    block_on(async {
+        async_std::future::timeout(timeout, &mut f)
+            .await
+            .map_err(|_| ())
+    })
+    .map_err(|_| f)
 }
 
 /// Anything that can be fulfilled with a value of type `T`.
@@ -166,9 +256,9 @@ pub trait Fulfillable<T> {
 ///
 /// # Note
 /// This API is considered temporary and will eventually be replaced with Rust's async facilities.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Promise<T: Send + Sized> {
-    result_channel: mpsc::Sender<T>,
+    result_channel: oneshot::Sender<T>,
 }
 
 impl<T: Send + Sized> Fulfillable<T> for Promise<T> {
