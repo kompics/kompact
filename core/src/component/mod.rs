@@ -25,17 +25,17 @@ use crate::utils::erased::CreateErased;
 use owning_ref::{Erased, OwningRefMut};
 use std::any::Any;
 
-mod component_context;
-pub(crate) mod lifecycle;
-pub use component_context::*;
+mod context;
+pub use context::*;
 mod actual_component;
+pub(crate) mod lifecycle;
 pub use actual_component::*;
 mod system_handle;
 use system_handle::*;
 mod definition;
 pub use definition::*;
-mod component_core;
-pub use component_core::*;
+mod core;
+pub use self::core::*;
 mod future_task;
 use future_task::*;
 
