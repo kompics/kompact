@@ -32,8 +32,7 @@
 //! system.await_termination();
 //! ```
 
-//#![deny(missing_docs)]
-#![allow(unused_parens)]
+#![deny(missing_docs)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]
 #![allow(clippy::new_without_default)]
@@ -108,6 +107,11 @@ pub type Never = !;
 #[cfg(not(nightly))]
 pub type Never = std::convert::Infallible;
 
+/// A type of future returned from the [spawn](KompactSystem::spawn) and [spawn_off](ComponentDefinition::spawn_off) functions to await
+/// the completion of the spawned future.
+///
+/// This API currently does not support cancellation,
+/// but that feature may be added in a future API if needed.
 pub type JoinHandle<R> = futures::channel::oneshot::Receiver<R>;
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
@@ -205,13 +209,15 @@ pub mod prelude {
         utils::{
             biconnect_components,
             biconnect_ports,
+            block_on,
+            block_until,
             on_dual_definition,
-            promise as kpromise,
+            promise,
             Ask,
             Fulfillable,
             IterExtras,
             KFuture,
-            Promise as KPromise,
+            KPromise,
             PromiseErr,
             TryDualLockError,
         },

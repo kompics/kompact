@@ -65,7 +65,7 @@ pub fn drop_default_logger() {
 
 type SchedulerBuilder = dyn Fn(usize) -> Box<dyn Scheduler>;
 
-type SCBuilder = dyn Fn(&KompactSystem, Promise<()>, Promise<()>) -> Box<dyn SystemComponents>;
+type SCBuilder = dyn Fn(&KompactSystem, KPromise<()>, KPromise<()>) -> Box<dyn SystemComponents>;
 
 type TimerBuilder = dyn Fn() -> Box<dyn TimerComponent>;
 
@@ -81,6 +81,7 @@ pub enum KompactError {
 }
 
 impl KompactError {
+    /// Wrap an arbitrary [Error](std::error::Error) into a `KompactError`
     pub fn from_other<E>(e: E) -> Self
     where
         E: error::Error + 'static,

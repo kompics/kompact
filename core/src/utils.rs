@@ -103,11 +103,11 @@ pub fn biconnect_ports<P: Port>(prov: &mut ProvidedPort<P>, req: &mut RequiredPo
     req.connect(prov_share);
 }
 
-/// Produces a new `Promise`/`Future` pair.
-pub fn promise<T: Send + Sized>() -> (Promise<T>, KFuture<T>) {
+/// Produces a new `KPromise`/`KFuture` pair.
+pub fn promise<T: Send + Sized>() -> (KPromise<T>, KFuture<T>) {
     let (tx, rx) = oneshot::channel();
     let f = KFuture { result_channel: rx };
-    let p = Promise { result_channel: tx };
+    let p = KPromise { result_channel: tx };
     (p, f)
 }
 
@@ -232,6 +232,9 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> KFuture<Result<
 
 pub use futures::executor::block_on;
 
+/// Blocks the current waiting for `f` to be completed or for the `timeout` to expire
+///
+/// If the timeout expires first, then `f` is returned so it can be retried if desired.
 pub fn block_until<F>(timeout: Duration, mut f: F) -> Result<<F as Future>::Output, F>
 where
     F: Future + Unpin,
@@ -253,15 +256,12 @@ pub trait Fulfillable<T> {
 }
 
 /// A custom promise implementation, that can be used to fulfil its paired future.
-///
-/// # Note
-/// This API is considered temporary and will eventually be replaced with Rust's async facilities.
 #[derive(Debug)]
-pub struct Promise<T: Send + Sized> {
+pub struct KPromise<T: Send + Sized> {
     result_channel: oneshot::Sender<T>,
 }
 
-impl<T: Send + Sized> Fulfillable<T> for Promise<T> {
+impl<T: Send + Sized> Fulfillable<T> for KPromise<T> {
     fn fulfil(self, t: T) -> Result<(), PromiseErr> {
         self.result_channel
             .send(t)
@@ -278,7 +278,7 @@ where
     Request: MessageBounds,
     Response: Send + Sized,
 {
-    promise: Promise<Response>,
+    promise: KPromise<Response>,
     content: Request,
 }
 impl<Request, Response> Ask<Request, Response>
@@ -287,14 +287,14 @@ where
     Response: Send + Sized,
 {
     /// Produce a new `Ask` instance from a promise and a `Request`.
-    pub fn new(promise: Promise<Response>, content: Request) -> Ask<Request, Response> {
+    pub fn new(promise: KPromise<Response>, content: Request) -> Ask<Request, Response> {
         Ask { promise, content }
     }
 
     /// Produce a function that takes a promise and returns an ask with the given `Request`.
     ///
     /// Use this avoid the explicit chaining of the `promise` that the [new](Ask::new) function requires.
-    pub fn of(content: Request) -> impl FnOnce(Promise<Response>) -> Ask<Request, Response> {
+    pub fn of(content: Request) -> impl FnOnce(KPromise<Response>) -> Ask<Request, Response> {
         |promise| Ask::new(promise, content)
     }
 
@@ -309,7 +309,7 @@ where
     }
 
     /// Decompose this `Ask` into a pair of a promise and a `Request`.
-    pub fn take(self) -> (Promise<Response>, Request) {
+    pub fn take(self) -> (KPromise<Response>, Request) {
         (self.promise, self.content)
     }
 
@@ -340,6 +340,9 @@ where
 ///
 /// To ignore lifecycle events for a component `TestComponent`, write:
 /// `ignore_lifecycle!(TestComponent);`
+///
+/// This is equivalent to `impl ComponentLifecycle for TestComponent {}`
+/// and uses the default implementations for each trait function.
 #[macro_export]
 macro_rules! ignore_lifecycle {
     ($component:ty) => {
@@ -347,7 +350,7 @@ macro_rules! ignore_lifecycle {
     };
 }
 
-/// A macro that provides an empty implementation of the [ControlPort](ControlPort) handler.
+/// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
 ///
 /// Use this in components that do not require any special treatment of control events.
 ///

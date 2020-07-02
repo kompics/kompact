@@ -53,7 +53,7 @@ impl std::error::Error for SerError {}
 /// so they can be reliable compared between in different binaries and rust versions.
 ///
 /// This trait is used with serialisers that can deal with a large number of types
-/// but require some internal differentiation, such as [Serde](kompact::serde_serialisers),
+/// but require some internal differentiation, such as [Serde](crate::serialisation::serde_serialisers),
 /// for example.
 pub trait SerialisationId {
     /// The serialisation id for this type

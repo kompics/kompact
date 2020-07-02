@@ -81,19 +81,15 @@ pub fn latch_synchronoise(b: &mut Bencher) {
             let wait_latch = inner_latches.pop().unwrap();
             wait_latch.wait();
         }
-        let diff = start.elapsed();
-        diff
+        start.elapsed()
     });
 }
 
 pub fn as_binary() {
     use ppstatic::*;
-    ping_pong_latency_bin(
-        100000,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency_bin(100000, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 fn ping_pong_latency_bin<Pinger, PingerF, Ponger, PongerF, PortF>(
@@ -130,7 +126,7 @@ where
         .wait_timeout(timeout)
         .expect("Pinger never started!");
 
-    let (promise, future) = kpromise();
+    let (promise, future) = promise();
     sys1.trigger_r(Run::new(iterations, promise), &experiment_port);
     let res = future.wait();
 
@@ -255,10 +251,9 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
         .expect("Pinger never started!");
 
     b.iter_custom(|num_iterations| {
-        let (promise, future) = kpromise();
+        let (promise, future) = promise();
         sys1.trigger_r(Run::new(num_iterations, promise), &experiment_port);
-        let res = future.wait();
-        res
+        future.wait()
     });
 
     // Teardown

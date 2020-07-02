@@ -130,6 +130,11 @@ where
 ///
 /// This is *only* guaranteed to be correct when accessed as part of the future's `poll` function.
 ///
+/// In particular, under no circumstances should you ever send this anywhere else
+/// (e.g. on a channel, or as part of spawned off closure).
+/// The only reason this is marked as `Send` is so the futures it produces can be sent
+/// with their parent component.
+///
 /// This also means you may not hold references to fields within the component across `await` points.
 /// You must either drop them manually before calling `await`, or simply use a sub-scope and let them go
 /// out of scope first.
@@ -139,11 +144,6 @@ where
 /// no assumptions about the state of the component should be made after the `await` point
 /// and everthing previously established must be re-verified on the new references
 /// if it could at all have changed between two `poll` invocations.
-///
-/// In particular, under no circumstances should you ever send this anywhere else
-/// (e.g. on a channel, or as part of spawned off closure).
-/// The only reason this is marked as `Send` is so the futures it produces can be sent
-/// with their parent component.
 pub struct ComponentDefinitionAccess<CD>
 where
     CD: ComponentDefinition + 'static,

@@ -914,6 +914,14 @@ impl KompactSystem {
     /// Run a Future on this system's executor pool and return a handle to the result
     ///
     /// Handles can be awaited like any other future.
+    ///
+    /// # Note
+    ///
+    /// The current API is not as efficient as calling [FuturesExecutor::spawn](executors::FuturesExecutor::spawn)
+    /// directly, due to some trait object indirection in Kompact systems.
+    /// Thus, if performance is important, it is recommended to maintain a (non trait-object) handle
+    /// to the actual `Executor` pool being used and call its `spawn` function instead.
+    /// This API is really just a somewhat roundabout convenience for doing the same.
     pub fn spawn<R: Send + 'static>(
         &self,
         future: impl futures::Future<Output = R> + 'static + Send,

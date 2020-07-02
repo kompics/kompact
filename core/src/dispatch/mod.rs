@@ -82,7 +82,7 @@ impl NetworkConfig {
     ///
     /// Returns the appropriate function type for use
     /// with [system_components](KompactConfig::system_components).
-    pub fn build(self) -> impl Fn(Promise<()>) -> NetworkDispatcher {
+    pub fn build(self) -> impl Fn(KPromise<()>) -> NetworkDispatcher {
         move |notify_ready| NetworkDispatcher::with_config(self.clone(), notify_ready)
     }
 }
@@ -127,10 +127,10 @@ pub struct NetworkDispatcher {
     queue_manager: QueueManager,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
-    notify_ready: Option<Promise<()>>,
+    notify_ready: Option<KPromise<()>>,
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
-    retry_map: FnvHashMap<SocketAddr, (u8)>,
+    retry_map: FnvHashMap<SocketAddr, u8>,
 }
 
 impl NetworkDispatcher {
@@ -150,7 +150,7 @@ impl NetworkDispatcher {
     /// let system = conf.build().expect("system");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn new(notify_ready: Promise<()>) -> Self {
+    pub fn new(notify_ready: KPromise<()>) -> Self {
         let config = NetworkConfig::default();
         NetworkDispatcher::with_config(config, notify_ready)
     }
@@ -159,7 +159,7 @@ impl NetworkDispatcher {
     ///
     /// For better readability in combination with [system_components](KompactConfig::system_components),
     /// use [NetworkConfig::build](NetworkConfig::build) instead.
-    pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
+    pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
         let reaper = lookup::gc::ActorRefReaper::default();
         let encode_buffer = crate::net::buffer::EncodeBuffer::new();
@@ -1813,10 +1813,10 @@ mod dispatch_tests {
                     if self.count < PING_COUNT {
                         if self.eager {
                             self.target
-                                .tell_serialised((PingMsg { i: pong.i + 1 }), self)
+                                .tell_serialised(PingMsg { i: pong.i + 1 }, self)
                                 .expect("serialise");
                         } else {
-                            self.target.tell((PingMsg { i: pong.i + 1 }), self);
+                            self.target.tell(PingMsg { i: pong.i + 1 }, self);
                         }
                     }
                 }

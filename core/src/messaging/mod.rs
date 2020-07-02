@@ -114,7 +114,7 @@ impl NetMessage {
     }
 
     /// Create a network message with a ChunkLease, pooled buffers.
-    /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[net::frames].
+    /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[crate::net::frames].
     pub fn with_chunk(
         ser_id: SerId,
         sender: ActorPath,
@@ -542,7 +542,7 @@ pub type RegistrationResult = Result<ActorPath, RegistrationError>;
 #[derive(Debug)]
 pub enum RegistrationPromise {
     /// Provide feedback via fulfilling the promise
-    Fulfil(utils::Promise<RegistrationResult>),
+    Fulfil(utils::KPromise<RegistrationResult>),
     /// Do not provide feedback
     None,
 }
@@ -585,7 +585,7 @@ impl RegistrationEnvelope {
         actor: &(impl DynActorRefFactory + ?Sized),
         path: PathResolvable,
         update: bool,
-        promise: utils::Promise<RegistrationResult>,
+        promise: utils::KPromise<RegistrationResult>,
     ) -> RegistrationEnvelope {
         RegistrationEnvelope {
             actor: actor.dyn_ref(),
@@ -676,7 +676,7 @@ pub enum SerialisedFrame {
 pub enum DispatchData {
     /// Lazily serialised variant – must still be serialised by the dispatcher or networking system
     Lazy(Box<dyn Serialisable>),
-    /// Should be serialised and [framed](net::frames).
+    /// Should be serialised and [framed](crate::net::frames).
     Serialised((ChunkLease, SerId)),
 }
 

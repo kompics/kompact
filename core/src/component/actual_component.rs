@@ -302,7 +302,7 @@ impl<CD: ComponentTraits> Component<CD> {
                         }
                     }
                 }
-                if (!lifecycle::is_active(&self.core.state)) {
+                if !lifecycle::is_active(&self.core.state) {
                     trace!(self.logger, "Not running inactive scheduled.");
                     return self.core.decrement_work(count);
                 }
@@ -336,7 +336,7 @@ impl<CD: ComponentTraits> Component<CD> {
                 }
                 // then events
                 let rem_events = max_events.saturating_sub(count);
-                if (rem_events > 0) {
+                if rem_events > 0 {
                     let skip = guard.skip;
                     let res = guard.definition.execute(rem_events, skip);
                     guard.skip = res.skip;

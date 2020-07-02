@@ -20,16 +20,14 @@
 #![allow(unused_results)]
 //! Generated file from `example.proto`
 
-use protobuf::{
-    Message as Message_imported_for_functions,
-    ProtobufEnum as ProtobufEnum_imported_for_functions,
-};
+use protobuf::Message as Message_imported_for_functions;
+use protobuf::ProtobufEnum as ProtobufEnum_imported_for_functions;
 
 /// Generated files are compatible only with the same version
 /// of protobuf runtime.
 // const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_2_15_1;
 
-#[derive(PartialEq, Clone, Default)]
+#[derive(PartialEq,Clone,Default)]
 pub struct SearchRequest {
     // message fields
     pub query: ::std::string::String,
@@ -53,10 +51,10 @@ impl SearchRequest {
 
     // string query = 1;
 
+
     pub fn get_query(&self) -> &str {
         &self.query
     }
-
     pub fn clear_query(&mut self) {
         self.query.clear();
     }
@@ -79,10 +77,10 @@ impl SearchRequest {
 
     // int32 page_number = 2;
 
+
     pub fn get_page_number(&self) -> i32 {
         self.page_number
     }
-
     pub fn clear_page_number(&mut self) {
         self.page_number = 0;
     }
@@ -94,10 +92,10 @@ impl SearchRequest {
 
     // int32 result_per_page = 3;
 
+
     pub fn get_result_per_page(&self) -> i32 {
         self.result_per_page
     }
-
     pub fn clear_result_per_page(&mut self) {
         self.result_per_page = 0;
     }
@@ -113,46 +111,30 @@ impl ::protobuf::Message for SearchRequest {
         true
     }
 
-    fn merge_from(
-        &mut self,
-        is: &mut ::protobuf::CodedInputStream<'_>,
-    ) -> ::protobuf::ProtobufResult<()> {
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
         while !is.eof()? {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 1 => {
-                    ::protobuf::rt::read_singular_proto3_string_into(
-                        wire_type,
-                        is,
-                        &mut self.query,
-                    )?;
-                }
+                    ::protobuf::rt::read_singular_proto3_string_into(wire_type, is, &mut self.query)?;
+                },
                 2 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
-                            wire_type,
-                        ));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
                     }
                     let tmp = is.read_int32()?;
                     self.page_number = tmp;
-                }
+                },
                 3 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
-                            wire_type,
-                        ));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
                     }
                     let tmp = is.read_int32()?;
                     self.result_per_page = tmp;
-                }
+                },
                 _ => {
-                    ::protobuf::rt::read_unknown_or_skip_group(
-                        field_number,
-                        wire_type,
-                        is,
-                        self.mut_unknown_fields(),
-                    )?;
-                }
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
             };
         }
         ::std::result::Result::Ok(())
@@ -166,28 +148,17 @@ impl ::protobuf::Message for SearchRequest {
             my_size += ::protobuf::rt::string_size(1, &self.query);
         }
         if self.page_number != 0 {
-            my_size += ::protobuf::rt::value_size(
-                2,
-                self.page_number,
-                ::protobuf::wire_format::WireTypeVarint,
-            );
+            my_size += ::protobuf::rt::value_size(2, self.page_number, ::protobuf::wire_format::WireTypeVarint);
         }
         if self.result_per_page != 0 {
-            my_size += ::protobuf::rt::value_size(
-                3,
-                self.result_per_page,
-                ::protobuf::wire_format::WireTypeVarint,
-            );
+            my_size += ::protobuf::rt::value_size(3, self.result_per_page, ::protobuf::wire_format::WireTypeVarint);
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
     }
 
-    fn write_to_with_cached_sizes(
-        &self,
-        os: &mut ::protobuf::CodedOutputStream<'_>,
-    ) -> ::protobuf::ProtobufResult<()> {
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
         if !self.query.is_empty() {
             os.write_string(1, &self.query)?;
         }
@@ -216,11 +187,9 @@ impl ::protobuf::Message for SearchRequest {
     fn as_any(&self) -> &dyn (::std::any::Any) {
         self as &dyn (::std::any::Any)
     }
-
     fn as_any_mut(&mut self) -> &mut dyn (::std::any::Any) {
         self as &mut dyn (::std::any::Any)
     }
-
     fn into_any(self: ::std::boxed::Box<Self>) -> ::std::boxed::Box<dyn (::std::any::Any)> {
         self
     }
@@ -234,39 +203,29 @@ impl ::protobuf::Message for SearchRequest {
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
-        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> =
-            ::protobuf::lazy::Lazy::INIT;
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy::INIT;
         unsafe {
             descriptor.get(|| {
                 let mut fields = ::std::vec::Vec::new();
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
-                    _,
-                    ::protobuf::types::ProtobufTypeString,
-                >(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
                     "query",
-                    |m: &SearchRequest| &m.query,
-                    |m: &mut SearchRequest| &mut m.query,
+                    |m: &SearchRequest| { &m.query },
+                    |m: &mut SearchRequest| { &mut m.query },
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
-                    _,
-                    ::protobuf::types::ProtobufTypeInt32,
-                >(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeInt32>(
                     "page_number",
-                    |m: &SearchRequest| &m.page_number,
-                    |m: &mut SearchRequest| &mut m.page_number,
+                    |m: &SearchRequest| { &m.page_number },
+                    |m: &mut SearchRequest| { &mut m.page_number },
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
-                    _,
-                    ::protobuf::types::ProtobufTypeInt32,
-                >(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeInt32>(
                     "result_per_page",
-                    |m: &SearchRequest| &m.result_per_page,
-                    |m: &mut SearchRequest| &mut m.result_per_page,
+                    |m: &SearchRequest| { &m.result_per_page },
+                    |m: &mut SearchRequest| { &mut m.result_per_page },
                 ));
                 ::protobuf::reflect::MessageDescriptor::new_pb_name::<SearchRequest>(
                     "SearchRequest",
                     fields,
-                    file_descriptor_proto(),
+                    file_descriptor_proto()
                 )
             })
         }
@@ -274,7 +233,9 @@ impl ::protobuf::Message for SearchRequest {
 
     fn default_instance() -> &'static SearchRequest {
         static mut instance: ::protobuf::lazy::Lazy<SearchRequest> = ::protobuf::lazy::Lazy::INIT;
-        unsafe { instance.get(SearchRequest::new) }
+        unsafe {
+            instance.get(SearchRequest::new)
+        }
     }
 }
 
@@ -299,7 +260,7 @@ impl ::protobuf::reflect::ProtobufValue for SearchRequest {
     }
 }
 
-#[derive(PartialEq, Clone, Default)]
+#[derive(PartialEq,Clone,Default)]
 pub struct SearchResponse {
     // message fields
     pub results: ::protobuf::RepeatedField<::std::string::String>,
@@ -321,10 +282,10 @@ impl SearchResponse {
 
     // repeated string results = 1;
 
+
     pub fn get_results(&self) -> &[::std::string::String] {
         &self.results
     }
-
     pub fn clear_results(&mut self) {
         self.results.clear();
     }
@@ -350,24 +311,16 @@ impl ::protobuf::Message for SearchResponse {
         true
     }
 
-    fn merge_from(
-        &mut self,
-        is: &mut ::protobuf::CodedInputStream<'_>,
-    ) -> ::protobuf::ProtobufResult<()> {
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
         while !is.eof()? {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 1 => {
                     ::protobuf::rt::read_repeated_string_into(wire_type, is, &mut self.results)?;
-                }
+                },
                 _ => {
-                    ::protobuf::rt::read_unknown_or_skip_group(
-                        field_number,
-                        wire_type,
-                        is,
-                        self.mut_unknown_fields(),
-                    )?;
-                }
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
             };
         }
         ::std::result::Result::Ok(())
@@ -379,19 +332,16 @@ impl ::protobuf::Message for SearchResponse {
         let mut my_size = 0;
         for value in &self.results {
             my_size += ::protobuf::rt::string_size(1, &value);
-        }
+        };
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
     }
 
-    fn write_to_with_cached_sizes(
-        &self,
-        os: &mut ::protobuf::CodedOutputStream<'_>,
-    ) -> ::protobuf::ProtobufResult<()> {
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
         for v in &self.results {
             os.write_string(1, &v)?;
-        }
+        };
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -411,11 +361,9 @@ impl ::protobuf::Message for SearchResponse {
     fn as_any(&self) -> &dyn (::std::any::Any) {
         self as &dyn (::std::any::Any)
     }
-
     fn as_any_mut(&mut self) -> &mut dyn (::std::any::Any) {
         self as &mut dyn (::std::any::Any)
     }
-
     fn into_any(self: ::std::boxed::Box<Self>) -> ::std::boxed::Box<dyn (::std::any::Any)> {
         self
     }
@@ -429,25 +377,19 @@ impl ::protobuf::Message for SearchResponse {
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
-        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> =
-            ::protobuf::lazy::Lazy::INIT;
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy::INIT;
         unsafe {
             descriptor.get(|| {
                 let mut fields = ::std::vec::Vec::new();
-                fields.push(
-                    ::protobuf::reflect::accessor::make_repeated_field_accessor::<
-                        _,
-                        ::protobuf::types::ProtobufTypeString,
-                    >(
-                        "results",
-                        |m: &SearchResponse| &m.results,
-                        |m: &mut SearchResponse| &mut m.results,
-                    ),
-                );
+                fields.push(::protobuf::reflect::accessor::make_repeated_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
+                    "results",
+                    |m: &SearchResponse| { &m.results },
+                    |m: &mut SearchResponse| { &mut m.results },
+                ));
                 ::protobuf::reflect::MessageDescriptor::new_pb_name::<SearchResponse>(
                     "SearchResponse",
                     fields,
-                    file_descriptor_proto(),
+                    file_descriptor_proto()
                 )
             })
         }
@@ -455,7 +397,9 @@ impl ::protobuf::Message for SearchResponse {
 
     fn default_instance() -> &'static SearchResponse {
         static mut instance: ::protobuf::lazy::Lazy<SearchResponse> = ::protobuf::lazy::Lazy::INIT;
-        unsafe { instance.get(SearchResponse::new) }
+        unsafe {
+            instance.get(SearchResponse::new)
+        }
     }
 }
 
@@ -486,14 +430,16 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     roto3\
 ";
 
-static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<
-    ::protobuf::descriptor::FileDescriptorProto,
-> = ::protobuf::lazy::Lazy::INIT;
+static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy::INIT;
 
 fn parse_descriptor_proto() -> ::protobuf::descriptor::FileDescriptorProto {
     ::protobuf::parse_from_bytes(file_descriptor_proto_data).unwrap()
 }
 
 pub fn file_descriptor_proto() -> &'static ::protobuf::descriptor::FileDescriptorProto {
-    unsafe { file_descriptor_proto_lazy.get(|| parse_descriptor_proto()) }
+    unsafe {
+        file_descriptor_proto_lazy.get(|| {
+            parse_descriptor_proto()
+        })
+    }
 }

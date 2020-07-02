@@ -28,7 +28,7 @@ pub(crate) struct DefaultChunk {
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
-        let slice = ([0u8; BUFFER_SIZE]);
+        let slice = [0u8; BUFFER_SIZE];
         DefaultChunk { chunk: slice }
     }
 }

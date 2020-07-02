@@ -1,6 +1,6 @@
 use super::prelude::*;
 use crate::{
-    utils::{Fulfillable, Promise},
+    utils::{Fulfillable, KPromise},
     ControlEvent,
 };
 
@@ -41,8 +41,8 @@ pub(crate) enum SupervisorMsg {
     Stopped(Uuid),
     Killed(Uuid),
     Faulty(Uuid),
-    Listen(Arc<Mutex<Promise<()>>>, ListenEvent),
-    Shutdown(Arc<Mutex<Promise<()>>>),
+    Listen(Arc<Mutex<KPromise<()>>>, ListenEvent),
+    Shutdown(Arc<Mutex<KPromise<()>>>),
 }
 
 #[derive(ComponentDefinition, Actor)]
@@ -50,8 +50,8 @@ pub(crate) struct ComponentSupervisor {
     ctx: ComponentContext<ComponentSupervisor>,
     pub(crate) supervision: ProvidedPort<SupervisionPort>,
     children: HashMap<Uuid, Arc<dyn CoreContainer>>,
-    listeners: HashMap<Uuid, Vec<(ListenEvent, Promise<()>)>>,
-    shutdown: Option<Promise<()>>,
+    listeners: HashMap<Uuid, Vec<(ListenEvent, KPromise<()>)>>,
+    shutdown: Option<KPromise<()>>,
 }
 
 impl ComponentSupervisor {
@@ -168,7 +168,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     Some(carc) => {
                         let count = Arc::strong_count(&carc);
                         drop(carc);
-                        if (count == 1) {
+                        if count == 1 {
                             trace!(
                                 self.ctx.log(),
                                 "Component({}) was killed and deallocated.",

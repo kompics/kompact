@@ -21,8 +21,10 @@ pub(crate) struct DedicatedThreadScheduler {
     stopped: Arc<AtomicBool>,
 }
 impl DedicatedThreadScheduler {
-    pub(crate) fn new<CD>(
-    ) -> std::io::Result<(DedicatedThreadScheduler, utils::Promise<Arc<Component<CD>>>)>
+    pub(crate) fn new<CD>() -> std::io::Result<(
+        DedicatedThreadScheduler,
+        utils::KPromise<Arc<Component<CD>>>,
+    )>
     where
         CD: ComponentDefinition + 'static,
     {

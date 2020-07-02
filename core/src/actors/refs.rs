@@ -300,7 +300,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     pub fn ask<R, F>(&self, f: F) -> KFuture<R>
     where
         R: Send + Sized,
-        F: FnOnce(Promise<R>) -> M,
+        F: FnOnce(KPromise<R>) -> M,
     {
         let (promise, future) = promise::<R>();
         let msg = f(promise);
@@ -472,7 +472,7 @@ impl<M: MessageBounds> ActorRef<M> {
     pub fn ask<R, F>(&self, f: F) -> KFuture<R>
     where
         R: Send + Sized,
-        F: FnOnce(Promise<R>) -> M,
+        F: FnOnce(KPromise<R>) -> M,
     {
         let (promise, future) = promise::<R>();
         let msg = f(promise);

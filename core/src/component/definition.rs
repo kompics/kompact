@@ -62,17 +62,49 @@ where
     /// to the actual struct name.
     fn type_name() -> &'static str;
 
-    // fn block_on<F>(&mut self, fun: impl FnOnce(ComponentDefinitionAccess<Self>) -> F)
-    // where
-    //     Self: 'static,
-    //     F: std::future::Future + Send + 'static,
-    // {
-    //     let blocking = future_task::blocking(self, fun);
-    //     self.ctx_mut().set_blocking(blocking);
-    // }
-
     /// Run a Future on this component, allowing it mutable
     /// access to the component's internal state on every poll.
+    ///
+    /// Please see the documentation for [ComponentDefinitionAccess](ComponentDefinitionAccess)
+    /// for details on how the internal state may (and may not) be used.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct AsyncComponent {
+    ///    ctx: ComponentContext<Self>,
+    ///    flag: bool,
+    /// }
+    /// impl AsyncComponent {
+    ///     fn new() -> Self {
+    ///         AsyncComponent {
+    ///             ctx: ComponentContext::uninitialised(),
+    ///             flag: false,    
+    ///         }
+    ///     }   
+    /// }
+    /// impl ComponentLifecycle for AsyncComponent {
+    ///     fn on_start(&mut self) -> Handled {
+    ///         // on nightly you can just write: async move |mut async_self| {...}
+    ///         self.spawn_local(move |mut async_self| async move {
+    ///             async_self.flag = true;
+    ///             Handled::Ok
+    ///         });
+    ///         Handled::Ok
+    ///     }   
+    /// }
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// In order to suspend processing of all other messages and events while completing a
+    /// future, use [block_on](Handled::block_on).
+    ///
+    /// In order to run a large future which does not need access to component's internal state
+    /// at all or until the very end, consider using [spawn_off](ComponentDefinition::spawn_off).
     fn spawn_local<F>(&mut self, f: impl FnOnce(ComponentDefinitionAccess<Self>) -> F)
     where
         Self: 'static,
@@ -87,6 +119,14 @@ where
     /// Run a Future on this system's executor pool and return a handle to the result
     ///
     /// Handles can be awaited like any other future.
+    ///
+    /// # Note
+    ///
+    /// The current API is not as efficient as calling [FuturesExecutor::spawn](executors::FuturesExecutor::spawn)
+    /// directly, due to some trait object indirection in Kompact systems.
+    /// Thus, if performance is important, it is recommended to maintain a (non trait-object) handle
+    /// to the actual `Executor` pool being used and call its `spawn` function instead.
+    /// This API is really just a somewhat roundabout convenience for doing the same.
     fn spawn_off<R: Send + 'static>(
         &self,
         future: impl futures::Future<Output = R> + 'static + Send,

@@ -157,7 +157,7 @@ impl KompactConfig {
         self
     }
 
-    /// Set a particular scheduler implementation based on an [executor](executors::core::Executor)
+    /// Set a particular scheduler implementation based on a [FuturesExecutor](executors::FuturesExecutor)
     ///
     /// Takes a function `f` from the number of threads to a concrete executor as argument.
     pub fn executor<E, F>(&mut self, f: F) -> &mut Self
@@ -212,10 +212,10 @@ impl KompactConfig {
             + Sized
             + 'static
             + Dispatcher,
-        FB: Fn(Promise<()>) -> B + 'static,
-        FC: Fn(Promise<()>) -> C + 'static,
+        FB: Fn(KPromise<()>) -> B + 'static,
+        FC: Fn(KPromise<()>) -> C + 'static,
     {
-        let sb = move |system: &KompactSystem, dead_prom: Promise<()>, disp_prom: Promise<()>| {
+        let sb = move |system: &KompactSystem, dead_prom: KPromise<()>, disp_prom: KPromise<()>| {
             let deadletter_box = system.create_unsupervised(|| deadletter_fn(dead_prom));
             let dispatcher = system.create_unsupervised(|| dispatcher_fn(disp_prom));
 
@@ -246,10 +246,10 @@ impl KompactConfig {
             + Sized
             + 'static
             + Dispatcher,
-        FB: Fn(Promise<()>) -> B + 'static,
-        FC: Fn(Promise<()>) -> C + 'static,
+        FB: Fn(KPromise<()>) -> B + 'static,
+        FC: Fn(KPromise<()>) -> C + 'static,
     {
-        let sb = move |system: &KompactSystem, dead_prom: Promise<()>, disp_prom: Promise<()>| {
+        let sb = move |system: &KompactSystem, dead_prom: KPromise<()>, disp_prom: KPromise<()>| {
             let deadletter_box = system.create_unsupervised(|| deadletter_fn(dead_prom));
             let dispatcher = system.create_dedicated_unsupervised(|| dispatcher_fn(disp_prom));
 

@@ -13,8 +13,8 @@ pub(crate) struct DefaultComponents {
 impl DefaultComponents {
     pub(crate) fn new(
         system: &KompactSystem,
-        dead_prom: Promise<()>,
-        disp_prom: Promise<()>,
+        dead_prom: KPromise<()>,
+        disp_prom: KPromise<()>,
     ) -> DefaultComponents {
         let dbc = system.create_unsupervised(|| DeadletterBox::new(dead_prom));
         let ldc = system.create_unsupervised(|| LocalDispatcher::new(disp_prom));
@@ -140,7 +140,7 @@ where
 #[derive(ComponentDefinition)]
 pub struct DeadletterBox {
     ctx: ComponentContext<DeadletterBox>,
-    notify_ready: Option<Promise<()>>,
+    notify_ready: Option<KPromise<()>>,
 }
 
 impl DeadletterBox {
@@ -148,7 +148,7 @@ impl DeadletterBox {
     ///
     /// The `notify_ready` promise will be fulfilled, when the component
     /// received a [Start](ControlEvent::Start) event.
-    pub fn new(notify_ready: Promise<()>) -> DeadletterBox {
+    pub fn new(notify_ready: KPromise<()>) -> DeadletterBox {
         DeadletterBox {
             ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),
@@ -191,7 +191,7 @@ impl ComponentLifecycle for DeadletterBox {
 #[derive(ComponentDefinition)]
 pub struct LocalDispatcher {
     ctx: ComponentContext<LocalDispatcher>,
-    notify_ready: Option<Promise<()>>,
+    notify_ready: Option<KPromise<()>>,
 }
 
 impl LocalDispatcher {
@@ -199,7 +199,7 @@ impl LocalDispatcher {
     ///
     /// The `notify_ready` promise will be fulfilled, when the component
     /// received a [Start](ControlEvent::Start) event.
-    pub fn new(notify_ready: Promise<()>) -> LocalDispatcher {
+    pub fn new(notify_ready: KPromise<()>) -> LocalDispatcher {
         LocalDispatcher {
             ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),

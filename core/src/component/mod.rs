@@ -40,21 +40,64 @@ mod future_task;
 use future_task::*;
 
 /// State transition indication at the end of a message or event handler
-#[must_use = "The Handled value must be returned fromt a handle or receive function to take effect."]
+#[must_use = "The Handled value must be returned from a handle or receive function in order to take effect."]
 #[derive(Debug)]
 pub enum Handled {
     /// Continue as normal
     Ok,
     /// Immediately suspend processing of any messages and events
-    /// until the `BlockingFuture` has completed.
+    /// until the `BlockingFuture` has completed
     BlockOn(BlockingFuture),
-    /// Kills the component without handling any further messages
+    /// Kill the component without handling any further messages
     DieNow,
 }
 impl Handled {
     /// Constructs a state transition instruction which causes
     /// the component to suspend processing of any messages and events
     /// until the async `fun` (the returned [Future](std::future::Future)) has completed.
+    ///
+    /// Mutable access to the component's internal state is provided via
+    /// the [ComponentDefinitionAccess](ComponentDefinitionAccess) guard object.
+    ///
+    /// Please see the documentation for [ComponentDefinitionAccess](ComponentDefinitionAccess)
+    /// for details on how the internal state may (and may not) be used.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    ///
+    /// #[derive(ComponentDefinition, Actor)]
+    /// struct AsyncComponent {
+    ///    ctx: ComponentContext<Self>,
+    ///    flag: bool,
+    /// }
+    /// impl AsyncComponent {
+    ///     fn new() -> Self {
+    ///         AsyncComponent {
+    ///             ctx: ComponentContext::uninitialised(),
+    ///             flag: false,    
+    ///         }
+    ///     }   
+    /// }
+    /// impl ComponentLifecycle for AsyncComponent {
+    ///     fn on_start(&mut self) -> Handled {
+    ///         // on nightly you can just write: async move |mut async_self| {...}
+    ///         Handled::block_on(self, move |mut async_self| async move {
+    ///             async_self.flag = true;
+    ///             Handled::Ok
+    ///         })
+    ///     }   
+    /// }
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// In order to continue processing messages and events in parallel to completing the future
+    /// use [spawn_local](ComponentDefinition::spawn_local).
+    ///
+    /// In order to run a large future which does not need access to component's internal state
+    /// at all or until the very end, consider using [spawn_off](ComponentDefinition::spawn_off).
     pub fn block_on<CD, F>(
         component: &mut CD,
         fun: impl FnOnce(ComponentDefinitionAccess<CD>) -> F,
@@ -319,6 +362,12 @@ pub enum SchedulingDecision {
 }
 
 impl SchedulingDecision {
+    /// Use the current `SchedulingDecision` if it makes a strong decision
+    /// or the one returned by given function if the current one is `NoWork`.
+    ///
+    /// In particular this is used to come out of blocking, where the combination
+    /// of `NoWork` and anything that that indicates work (e.g., `AlreadyScheduled`)
+    /// actually indicates that we want the component to `Resume` immediately.
     pub fn or_use(self, other: impl Fn() -> SchedulingDecision) -> SchedulingDecision {
         match self {
             SchedulingDecision::Schedule
@@ -527,7 +576,7 @@ mod tests {
         let parent = system.create(ParentComponent::unique);
         system.start(&parent);
         thread::sleep(wait_time);
-        let (p, f) = kpromise::<Arc<Component<ChildComponent>>>();
+        let (p, f) = promise::<Arc<Component<ChildComponent>>>();
         parent.actor_ref().tell(ParentMessage::GetChild(p));
         let child = f.wait_timeout(wait_time).expect("child");
         let stop_f = system.stop_notify(&child);
@@ -552,7 +601,7 @@ mod tests {
         let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
         system.start(&parent);
         thread::sleep(wait_time);
-        let (p, f) = kpromise::<Arc<Component<ChildComponent>>>();
+        let (p, f) = promise::<Arc<Component<ChildComponent>>>();
         parent.actor_ref().tell(ParentMessage::GetChild(p));
         let child = f.wait_timeout(wait_time).expect("child");
         let stop_f = system.stop_notify(&child);
