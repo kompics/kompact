@@ -139,8 +139,9 @@ impl<CD: ComponentTraits> Component<CD> {
     }
 
     pub(crate) fn enqueue_control(&self, event: ControlEvent) -> () {
+        let res = self.core.increment_work(); // must do it in this order to maintain counting guarantees
         self.ctrl_queue.push(event);
-        if let SchedulingDecision::Schedule = self.core.increment_work() {
+        if let SchedulingDecision::Schedule = res {
             self.schedule();
         }
     }

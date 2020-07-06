@@ -37,7 +37,7 @@ pub use definition::*;
 mod core;
 pub use self::core::*;
 mod future_task;
-use future_task::*;
+pub use future_task::*;
 
 /// State transition indication at the end of a message or event handler
 #[must_use = "The Handled value must be returned from a handle or receive function in order to take effect."]

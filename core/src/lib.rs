@@ -169,6 +169,7 @@ pub mod prelude {
             Component,
             ComponentContext,
             ComponentDefinition,
+            ComponentDefinitionAccess,
             ComponentLifecycle,
             ComponentLogging,
             CoreContainer,

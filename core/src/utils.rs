@@ -359,7 +359,7 @@ macro_rules! ignore_lifecycle {
 /// To ignore control events for a component `TestComponent`, write:
 /// `ignore_control!(TestComponent);`
 #[deprecated(
-    since = "0.9.0",
+    since = "0.10.0",
     note = "Use the ignore_lifecyle macro instead. This macro will be removed in future version of Kompact"
 )]
 #[macro_export]

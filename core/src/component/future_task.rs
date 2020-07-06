@@ -20,8 +20,6 @@ where
     }
 }
 
-//pub type BlockingFuture = BoxFuture<'static, ()>;
-
 pub(super) enum BlockingRunResult {
     BlockOn(BlockingFuture),
     Unblock,

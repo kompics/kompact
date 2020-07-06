@@ -235,7 +235,11 @@ where
         if let Some(future) = self.non_blocking_futures.get_mut(&tag) {
             match future.run() {
                 Poll::Pending => Handled::Ok,
-                Poll::Ready(handled) => handled,
+                Poll::Ready(handled) => {
+                    drop(future);
+                    self.non_blocking_futures.remove(&tag);
+                    handled
+                }
             }
         } else {
             warn!(self.log(), "Future with tag {} was scheduled but not available. May have been scheduled after completion.", tag);
