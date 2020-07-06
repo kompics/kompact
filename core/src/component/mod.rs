@@ -109,6 +109,14 @@ impl Handled {
         let blocking = future_task::blocking(component, fun);
         Handled::BlockOn(blocking)
     }
+
+    /// Returns true if this instance is an [Handled::Ok](Handled::Ok) variant
+    pub fn is_ok(&self) -> bool {
+        match self {
+            Handled::Ok => true,
+            _ => false,
+        }
+    }
 }
 impl Default for Handled {
     fn default() -> Self {
@@ -666,12 +674,14 @@ mod tests {
         Now,
         OnChannel(oneshot::Receiver<String>),
         SpawnOff(String),
+        OnShutdown,
     }
 
     #[derive(ComponentDefinition)]
     struct BlockingComponent {
         ctx: ComponentContext<Self>,
         test_string: String,
+        block_on_shutdown: bool,
     }
 
     impl BlockingComponent {
@@ -679,11 +689,24 @@ mod tests {
             BlockingComponent {
                 ctx: ComponentContext::uninitialised(),
                 test_string: "started".to_string(),
+                block_on_shutdown: false,
             }
         }
     }
 
-    ignore_lifecycle!(BlockingComponent);
+    impl ComponentLifecycle for BlockingComponent {
+        fn on_kill(&mut self) -> Handled {
+            if self.block_on_shutdown {
+                info!(self.log(), "Cleaning up before shutdown");
+                Handled::block_on(self, move |mut async_self| async move {
+                    async_self.test_string = "done".to_string();
+                    info!(async_self.log(), "Ran BlockMe::OnShutdown future");
+                })
+            } else {
+                Handled::Ok
+            }
+        }
+    }
 
     impl Actor for BlockingComponent {
         type Message = BlockMe;
@@ -715,6 +738,10 @@ mod tests {
                         let res = handle.await.expect("result");
                         async_self.test_string = res;
                     })
+                }
+                BlockMe::OnShutdown => {
+                    self.block_on_shutdown = true;
+                    Handled::Ok
                 }
             }
         }
@@ -785,6 +812,27 @@ mod tests {
         thread::sleep(timeout);
         comp.actor_ref().tell(BlockMe::Now);
         sender.send("gotcha".to_string()).expect("Should have sent");
+        thread::sleep(timeout);
+        system
+            .kill_notify(comp.clone())
+            .wait_timeout(timeout)
+            .expect("Component didn't die");
+        comp.on_definition(|cd| {
+            assert_eq!(cd.test_string, "done");
+        });
+        system.shutdown().expect("shutdown");
+    }
+
+    #[test]
+    fn test_shutdown_blocking() {
+        let timeout = Duration::from_millis(1000);
+        let system = KompactConfig::default().build().expect("System");
+        let comp = system.create(BlockingComponent::new);
+        system
+            .start_notify(&comp)
+            .wait_timeout(timeout)
+            .expect("Component didn't start");
+        comp.actor_ref().tell(BlockMe::OnShutdown);
         thread::sleep(timeout);
         system
             .kill_notify(comp.clone())

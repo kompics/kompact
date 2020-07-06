@@ -200,6 +200,24 @@ impl<CD: ComponentTraits> Component<CD> {
         lifecycle::set_active(&self.core.state)
     }
 
+    pub(super) fn set_passive(&self) {
+        lifecycle::set_passive(&self.core.state);
+        if let Some(ref supervisor) = self.supervisor {
+            let supervisor_msg = SupervisorMsg::Stopped(self.core.id);
+            supervisor.enqueue(supervisor_msg);
+        }
+        debug!(self.logger, "Component stopped");
+    }
+
+    pub(super) fn set_destroyed(&self) {
+        lifecycle::set_destroyed(&self.core.state);
+        let supervisor_msg = SupervisorMsg::Killed(self.core.id);
+        if let Some(ref supervisor) = self.supervisor {
+            supervisor.enqueue(supervisor_msg);
+        }
+        debug!(self.logger, "Component killed");
+    }
+
     /// Wait synchronously for this component be either *destroyed* or *faulty*
     ///
     /// This component blocks the current thread and hot-waits for the component
@@ -235,37 +253,35 @@ impl<CD: ComponentTraits> Component<CD> {
                         lifecycle::ControlEvent::Start => {
                             lifecycle::set_active(&self.core.state);
                             debug!(self.logger, "Component started.");
-                            let supervisor_msg = SupervisorMsg::Started(self.core.component());
                             let res = guard.definition.on_start();
                             count += 1;
                             // inform supervisor after local handling to make sure crashing component don't count as started
                             if let Some(ref supervisor) = self.supervisor {
+                                let supervisor_msg = SupervisorMsg::Started(self.core.component());
                                 supervisor.enqueue(supervisor_msg);
                             }
                             res
                         }
                         lifecycle::ControlEvent::Stop => {
                             lifecycle::set_passive(&self.core.state);
-                            debug!(self.logger, "Component stopped.");
-                            let supervisor_msg = SupervisorMsg::Stopped(self.core.id);
+                            debug!(self.logger, "Component stopping");
                             let res = guard.definition.on_stop();
                             count += 1;
-                            // inform supervisor after local handling to make sure crashing component don't count as started
-                            if let Some(ref supervisor) = self.supervisor {
-                                supervisor.enqueue(supervisor_msg);
-                            }
+                            if res.is_ok() {
+                                // inform supervisor after local handling to make sure crashing component don't count as started
+                                self.set_passive();
+                            } // otherwise this will happen after unblock
                             res
                         }
                         lifecycle::ControlEvent::Kill => {
                             lifecycle::set_destroyed(&self.core.state);
-                            debug!(self.logger, "Component killed.");
-                            let supervisor_msg = SupervisorMsg::Killed(self.core.id);
+                            debug!(self.logger, "Component dying");
                             let res = guard.definition.on_kill();
                             count += 1;
-                            // inform supervisor after local handling to make sure crashing component don't count as started
-                            if let Some(ref supervisor) = self.supervisor {
-                                supervisor.enqueue(supervisor_msg);
-                            }
+                            if res.is_ok() {
+                                // inform supervisor after local handling to make sure crashing component don't count as started
+                                self.set_destroyed();
+                            } // otherwise this will happen after unblock
                             res
                         }
                         lifecycle::ControlEvent::Poll(tag) => {
@@ -278,17 +294,16 @@ impl<CD: ComponentTraits> Component<CD> {
                     match res {
                         Handled::Ok => (), // fine continue
                         Handled::BlockOn(blocking_future) => {
-                            if event == lifecycle::ControlEvent::Stop
-                                || event == lifecycle::ControlEvent::Kill
-                            {
-                                // There are some tricky edge cases here about delaying shutdown when blocking on futures, etc
-                                unimplemented!(
-                                    "Blocking in Stop and Kill events is not yet supported!"
-                                );
-                            } else {
-                                guard.definition.ctx_mut().set_blocking(blocking_future);
-                                run_blocking!(self, guard, count);
-                            }
+                            let transition = match event {
+                                lifecycle::ControlEvent::Stop => StateTransition::Passive,
+                                lifecycle::ControlEvent::Kill => StateTransition::Destroyed,
+                                _ => StateTransition::Active,
+                            };
+                            guard
+                                .definition
+                                .ctx_mut()
+                                .set_blocking_with_state(blocking_future, transition);
+                            run_blocking!(self, guard, count);
                         }
                         Handled::DieNow => {
                             lifecycle::set_destroyed(&self.core.state);

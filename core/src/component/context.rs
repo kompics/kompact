@@ -2,6 +2,24 @@ use super::*;
 
 use std::task::Poll;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum StateTransition {
+    Active,
+    Passive,
+    Destroyed,
+}
+impl Default for StateTransition {
+    fn default() -> Self {
+        StateTransition::Active
+    }
+}
+
+#[derive(Debug)]
+struct BlockingState {
+    future: BlockingFuture,
+    unblock_state: StateTransition,
+}
+
 /// The contextual object for a Kompact component
 ///
 /// Gives access compact internal features like
@@ -9,7 +27,7 @@ use std::task::Poll;
 pub struct ComponentContext<CD: ComponentTraits> {
     inner: Option<ComponentContextInner<CD>>,
     buffer: RefCell<Option<EncodeBuffer>>,
-    blocking_future: Option<BlockingFuture>,
+    blocking_future: Option<BlockingState>,
     pub(super) non_blocking_futures: FxHashMap<Uuid, NonBlockingFuture>,
 }
 
@@ -162,7 +180,33 @@ where
         }
     }
 
-    /// Sets the component to block on the provided blocking future `f`
+    pub(super) fn set_blocking_with_state(
+        &mut self,
+        future: BlockingFuture,
+        unblock_state: StateTransition,
+    ) {
+        let blocking_state = BlockingState {
+            future,
+            unblock_state,
+        };
+        #[cfg(nightly)]
+        {
+            self.blocking_future
+                .replace(blocking_state)
+                .expect_none("Replacing a blocking future without completing it first is invalid!");
+        }
+        #[cfg(not(nightly))]
+        {
+            assert!(
+                self.blocking_future.replace(blocking_state).is_none(),
+                "Replacing a blocking future without completing it first is invalid!"
+            );
+        }
+        let component = self.typed_component();
+        component.set_blocking();
+    }
+
+    /// Sets the component to block on the provided blocking `future`
     ///
     /// This should *only* be used when implementing custom [execute](ComponentDefinition::execute) logic!
     /// Otherwise the correct way to block is to return the [Handled::BlockOn](Handled::BlockOn) variant from a handler.
@@ -170,22 +214,8 @@ where
     /// If this is used for custom [execute](ComponentDefinition::execute) logic, then the next call
     /// should be a `return ExecuteResult::new(true, count, skip)`, as continuing to execute handlers violates
     /// blocking semantics.
-    pub fn set_blocking(&mut self, f: BlockingFuture) {
-        #[cfg(nightly)]
-        {
-            self.blocking_future
-                .replace(f)
-                .expect_none("Replacing a blocking future without completing it first is invalid!");
-        }
-        #[cfg(not(nightly))]
-        {
-            assert!(
-                self.blocking_future.replace(f).is_none(),
-                "Replacing a blocking future without completing it first is invalid!"
-            );
-        }
-        let component = self.typed_component();
-        component.set_blocking();
+    pub fn set_blocking(&mut self, future: BlockingFuture) {
+        self.set_blocking_with_state(future, StateTransition::default())
     }
 
     /// Return `true` if the component is set up for blocking
@@ -198,23 +228,24 @@ where
     }
 
     pub(super) fn run_blocking_task(&mut self) -> SchedulingDecision {
-        let blocking_future = self
+        let mut blocking_state = self
             .blocking_future
             .take()
             .expect("Called run_blocking while not blocking!");
         let component = self.typed_component();
-        match blocking_future.run(&component) {
+        match blocking_state.future.run(&component) {
             BlockingRunResult::BlockOn(f) => {
+                blocking_state.future = f;
                 #[cfg(nightly)]
                 {
-                    self.blocking_future.replace(f).expect_none(
+                    self.blocking_future.replace(blocking_state).expect_none(
                         "Replacing a blocking future without completing it first is invalid!",
                     );
                 }
                 #[cfg(not(nightly))]
                 {
                     assert!(
-                        self.blocking_future.replace(f).is_none(),
+                        self.blocking_future.replace(blocking_state).is_none(),
                         "Replacing a blocking future without completing it first is invalid!"
                     );
                 }
@@ -225,7 +256,11 @@ where
                     self.blocking_future.is_none(),
                     "Don't block within a blocking future! Just call await on the future instead."
                 );
-                component.set_active();
+                match blocking_state.unblock_state {
+                    StateTransition::Active => component.set_active(),
+                    StateTransition::Passive => component.set_passive(),
+                    StateTransition::Destroyed => component.set_destroyed(),
+                }
                 SchedulingDecision::NoWork
             }
         }
