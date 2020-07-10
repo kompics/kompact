@@ -13,6 +13,7 @@ struct Buncher {
 }
 
 impl Buncher {
+    // ANCHOR: new
     fn new() -> Buncher {
         Buncher {
             ctx: ComponentContext::uninitialised(),
@@ -24,6 +25,8 @@ impl Buncher {
         }
     }
 
+    // ANCHOR_END: new
+
     fn trigger_batch(&mut self) -> () {
         let mut new_batch = Vec::with_capacity(self.batch_size);
         std::mem::swap(&mut new_batch, &mut self.current_batch);
@@ -34,7 +37,7 @@ impl Buncher {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id => {
                 self.trigger_batch();
-                let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
                 self.outstanding_timeout = Some(new_timeout);
                 Handled::Ok
             }
@@ -48,6 +51,7 @@ impl Buncher {
 }
 
 impl ComponentLifecycle for Buncher {
+    // ANCHOR: on_start
     fn on_start(&mut self) -> Handled {
         self.batch_size = self.ctx.config()["buncher"]["batch-size"]
             .as_i64()
@@ -60,6 +64,8 @@ impl ComponentLifecycle for Buncher {
         self.outstanding_timeout = Some(timeout);
         Handled::Ok
     }
+
+    // ANCHOR_END: on_start
 
     fn on_stop(&mut self) -> Handled {
         if let Some(timeout) = self.outstanding_timeout.take() {
@@ -89,12 +95,18 @@ impl Provide<Batching> for Buncher {
 }
 
 pub fn main() {
+    // ANCHOR: system
     let mut conf = KompactConfig::default();
+    // ANCHOR: config_file
     conf.load_config_file("./application.conf")
+        // ANCHOR_END: config_file
         .load_config_str("buncher.batch-size = 50");
     let system = conf.build().expect("system");
+    // ANCHOR_END: system
     let printer = system.create(BatchPrinter::new);
+    // ANCHOR: create_buncher
     let buncher = system.create(Buncher::new);
+    // ANCHOR_END: create_buncher
     biconnect_components::<Batching, _, _>(&buncher, &printer).expect("connection");
     let batching = buncher.on_definition(|cd| cd.batch_port.share());
 

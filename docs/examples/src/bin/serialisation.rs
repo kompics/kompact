@@ -60,7 +60,8 @@ impl Serialisable for UpdateProcesses {
     }
 
     fn size_hint(&self) -> Option<usize> {
-        Some(8)
+        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+        Some(8 + procs_size)
     }
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
@@ -220,6 +221,10 @@ impl EventualLeaderElector {
 
 impl ComponentLifecycle for EventualLeaderElector {
     fn on_start(&mut self) -> Handled {
+        // ANCHOR: checkin
+        self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
+        // ANCHOR_END: checkin
+
         self.period = self.ctx.config()["omega"]["initial-period"]
             .as_duration()
             .expect("initial period");

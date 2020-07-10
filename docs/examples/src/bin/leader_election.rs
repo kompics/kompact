@@ -2,9 +2,12 @@ use kompact::{prelude::*, serde_serialisers::*};
 use kompact_examples::trusting::*;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+// ANCHOR: update_message
 #[derive(Debug)]
 struct UpdateProcesses(Arc<[ActorPath]>);
+// ANCHOR_END: update_message
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
@@ -16,6 +19,7 @@ struct EventualLeaderElector {
     timer_handle: Option<ScheduledTimer>,
     leader: Option<ActorPath>,
 }
+// ANCHOR_END: state
 impl EventualLeaderElector {
     fn new() -> Self {
         let minimal_period = Duration::from_millis(1);
@@ -31,6 +35,7 @@ impl EventualLeaderElector {
         }
     }
 
+    // ANCHOR: algorithm
     fn select_leader(&mut self) -> Option<ActorPath> {
         let mut candidates: Vec<ActorPath> = self.candidates.drain().collect();
         candidates.sort_unstable();
@@ -49,11 +54,8 @@ impl EventualLeaderElector {
                         self.omega_port.trigger(Trust(leader.clone()));
                     }
                     self.cancel_timer(timeout);
-                    let new_timer = self.schedule_periodic(
-                        self.period,
-                        self.period,
-                        EventualLeaderElector::handle_timeout,
-                    );
+                    let new_timer =
+                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
                     self.timer_handle = Some(new_timer);
                 } else {
                     // just put it back
@@ -70,13 +72,18 @@ impl EventualLeaderElector {
         }
     }
 
+    // ANCHOR_END: algorithm
+
+    // ANCHOR: telling
     fn send_heartbeats(&self) -> () {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
     }
+    // ANCHOR_END: telling
 }
 
+// ANCHOR: lifecycle
 impl ComponentLifecycle for EventualLeaderElector {
     fn on_start(&mut self) -> Handled {
         self.period = self.ctx.config()["omega"]["initial-period"]
@@ -85,11 +92,7 @@ impl ComponentLifecycle for EventualLeaderElector {
         self.delta = self.ctx.config()["omega"]["delta"]
             .as_duration()
             .expect("delta");
-        let timeout = self.schedule_periodic(
-            self.period,
-            self.period,
-            EventualLeaderElector::handle_timeout,
-        );
+        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
         self.timer_handle = Some(timeout);
         Handled::Ok
     }
@@ -105,10 +108,12 @@ impl ComponentLifecycle for EventualLeaderElector {
         self.on_stop()
     }
 }
+// ANCHOR_END: lifecycle
 
 // Doesn't have any requests
 ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 
+// ANCHOR: actor
 impl Actor for EventualLeaderElector {
     type Message = UpdateProcesses;
 
@@ -134,7 +139,9 @@ impl Actor for EventualLeaderElector {
         Handled::Ok
     }
 }
+// ANCHOR_END: actor
 
+// ANCHOR: main
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     assert_eq!(
@@ -191,6 +198,7 @@ pub fn run_systems(num_systems: usize) {
         sys.shutdown().expect("shutdown");
     }
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

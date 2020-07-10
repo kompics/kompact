@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+// ANCHOR: messages
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct CheckIn;
 impl SerialisationId for CheckIn {
@@ -18,7 +19,9 @@ struct UpdateProcesses(Vec<ActorPath>);
 impl SerialisationId for UpdateProcesses {
     const SER_ID: SerId = 3456;
 }
+// ANCHOR_END: messages
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct BootstrapServer {
     ctx: ComponentContext<Self>,
@@ -32,6 +35,9 @@ impl BootstrapServer {
         }
     }
 
+    // ANCHOR_END: state
+
+    // ANCHOR: behaviour
     fn broadcast_processess(&self) -> () {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
@@ -54,7 +60,9 @@ impl NetworkActor for BootstrapServer {
         Handled::Ok
     }
 }
+// ANCHOR_END: behaviour
 
+// ANCHOR: ele_state
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
@@ -83,6 +91,8 @@ impl EventualLeaderElector {
         }
     }
 
+    // ANCHOR_END: ele_state
+
     fn select_leader(&mut self) -> Option<ActorPath> {
         let mut candidates: Vec<ActorPath> = self.candidates.drain().collect();
         candidates.sort_unstable();
@@ -101,11 +111,8 @@ impl EventualLeaderElector {
                         self.omega_port.trigger(Trust(leader.clone()));
                     }
                     self.cancel_timer(timeout);
-                    let new_timer = self.schedule_periodic(
-                        self.period,
-                        self.period,
-                        EventualLeaderElector::handle_timeout,
-                    );
+                    let new_timer =
+                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
                     self.timer_handle = Some(new_timer);
                 } else {
                     // just put it back
@@ -131,7 +138,9 @@ impl EventualLeaderElector {
 
 impl ComponentLifecycle for EventualLeaderElector {
     fn on_start(&mut self) -> Handled {
+        // ANCHOR: checkin
         self.bootstrap_server.tell((CheckIn, Serde), self);
+        // ANCHOR_END: checkin
 
         self.period = self.ctx.config()["omega"]["initial-period"]
             .as_duration()
@@ -139,11 +148,7 @@ impl ComponentLifecycle for EventualLeaderElector {
         self.delta = self.ctx.config()["omega"]["delta"]
             .as_duration()
             .expect("delta");
-        let timeout = self.schedule_periodic(
-            self.period,
-            self.period,
-            EventualLeaderElector::handle_timeout,
-        );
+        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
         self.timer_handle = Some(timeout);
         Handled::Ok
     }
@@ -163,6 +168,7 @@ impl ComponentLifecycle for EventualLeaderElector {
 // Doesn't have any requests
 ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 
+// ANCHOR: actor
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
@@ -190,7 +196,9 @@ impl Actor for EventualLeaderElector {
         Handled::Ok
     }
 }
+// ANCHOR_END: actor
 
+// ANCHOR: main
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.len() {
@@ -211,7 +219,9 @@ pub fn main() {
         x => panic!("Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!", x-1),
     }
 }
+// ANCHOR_END: main
 
+// ANCHOR: server
 const BOOTSTRAP_PATH: &str = "bootstrap";
 
 pub fn run_server(socket: SocketAddr) -> KompactSystem {
@@ -240,7 +250,9 @@ pub fn run_server(socket: SocketAddr) -> KompactSystem {
 
     system
 }
+// ANCHOR_END: server
 
+// ANCHOR: client
 pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> KompactSystem {
     let mut cfg = KompactConfig::new();
     cfg.load_config_file("./application.conf");
@@ -268,6 +280,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
 
     system
 }
+// ANCHOR_END: client
 
 #[cfg(test)]
 mod tests {

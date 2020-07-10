@@ -2,6 +2,7 @@ use kompact::prelude::*;
 use kompact_examples::batching::*;
 use std::time::Duration;
 
+// ANCHOR: state
 #[derive(ComponentDefinition, Actor)]
 struct Buncher {
     ctx: ComponentContext<Self>,
@@ -11,6 +12,7 @@ struct Buncher {
     current_batch: Vec<Ping>,
     outstanding_timeout: Option<ScheduledTimer>,
 }
+// ANCHOR_END: state
 
 impl Buncher {
     fn new(batch_size: usize, timeout: Duration) -> Buncher {
@@ -24,6 +26,7 @@ impl Buncher {
         }
     }
 
+    // ANCHOR: private_functions
     fn trigger_batch(&mut self) -> () {
         let mut new_batch = Vec::with_capacity(self.batch_size);
         std::mem::swap(&mut new_batch, &mut self.current_batch);
@@ -43,11 +46,13 @@ impl Buncher {
             } // can happen during restart or teardown
         }
     }
+    // ANCHOR_END: private_functions
 }
 
+// ANCHOR: lifecycle
 impl ComponentLifecycle for Buncher {
     fn on_start(&mut self) -> Handled {
-        let timeout = self.schedule_periodic(self.timeout, self.timeout, Buncher::handle_timeout);
+        let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
         self.outstanding_timeout = Some(timeout);
         Handled::Ok
     }
@@ -63,7 +68,9 @@ impl ComponentLifecycle for Buncher {
         self.on_stop()
     }
 }
+// ANCHOR_END: lifecycle
 
+// ANCHOR: batching_port
 impl Provide<Batching> for Buncher {
     fn handle(&mut self, event: Ping) -> Handled {
         self.current_batch.push(event);
@@ -73,7 +80,9 @@ impl Provide<Batching> for Buncher {
         Handled::Ok
     }
 }
+// ANCHOR_END: batching_port
 
+// ANCHOR: main
 pub fn main() {
     let system = KompactConfig::default().build().expect("system");
     let printer = system.create(BatchPrinter::new);
@@ -102,6 +111,7 @@ pub fn main() {
 
     system.shutdown().expect("shutdown");
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

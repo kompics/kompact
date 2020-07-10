@@ -16,25 +16,25 @@ To illustrate this mechanism we are going to rewrite the Workers example from th
 First we remove all mentions of `WorkerPort`, of course. Then we change the worker's `Message` type to `WithSender<WorkPart, ManagerMessage>`. Why `ManagerMessage` and not `WorkResult`? Well, since all communication with the manager now happens via messages, we need to differentiate between messages from the main-thread, which are of type `Ask<Work, WorkResult>` and messages from the worker, which are of type `WorkResult`. Since we can only have a single `Message` type, `ManagerMessage` is simply an enum of both options.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:70:74}}
+{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:manager_message}}
 ```
 
 Thus, when the worker wants to `reply(...)` with a `WorkResult` it actually needs to wrap it in a `ManagerMessage` instance or the compiler is going to reject it.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:205:217}}
+{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:worker_actor}}
 ```
 
 In the manager we must first update our state to reflect the new message (and thus reference) types.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:77:84}}
+{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:manager_state}}
 ```
 
-We also remove the port connection logic from the `ControlEvent` handler. Then we change the `Message` type of the manager to `ManagerMessage` and match on the `ManagerMessage` variant in the `receive_local(...)` function. For the `ManagerMessage::Work` variant, we basically do the same thing as in the old `receive_local(...)` function, except that we construct a `WithSender` instance from the `WorkPart` instead of sending it directly to the worker. We then simply copy the code from the old `WorkResult` handler into the branch for `ManagerMessage::Result`.
+We also remove the port connection logic from the `ComponentLifecycle` handler. Then we change the `Message` type of the manager to `ManagerMessage` and match on the `ManagerMessage` variant in the `receive_local(...)` function. For the `ManagerMessage::Work` variant, we basically do the same thing as in the old `receive_local(...)` function, except that we construct a `WithSender` instance from the `WorkPart` instead of sending it directly to the worker. We then simply copy the code from the old `WorkResult` handler into the branch for `ManagerMessage::Result`.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:122:185}}
+{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:manager_actor}}
 ```
 
 The `receive_local(...)` function is getting pretty long, so we should probably decompose it into smaller private functions if we actually wanted to maintain this code.
@@ -42,7 +42,7 @@ The `receive_local(...)` function is getting pretty long, so we should probably 
 Now finally, when we want to send the `Ask` from the main-thread, we also need to wrap it into `ManagerMessage::Work`. This prevents us from using `Ask::of`, as it only returns a direct `Ask`, but never a wrapped `Ask`. This gets us back to previously mentioned custom function from `KPromise` to the actual message type, which in this case is `ManagerMessage`.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:240:242}}
+{{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:main_ask}}
 ```
 
 At this point we should able to run the example again, and see the same behaviour as before.

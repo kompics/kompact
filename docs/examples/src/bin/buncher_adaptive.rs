@@ -30,11 +30,12 @@ impl Buncher {
         self.batch_port.trigger(Batch(new_batch))
     }
 
+    // ANCHOR: handle_timeout
     fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id => {
                 self.trigger_batch();
-                let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
                 self.outstanding_timeout = Some(new_timeout);
                 Handled::Ok
             }
@@ -45,8 +46,10 @@ impl Buncher {
             } // can happen during restart or teardown
         }
     }
+    // ANCHOR_END: handle_timeout
 }
 
+// ANCHOR: lifecycle
 impl ComponentLifecycle for Buncher {
     fn on_start(&mut self) -> Handled {
         let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
@@ -65,7 +68,9 @@ impl ComponentLifecycle for Buncher {
         self.on_stop()
     }
 }
+// ANCHOR_END: lifecycle
 
+// ANCHOR: batching_port
 impl Provide<Batching> for Buncher {
     fn handle(&mut self, event: Ping) -> Handled {
         self.current_batch.push(event);
@@ -80,6 +85,7 @@ impl Provide<Batching> for Buncher {
         Handled::Ok
     }
 }
+// ANCHOR_END: batching_port
 
 pub fn main() {
     let system = KompactConfig::default().build().expect("system");

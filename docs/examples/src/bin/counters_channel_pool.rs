@@ -88,7 +88,9 @@ impl Actor for Counter {
 pub fn main() {
     let mut conf = KompactConfig::default();
     conf.threads(1usize);
+    // ANCHOR: channel_pool
     conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
+    // ANCHOR_END: channel_pool
     let system = conf.build().expect("system");
     let counter = system.create(Counter::new);
     system.start(&counter);

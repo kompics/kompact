@@ -1,4 +1,5 @@
 use kompact::prelude::*;
+// ANCHOR: heartbeat
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -6,7 +7,9 @@ pub struct Heartbeat;
 impl SerialisationId for Heartbeat {
     const SER_ID: SerId = 1234;
 }
+// ANCHOR_END: heartbeat
 
+// ANCHOR: port
 #[derive(Clone, Debug)]
 pub struct Trust(pub ActorPath);
 
@@ -15,7 +18,9 @@ impl Port for EventualLeaderDetection {
     type Indication = Trust;
     type Request = Never;
 }
+// ANCHOR_END: port
 
+// ANCHOR: printer
 #[derive(ComponentDefinition, Actor)]
 pub struct TrustPrinter {
     ctx: ComponentContext<Self>,
@@ -38,3 +43,4 @@ impl Require<EventualLeaderDetection> for TrustPrinter {
         Handled::Ok
     }
 }
+// ANCHOR_END: printer

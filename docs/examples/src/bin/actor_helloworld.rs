@@ -1,3 +1,4 @@
+// ANCHOR: actor
 use kompact::prelude::*;
 use std::sync::Arc;
 
@@ -27,7 +28,8 @@ impl Actor for HelloWorldActor {
         unimplemented!("We are ignoring network messages for now.");
     }
 }
-
+// ANCHOR_END: actor
+// ANCHOR: main
 pub fn main() {
     let system = KompactConfig::default().build().expect("system");
     let actor: Arc<Component<HelloWorldActor>> = system.create(HelloWorldActor::new);
@@ -36,7 +38,7 @@ pub fn main() {
     actor_ref.tell(()); // send a unit type message to our actor
     system.await_termination();
 }
-
+// ANCHOR_END: main
 #[cfg(test)]
 mod tests {
     use super::*;
