@@ -74,10 +74,10 @@ mio 							= {version = "0.7.0", features = ["tcp", "os-poll"]}
 iovec 							= "0.1.1" # Match MIOs Version
 
 [dependencies.executors]
-#version = "0.6"
+version = "0.7"
 default_features = true
-git = "https://github.com/Bathtor/rust-executors"
-branch = "futures"
+#git = "https://github.com/Bathtor/rust-executors"
+#branch = "futures"
 #path = "../../../rust-executors/executors"
 
 #[dependencies.spaniel]
