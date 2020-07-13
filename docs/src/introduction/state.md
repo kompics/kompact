@@ -1,6 +1,6 @@
 # Internal State
 
-Now that we have look at the fundamental ideas of components and actor in isolation, let us look at something both our models share: The idea that every component/actor has its own internal state, which it has exclusive access to, without the need for synchronisation.
+Now that we have looked at the fundamental ideas of components and actors in isolation, let us look at something both our models share: The idea that every component/actor has its own internal state, which it has exclusive access to, without the need for synchronisation.
 
 Access to internal state is what separates our components from being simple producers and consumers of messages and events, and makes them a powerful abstraction to build complicated systems, services, and applications with. But so far, our examples have not used any internal state at all – they simply terminated after the first event or message. In this chapter we will build something slightly less boring: a "Counter".
 
@@ -14,7 +14,7 @@ In this example we will make use of the simplest of state variables, that is int
 First we need to set up the message types and ports:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters.rs:4:16}}
+{{#rustdoc_include ../../examples/src/bin/counters.rs:messages}}
 ```
 
 We will use the same types both for the port and actor communication, so `CountMe` and `CurrentCount` are both events and messages.
@@ -25,27 +25,27 @@ Since we want to provide a counter *service*, we'll say that `CountMe` is going 
 Our internal state is going to be the two counters, plus the component context and a *provided* port instance for `CounterPort`:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters.rs:18:41}}
+{{#rustdoc_include ../../examples/src/bin/counters.rs:state}}
 ```
 
 We also added a quick `current_count()` function, which access our internal state constructs a `CurrentCount` instance from it. This way, we can reuse the function for both event and message handling.
 
 ### Counting Stuff
 
-In addition to counting the `CountMe` events and messages, we will also count control events incoming at the `ControlPort`. However, we will not respond to those. For every `CountMe` event we will respond with the current state of both counters.
+In addition to counting the `CountMe` events and messages, we will also count control events incoming at the `ControlPort`. However, we will not respond to those. As mentioned previously, control events are handled indirectly via the `ComponentLifecycle` trait. On the other hand, for every `CountMe` event we will respond with the current state of both counters.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters.rs:42:71}}
+{{#rustdoc_include ../../examples/src/bin/counters.rs:behaviour}}
 ```
 
-In the Kompics-style communication, we reply by simply triggering the `CurrentCount` event on our `counter_port` to whoever may listen. In the Actor-style, we need to know some reference to respond to. Since we are not responding to another component, but to the main-thread, we will use the `Ask`-pattern provided by Kompact, which converts our response message into a future that can be blocked on, until the result is available.
+In the Kompics-style communication, we reply by simply triggering the `CurrentCount` event on our `counter_port` to whoever may listen. In the Actor-style, we need to know some reference to respond to. Since we are not responding to another component, but to the main-thread, we will use the `Ask`-pattern provided by Kompact, which converts our response message into a future that can be blocked on, until the result is available. We will describe this pattern in more detail in a [later section](../local/communication/ask.md).
 
 ### Sending Stuff
 
 In order to count something, we must of course send some events and messages. We could do so in Actor-style by using `tell(...)` as before, but this time we want to wait for a response as well. So instead we will use `ask(...)` and wrap our `CountMe` into an `Ask` instance as required by our actor's implementation. In the Kompics-style, we can trigger on a port reference using `system.trigger_r(...)` instead. Whenever we get a response, we print it using the system's logger:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters.rs:73:93}}
+{{#rustdoc_include ../../examples/src/bin/counters.rs:main}}
 ```
 
 There are two things worth noting here:

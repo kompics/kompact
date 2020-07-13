@@ -1,5 +1,8 @@
 use super::prelude::*;
-use crate::utils::{Fulfillable, Promise};
+use crate::{
+    utils::{Fulfillable, KPromise},
+    ControlEvent,
+};
 
 use std::{
     collections::HashMap,
@@ -22,11 +25,11 @@ pub(crate) enum ListenEvent {
 }
 
 impl ListenEvent {
-    fn id(&self) -> &Uuid {
+    fn id(&self) -> Uuid {
         match self {
-            ListenEvent::Started(ref id) => id,
-            ListenEvent::Stopped(ref id) => id,
-            ListenEvent::Destroyed(ref id) => id,
+            ListenEvent::Started(id) => *id,
+            ListenEvent::Stopped(id) => *id,
+            ListenEvent::Destroyed(id) => *id,
         }
     }
 }
@@ -38,8 +41,8 @@ pub(crate) enum SupervisorMsg {
     Stopped(Uuid),
     Killed(Uuid),
     Faulty(Uuid),
-    Listen(Arc<Mutex<Promise<()>>>, ListenEvent),
-    Shutdown(Promise<()>),
+    Listen(Arc<Mutex<KPromise<()>>>, ListenEvent),
+    Shutdown(Arc<Mutex<KPromise<()>>>),
 }
 
 #[derive(ComponentDefinition, Actor)]
@@ -47,15 +50,15 @@ pub(crate) struct ComponentSupervisor {
     ctx: ComponentContext<ComponentSupervisor>,
     pub(crate) supervision: ProvidedPort<SupervisionPort>,
     children: HashMap<Uuid, Arc<dyn CoreContainer>>,
-    listeners: HashMap<Uuid, Vec<(ListenEvent, Promise<()>)>>,
-    shutdown: Option<Promise<()>>,
+    listeners: HashMap<Uuid, Vec<(ListenEvent, KPromise<()>)>>,
+    shutdown: Option<KPromise<()>>,
 }
 
 impl ComponentSupervisor {
     pub(crate) fn new() -> ComponentSupervisor {
         ComponentSupervisor {
-            ctx: ComponentContext::new(),
-            supervision: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            supervision: ProvidedPort::uninitialised(),
             children: HashMap::new(),
             listeners: HashMap::new(),
             shutdown: None,
@@ -67,10 +70,7 @@ impl ComponentSupervisor {
         S: Fn(&ListenEvent) -> bool,
     {
         if let Some(l) = self.listeners.get_mut(id) {
-            let (mut selected, mut unselected): (
-                Vec<(ListenEvent, Promise<()>)>,
-                Vec<(ListenEvent, Promise<()>)>,
-            ) = l.drain(..).partition(|entry| selector(&entry.0));
+            let (mut selected, mut unselected) = l.drain(..).partition(|entry| selector(&entry.0));
             std::mem::swap(l, &mut unselected);
             // requires #![feature(drain_filter)]
             // let mut selected = l
@@ -91,7 +91,10 @@ impl ComponentSupervisor {
     fn shutdown_if_no_more_children(&mut self) {
         if self.shutdown.is_some() {
             if self.children.is_empty() {
-                debug!(self.ctx.log(), "Last child of the Supervisor is dead or faulty!");
+                debug!(
+                    self.ctx.log(),
+                    "Last child of the Supervisor is dead or faulty!"
+                );
                 let promise = self.shutdown.take().unwrap();
                 promise
                     .fulfil(())
@@ -108,34 +111,32 @@ impl ComponentSupervisor {
     }
 }
 
-impl Provide<ControlPort> for ComponentSupervisor {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                debug!(self.ctx.log(), "Started.");
-            }
-            ControlEvent::Stop => {
-                error!(self.ctx.log(), "Do not stop the supervisor!");
-                panic!("Invalid supervisor handling!");
-            }
-            ControlEvent::Kill => {
-                error!(
-                    self.ctx.log(),
-                    "Use SupervisorMsg::Shutdown to kill the supervisor!"
-                );
-                panic!("Invalid supervisor handling!");
-            }
-        }
+impl ComponentLifecycle for ComponentSupervisor {
+    fn on_start(&mut self) -> Handled {
+        debug!(self.ctx.log(), "Started supervisor.");
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        error!(self.ctx.log(), "Do not stop the supervisor!");
+        panic!("Invalid supervisor handling!");
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        error!(
+            self.ctx.log(),
+            "Use SupervisorMsg::Shutdown to kill the supervisor!"
+        );
+        panic!("Invalid supervisor handling!");
     }
 }
 
 impl Provide<SupervisionPort> for ComponentSupervisor {
-    fn handle(&mut self, event: SupervisorMsg) -> () {
+    fn handle(&mut self, event: SupervisorMsg) -> Handled {
         match event {
             SupervisorMsg::Started(c) => {
-                let id = c.id().clone();
-                let ctrl = c.control_port();
-                self.children.insert(id, c);
+                let id = c.id();
+                self.children.insert(id, c.clone());
                 debug!(self.ctx.log(), "Component({}) was started.", id);
                 self.notify_listeners(&id, |l| {
                     if let ListenEvent::Started(_) = l {
@@ -149,7 +150,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         self.ctx.log(),
                         "Child {} just started during shutdown. Killing it immediately!", id
                     );
-                    ctrl.enqueue(ControlEvent::Kill);
+                    c.enqueue_control(ControlEvent::Kill);
                 }
             }
             SupervisorMsg::Stopped(id) => {
@@ -167,7 +168,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     Some(carc) => {
                         let count = Arc::strong_count(&carc);
                         drop(carc);
-                        if (count == 1) {
+                        if count == 1 {
                             trace!(
                                 self.ctx.log(),
                                 "Component({}) was killed and deallocated.",
@@ -207,10 +208,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         .into_inner()
                         .expect("Someone broke the promise mutex -.-");
                     trace!(self.ctx.log(), "Subscribing listener for {}.", event.id());
-                    let l = self
-                        .listeners
-                        .entry(event.id().clone())
-                        .or_insert(Vec::new());
+                    let l = self.listeners.entry(event.id()).or_insert_with(Vec::new);
                     l.push((event, p));
                 }
                 Err(_) => error!(
@@ -219,22 +217,32 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     event.id()
                 ),
             },
-            SupervisorMsg::Shutdown(promise) => {
-                debug!(self.ctx.log(), "Supervisor got shutdown request.");
-                if self.children.is_empty() {
-                    trace!(self.ctx.log(), "Supervisor has no children!");
-                    promise
-                        .fulfil(())
-                        .expect("Could not fulfill shutdown promise!");
-                    self.listeners.clear(); // we won't be fulfilling these anyway
-                } else {
-                    trace!(self.ctx.log(), "Killing {} children.", self.children.len());
-                    self.shutdown = Some(promise);
-                    for child in self.children.values() {
-                        child.control_port().enqueue(ControlEvent::Kill);
+            SupervisorMsg::Shutdown(amp) => match Arc::try_unwrap(amp) {
+                Ok(mp) => {
+                    let promise = mp
+                        .into_inner()
+                        .expect("Someone broke the promise mutex -.-");
+                    debug!(self.ctx.log(), "Supervisor got shutdown request.");
+                    if self.children.is_empty() {
+                        trace!(self.ctx.log(), "Supervisor has no children!");
+                        promise
+                            .fulfil(())
+                            .expect("Could not fulfill shutdown promise!");
+                        self.listeners.clear(); // we won't be fulfilling these anyway
+                    } else {
+                        trace!(self.ctx.log(), "Killing {} children.", self.children.len());
+                        self.shutdown = Some(promise);
+                        for child in self.children.values() {
+                            child.enqueue_control(ControlEvent::Kill);
+                        }
                     }
                 }
-            }
+                Err(_) => error!(
+                    self.ctx.log(),
+                    "Can't unwrap listen event on Shutdown. Dropping."
+                ),
+            },
         }
+        Handled::Ok
     }
 }

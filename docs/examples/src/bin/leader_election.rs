@@ -2,9 +2,12 @@ use kompact::{prelude::*, serde_serialisers::*};
 use kompact_examples::trusting::*;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+// ANCHOR: update_message
 #[derive(Debug)]
 struct UpdateProcesses(Arc<[ActorPath]>);
+// ANCHOR_END: update_message
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
@@ -16,12 +19,13 @@ struct EventualLeaderElector {
     timer_handle: Option<ScheduledTimer>,
     leader: Option<ActorPath>,
 }
+// ANCHOR_END: state
 impl EventualLeaderElector {
     fn new() -> Self {
         let minimal_period = Duration::from_millis(1);
         EventualLeaderElector {
-            ctx: ComponentContext::new(),
-            omega_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: ProvidedPort::uninitialised(),
             processes: Vec::new().into_boxed_slice().into(),
             candidates: HashSet::new(),
             period: minimal_period,
@@ -31,6 +35,7 @@ impl EventualLeaderElector {
         }
     }
 
+    // ANCHOR: algorithm
     fn select_leader(&mut self) -> Option<ActorPath> {
         let mut candidates: Vec<ActorPath> = self.candidates.drain().collect();
         candidates.sort_unstable();
@@ -38,7 +43,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -49,62 +54,70 @@ impl EventualLeaderElector {
                         self.omega_port.trigger(Trust(leader.clone()));
                     }
                     self.cancel_timer(timeout);
-                    let new_timer = self.schedule_periodic(
-                        self.period,
-                        self.period,
-                        EventualLeaderElector::handle_timeout,
-                    );
+                    let new_timer =
+                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
                     self.timer_handle = Some(new_timer);
                 } else {
                     // just put it back
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 
+    // ANCHOR_END: algorithm
+
+    // ANCHOR: telling
     fn send_heartbeats(&self) -> () {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
     }
+    // ANCHOR_END: telling
 }
 
-impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                self.period = self.ctx.config()["omega"]["initial-period"]
-                    .as_duration()
-                    .expect("initial period");
-                self.delta = self.ctx.config()["omega"]["delta"]
-                    .as_duration()
-                    .expect("delta");
-                let timeout = self.schedule_periodic(
-                    self.period,
-                    self.period,
-                    EventualLeaderElector::handle_timeout,
-                );
-                self.timer_handle = Some(timeout);
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.timer_handle.take() {
-                    self.cancel_timer(timeout);
-                }
-            }
+// ANCHOR: lifecycle
+impl ComponentLifecycle for EventualLeaderElector {
+    fn on_start(&mut self) -> Handled {
+        self.period = self.ctx.config()["omega"]["initial-period"]
+            .as_duration()
+            .expect("initial period");
+        self.delta = self.ctx.config()["omega"]["delta"]
+            .as_duration()
+            .expect("delta");
+        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+        self.timer_handle = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.timer_handle.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
+// ANCHOR_END: lifecycle
+
 // Doesn't have any requests
 ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 
+// ANCHOR: actor
 impl Actor for EventualLeaderElector {
     type Message = UpdateProcesses;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         info!(
             self.log(),
             "Received new process set with {} processes",
@@ -112,9 +125,10 @@ impl Actor for EventualLeaderElector {
         );
         let UpdateProcesses(processes) = msg;
         self.processes = processes;
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
         match msg.data.try_deserialise::<Heartbeat, Serde>() {
             Ok(_heartbeat) => {
@@ -122,9 +136,12 @@ impl Actor for EventualLeaderElector {
             }
             Err(e) => warn!(self.log(), "Invalid data: {:?}", e),
         }
+        Handled::Ok
     }
 }
+// ANCHOR_END: actor
 
+// ANCHOR: main
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     assert_eq!(
@@ -181,6 +198,7 @@ pub fn run_systems(num_systems: usize) {
         sys.shutdown().expect("shutdown");
     }
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

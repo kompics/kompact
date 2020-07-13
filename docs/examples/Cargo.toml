@@ -9,6 +9,9 @@ slog = "2"
 slog-async = "2"
 slog-term = "2"
 serde = { version = "1.0", features = ["derive"] }
+trust-dns-proto = {version = "0.19", default-features=false}
+async-std-resolver = "0.19"
+dialoguer = "0.6"
 
 [dependencies.kompact]
 path = "../../core/"

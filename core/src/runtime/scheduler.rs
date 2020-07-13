@@ -41,6 +41,9 @@ pub trait Scheduler: Send + Sync {
     /// Usually this should just cause the scheduler to be
     /// shut down in an appropriate manner.
     fn poison(&self) -> ();
+
+    /// Run a Future on this pool
+    fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> ();
 }
 
 impl Clone for Box<dyn Scheduler> {
@@ -53,12 +56,12 @@ impl Clone for Box<dyn Scheduler> {
 #[derive(Clone)]
 pub struct ExecutorScheduler<E>
 where
-    E: Executor + Sync,
+    E: FuturesExecutor + Sync,
 {
     exec: E,
 }
 
-impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
+impl<E: FuturesExecutor + Sync + 'static> ExecutorScheduler<E> {
     /// Produce a new `ExecutorScheduler` from an [Executor](executors::Executor) `E`.
     pub fn with(exec: E) -> ExecutorScheduler<E> {
         ExecutorScheduler { exec }
@@ -70,11 +73,9 @@ impl<E: Executor + Sync + 'static> ExecutorScheduler<E> {
     }
 }
 
-impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
+impl<E: FuturesExecutor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
-        self.exec.execute(move || {
-            c.execute();
-        });
+        self.exec.execute(move || maybe_reschedule(c));
     }
 
     fn shutdown_async(&self) -> () {
@@ -91,5 +92,27 @@ impl<E: Executor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
 
     fn poison(&self) -> () {
         self.exec.shutdown_async();
+    }
+
+    fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> () {
+        let _handle = self.exec.spawn(future);
+    }
+}
+
+fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
+    match c.execute() {
+        SchedulingDecision::Schedule => {
+            if cfg!(feature = "use_local_executor") {
+                let res = try_execute_locally(move || maybe_reschedule(c));
+                if res.is_err() {
+                    panic!("Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
+                }
+            } else {
+                let c2 = c.clone();
+                c.system().schedule(c2);
+            }
+        }
+        SchedulingDecision::Resume => maybe_reschedule(c),
+        _ => (),
     }
 }

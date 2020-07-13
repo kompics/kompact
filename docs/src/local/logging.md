@@ -15,7 +15,7 @@ The actual logging levels are controlled via build features. The default feature
 This is exemplified in the following very simple code example:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/logging.rs:4:15}}
+{{#rustdoc_include ../../examples/src/bin/logging.rs:main}}
 ```
 
 Try to run it with a few different build settings and see what you get.
@@ -29,10 +29,10 @@ Try to run it with a few different build settings and see what you get.
 
 Sometimes the default logging configuration is not sufficient for a particular application. For example, you might need a larger queue size in the `Async` drain, or you may want to write to a file instead of the terminal.
 
-In the following example we replace the default terminal logger with a file logger, logging to `/tmp/myloggingfile` instead. We also increase the queue size in the `Async` drain to 2048, so that it fits the 2048 logging events we are sending it short successing later. In order to replace the default logger, we use the `KompactConfig::logger(...)` function.
+In the following example we replace the default terminal logger with a file logger, logging to `/tmp/myloggingfile` instead. We also increase the queue size in the `Async` drain to 2048, so that it fits the 2048 logging events we are sending it short succession later. In order to replace the default logger, we use the `KompactConfig::logger(...)` function.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/logging_custom.rs:6:49}}
+{{#rustdoc_include ../../examples/src/bin/logging_custom.rs:main}}
 ```
 
 > **Note:** As before, if you have checked out the [examples folder](https://github.com/kompics/kompact/tree/master/docs/examples) you can run the concrete binary and then show the logging file with:

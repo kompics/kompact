@@ -1,12 +1,17 @@
 use super::*;
 
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
-    Once,
+use std::{
+    error,
+    fmt,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Once,
+    },
 };
 
 mod config;
+mod lifecycle;
 mod scheduler;
 mod system;
 
@@ -60,21 +65,65 @@ pub fn drop_default_logger() {
 
 type SchedulerBuilder = dyn Fn(usize) -> Box<dyn Scheduler>;
 
-type SCBuilder = dyn Fn(&KompactSystem, Promise<()>, Promise<()>) -> Box<dyn SystemComponents>;
+type SCBuilder = dyn Fn(&KompactSystem, KPromise<()>, KPromise<()>) -> Box<dyn SystemComponents>;
 
 type TimerBuilder = dyn Fn() -> Box<dyn TimerComponent>;
 
 /// A Kompact system error
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug)]
 pub enum KompactError {
     /// A mutex in the system has been poisoned
     Poisoned,
     /// An error occurred loading the HOCON config
     ConfigError(hocon::Error),
+    /// Something else occurred
+    Other(Box<dyn error::Error>),
+}
+
+impl KompactError {
+    /// Wrap an arbitrary [Error](std::error::Error) into a `KompactError`
+    pub fn from_other<E>(e: E) -> Self
+    where
+        E: error::Error + 'static,
+    {
+        KompactError::Other(Box::new(e))
+    }
+}
+
+impl PartialEq for KompactError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (KompactError::Poisoned, KompactError::Poisoned) => true,
+            (KompactError::ConfigError(she), KompactError::ConfigError(ohe)) => she == ohe,
+            _ => false,
+        }
+    }
 }
 
 impl From<hocon::Error> for KompactError {
     fn from(e: hocon::Error) -> Self {
         KompactError::ConfigError(e)
+    }
+}
+
+impl fmt::Display for KompactError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KompactError::Poisoned => write!(f, "A mutex in the KompactSystem has been poisoned"),
+            KompactError::ConfigError(he) => {
+                write!(f, "An issue occurred with the configuration: {}", he)
+            }
+            KompactError::Other(o) => write!(f, "An unknown issue occurred: {}", o),
+        }
+    }
+}
+
+impl error::Error for KompactError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            KompactError::Poisoned => None,
+            KompactError::ConfigError(ref he) => Some(he),
+            KompactError::Other(ref o) => Some(o.as_ref()),
+        }
     }
 }

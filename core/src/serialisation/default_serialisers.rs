@@ -80,8 +80,7 @@ impl Deserialiser<String> for String {
         let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
         // This approach is memory safe, but not overly efficient and also an attack vector for OOM attacks.
         // If you need different guarantees, write a different String serde implementation, that fulfills them
-        let mut data: Vec<u8> = Vec::with_capacity(len);
-        data.resize(len, 0u8);
+        let mut data: Vec<u8> = vec![0; len];
         buf.copy_to_slice(data.as_mut_slice());
         let s = String::from_utf8(data).map_err(SerError::from_debug)?;
         Ok(s)
@@ -180,19 +179,17 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unit_arg)]
     fn test_unit_serialisation() {
-        let test_num: () = ();
-        let mut mbuf = if let Some(size_hint) = test_num.size_hint() {
+        let test_v: () = ();
+        let mut mbuf = if let Some(size_hint) = test_v.size_hint() {
             BytesMut::with_capacity(size_hint)
         } else {
             panic!("Unit serialiser should have produced a size hint");
         };
-        test_num.serialise(&mut mbuf).expect("serialise");
+        test_v.serialise(&mut mbuf).expect("serialise");
         let mut buf = mbuf.freeze();
         let res = <()>::deserialise(&mut buf);
-        match res {
-            Ok(test_num_res) => assert_eq!(test_num, test_num_res),
-            Err(e) => panic!(e),
-        }
+        res.expect("Should have produced a unit value")
     }
 }

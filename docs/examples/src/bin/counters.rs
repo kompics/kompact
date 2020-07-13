@@ -1,6 +1,7 @@
 use kompact::prelude::*;
 use std::time::Duration;
 
+// ANCHOR: messages
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CurrentCount {
     messages: u64,
@@ -14,7 +15,9 @@ impl Port for CounterPort {
     type Indication = CurrentCount;
     type Request = CountMe;
 }
+// ANCHOR_END: messages
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct Counter {
     ctx: ComponentContext<Self>,
@@ -25,8 +28,8 @@ struct Counter {
 impl Counter {
     pub fn new() -> Self {
         Counter {
-            ctx: ComponentContext::new(),
-            counter_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            counter_port: ProvidedPort::uninitialised(),
             msg_count: 0u64,
             event_count: 0u64,
         }
@@ -39,39 +42,62 @@ impl Counter {
         }
     }
 }
-impl Provide<ControlPort> for Counter {
-    fn handle(&mut self, _event: ControlEvent) -> () {
-        info!(self.ctx.log(), "Got a control event!");
+// ANCHOR_END: state
+
+// ANCHOR: behaviour
+impl ComponentLifecycle for Counter {
+    fn on_start(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a start event!");
         self.event_count += 1u64;
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a stop event!");
+        self.event_count += 1u64;
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a kill event!");
+        self.event_count += 1u64;
+        Handled::Ok
     }
 }
+
 impl Provide<CounterPort> for Counter {
-    fn handle(&mut self, _event: CountMe) -> () {
+    fn handle(&mut self, _event: CountMe) -> Handled {
         info!(self.ctx.log(), "Got a counter event!");
         self.event_count += 1u64;
         self.counter_port.trigger(self.current_count());
+        Handled::Ok
     }
 }
 
 impl Actor for Counter {
     type Message = Ask<CountMe, CurrentCount>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         msg.complete(|_request| {
             info!(self.ctx.log(), "Got a message!");
             self.msg_count += 1u64;
             self.current_count()
         })
         .expect("complete");
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("We are still ignoring network messages.");
     }
 }
+// ANCHOR_END: behaviour
 
+// ANCHOR: main
 pub fn main() {
+    // ANCHOR: system
     let system = KompactConfig::default().build().expect("system");
+    // ANCHOR_END: system
     let counter = system.create(Counter::new);
     system.start(&counter);
     let actor_ref = counter.actor_ref();
@@ -91,6 +117,7 @@ pub fn main() {
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

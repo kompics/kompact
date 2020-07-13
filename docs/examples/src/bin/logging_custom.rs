@@ -3,6 +3,7 @@ use std::{fs::OpenOptions, sync::Arc, time::Duration};
 
 const FILE_NAME: &str = "/tmp/myloggingfile";
 
+// ANCHOR: main
 pub fn main() {
     let mut conf = KompactConfig::default();
     let logger = {
@@ -47,6 +48,7 @@ pub fn main() {
     std::thread::sleep(Duration::from_millis(1000));
     system.shutdown().expect("shutdown");
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

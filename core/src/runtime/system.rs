@@ -8,8 +8,6 @@ use crate::{
         MsgEnvelope,
         PathResolvable,
         RegistrationEnvelope,
-        RegistrationId,
-        RegistrationResponse,
         RegistrationResult,
     },
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
@@ -94,24 +92,26 @@ impl KompactSystem {
         sys.inner.set_internal_components(ic);
         sys.inner.start_internal_components(&sys);
         let timeout = std::time::Duration::from_millis(50);
-        let mut wait_for: Option<Future<()>> = Some(dead_f);
+        let mut wait_for: Option<KFuture<()>> = Some(dead_f);
         while wait_for.is_some() {
             if sys.inner.is_poisoned() {
                 return Err(KompactError::Poisoned);
             }
             match wait_for.take().unwrap().wait_timeout(timeout) {
                 Ok(_) => (),
-                Err(w) => wait_for = Some(w),
+                Err(WaitErr::Timeout(w)) => wait_for = Some(w),
+                Err(WaitErr::PromiseDropped(e)) => return Err(KompactError::from_other(e)),
             }
         }
-        let mut wait_for: Option<Future<()>> = Some(disp_f);
+        let mut wait_for: Option<KFuture<()>> = Some(disp_f);
         while wait_for.is_some() {
             if sys.inner.is_poisoned() {
                 return Err(KompactError::Poisoned);
             }
             match wait_for.take().unwrap().wait_timeout(timeout) {
                 Ok(_) => (),
-                Err(w) => wait_for = Some(w),
+                Err(WaitErr::Timeout(w)) => wait_for = Some(w),
+                Err(WaitErr::PromiseDropped(e)) => return Err(KompactError::from_other(e)),
             }
         }
         Ok(sys)
@@ -195,7 +195,7 @@ impl KompactSystem {
         self.inner.assert_active();
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
@@ -246,7 +246,7 @@ impl KompactSystem {
     {
         let c = Arc::new(Component::without_supervisor(self.clone(), f()));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
@@ -283,7 +283,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
@@ -325,7 +325,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             cd.setup(c.clone());
             c.core().set_component(cc);
@@ -355,7 +355,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
@@ -391,7 +391,7 @@ impl KompactSystem {
             scheduler,
         ));
         unsafe {
-            let mut cd = c.definition().lock().unwrap();
+            let cd = &mut c.mutable_core.lock().unwrap().definition;
             cd.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
@@ -424,9 +424,12 @@ impl KompactSystem {
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<RegistrationResult> {
+    pub fn register(
+        &self,
+        c: &Arc<impl AbstractComponent + ?Sized>,
+    ) -> KFuture<RegistrationResult> {
         self.inner.assert_active();
-        let id = c.core().id().clone();
+        let id = *c.core().id();
         let id_path = PathResolvable::ActorId(id);
         self.inner.register_by_path(c.as_ref(), false, id_path) // never update unique registrations
     }
@@ -453,7 +456,10 @@ impl KompactSystem {
     /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, Future<RegistrationResult>)
+    pub fn create_and_register<C, F>(
+        &self,
+        f: F,
+    ) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
     where
         F: FnOnce() -> C,
         C: ComponentDefinition + 'static,
@@ -502,7 +508,7 @@ impl KompactSystem {
         &self,
         c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
-    ) -> Future<RegistrationResult>
+    ) -> KFuture<RegistrationResult>
     where
         A: Into<String>,
     {
@@ -549,7 +555,7 @@ impl KompactSystem {
         &self,
         c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
-    ) -> Future<RegistrationResult>
+    ) -> KFuture<RegistrationResult>
     where
         A: Into<String>,
     {
@@ -603,14 +609,12 @@ impl KompactSystem {
     ///       .expect("TestComponent1 never started!");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<()> {
+    pub fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
-        self.supervision_port().enqueue(SupervisorMsg::Listen(
-            amp,
-            ListenEvent::Started(c.id().clone()),
-        ));
+        self.supervision_port()
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Started(c.id())));
         c.enqueue_control(ControlEvent::Start);
         f
     }
@@ -677,14 +681,12 @@ impl KompactSystem {
     ///       .expect("TestComponent1 never re-started!");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> Future<()> {
+    pub fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
-        self.supervision_port().enqueue(SupervisorMsg::Listen(
-            amp,
-            ListenEvent::Stopped(c.id().clone()),
-        ));
+        self.supervision_port()
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Stopped(c.id())));
         c.enqueue_control(ControlEvent::Stop);
         f
     }
@@ -747,14 +749,12 @@ impl KompactSystem {
     ///       .expect("TestComponent1 never stopped!");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> Future<()> {
+    pub fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
         self.inner.assert_active();
         let (p, f) = utils::promise();
         let amp = Arc::new(Mutex::new(p));
-        self.supervision_port().enqueue(SupervisorMsg::Listen(
-            amp,
-            ListenEvent::Destroyed(c.id().clone()),
-        ));
+        self.supervision_port()
+            .enqueue(SupervisorMsg::Listen(amp, ListenEvent::Destroyed(c.id())));
         c.enqueue_control(ControlEvent::Kill);
         f
     }
@@ -863,18 +863,14 @@ impl KompactSystem {
     /// impl Stopper {
     ///     fn new() -> Stopper {
     ///         Stopper {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for Stopper {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
-    ///         match event {
-    ///            ControlEvent::Start => {
-    ///                self.ctx().system().shutdown_async();
-    ///            }
-    ///            _ => (), // ignore
-    ///        }
+    /// impl ComponentLifecycle for Stopper {
+    ///    fn on_start(&mut self) -> Handled {
+    ///        self.ctx().system().shutdown_async();
+    ///        Handled::Ok
     ///     }
     /// }
     /// let system = KompactConfig::default().build().expect("system");
@@ -912,8 +908,36 @@ impl KompactSystem {
     /// unless you also registered the component with this system's dispatcher.
     /// Suffice to say, crossing system boundaries in this manner is not recommended.
     pub fn actor_path_for(&self, component: &Arc<impl AbstractComponent + ?Sized>) -> ActorPath {
-        let id = *component.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), id))
+        ActorPath::Unique(UniquePath::with_system(self.system_path(), component.id()))
+    }
+
+    /// Run a Future on this system's executor pool and return a handle to the result
+    ///
+    /// Handles can be awaited like any other future.
+    ///
+    /// # Note
+    ///
+    /// The current API is not as efficient as calling [FuturesExecutor::spawn](executors::FuturesExecutor::spawn)
+    /// directly, due to some trait object indirection in Kompact systems.
+    /// Thus, if performance is important, it is recommended to maintain a (non trait-object) handle
+    /// to the actual `Executor` pool being used and call its `spawn` function instead.
+    /// This API is really just a somewhat roundabout convenience for doing the same.
+    pub fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        // Having to use the channel here kinda sucks,
+        // since the executor pool could do this without.
+        // But there doesn't seem to be any way to pass the
+        // required generic types through the `dyn Scheduler`
+        // trait object :(
+        let (tx, rx) = futures::channel::oneshot::channel();
+        let unit_future = async move {
+            let res = future.await;
+            let _ignore = tx.send(res); // if it can't send the handle was dropped, which is fine
+        };
+        self.scheduler.spawn(Box::pin(unit_future));
+        rx
     }
 
     pub(crate) fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
@@ -953,12 +977,9 @@ impl TimerRefFactory for KompactSystem {
 
 /// A limited version of a [KompactSystem](KompactSystem)
 ///
-/// This is meant for use from within components, where all the blocking APIs
-/// are unacceptable anyway.
+/// This is meant for use from within components, where blocking APIs
+/// are unacceptable.
 pub trait SystemHandle: Dispatching {
-    // TODO convert all the Future APIs either into message-based (e.g., WithSender)
-    // or convert to Async/Await, once we have support for that.
-
     /// Create a new component
     ///
     /// Uses `f` to create an instance of a [ComponentDefinition](ComponentDefinition),
@@ -1015,11 +1036,10 @@ pub trait SystemHandle: Dispatching {
 
     /// Attempts to register `c` with the dispatcher using its unique id
     ///
-    /// The returned id can be used to match a later response message
-    /// which will contain the unique id [ActorPath](ActorPath)
+    /// The returned future will contain the unique id [ActorPath](ActorPath)
     /// for the given component, once it is completed by the dispatcher.
     ///
-    /// Once the response message is received, the component can be addressed via the network,
+    /// Once the future completes, the component can be addressed via the network,
     /// even if it has not been started, yet (in which case messages will simply be queued up).
     ///
     /// # Example
@@ -1028,84 +1048,52 @@ pub trait SystemHandle: Dispatching {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// use std::sync::Arc;
-    ///
-    /// #[derive(ComponentDefinition)]
-    /// struct ParentComponent {
-    ///     ctx: ComponentContext<Self>,
-    ///     child: Option<Arc<Component<TestComponent1>>>,
-    ///     reg_id: Option<RegistrationId>,
-    /// }
-    /// impl ParentComponent {
-    ///     fn new() -> Self {
-    ///         ParentComponent {
-    ///             ctx: ComponentContext::new(),
-    ///             child: None,
-    ///             reg_id: None,
-    ///         }
-    ///     }
-    /// }
-    /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 let child = self.ctx.system().create(TestComponent1::new);
-    ///                 let id = self.ctx.system().register(&child, self);
-    ///                 self.reg_id = Some(id);
-    ///                 self.child = Some(child);
-    ///             }
-    ///             ControlEvent::Stop | ControlEvent::Kill => {
-    ///                 let _ = self.child.take(); // don't hang on to the child
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// impl Actor for ParentComponent {
-    ///     type Message = RegistrationResponse;
-    ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
-    ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
-    ///         info!(self.log(), "Child was registered");
-    ///         if let Some(ref child) = self.child {
-    ///             self.ctx.system().start(child);
-    ///             let path = msg.result.expect("actor path");
-    ///             path.tell((), self); // can send it messages via its path now
-    ///         } else {
-    ///             unreachable!("Wouldn't have asked for registration without storing the child");
-    ///         }
-    ///     }
-    ///
-    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
-    ///         unimplemented!("unused");
-    ///     }
-    /// }
-    ///
     /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
     /// let system = cfg.build().expect("KompactSystem");
-    /// let parent = system.create(ParentComponent::new);
-    /// # std::thread::sleep(Duration::from_millis(1000));
+    /// let c = system.create(TestComponent1::new);
+    /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn register(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-        reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId;
+    fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<RegistrationResult>;
 
-    /// Attempts to register `c` with the dispatcher using its unique id
+    /// Creates a new component and registers it with the dispatcher
     ///
-    /// Same as [register](SystemHandle::register) except requesting that no response be send.
-    fn register_without_response(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
+    /// This function is simply a convenience shortcut for
+    /// [create](KompactSystem::create) followed by [register](KompactSystem::register),
+    /// as this combination is very common in networked Kompact systems.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let (c, registration_future) = system.create_and_register(TestComponent1::new);
+    /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static;
 
-    /// Attempts to register the provided component with a human-readable alias
+    /// Attempts to register the provided component with a human-readable alias.
     ///
-    /// The returned id can be used to match a later response message
-    /// which will contain the named [ActorPath](ActorPath)
+    /// The returned future will contain the named [ActorPath](ActorPath)
     /// for the given alias, once it is completed by the dispatcher.
     ///
     /// Alias registration will fail if a previous registration already exists.
-    /// Use [update_alias_registration](SystemHandle::update_alias_registration) to override an existing registration.
+    /// Use [update_alias_registration](KompactSystem::update_alias_registration) to override an existing registration.
     ///
     /// # Note
     ///
@@ -1120,89 +1108,29 @@ pub trait SystemHandle: Dispatching {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// use std::sync::Arc;
-    ///
-    /// #[derive(ComponentDefinition)]
-    /// struct ParentComponent {
-    ///     ctx: ComponentContext<Self>,
-    ///     child: Option<Arc<Component<TestComponent1>>>,
-    ///     reg_id: Option<RegistrationId>,
-    /// }
-    /// impl ParentComponent {
-    ///     fn new() -> Self {
-    ///         ParentComponent {
-    ///             ctx: ComponentContext::new(),
-    ///             child: None,
-    ///             reg_id: None,
-    ///         }
-    ///     }
-    /// }
-    /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 let child = self.ctx.system().create(TestComponent1::new);
-    ///                 let id = self.ctx.system().register_by_alias(&child, "test", self);
-    ///                 self.reg_id = Some(id);
-    ///                 self.child = Some(child);
-    ///             }
-    ///             ControlEvent::Stop | ControlEvent::Kill => {
-    ///                 let _ = self.child.take(); // don't hang on to the child
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// impl Actor for ParentComponent {
-    ///     type Message = RegistrationResponse;
-    ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
-    ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
-    ///         info!(self.log(), "Child was registered");
-    ///         if let Some(ref child) = self.child {
-    ///             self.ctx.system().start(child);
-    ///             let path = msg.result.expect("actor path");
-    ///             path.tell((), self); // can send it messages via its path now
-    ///         } else {
-    ///             unreachable!("Wouldn't have asked for registration without storing the child");
-    ///         }
-    ///     }
-    ///
-    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
-    ///         unimplemented!("unused");
-    ///     }
-    /// }
-    ///
     /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
     /// let system = cfg.build().expect("KompactSystem");
-    /// let parent = system.create(ParentComponent::new);
-    /// # std::thread::sleep(Duration::from_millis(1000));
+    /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
+    /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
+    /// let alias_registration_future = system.register_by_alias(&c, "test");
+    /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
     fn register_by_alias<A>(
         &self,
         c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
-        reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId
-    where
-        A: Into<String>;
-
-    /// Attempts to register the provided component with a human-readable alias
-    ///
-    /// Same as [register_by_alias](SystemHandle::register_by_alias) except requesting that no response be send.
-    fn register_by_alias_without_response<A>(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-        alias: A,
-    ) -> ()
+    ) -> KFuture<RegistrationResult>
     where
         A: Into<String>;
 
     /// Attempts to register the provided component with a human-readable alias.
     ///
-    /// The returned id can be used to match a later response message
-    /// which will contain the named [ActorPath](ActorPath)
+    /// The returned future will contain the named [ActorPath](ActorPath)
     /// for the given alias, once it is completed by the dispatcher.
     ///
     /// This registration will replace any previous registration, if it exists.
@@ -1220,82 +1148,25 @@ pub trait SystemHandle: Dispatching {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// use std::sync::Arc;
-    ///
-    /// #[derive(ComponentDefinition)]
-    /// struct ParentComponent {
-    ///     ctx: ComponentContext<Self>,
-    ///     child: Option<Arc<Component<TestComponent1>>>,
-    ///     reg_id: Option<RegistrationId>,
-    /// }
-    /// impl ParentComponent {
-    ///     fn new() -> Self {
-    ///         ParentComponent {
-    ///             ctx: ComponentContext::new(),
-    ///             child: None,
-    ///             reg_id: None,
-    ///         }
-    ///     }
-    /// }
-    /// impl Provide<ControlPort> for ParentComponent {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
-    ///         match event {
-    ///             ControlEvent::Start => {
-    ///                 let child = self.ctx.system().create(TestComponent1::new);
-    ///                 let id = self.ctx.system().update_alias_registration(&child, "test", self);
-    ///                 self.reg_id = Some(id);
-    ///                 self.child = Some(child);
-    ///             }
-    ///             ControlEvent::Stop | ControlEvent::Kill => {
-    ///                 let _ = self.child.take(); // don't hang on to the child
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// impl Actor for ParentComponent {
-    ///     type Message = RegistrationResponse;
-    ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> () {
-    ///         assert_eq!(msg.id, self.reg_id.take().unwrap());
-    ///         info!(self.log(), "Child was registered");
-    ///         if let Some(ref child) = self.child {
-    ///             self.ctx.system().start(child);
-    ///             let path = msg.result.expect("actor path");
-    ///             path.tell((), self); // can send it messages via its path now
-    ///         } else {
-    ///             unreachable!("Wouldn't have asked for registration without storing the child");
-    ///         }
-    ///     }
-    ///
-    ///     fn receive_network(&mut self, _msg: NetMessage) -> () {
-    ///         unimplemented!("unused");
-    ///     }
-    /// }
-    ///
     /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
     /// let system = cfg.build().expect("KompactSystem");
-    /// let parent = system.create(ParentComponent::new);
-    /// # std::thread::sleep(Duration::from_millis(1000));
+    /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
+    /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
+    /// let alias_registration_future = system.update_alias_registration(&c, "test");
+    /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
+    /// let alias_reregistration_future = system.update_alias_registration(&c, "test");
+    /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
     fn update_alias_registration<A>(
         &self,
         c: &Arc<impl AbstractComponent + ?Sized>,
         alias: A,
-        reply_to: &dyn Receiver<RegistrationResponse>,
-    ) -> RegistrationId
-    where
-        A: Into<String>;
-
-    /// Attempts to register the provided component with a human-readable alias
-    ///
-    /// Same as [update_alias_registration](SystemHandle::update_alias_registration) except requesting that no response be send.
-    fn update_alias_registration_without_response<A>(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-        alias: A,
-    ) -> ()
+    ) -> KFuture<RegistrationResult>
     where
         A: Into<String>;
 
@@ -1317,6 +1188,32 @@ pub trait SystemHandle: Dispatching {
     /// # system.shutdown().expect("shutdown");
     /// ```
     fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
+
+    /// Start a component and complete a future once it has started
+    ///
+    /// When the returned future completes, the component is guaranteed to have started.
+    /// However, it is not guaranteed to be in an active state,
+    /// as it could already have been stopped or could have failed since.
+    ///
+    /// A component only handles events/messages once it is started.
+    /// In particular, a component that isn't started shouldn't be scheduled and thus
+    /// access to its definition should always succeed,
+    /// for example via [on_definition](Component::on_definition).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// system.start_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never started!");
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()>;
 
     /// Stop a component
     ///
@@ -1344,6 +1241,41 @@ pub trait SystemHandle: Dispatching {
     /// ```
     fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
 
+    /// Stop a component and complete a future once it has stopped
+    ///
+    /// When the returned future completes, the component is guaranteed to have stopped.
+    /// However, it is not guaranteed to be in a passive state,
+    /// as it could already have been started again since.
+    ///
+    /// A component does not handle any events/messages while it is stopped,
+    /// but it does not get deallocated either. It can be started again later with
+    /// [start](KompactSystem::start) or [start_notify](KompactSystem::start_notify).
+    ///
+    /// A component that is stopped shouldn't be scheduled and thus
+    /// access to its definition should always succeed,
+    /// for example via [on_definition](Component::on_definition).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// system.start_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never started!");
+    /// system.stop_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never stopped!");
+    /// system.start_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never re-started!");
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()>;
+
     /// Stop and deallocate a component
     ///
     /// The supervisor will attempt to deallocate `c` once it is stopped.
@@ -1366,6 +1298,40 @@ pub trait SystemHandle: Dispatching {
     /// # system.shutdown().expect("shutdown");
     /// ```
     fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> ();
+
+    /// Stop and deallocate a component, and complete a future once it has stopped
+    ///
+    /// The supervisor will attempt to deallocate `c` once it is stopped.
+    /// However, if there are still outstanding references somewhere else in the system
+    /// this will fail, of course. In that case the supervisor leaves a debug message
+    /// in the logging output, so that this circumstance can be discovered if necessary.
+    ///
+    /// # Note
+    ///
+    /// The completion of the future indicates that the component has been stopped,
+    /// *not* that it has been deallocated.
+    ///
+    /// If, for some reason, you really need to know when it has been deallocated,
+    /// you need to hold on to a copy of the component, use [try_unwrap](std::sync::Arc::try_unwrap)
+    /// and then call `drop` once you are successful.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// # let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(TestComponent1::new);
+    /// system.start_notify(&c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never started!");
+    /// system.kill_notify(c)
+    ///       .wait_timeout(Duration::from_millis(1000))
+    ///       .expect("TestComponent1 never stopped!");
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()>;
 
     /// Return the configured thoughput value
     ///
@@ -1397,18 +1363,14 @@ pub trait SystemHandle: Dispatching {
     /// impl Stopper {
     ///     fn new() -> Stopper {
     ///         Stopper {
-    ///             ctx: ComponentContext::new(),
+    ///             ctx: ComponentContext::uninitialised(),
     ///         }
     ///     }    
     /// }
-    /// impl Provide<ControlPort> for Stopper {
-    ///    fn handle(&mut self, event: ControlEvent) -> () {
-    ///         match event {
-    ///            ControlEvent::Start => {
-    ///                self.ctx().system().shutdown_async();
-    ///            }
-    ///            _ => (), // ignore
-    ///        }
+    /// impl ComponentLifecycle for Stopper {
+    ///    fn on_start(&mut self) -> Handled {
+    ///        self.ctx().system().shutdown_async();
+    ///        Handled::Ok
     ///     }
     /// }
     /// let system = KompactConfig::default().build().expect("system");
@@ -1425,6 +1387,14 @@ pub trait SystemHandle: Dispatching {
 
     /// Returns a reference to the system's deadletter box
     fn deadletter_ref(&self) -> ActorRef<Never>;
+
+    /// Run a Future on this system's executor pool and return a handle to the result
+    ///
+    /// Handles can be awaited like any other future.
+    fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R>;
 }
 
 /// A trait to provide custom implementations of all system components
@@ -1489,7 +1459,8 @@ impl InternalComponents {
 
     fn stop(&self, system: &KompactSystem) -> () {
         let (p, f) = utils::promise();
-        self.supervision_port.enqueue(SupervisorMsg::Shutdown(p));
+        self.supervision_port
+            .enqueue(SupervisorMsg::Shutdown(Arc::new(Mutex::new(p))));
         f.wait();
         self.system_components.stop(system);
     }
@@ -1553,7 +1524,7 @@ impl KompactRuntime {
         actor_ref: &D,
         update: bool,
         path: PathResolvable,
-    ) -> Future<RegistrationResult>
+    ) -> KFuture<RegistrationResult>
     where
         D: DynActorRefFactory + ?Sized,
     {
@@ -1573,7 +1544,7 @@ impl KompactRuntime {
         actor_ref: &D,
         update: bool,
         alias: String,
-    ) -> Future<RegistrationResult>
+    ) -> KFuture<RegistrationResult>
     where
         D: DynActorRefFactory + ?Sized,
     {

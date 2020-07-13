@@ -26,34 +26,32 @@ struct Pinger {
 impl Pinger {
     fn new() -> Pinger {
         Pinger {
-            ctx: ComponentContext::new(),
-            ppp: RequiredPort::new(),
-            pppp: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            ppp: RequiredPort::uninitialised(),
+            pppp: ProvidedPort::uninitialised(),
             test: 0,
         }
     }
 }
 
-impl Provide<ControlPort> for Pinger {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                println!("Starting Pinger... {}", self.test);
-            }
-            _ => (), // ignore
-        }
+impl ComponentLifecycle for Pinger {
+    fn on_start(&mut self) -> Handled {
+        println!("Starting Pinger... {}", self.test);
+        Handled::Ok
     }
 }
 
 impl Require<PingPongPort> for Pinger {
-    fn handle(&mut self, _event: Pong) -> () {
+    fn handle(&mut self, _event: Pong) -> Handled {
         println!("Got a pong!");
+        Handled::Ok
     }
 }
 
 impl Provide<PingPongPort> for Pinger {
-    fn handle(&mut self, _event: Ping) -> () {
+    fn handle(&mut self, _event: Ping) -> Handled {
         println!("Got a ping!");
+        Handled::Ok
     }
 }
 
@@ -66,24 +64,25 @@ pub struct GenericComp<A: MessageBounds> {
 impl<A: MessageBounds> GenericComp<A> {
     fn new() -> Self {
         GenericComp {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             test: None,
         }
     }
 }
 
-impl<A: MessageBounds> Provide<ControlPort> for GenericComp<A> {
-    fn handle(&mut self, _event: ControlEvent) -> () {}
-}
+impl<A: MessageBounds> ComponentLifecycle for GenericComp<A> {}
 
 impl<A: MessageBounds> Actor for GenericComp<A> {
     type Message = A;
 
-    fn receive_local(&mut self, msg: Self::Message) {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         self.test = Some(msg);
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) {}
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        Handled::Ok
+    }
 }
 
 fn main() {

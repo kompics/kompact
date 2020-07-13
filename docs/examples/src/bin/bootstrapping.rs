@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+// ANCHOR: messages
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct CheckIn;
 impl SerialisationId for CheckIn {
@@ -18,7 +19,9 @@ struct UpdateProcesses(Vec<ActorPath>);
 impl SerialisationId for UpdateProcesses {
     const SER_ID: SerId = 3456;
 }
+// ANCHOR_END: messages
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct BootstrapServer {
     ctx: ComponentContext<Self>,
@@ -27,11 +30,14 @@ struct BootstrapServer {
 impl BootstrapServer {
     fn new() -> Self {
         BootstrapServer {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             processes: HashSet::new(),
         }
     }
 
+    // ANCHOR_END: state
+
+    // ANCHOR: behaviour
     fn broadcast_processess(&self) -> () {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
@@ -40,20 +46,23 @@ impl BootstrapServer {
         });
     }
 }
-ignore_control!(BootstrapServer);
+ignore_lifecycle!(BootstrapServer);
 impl NetworkActor for BootstrapServer {
     type Deserialiser = Serde;
     type Message = CheckIn;
 
-    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> () {
+    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
         if let Some(process) = source {
             if self.processes.insert(process) {
                 self.broadcast_processess();
             }
         }
+        Handled::Ok
     }
 }
+// ANCHOR_END: behaviour
 
+// ANCHOR: ele_state
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
@@ -70,8 +79,8 @@ impl EventualLeaderElector {
     fn new(bootstrap_server: ActorPath) -> Self {
         let minimal_period = Duration::from_millis(1);
         EventualLeaderElector {
-            ctx: ComponentContext::new(),
-            omega_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: ProvidedPort::uninitialised(),
             bootstrap_server,
             processes: Vec::new().into_boxed_slice(),
             candidates: HashSet::new(),
@@ -82,6 +91,8 @@ impl EventualLeaderElector {
         }
     }
 
+    // ANCHOR_END: ele_state
+
     fn select_leader(&mut self) -> Option<ActorPath> {
         let mut candidates: Vec<ActorPath> = self.candidates.drain().collect();
         candidates.sort_unstable();
@@ -89,7 +100,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -100,68 +111,72 @@ impl EventualLeaderElector {
                         self.omega_port.trigger(Trust(leader.clone()));
                     }
                     self.cancel_timer(timeout);
-                    let new_timer = self.schedule_periodic(
-                        self.period,
-                        self.period,
-                        EventualLeaderElector::handle_timeout,
-                    );
+                    let new_timer =
+                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
                     self.timer_handle = Some(new_timer);
                 } else {
                     // just put it back
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 
-    fn send_heartbeats(&self) -> () {
+    fn send_heartbeats(&self) {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
     }
 }
 
-impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                self.bootstrap_server.tell((CheckIn, Serde), self);
+impl ComponentLifecycle for EventualLeaderElector {
+    fn on_start(&mut self) -> Handled {
+        // ANCHOR: checkin
+        self.bootstrap_server.tell((CheckIn, Serde), self);
+        // ANCHOR_END: checkin
 
-                self.period = self.ctx.config()["omega"]["initial-period"]
-                    .as_duration()
-                    .expect("initial period");
-                self.delta = self.ctx.config()["omega"]["delta"]
-                    .as_duration()
-                    .expect("delta");
-                let timeout = self.schedule_periodic(
-                    self.period,
-                    self.period,
-                    EventualLeaderElector::handle_timeout,
-                );
-                self.timer_handle = Some(timeout);
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.timer_handle.take() {
-                    self.cancel_timer(timeout);
-                }
-            }
+        self.period = self.ctx.config()["omega"]["initial-period"]
+            .as_duration()
+            .expect("initial period");
+        self.delta = self.ctx.config()["omega"]["delta"]
+            .as_duration()
+            .expect("delta");
+        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+        self.timer_handle = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.timer_handle.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
+
 // Doesn't have any requests
 ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 
+// ANCHOR: actor
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         unreachable!();
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
         match_deser!(msg.data; {
@@ -178,9 +193,12 @@ impl Actor for EventualLeaderElector {
                 self.processes = processes.into_boxed_slice();
             },
         });
+        Handled::Ok
     }
 }
+// ANCHOR_END: actor
 
+// ANCHOR: main
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.len() {
@@ -201,7 +219,9 @@ pub fn main() {
         x => panic!("Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!", x-1),
     }
 }
+// ANCHOR_END: main
 
+// ANCHOR: server
 const BOOTSTRAP_PATH: &str = "bootstrap";
 
 pub fn run_server(socket: SocketAddr) -> KompactSystem {
@@ -230,7 +250,9 @@ pub fn run_server(socket: SocketAddr) -> KompactSystem {
 
     system
 }
+// ANCHOR_END: server
 
+// ANCHOR: client
 pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> KompactSystem {
     let mut cfg = KompactConfig::new();
     cfg.load_config_file("./application.conf");
@@ -258,6 +280,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
 
     system
 }
+// ANCHOR_END: client
 
 #[cfg(test)]
 mod tests {

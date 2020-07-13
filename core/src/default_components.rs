@@ -13,8 +13,8 @@ pub(crate) struct DefaultComponents {
 impl DefaultComponents {
     pub(crate) fn new(
         system: &KompactSystem,
-        dead_prom: Promise<()>,
-        disp_prom: Promise<()>,
+        dead_prom: KPromise<()>,
+        disp_prom: KPromise<()>,
     ) -> DefaultComponents {
         let dbc = system.create_unsupervised(|| DeadletterBox::new(dead_prom));
         let ldc = system.create_unsupervised(|| LocalDispatcher::new(disp_prom));
@@ -70,8 +70,7 @@ impl DefaultTimer {
 
     pub(crate) fn new_timer_component() -> Box<dyn TimerComponent> {
         let t = DefaultTimer::new();
-        let bt = Box::new(t) as Box<dyn TimerComponent>;
-        bt
+        Box::new(t) as Box<dyn TimerComponent>
     }
 }
 
@@ -141,7 +140,7 @@ where
 #[derive(ComponentDefinition)]
 pub struct DeadletterBox {
     ctx: ComponentContext<DeadletterBox>,
-    notify_ready: Option<Promise<()>>,
+    notify_ready: Option<KPromise<()>>,
 }
 
 impl DeadletterBox {
@@ -149,9 +148,9 @@ impl DeadletterBox {
     ///
     /// The `notify_ready` promise will be fulfilled, when the component
     /// received a [Start](ControlEvent::Start) event.
-    pub fn new(notify_ready: Promise<()>) -> DeadletterBox {
+    pub fn new(notify_ready: KPromise<()>) -> DeadletterBox {
         DeadletterBox {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),
         }
     }
@@ -161,31 +160,27 @@ impl Actor for DeadletterBox {
     type Message = Never;
 
     /// Handles local messages.
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         unimplemented!(); // this can't actually happen
     }
 
     /// Handles (serialised or reflected) messages from the network.
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         info!(
             self.ctx.log(),
             "DeadletterBox received network message {:?}", msg,
         );
+        Handled::Ok
     }
 }
 
-impl Provide<ControlPort> for DeadletterBox {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                debug!(self.ctx.log(), "Starting DeadletterBox");
-                match self.notify_ready.take() {
-                    Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
-                    None => (),
-                }
-            }
-            _ => (), // ignore
+impl ComponentLifecycle for DeadletterBox {
+    fn on_start(&mut self) -> Handled {
+        debug!(self.ctx.log(), "Starting DeadletterBox");
+        if let Some(promise) = self.notify_ready.take() {
+            promise.fulfil(()).unwrap_or_else(|_| ())
         }
+        Handled::Ok
     }
 }
 
@@ -196,7 +191,7 @@ impl Provide<ControlPort> for DeadletterBox {
 #[derive(ComponentDefinition)]
 pub struct LocalDispatcher {
     ctx: ComponentContext<LocalDispatcher>,
-    notify_ready: Option<Promise<()>>,
+    notify_ready: Option<KPromise<()>>,
 }
 
 impl LocalDispatcher {
@@ -204,9 +199,9 @@ impl LocalDispatcher {
     ///
     /// The `notify_ready` promise will be fulfilled, when the component
     /// received a [Start](ControlEvent::Start) event.
-    pub fn new(notify_ready: Promise<()>) -> LocalDispatcher {
+    pub fn new(notify_ready: KPromise<()>) -> LocalDispatcher {
         LocalDispatcher {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),
         }
     }
@@ -215,19 +210,21 @@ impl LocalDispatcher {
 impl Actor for LocalDispatcher {
     type Message = DispatchEnvelope;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         warn!(
             self.ctx.log(),
             "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
             msg,
         );
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         info!(
             self.ctx.log(),
             "LocalDispatcher received network message {:?}", msg,
         );
+        Handled::Ok
     }
 }
 
@@ -237,17 +234,12 @@ impl Dispatcher for LocalDispatcher {
     }
 }
 
-impl Provide<ControlPort> for LocalDispatcher {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                debug!(self.ctx.log(), "Starting LocalDispatcher");
-                match self.notify_ready.take() {
-                    Some(promise) => promise.fulfil(()).unwrap_or_else(|_| ()),
-                    None => (),
-                }
-            }
-            _ => (), // ignore
+impl ComponentLifecycle for LocalDispatcher {
+    fn on_start(&mut self) -> Handled {
+        debug!(self.ctx.log(), "Starting LocalDispatcher");
+        if let Some(promise) = self.notify_ready.take() {
+            promise.fulfil(()).unwrap_or_else(|_| ())
         }
+        Handled::Ok
     }
 }

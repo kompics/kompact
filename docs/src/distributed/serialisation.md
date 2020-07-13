@@ -18,8 +18,6 @@ pub trait Serialisable: Send + Debug {
     /// Serialises this object (`self`) into `buf`
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError>;
 
-    // TODO serialise owned...may need to rename some things here
-
     /// Try move this object onto the heap for reflection, instead of serialising
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>>;
 }
@@ -39,7 +37,7 @@ pub trait Deserialiser<T>: Send {
 
 When `ActorPath::tell(...)` is invoked with a type that is `Serialisable`, it will create a boxed trait object from the given instance and send it to the network layer. Only when the network layer has the determind that the destination must be accessed via a network channel, will the runtime serialise the instance into the network channel's buffer. If it turns out the destination is on the same actor system as the source, it will simply call `Serialisable::local(...)` to get a boxed instance of the `Any` trait and then send it directly to the target component, without ever serialising. This approach is called **lazy serialisation**. For the vast majority of `Serialisable` implementations, `Serialisable::local(...)` is implemented simply as `Ok(self)`. However, for some more advanced usages (e.g., serialisation proxies) the implementation may have to call some additional code.
 
-Once it is determined that an instance does indeed need to be serialised, the runtime will reserve some buffer memory for it to be serialised into. It does so by querying the `Serialisable::size_hint(...)` function for an estimate of how much space the type is likely going to take. For some types this is easy to know statically, but others it is not so clear. In any case, this is just an optimisation. Serialisation will proceed correectly even if the estimate is terribly wrong or no estimate is given at all.
+Once it is determined that an instance does indeed need to be serialised, the runtime will reserve some buffer memory for it to be serialised into. It does so by querying the `Serialisable::size_hint(...)` function for an estimate of how much space the type is likely going to take. For some types this is easy to know statically, but others it is not so clear. In any case, this is just an optimisation. Serialisation will proceed correctly even if the estimate is terribly wrong or no estimate is given at all.
 
 The first thing in the new serialisation buffer is typically the serialisation id obtained via `Serialisable::ser_id(...)`. Typically, Kompact will only require a single serialisation id for the message to be written into the buffer, even if the message uses other serialisers internally, as long as all the internal types are statically known. This top-level serialisation id must match the `Deserialiser::SER_ID` for the deserialiser to be used for this instance. For types that implement both `Serialisable` and `Deserialiser`, as most do, it is recommended to simply use is `Self::SER_ID` as the implementation for `Serialisable::ser_id(...)` to make sure the ids match later.
 
@@ -70,9 +68,9 @@ This behaves essentually the same, except that it doesn't serialise itself, but 
 
 ### Incoming Path
 
-For any incoming network message the Kompact framework will buffer all data, and once it is complete, it will read out the serialisation id and create a `NetMessage` from it and the remaining buffer. It will then send the `NetMessage` directly to the destination component without any further processing. This approach is called **lazy deserialisation** and is quite different from most other actor/component frameworks, which tend to deserialise eagerly and then type match later at the destination component. However, in Rust this approach is more efficient as it avoids unnecessary heap allocations for the deserialised instance.
+For any incoming network message the Kompact framework will buffer all data, and once it is complete, it will read out the serialisation id and create a `NetMessage` from it and the remaining buffer. It will then send the `NetMessage` directly to the destination component without any further processing. This approach is called **lazy deserialisation** and is quite different from most other actor/component frameworks, which tend to deserialise eagerly and then type match later at the destination component. However, in Rust the lazy approach is more efficient as it avoids unnecessary heap allocations for the deserialised instance.
 
-When the `NetMessage::try_deserialise` function is called on the destination component, the serialisation ids of theem essage and the given `Deserialiser` will be checked and if they match up the `Deserialiser::deserialise(...)` function is called with the message's data. For custom deserialisers, this method must use the [Buf](https://docs.rs/bytes/latest/bytes/trait.Buf.html) API to implement essentially the inverse path of what the serialisable did before.
+When the `NetMessage::try_deserialise` function is called on the destination component, the serialisation ids of the message and the given `Deserialiser` will be checked and if they match up the `Deserialiser::deserialise(...)` function is called with the message's data. For custom deserialisers, this method must use the [Buf](https://docs.rs/bytes/latest/bytes/trait.Buf.html) API to implement essentially the inverse path of what the serialisable did before.
 
 ### Example
 
@@ -93,7 +91,7 @@ In order to create the correct type instance during deserialisation, we use the 
 It is clear that this serialiser is basically trivial. We can use it by creating a pair of `Checkin` with a reference to our static instance `CHECK_IN_SER`, which simply specialises the `ZSTSerialiser` for `CheckIn`, as we did before: 
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/serialisation.rs:tell_checkin}}
+{{#rustdoc_include ../../examples/src/bin/serialisation.rs:checkin}}
 ```
 
 #### Serialisable
@@ -106,7 +104,7 @@ Since the previous example was somewhat trivial, we will do a slightly trickier 
 
 It would be easy to just iterate through the vector during serialisation and write one path at a time using its own `serialise(...)` implementation. But during deserialisation we need to know how many paths we have to take out of the buffer. We could simply try taking until the buffer refuses us, but this kind of approach often makes it difficult to detect bugs in one's serialiser implementations. We will instead write the length of the vector before we serialise the actor paths, and during deserialisation we will read it first and allocate a vector of appropriate size. If we are concerned about the space the length wastes, we could try to use some better integer encoding like Protocol Buffers do, for example. But for now we don't care so much and simply write a full `u64`. Those extra 8 bytes make little different compared to the sizes of a bunch of actor paths.
 
-We don't really have a good idea for `size_hint(...)` here. It's basically 8 plus the sum of the size hints for each actor path. Since we don't need to be accurate in the size hints, we simply won't bother and only return the minimal size of `Some(8)`. If the vector isn't empty, the buffer will just have to reallocate a few times. For practical purposes, as a developer we have to decide on a trade-off between how much time we want to spend calculating accurate size hints, and how much time we want to spend on potential reallocations. We could also simply return a large number such as 1024 and accept that we may may often waste much of that allocated space. Application requirements will determine which is the best choice in a particular scenario.
+We don't really have a good idea for `size_hint(...)` here. It's basically 8 plus the sum of the size hints for each actor path. In this case, we actually know we are pretty much just going to send unique actor paths in this set, so we can assume each one is 23 bytes long. If that assumption turns out to be wrong in practice, it will simply cause some additional allocations during serialisation. In general, as a developer we have to decide on a trade-off between how much time we want to spend calculating accurate size hints, and how much time we want to spend on potential reallocations. We could also simply return a large number such as 1024 and accept that we may may often waste much of that allocated space. Application requirements (read: benchmarking) will determine which is the best choice in a particular scenario.
 
 ## Eager Serialisation
 

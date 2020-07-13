@@ -7,7 +7,7 @@ Each Kompact system can be configured to use a networking library, called a `Dis
 In addition to serving as opaque handles to remote components, actor paths can also be treated as human-readable resource identifiers. Internally, they are divided into two major parts:
 
 1. A `SystemPath`, which identifies the Kompact system we are trying to send to, and
-2. and the actual actor path tail, which identifies the actor within the system.
+2. the actual actor path tail, which identifies the actor within the system.
 
 Kompact provides two flavours of actor paths: 
 

@@ -60,7 +60,8 @@ impl Serialisable for UpdateProcesses {
     }
 
     fn size_hint(&self) -> Option<usize> {
-        Some(8)
+        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+        Some(8 + procs_size)
     }
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
@@ -102,13 +103,13 @@ struct BootstrapServer {
 impl BootstrapServer {
     fn new() -> Self {
         BootstrapServer {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             processes: HashSet::new(),
         }
     }
 
     // ANCHOR: tell_serialised
-    fn broadcast_processess(&self) -> () {
+    fn broadcast_processess(&self) -> Handled {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
 
@@ -117,21 +118,26 @@ impl BootstrapServer {
                 .tell_serialised(msg.clone(), self)
                 .unwrap_or_else(|e| warn!(self.log(), "Error during serialisation: {}", e));
         });
+        Handled::Ok
     }
     // ANCHOR_END: tell_serialised
 }
 
-ignore_control!(BootstrapServer);
+ignore_lifecycle!(BootstrapServer);
 
 impl NetworkActor for BootstrapServer {
     type Deserialiser = ZSTSerialiser<CheckIn>;
     type Message = CheckIn;
 
-    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> () {
+    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
         if let Some(process) = source {
             if self.processes.insert(process) {
-                self.broadcast_processess();
+                self.broadcast_processess()
+            } else {
+                Handled::Ok
             }
+        } else {
+            Handled::Ok
         }
     }
 }
@@ -153,8 +159,8 @@ impl EventualLeaderElector {
     fn new(bootstrap_server: ActorPath) -> Self {
         let minimal_period = Duration::from_millis(1);
         EventualLeaderElector {
-            ctx: ComponentContext::new(),
-            omega_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            omega_port: ProvidedPort::uninitialised(),
             bootstrap_server,
             processes: Vec::new().into_boxed_slice(),
             candidates: HashSet::new(),
@@ -172,12 +178,12 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
                 if new_leader != self.leader {
-                    self.period = self.period + self.delta;
+                    self.period += self.delta;
                     self.leader = new_leader;
                     if let Some(ref leader) = self.leader {
                         self.omega_port.trigger(Trust(leader.clone()));
@@ -193,49 +199,56 @@ impl EventualLeaderElector {
                     // just put it back
                     self.timer_handle = Some(timeout);
                 }
-                self.send_heartbeats();
+                self.send_heartbeats()
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
 
     // ANCHOR: send_heartbeats
-    fn send_heartbeats(&self) -> () {
+    fn send_heartbeats(&self) -> Handled {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
+        Handled::Ok
     }
     // ANCHOR_END: send_heartbeats
 }
 
-impl Provide<ControlPort> for EventualLeaderElector {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                // ANCHOR: tell_checkin
-                self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
-                // ANCHOR_END: tell_checkin
+impl ComponentLifecycle for EventualLeaderElector {
+    fn on_start(&mut self) -> Handled {
+        // ANCHOR: checkin
+        self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
+        // ANCHOR_END: checkin
 
-                self.period = self.ctx.config()["omega"]["initial-period"]
-                    .as_duration()
-                    .expect("initial period");
-                self.delta = self.ctx.config()["omega"]["delta"]
-                    .as_duration()
-                    .expect("delta");
-                let timeout = self.schedule_periodic(
-                    self.period,
-                    self.period,
-                    EventualLeaderElector::handle_timeout,
-                );
-                self.timer_handle = Some(timeout);
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.timer_handle.take() {
-                    self.cancel_timer(timeout);
-                }
-            }
+        self.period = self.ctx.config()["omega"]["initial-period"]
+            .as_duration()
+            .expect("initial period");
+        self.delta = self.ctx.config()["omega"]["delta"]
+            .as_duration()
+            .expect("delta");
+        let timeout = self.schedule_periodic(
+            self.period,
+            self.period,
+            EventualLeaderElector::handle_timeout,
+        );
+        self.timer_handle = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.timer_handle.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
 // Doesn't have any requests
@@ -244,12 +257,12 @@ ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
         unreachable!();
     }
 
     // ANCHOR: receive_network
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
         match_deser!(msg.data; {
@@ -266,6 +279,7 @@ impl Actor for EventualLeaderElector {
                 self.processes = processes.into_boxed_slice();
             },
         });
+        Handled::Ok
     }
     // ANCHOR_END: receive_network
 }

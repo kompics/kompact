@@ -1,7 +1,7 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
 use crate::{
-    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds, Recipient},
+    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
     net::{buffer::BufferEncoder, events::NetworkEvent},
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
     utils,
@@ -114,7 +114,7 @@ impl NetMessage {
     }
 
     /// Create a network message with a ChunkLease, pooled buffers.
-    /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[net::frames].
+    /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[crate::net::frames].
     pub fn with_chunk(
         ser_id: SerId,
         sender: ActorPath,
@@ -446,10 +446,10 @@ impl NetData {
                     .map_err(|b| UnpackError::NoCast(b))
             }
             HeapOrSer::Serialised(mut bytes) => {
-                D::deserialise(&mut bytes).map_err(|e| UnpackError::DeserError(e))
+                D::deserialise(&mut bytes).map_err(UnpackError::DeserError)
             }
             HeapOrSer::Pooled(mut chunk) => {
-                D::deserialise(&mut chunk).map_err(|e| UnpackError::DeserError(e))
+                D::deserialise(&mut chunk).map_err(UnpackError::DeserError)
             }
         }
     }
@@ -538,39 +538,11 @@ pub enum RegistrationError {
 /// Convenience alias for the result of a path registration attempt
 pub type RegistrationResult = Result<ActorPath, RegistrationError>;
 
-/// A handle to uniquely identify which registration request a [RegistrationResponse](RegistrationResponse) answers
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct RegistrationId(pub Uuid);
-
-/// The response sent by the dispatcher after processing an actor path registration
-#[derive(Debug, Clone)]
-pub struct RegistrationResponse {
-    /// The id of the registration request
-    pub id: RegistrationId,
-    /// The actualt result of the processing
-    pub result: RegistrationResult,
-}
-impl RegistrationResponse {
-    /// Creates a new registration response
-    pub fn new(id: RegistrationId, result: RegistrationResult) -> Self {
-        RegistrationResponse { id, result }
-    }
-}
-
 /// A holder for different variants of how feedback for a registration can be provided
 #[derive(Debug)]
 pub enum RegistrationPromise {
     /// Provide feedback via fulfilling the promise
-    Fulfil(utils::Promise<RegistrationResult>),
-    /// Provide feedback by replying to the recipient
-    ///
-    /// The `id` must be supplied as part of the response message.
-    Reply {
-        /// Unique id of this registration request
-        id: RegistrationId,
-        /// The actor to respond to
-        recipient: Recipient<RegistrationResponse>,
-    },
+    Fulfil(utils::KPromise<RegistrationResult>),
     /// Do not provide feedback
     None,
 }
@@ -613,29 +585,13 @@ impl RegistrationEnvelope {
         actor: &(impl DynActorRefFactory + ?Sized),
         path: PathResolvable,
         update: bool,
-        promise: utils::Promise<RegistrationResult>,
+        promise: utils::KPromise<RegistrationResult>,
     ) -> RegistrationEnvelope {
         RegistrationEnvelope {
             actor: actor.dyn_ref(),
             path,
             update,
             promise: RegistrationPromise::Fulfil(promise),
-        }
-    }
-
-    /// Create a registration envelope using an actor reference for feedback
-    pub fn with_recipient(
-        actor: &(impl DynActorRefFactory + ?Sized),
-        path: PathResolvable,
-        update: bool,
-        id: RegistrationId,
-        recipient: Recipient<RegistrationResponse>,
-    ) -> RegistrationEnvelope {
-        RegistrationEnvelope {
-            actor: actor.dyn_ref(),
-            path,
-            update,
-            promise: RegistrationPromise::Reply { id, recipient },
         }
     }
 }
@@ -720,7 +676,7 @@ pub enum SerialisedFrame {
 pub enum DispatchData {
     /// Lazily serialised variant – must still be serialised by the dispatcher or networking system
     Lazy(Box<dyn Serialisable>),
-    /// Should be serialised and [framed](net::frames).
+    /// Should be serialised and [framed](crate::net::frames).
     Serialised((ChunkLease, SerId)),
 }
 
@@ -737,7 +693,7 @@ impl DispatchData {
     ///
     /// This can fail, if the data can't be moved onto the heap, and serialisation
     /// also fails.
-    pub fn to_local(self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
+    pub fn into_local(self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
         match self {
             DispatchData::Lazy(ser) => {
                 let ser_id = ser.ser_id();
@@ -757,7 +713,7 @@ impl DispatchData {
     }
 
     /// Try to serialise this to data to bytes for remote delivery
-    pub fn to_serialised(
+    pub fn into_serialised(
         self,
         src: ActorPath,
         dst: ActorPath,
@@ -1050,7 +1006,7 @@ mod deser_macro_tests {
         .expect("MsgA should serialise!");
         let msg_b_ser = crate::serialisation::ser_helpers::serialise_to_msg(
             ap.clone(),
-            ap.clone(),
+            ap,
             (msg_b, BSer).into(),
         )
         .expect("MsgB should serialise!");
@@ -1064,7 +1020,7 @@ mod deser_macro_tests {
     {
         let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
 
-        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap.clone(), Bytes::default());
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap, Bytes::default());
 
         f(msg);
     }

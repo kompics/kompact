@@ -19,9 +19,10 @@ criterion = {version = "0.3"}
 
 [dependencies.kompact]
 path = "../../core/"
-# default-features = true
+default-features = false
 # features = ["silent_logging", "low_latency"]
-features = ["silent_logging"]
+features = ["silent_logging", "ser_id_64", "use_local_executor"]
+# features = ["silent_logging", "ser_id_64"]
 
 [dependencies.datastructures]
 path = "../datastructures"
@@ -32,22 +33,27 @@ rustc_version = "0.2"
 #[dev-dependencies]
 #criterion = {version = "0.3", features=['real_blackbox']}
 
-[[bench]]
-name = "network_latency"
-path = "src/network_latency.rs"
-harness = false
+# [[bench]]
+# name = "network_latency"
+# path = "src/network_latency.rs"
+# harness = false
+
+# [[bench]]
+# name = "hashes"
+# path = "src/hashes.rs"
+# harness = false
+
+# [[bench]]
+# name = "actorrefs"
+# path = "src/actorrefs.rs"
+# harness = false
+
+# [[bench]]
+# name = "loop_opts"
+# path = "src/loop_opts.rs"
+# harness = false
 
 [[bench]]
-name = "hashes"
-path = "src/hashes.rs"
-harness = false
-
-[[bench]]
-name = "actorrefs"
-path = "src/actorrefs.rs"
-harness = false
-
-[[bench]]
-name = "loop_opts"
-path = "src/loop_opts.rs"
+name = "pingperf"
+path = "src/pingperf.rs"
 harness = false

@@ -25,8 +25,8 @@ struct Counter {
 impl Counter {
     pub fn new() -> Self {
         Counter {
-            ctx: ComponentContext::new(),
-            counter_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            counter_port: ProvidedPort::uninitialised(),
             msg_count: 0u64,
             event_count: 0u64,
         }
@@ -39,33 +39,48 @@ impl Counter {
         }
     }
 }
-impl Provide<ControlPort> for Counter {
-    fn handle(&mut self, _event: ControlEvent) -> () {
-        info!(self.ctx.log(), "Got a control event!");
+impl ComponentLifecycle for Counter {
+    fn on_start(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a start event!");
         self.event_count += 1u64;
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a stop event!");
+        self.event_count += 1u64;
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        info!(self.ctx.log(), "Got a kill event!");
+        self.event_count += 1u64;
+        Handled::Ok
     }
 }
 impl Provide<CounterPort> for Counter {
-    fn handle(&mut self, _event: CountMe) -> () {
+    fn handle(&mut self, _event: CountMe) -> Handled {
         info!(self.ctx.log(), "Got a counter event!");
         self.event_count += 1u64;
         self.counter_port.trigger(self.current_count());
+        Handled::Ok
     }
 }
 
 impl Actor for Counter {
     type Message = Ask<CountMe, CurrentCount>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         msg.complete(|_request| {
             info!(self.ctx.log(), "Got a message!");
             self.msg_count += 1u64;
             self.current_count()
         })
         .expect("complete");
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("We are still ignoring network messages.");
     }
 }
@@ -73,7 +88,9 @@ impl Actor for Counter {
 pub fn main() {
     let mut conf = KompactConfig::default();
     conf.threads(1usize);
+    // ANCHOR: channel_pool
     conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
+    // ANCHOR_END: channel_pool
     let system = conf.build().expect("system");
     let counter = system.create(Counter::new);
     system.start(&counter);

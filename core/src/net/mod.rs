@@ -157,12 +157,12 @@ impl Bridge {
         let (mut network_thread, waker) = NetworkThread::new(
             network_thread_log,
             addr,
-            lookup.clone(),
+            lookup,
             receiver,
             network_thread_sender,
             dispatcher_ref.clone(),
         );
-        let bound_addr = network_thread.addr.clone();
+        let bound_addr = network_thread.addr;
         let bridge = Bridge {
             // cfg: BridgeConfig::default(),
             log: bridge_log,
@@ -170,7 +170,7 @@ impl Bridge {
             network_input_queue: sender,
             waker,
             dispatcher: Some(dispatcher_ref),
-            bound_addr: Some(bound_addr.clone()),
+            bound_addr: Some(bound_addr),
             network_thread_receiver: Box::new(network_thread_receiver),
         };
         if let Err(e) = thread::Builder::new()
