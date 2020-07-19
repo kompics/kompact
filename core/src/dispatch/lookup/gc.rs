@@ -1,6 +1,5 @@
-use crate::dispatch::lookup::ActorLookup;
+use crate::dispatch::lookup::*;
 use arc_swap::ArcSwap;
-use std::sync::Arc;
 
 mod defaults {
     use super::FeedbackAlgorithm;
@@ -69,12 +68,12 @@ impl ActorRefReaper {
 
     /// Walks through all stored [ActorRef] entries and removes
     /// the ones which have been deallocated, returning the # of removed instances.
-    pub fn run<T: ActorLookup>(&self, table: &ArcSwap<T>) -> usize {
+    pub fn run(&self, table: &ArcSwap<ActorStore>) -> usize {
         let mut removed = 0;
         table.rcu(|current| {
-            let mut next = (*current).clone();
+            let mut next = ActorStore::clone(&current);
             removed = next.cleanup();
-            Arc::new(next)
+            next
         });
         removed
     }

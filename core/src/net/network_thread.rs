@@ -7,7 +7,7 @@ use crate::{
         ConnectionState,
     },
 };
-use crossbeam_channel::{Receiver as Recv};
+use crossbeam_channel::Receiver as Recv;
 use fxhash::{FxHashMap, FxHasher};
 use mio::{
     event::Event,
@@ -21,6 +21,7 @@ use std::{
     hash::BuildHasherDefault,
     io,
     net::SocketAddr,
+    sync::Arc,
     time::Duration,
     usize,
 };
@@ -472,7 +473,7 @@ impl NetworkThread {
                     }
                     Ok(Frame::Data(fr)) => {
                         // Forward the data frame to the correct actor
-                        let lease_lookup = self.lookup.lease();
+                        let lease_lookup = self.lookup.load();
                         {
                             use dispatch::lookup::ActorLookup;
                             use serialisation::ser_helpers::deserialise_msg;
@@ -822,7 +823,7 @@ mod tests {
         let system = cfg.build().expect("KompactSystem");
 
         // Set-up the the threads arguments
-        let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
+        let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         //network_thread_registration.set_readiness(Interest::empty());
         let (input_queue_1_sender, input_queue_1_receiver) = channel();
         let (input_queue_2_sender, input_queue_2_receiver) = channel();

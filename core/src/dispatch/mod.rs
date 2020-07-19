@@ -160,7 +160,7 @@ impl NetworkDispatcher {
     /// For better readability in combination with [system_components](KompactConfig::system_components),
     /// use [NetworkConfig::build](NetworkConfig::build) instead.
     pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
-        let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
+        let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         let reaper = lookup::gc::ActorRefReaper::default();
         let encode_buffer = crate::net::buffer::EncodeBuffer::new();
 
@@ -383,7 +383,7 @@ impl NetworkDispatcher {
         R: Routable,
     {
         use crate::dispatch::lookup::ActorLookup;
-        let lookup = self.lookup.lease();
+        let lookup = self.lookup.load();
         let actor_opt = lookup.get_by_actor_path(msg.destination());
         match msg.into_local() {
             Ok(netmsg) => {
@@ -543,7 +543,7 @@ impl Actor for NetworkDispatcher {
                     promise,
                 } = reg;
                 let ap = self.resolve_path(&path);
-                let lease = self.lookup.lease();
+                let lease = self.lookup.load();
                 let res = if lease.contains(&path) && !update {
                     warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
                     drop(lease);
@@ -552,11 +552,11 @@ impl Actor for NetworkDispatcher {
                     drop(lease);
                     let mut replaced = false;
                     self.lookup.rcu(|current| {
-                        let mut next = (*current).clone();
+                        let mut next = ActorStore::clone(&current);
                         if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
                             replaced = true;
                         }
-                        Arc::new(next)
+                        next
                     });
                     if replaced {
                         info!(self.ctx.log(), "Replaced entry for path={:?}", path);
