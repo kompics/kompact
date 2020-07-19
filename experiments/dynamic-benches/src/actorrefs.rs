@@ -186,10 +186,8 @@ mod tests {
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
-        let unique_path = ActorPath::Unique(UniquePath::with_system(
-            sys.system_path(),
-            tester.id().clone(),
-        ));
+        let unique_path =
+            ActorPath::Unique(UniquePath::with_system(sys.system_path(), tester.id()));
         let mut cloned_path = unique_path.clone();
         b.iter(|| {
             cloned_path = unique_path.clone();
@@ -209,10 +207,8 @@ mod tests {
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
-        let unique_path = ActorPath::Unique(UniquePath::with_system(
-            sys.system_path(),
-            tester.id().clone(),
-        ));
+        let unique_path =
+            ActorPath::Unique(UniquePath::with_system(sys.system_path(), tester.id()));
         b.iter(|| {
             unique_path.tell((PING, PING_SER), &sys);
         });

@@ -30,11 +30,11 @@ use crate::{
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
-use fnv::FnvHashMap;
 use futures::{
     self,
     task::{Context, Poll},
 };
+use rustc_hash::FxHashMap;
 use std::{io::ErrorKind, time::Duration};
 
 pub mod lookup;
@@ -42,6 +42,8 @@ pub mod queue_manager;
 
 const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
 const MAX_RETRY_ATTEMPTS: u8 = 10;
+
+type NetHashMap<K, V> = FxHashMap<K, V>;
 
 /// Configuration builder for the network dispatcher
 ///
@@ -113,7 +115,7 @@ impl Default for NetworkConfig {
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
     /// Local map of connection statuses
-    connections: FnvHashMap<SocketAddr, ConnectionState>,
+    connections: NetHashMap<SocketAddr, ConnectionState>,
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
     /// Shared lookup structure for mapping [actor paths](ActorPath) and [actor refs](ActorRef)
@@ -130,7 +132,7 @@ pub struct NetworkDispatcher {
     notify_ready: Option<KPromise<()>>,
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
-    retry_map: FnvHashMap<SocketAddr, u8>,
+    retry_map: NetHashMap<SocketAddr, u8>,
 }
 
 impl NetworkDispatcher {
@@ -166,7 +168,7 @@ impl NetworkDispatcher {
 
         NetworkDispatcher {
             ctx: ComponentContext::uninitialised(),
-            connections: FnvHashMap::default(),
+            connections: Default::default(),
             cfg,
             lookup,
             net_bridge: None,
@@ -175,7 +177,7 @@ impl NetworkDispatcher {
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
-            retry_map: FnvHashMap::default(),
+            retry_map: Default::default(),
         }
     }
 

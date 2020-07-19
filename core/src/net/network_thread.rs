@@ -8,7 +8,6 @@ use crate::{
     },
 };
 use crossbeam_channel::Receiver as Recv;
-use fxhash::{FxHashMap, FxHasher};
 use mio::{
     event::Event,
     net::{TcpListener, TcpStream},
@@ -16,15 +15,8 @@ use mio::{
     Poll,
     Token,
 };
-use std::{
-    collections::HashMap,
-    hash::BuildHasherDefault,
-    io,
-    net::SocketAddr,
-    sync::Arc,
-    time::Duration,
-    usize,
-};
+use rustc_hash::FxHashMap;
+use std::{io, net::SocketAddr, sync::Arc, time::Duration, usize};
 use uuid::Uuid;
 
 /*
@@ -114,11 +106,8 @@ impl NetworkThread {
                 let waker = Waker::new(poll.registry(), DISPATCHER)
                     .expect("failed to create Waker for DISPATCHER");
 
-                pub type FxBuildHasher = BuildHasherDefault<FxHasher>;
-                let channel_map: FxHashMap<SocketAddr, TcpChannel> =
-                    HashMap::<SocketAddr, TcpChannel, FxBuildHasher>::default();
-                let token_map: FxHashMap<Token, SocketAddr> =
-                    HashMap::<Token, SocketAddr, FxBuildHasher>::default();
+                let channel_map: FxHashMap<SocketAddr, TcpChannel> = FxHashMap::default();
+                let token_map: FxHashMap<Token, SocketAddr> = FxHashMap::default();
 
                 (
                     NetworkThread {

@@ -1,4 +1,5 @@
 #![cfg_attr(nightly, feature(test))]
+#![allow(clippy::new_without_default)]
 
 #[cfg(nightly)]
 extern crate test;

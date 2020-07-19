@@ -58,7 +58,7 @@ mod tests {
     pub fn bench_clone_for_loop(b: &mut Bencher, data_size: usize) {
         let data: Vec<usize> = (0usize..data_size).collect();
         b.iter_batched(
-            || ExpensiveClone::medium(),
+            ExpensiveClone::medium,
             |my_item| {
                 for i in data.iter() {
                     my_item.clone().consume(*i);
@@ -71,7 +71,7 @@ mod tests {
     pub fn bench_clone_for_each(b: &mut Bencher, data_size: usize) {
         let data: Vec<usize> = (0usize..data_size).collect();
         b.iter_batched(
-            || ExpensiveClone::medium(),
+            ExpensiveClone::medium,
             |my_item| {
                 data.iter().for_each(|i| {
                     my_item.clone().consume(*i);
@@ -84,7 +84,7 @@ mod tests {
     pub fn bench_clone_while(b: &mut Bencher, data_size: usize) {
         let data: Vec<usize> = (0usize..data_size).collect();
         b.iter_batched(
-            || ExpensiveClone::medium(),
+            ExpensiveClone::medium,
             |my_item| {
                 let mut it = data.iter();
                 let mut current: Option<&usize> = it.next();
@@ -105,7 +105,7 @@ mod tests {
     pub fn bench_clone_for_each_with(b: &mut Bencher, data_size: usize) {
         let data: Vec<usize> = (0usize..data_size).collect();
         b.iter_batched(
-            || ExpensiveClone::medium(),
+            ExpensiveClone::medium,
             |my_item| {
                 data.iter().for_each_with(my_item, |i, item| {
                     item.consume(*i);
