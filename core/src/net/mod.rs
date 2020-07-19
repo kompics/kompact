@@ -11,8 +11,8 @@ use crate::{
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
 };
 use bytes::{Buf, BufMut, BytesMut};
+use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
-use std::sync::mpsc::{channel, Receiver as Recv, RecvError, SendError, Sender};
 
 #[allow(missing_docs)]
 pub mod buffer;
@@ -62,7 +62,7 @@ pub mod events {
         /// Send the SerialisedFrame to receiver associated with the SocketAddr
         Send(SocketAddr, SerialisedFrame),
         /// Tells the network thread to Stop
-        Stop(),
+        Stop,
         /// Tells the network adress to open up a channel to the SocketAddr
         Connect(SocketAddr),
     }
@@ -135,7 +135,7 @@ pub struct Bridge {
     dispatcher: Option<DispatcherRef>,
     /// Socket the network actually bound on
     bound_addr: Option<SocketAddr>,
-    network_thread_receiver: Box<Recv<bool>>,
+    shutdown_future: KFuture<()>,
 }
 
 // impl bridge
@@ -153,13 +153,13 @@ impl Bridge {
         dispatcher_ref: DispatcherRef,
     ) -> (Self, SocketAddr) {
         let (sender, receiver) = channel();
-        let (network_thread_sender, network_thread_receiver) = channel();
+        let (shutdown_p, shutdown_f) = promise();
         let (mut network_thread, waker) = NetworkThread::new(
             network_thread_log,
             addr,
             lookup,
             receiver,
-            network_thread_sender,
+            shutdown_p,
             dispatcher_ref.clone(),
         );
         let bound_addr = network_thread.addr;
@@ -171,7 +171,7 @@ impl Bridge {
             waker,
             dispatcher: Some(dispatcher_ref),
             bound_addr: Some(bound_addr),
-            network_thread_receiver: Box::new(network_thread_receiver),
+            shutdown_future: shutdown_f,
         };
         if let Err(e) = thread::Builder::new()
             .name("network_thread".to_string())
@@ -192,11 +192,11 @@ impl Bridge {
     /// Stops the bridge
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
-        self.network_input_queue.send(DispatchEvent::Stop())?;
+        self.network_input_queue.send(DispatchEvent::Stop)?;
         self.waker
             .wake()
             .expect("Network Bridge Waking NetworkThread in stop()");
-        self.network_thread_receiver.recv()?; // should block until something is sent
+        self.shutdown_future.wait(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }

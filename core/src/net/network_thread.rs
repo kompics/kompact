@@ -7,6 +7,7 @@ use crate::{
         ConnectionState,
     },
 };
+use crossbeam_channel::{Receiver as Recv};
 use fxhash::{FxHashMap, FxHasher};
 use mio::{
     event::Event,
@@ -20,7 +21,6 @@ use std::{
     hash::BuildHasherDefault,
     io,
     net::SocketAddr,
-    sync::mpsc::{Receiver as Recv, Sender},
     time::Duration,
     usize,
 };
@@ -53,20 +53,20 @@ pub struct NetworkThread {
     pub addr: SocketAddr,
     //connection_events: UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
-    listener: Option<Box<TcpListener>>,
+    listener: Option<TcpListener>,
     poll: Poll,
     // Contains K,V=Remote SocketAddr, Output buffer; Token for polling; Input-buffer,
     channel_map: FxHashMap<SocketAddr, TcpChannel>,
     token_map: FxHashMap<Token, SocketAddr>,
     token: Token,
-    input_queue: Box<Recv<DispatchEvent>>,
+    input_queue: Recv<DispatchEvent>,
     dispatcher_ref: DispatcherRef,
     buffer_pool: BufferPool,
     sent_bytes: u64,
     received_bytes: u64,
     sent_msgs: u64,
     stopped: bool,
-    network_thread_sender: Sender<bool>,
+    shutdown_promise: Option<KPromise<()>>,
 }
 
 /// Return values for IO Operations on the [NetworkChannel](net::network_channel::NetworkChannel) abstraction
@@ -88,7 +88,7 @@ impl NetworkThread {
         addr: SocketAddr,
         lookup: Arc<ArcSwap<ActorStore>>,
         input_queue: Recv<DispatchEvent>,
-        network_thread_sender: Sender<bool>,
+        shutdown_promise: KPromise<()>,
         dispatcher_ref: DispatcherRef,
     ) -> (NetworkThread, Waker) {
         // Set-up the Listener
@@ -124,18 +124,18 @@ impl NetworkThread {
                         log,
                         addr: actual_addr,
                         lookup,
-                        listener: Some(Box::new(listener)),
+                        listener: Some(listener),
                         poll,
                         channel_map,
                         token_map,
                         token: START_TOKEN,
-                        input_queue: Box::new(input_queue),
+                        input_queue,
                         buffer_pool: BufferPool::new(),
                         sent_bytes: 0,
                         received_bytes: 0,
                         sent_msgs: 0,
                         stopped: false,
-                        network_thread_sender,
+                        shutdown_promise: Some(shutdown_promise),
                         dispatcher_ref,
                     },
                     waker,
@@ -166,7 +166,8 @@ impl NetworkThread {
                     );
                 };
                 if self.stopped {
-                    if let Err(e) = self.network_thread_sender.send(true) {
+                    let promise = self.shutdown_promise.take().expect("shutdown promise");
+                    if let Err(e) = promise.fulfil(()) {
                         error!(
                             self.log,
                             "NetworkThread error shutting down sender: {:?}", e
@@ -678,7 +679,7 @@ impl NetworkThread {
                         self.close_channel(addr);
                     }
                 }
-                DispatchEvent::Stop() => {
+                DispatchEvent::Stop => {
                     self.stop();
                 }
                 DispatchEvent::Connect(addr) => {
@@ -825,8 +826,8 @@ mod tests {
         //network_thread_registration.set_readiness(Interest::empty());
         let (input_queue_1_sender, input_queue_1_receiver) = channel();
         let (input_queue_2_sender, input_queue_2_receiver) = channel();
-        let (dispatch_shutdown_sender1, _) = channel();
-        let (dispatch_shutdown_sender2, _) = channel();
+        let (dispatch_shutdown_sender1, _) = promise();
+        let (dispatch_shutdown_sender2, _) = promise();
         let logger = system.logger().clone();
         let dispatcher_ref = system.dispatcher_ref();
 
