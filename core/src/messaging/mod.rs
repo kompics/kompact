@@ -671,6 +671,26 @@ pub enum SerialisedFrame {
     Chunk(ChunkLease),
 }
 
+impl SerialisedFrame {
+    /// Returns `true` the frame is of zero length
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the number of bytes in this frame
+    pub fn len(&self) -> usize {
+        self.bytes().len()
+    }
+
+    /// Returns the data in this frame as a slice
+    pub fn bytes(&self) -> &[u8] {
+        match self {
+            SerialisedFrame::Chunk(chunk) => chunk.bytes(),
+            SerialisedFrame::Bytes(bytes) => bytes.bytes(),
+        }
+    }
+}
+
 /// An abstraction over lazy or eagerly serialised data sent to the dispatcher
 #[derive(Debug)]
 pub enum DispatchData {

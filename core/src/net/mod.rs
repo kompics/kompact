@@ -20,6 +20,7 @@ pub(crate) mod buffer_pool;
 pub mod frames;
 pub(crate) mod network_channel;
 pub(crate) mod network_thread;
+pub(crate) mod udp_state;
 
 /// The state of a connection
 #[derive(Debug)]
@@ -34,6 +35,20 @@ pub enum ConnectionState {
     Closed,
     /// Threw an error
     Error(std::io::Error),
+}
+
+pub(crate) enum Protocol {
+    TCP,
+    UDP,
+}
+impl From<Transport> for Protocol {
+    fn from(t: Transport) -> Self {
+        match t {
+            Transport::TCP => Protocol::TCP,
+            Transport::UDP => Protocol::UDP,
+            _ => unimplemented!("Unsupported Protocol"),
+        }
+    }
 }
 
 /// Events on the network level
@@ -60,7 +75,9 @@ pub mod events {
     #[derive(Debug)]
     pub enum DispatchEvent {
         /// Send the SerialisedFrame to receiver associated with the SocketAddr
-        Send(SocketAddr, SerialisedFrame),
+        SendTCP(SocketAddr, SerialisedFrame),
+        /// Send the SerialisedFrame to receiver associated with the SocketAddr
+        SendUDP(SocketAddr, SerialisedFrame),
         /// Tells the network thread to Stop
         Stop,
         /// Tells the network adress to open up a channel to the SocketAddr
@@ -207,10 +224,11 @@ impl Bridge {
     }
 
     /// Forwards `serialized` to the NetworkThread and makes sure that it will wake up.
-    pub fn route(
+    pub(crate) fn route(
         &self,
         addr: SocketAddr,
         serialized: SerialisedFrame,
+        protocol: Protocol,
     ) -> Result<(), NetworkBridgeErr> {
         match serialized {
             SerialisedFrame::Bytes(bytes) => {
@@ -219,17 +237,39 @@ impl Bridge {
                 let head = FrameHead::new(FrameType::Data, bytes.len());
                 head.encode_into(&mut buf);
                 buf.put_slice(bytes.bytes());
-                self.network_input_queue.send(events::DispatchEvent::Send(
-                    addr,
-                    SerialisedFrame::Bytes(buf.freeze()),
-                ))?;
+                match protocol {
+                    Protocol::TCP => {
+                        self.network_input_queue
+                            .send(events::DispatchEvent::SendTCP(
+                                addr,
+                                SerialisedFrame::Bytes(buf.freeze()),
+                            ))?;
+                    }
+                    Protocol::UDP => {
+                        self.network_input_queue
+                            .send(events::DispatchEvent::SendUDP(
+                                addr,
+                                SerialisedFrame::Bytes(buf.freeze()),
+                            ))?;
+                    }
+                }
             }
-            SerialisedFrame::Chunk(chunk) => {
-                self.network_input_queue.send(events::DispatchEvent::Send(
-                    addr,
-                    SerialisedFrame::Chunk(chunk),
-                ))?;
-            }
+            SerialisedFrame::Chunk(chunk) => match protocol {
+                Protocol::TCP => {
+                    self.network_input_queue
+                        .send(events::DispatchEvent::SendTCP(
+                            addr,
+                            SerialisedFrame::Chunk(chunk),
+                        ))?;
+                }
+                Protocol::UDP => {
+                    self.network_input_queue
+                        .send(events::DispatchEvent::SendUDP(
+                            addr,
+                            SerialisedFrame::Chunk(chunk),
+                        ))?;
+                }
+            },
         }
         self.waker.wake()?;
         Ok(())
@@ -290,4 +330,25 @@ impl From<SerError> for NetworkBridgeErr {
     fn from(error: SerError) -> Self {
         NetworkBridgeErr::Other(format!("SerError: {:?}", error))
     }
+}
+
+// Error handling helper functions
+pub(crate) fn would_block(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::WouldBlock
+}
+
+pub(crate) fn interrupted(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::Interrupted
+}
+
+pub(crate) fn no_buffer_space(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::InvalidData
+}
+
+pub(crate) fn connection_reset(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::ConnectionReset
+}
+
+pub(crate) fn broken_pipe(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::BrokenPipe
 }

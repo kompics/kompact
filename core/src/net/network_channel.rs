@@ -1,14 +1,14 @@
+use super::*;
 use crate::{
     messaging::SerialisedFrame,
     net::{
         buffer::{BufferChunk, DecodeBuffer},
         frames::{Ack, Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
-        network_thread,
-        network_thread::*,
     },
 };
 use bytes::{Buf, BytesMut};
 use mio::{net::TcpStream, Token};
+use network_thread::*;
 use std::{
     cmp::Ordering,
     collections::VecDeque,

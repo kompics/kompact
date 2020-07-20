@@ -346,7 +346,7 @@ impl NetworkDispatcher {
                     while let Some(frame) = self.queue_manager.pop_frame(&addr) {
                         if let Some(bridge) = &self.net_bridge {
                             //println!("Sending queued frame to newly established connection");
-                            bridge.route(addr, frame)?;
+                            bridge.route(addr, frame, net::Protocol::TCP)?;
                         }
                     }
                 }
@@ -416,10 +416,41 @@ impl NetworkDispatcher {
         R: Routable,
     {
         let dst = msg.destination();
+        let protocol: Transport = dst.protocol();
         let addr = SocketAddr::new(*dst.address(), dst.port());
-        let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
-        let serialised = msg.into_serialised(buf)?;
+        let serialised = {
+            let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
+            msg.into_serialised(buf)?
+        };
 
+        match protocol {
+            Transport::TCP => self.route_remote_tcp(addr, serialised),
+            Transport::UDP => self.route_remote_udp(addr, serialised),
+            x => unimplemented!("Unsupported protocol: {}", x),
+        }
+    }
+
+    fn route_remote_udp(
+        &mut self,
+        addr: SocketAddr,
+        serialised: SerialisedFrame,
+    ) -> Result<(), NetworkBridgeErr> {
+        if let Some(bridge) = &self.net_bridge {
+            bridge.route(addr, serialised, net::Protocol::UDP)?;
+        } else {
+            warn!(
+                self.ctx.log(),
+                "Dropping UDP message to {}, as bridge is not connected.", addr
+            );
+        }
+        Ok(())
+    }
+
+    fn route_remote_tcp(
+        &mut self,
+        addr: SocketAddr,
+        serialised: SerialisedFrame,
+    ) -> Result<(), NetworkBridgeErr> {
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
@@ -446,14 +477,14 @@ impl NetworkDispatcher {
 
                     if let Some(bridge) = &self.net_bridge {
                         while let Some(frame) = self.queue_manager.pop_frame(&addr) {
-                            bridge.route(addr, frame)?;
+                            bridge.route(addr, frame, net::Protocol::TCP)?;
                         }
                     }
                     None
                 } else {
                     // Send frame
                     if let Some(bridge) = &self.net_bridge {
-                        bridge.route(addr, serialised)?;
+                        bridge.route(addr, serialised, net::Protocol::TCP)?;
                     }
                     None
                 }
@@ -504,9 +535,7 @@ impl NetworkDispatcher {
             match proto {
                 Transport::LOCAL => self.route_local(msg),
                 Transport::TCP => self.route_remote(msg),
-                Transport::UDP => Err(NetworkBridgeErr::Other(
-                    "UDP routing is not supported.".to_string(),
-                )),
+                Transport::UDP => self.route_remote(msg),
             }
         }
     }
@@ -951,24 +980,109 @@ mod dispatch_tests {
         let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
         let poaf = remote.register_by_alias(&ponger_named, "custom_name");
 
-        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let ponger_unique_path =
+            pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
-        let named_path = ActorPath::Named(NamedPath::with_system(
-            remote.system_path(),
-            vec!["custom_name".into()],
-        ));
+        // let named_path = ActorPath::Named(NamedPath::with_system(
+        //     remote.system_path(),
+        //     vec!["custom_name".into()],
+        // ));
 
-        let unique_path = ActorPath::Unique(UniquePath::with_system(
-            remote.system_path(),
-            ponger_unique.id(),
-        ));
+        // let unique_path = ActorPath::Unique(UniquePath::with_system(
+        //     remote.system_path(),
+        //     ponger_unique.id(),
+        // ));
 
         let (pinger_unique, piuf) =
-            system.create_and_register(move || PingerAct::new_eager(unique_path));
+            system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
         let (pinger_named, pinf) =
-            system.create_and_register(move || PingerAct::new_eager(named_path));
+            system.create_and_register(move || PingerAct::new_eager(ponger_named_path));
+
+        piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(7000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_unique.on_definition(|c| {
+            println!("pinger uniq count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors_eager_mixed_udp() {
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
+        let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+
+        let mut ponger_unique_path =
+            pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_unique_path.via_udp();
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let mut ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_named_path.via_udp();
+
+        // let named_path = ActorPath::Named(NamedPath::with_system(
+        //     remote.system_path(),
+        //     vec!["custom_name".into()],
+        // ));
+
+        // let unique_path = ActorPath::Unique(UniquePath::with_system(
+        //     remote.system_path(),
+        //     ponger_unique.id(),
+        // ));
+
+        let (pinger_unique, piuf) =
+            system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
+        let (pinger_named, pinf) =
+            system.create_and_register(move || PingerAct::new_eager(ponger_named_path));
 
         piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -1046,6 +1160,89 @@ mod dispatch_tests {
 
         let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new(unique_path));
         let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new(named_path));
+
+        piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(7000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_unique.on_definition(|c| {
+            println!("pinger uniq count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = remote.create_and_register(PongerAct::new);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+
+        let mut ponger_unique_path =
+            pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_unique_path.via_udp();
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let mut ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_named_path.via_udp();
+
+        // let named_path = ActorPath::Named(NamedPath::with_system(
+        //     remote.system_path(),
+        //     vec!["custom_name".into()],
+        // ));
+
+        // let unique_path = ActorPath::Unique(UniquePath::with_system(
+        //     remote.system_path(),
+        //     ponger_unique.id(),
+        // ));
+
+        let (pinger_unique, piuf) =
+            system.create_and_register(move || PingerAct::new(ponger_unique_path));
+        let (pinger_named, pinf) =
+            system.create_and_register(move || PingerAct::new(ponger_named_path));
 
         piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");

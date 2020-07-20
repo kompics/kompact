@@ -398,6 +398,21 @@ impl ActorPath {
     pub fn set_transport(&mut self, proto: Transport) {
         self.system_mut().protocol = proto;
     }
+
+    /// Sets the transport protocol for this actor path to UDP
+    pub fn via_udp(&mut self) {
+        self.set_transport(Transport::UDP);
+    }
+
+    /// Sets the transport protocol for this actor path to TCP
+    pub fn via_tcp(&mut self) {
+        self.set_transport(Transport::TCP);
+    }
+
+    /// Sets the transport protocol for this actor path to LOCAL
+    pub fn via_local(&mut self) {
+        self.set_transport(Transport::LOCAL);
+    }
 }
 
 impl SystemField for ActorPath {
