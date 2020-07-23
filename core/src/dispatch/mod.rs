@@ -548,7 +548,7 @@ impl NetworkDispatcher {
             }
         }
     }
-    
+
     fn deadletter_path(&mut self) -> ActorPath {
         ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
     }

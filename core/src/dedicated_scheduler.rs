@@ -51,7 +51,10 @@ impl DedicatedThreadScheduler {
     #[cfg(feature = "thread_pinning")]
     pub(crate) fn pinned<CD>(
         core_id: core_affinity::CoreId,
-    ) -> std::io::Result<(DedicatedThreadScheduler, utils::KPromise<Arc<Component<CD>>>)>
+    ) -> std::io::Result<(
+        DedicatedThreadScheduler,
+        utils::KPromise<Arc<Component<CD>>>,
+    )>
     where
         CD: ComponentDefinition + 'static,
     {
