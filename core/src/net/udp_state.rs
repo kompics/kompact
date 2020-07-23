@@ -3,7 +3,6 @@ use crate::{
     messaging::{NetMessage, SerialisedFrame},
     net::buffer::{BufferChunk, DecodeBuffer},
 };
-use io::{Error, ErrorKind};
 use mio::net::UdpSocket;
 use network_thread::*;
 use std::{collections::VecDeque, io, net::SocketAddr};
@@ -110,7 +109,7 @@ impl UdpState {
                     }
                 }
             } else {
-                return Err(Error::new(ErrorKind::InvalidData, "No space in Buffer"));
+                return Ok((received_bytes, IOReturn::SwapBuffer));
             }
         }
     }

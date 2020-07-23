@@ -12,7 +12,6 @@ use uuid::Uuid;
 use super::*;
 use crate::{
     actors::TypedMsgQueue,
-    messaging::PathResolvable,
     supervision::*,
     timer::timer_manager::{ExecuteAction, ScheduledTimer, Timer, TimerManager, TimerRefFactory},
 };

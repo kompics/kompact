@@ -754,7 +754,7 @@ pub enum DispatchEnvelope {
     /// A potential network message that must be resolved
     Msg {
         /// The source of the message
-        src: PathResolvable,
+        src: ActorPath,
         /// The destination of the message
         dst: ActorPath,
         /// The actual data to be dispatched
@@ -804,6 +804,12 @@ pub enum PathResolvable {
     Alias(String),
     /// The system path (as provided by the dispatcher)
     System,
+}
+
+impl From<ActorPath> for PathResolvable {
+    fn from(path: ActorPath) -> Self {
+        PathResolvable::Path(path)
+    }
 }
 
 /// A macro to make matching serialisation ids and deserialising easier

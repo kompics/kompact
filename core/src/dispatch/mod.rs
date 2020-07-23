@@ -201,6 +201,8 @@ impl NetworkDispatcher {
     }
 
     fn start(&mut self) -> Result<(), net::NetworkBridgeErr> {
+        use lookup::ActorLookup;
+
         debug!(self.ctx.log(), "Starting self and network bridge");
         let dispatcher = self
             .actor_ref()
@@ -215,6 +217,13 @@ impl NetworkDispatcher {
             self.cfg.addr,
             dispatcher.clone(),
         );
+
+        let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
+        self.lookup.rcu(|current| {
+            let mut next = ActorStore::clone(&current);
+            next.insert(deadletter.clone(), PathResolvable::System);
+            next
+        });
 
         bridge.set_dispatcher(dispatcher);
         self.schedule_retries();
@@ -518,7 +527,7 @@ impl NetworkDispatcher {
             PathResolvable::ActorId(uuid) => {
                 ActorPath::Unique(UniquePath::with_system(self.system_path(), *uuid))
             }
-            PathResolvable::System => self.actor_path(),
+            PathResolvable::System => self.deadletter_path(),
         }
     }
 
@@ -539,10 +548,9 @@ impl NetworkDispatcher {
             }
         }
     }
-
-    fn actor_path(&mut self) -> ActorPath {
-        let uuid = *self.ctx.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid))
+    
+    fn deadletter_path(&mut self) -> ActorPath {
+        ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
     }
 }
 
@@ -552,9 +560,7 @@ impl Actor for NetworkDispatcher {
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
             DispatchEnvelope::Msg { src, dst, msg } => {
-                // Look up destination (local or remote), then route or err
-                let resolved_src = self.resolve_path(&src);
-                if let Err(e) = self.route((resolved_src, dst, msg)) {
+                if let Err(e) = self.route((src, dst, msg)) {
                     error!(self.ctx.log(), "Failed to route message: {:?}", e);
                 };
             }
@@ -1511,7 +1517,7 @@ mod dispatch_tests {
         let (ponger, pof) = system.create_and_register(PongerAct::new);
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let mut ponger_path = system.actor_path_for(&ponger);
-        ponger_path.set_transport(Transport::LOCAL);
+        ponger_path.set_protocol(Transport::LOCAL);
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(ponger_path));
 
         pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -1550,12 +1556,12 @@ mod dispatch_tests {
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let mut ponger_path =
             pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        ponger_path.set_transport(Transport::LOCAL);
+        ponger_path.set_protocol(Transport::LOCAL);
 
         let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
         let mut forwarder_path =
             fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
-        forwarder_path.set_transport(Transport::LOCAL);
+        forwarder_path.set_protocol(Transport::LOCAL);
 
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(forwarder_path));
         let _pinger_path =
@@ -1599,12 +1605,12 @@ mod dispatch_tests {
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let mut ponger_path =
             pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        ponger_path.set_transport(Transport::LOCAL);
+        ponger_path.set_protocol(Transport::LOCAL);
 
         let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
         let mut forwarder_path =
             fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
-        forwarder_path.set_transport(Transport::LOCAL);
+        forwarder_path.set_protocol(Transport::LOCAL);
 
         let (pinger, pif) =
             system.create_and_register(move || PingerAct::new_eager(forwarder_path));

@@ -146,7 +146,6 @@ pub mod prelude {
             ActorRef,
             ActorRefFactory,
             ActorRefStrong,
-            ActorSource,
             Dispatcher,
             DispatcherRef,
             Dispatching,
