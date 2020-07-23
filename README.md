@@ -4,7 +4,7 @@ Kompact
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kompics/kompact)
 [![Cargo](https://img.shields.io/crates/v/kompact.svg)](https://crates.io/crates/kompact)
 [![Documentation](https://docs.rs/kompact/badge.svg)](https://docs.rs/kompact)
-[![Build Status](https://travis-ci.org/kompics/kompact.svg?branch=master)](https://travis-ci.org/kompics/kompact)
+[![Build Status](https://travis-ci.com/kompics/kompact.svg?branch=master)](https://travis-ci.com/kompics/kompact)
 
 Kompact is an in-development message-passing component system like [Kompics](https://kompics.github.io/docs/current/) in the Rust language, with performance and static typing in mind. It merges both Kompics' component model and the actor model as found in [Erlang](http://www.erlang.se/) or [Akka](https://akka.io/).
 
