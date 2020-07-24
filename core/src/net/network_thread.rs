@@ -742,9 +742,19 @@ impl NetworkThread {
         if let Some(mut listener) = self.tcp_listener.take() {
             self.poll.registry().deregister(&mut listener).ok();
             drop(listener);
-            debug!(self.log, "Dropped its listener and will now stop");
+            debug!(self.log, "Dropped its TCP server");
+        }
+        if let Some(mut udp_state) = self.udp_state.take() {
+            self.poll.registry().deregister(&mut udp_state.socket).ok();
+            let count = udp_state.pending_messages();
+            drop(udp_state);
+            debug!(
+                self.log,
+                "Dropped its UDP socket with message count {}", count
+            );
         }
         self.stopped = true;
+        debug!(self.log, "Stopped.");
     }
 
     fn next_token(&mut self) -> () {

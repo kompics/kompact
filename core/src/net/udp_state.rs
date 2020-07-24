@@ -11,7 +11,7 @@ const MAX_PACKET_SIZE: usize = 65536;
 
 pub(super) struct UdpState {
     logger: KompactLogger,
-    socket: UdpSocket,
+    pub(super) socket: UdpSocket,
     outbound_queue: VecDeque<(SocketAddr, SerialisedFrame)>,
     input_buffer: DecodeBuffer,
     pub(super) incoming_messages: VecDeque<NetMessage>,
@@ -26,6 +26,10 @@ impl UdpState {
             input_buffer: DecodeBuffer::new(buffer_chunk),
             incoming_messages: VecDeque::new(),
         }
+    }
+
+    pub(super) fn pending_messages(&self) -> usize {
+        self.outbound_queue.len()
     }
 
     pub(super) fn try_write(&mut self) -> io::Result<usize> {
