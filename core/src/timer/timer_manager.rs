@@ -323,8 +323,9 @@ impl TimerActorRef {
     pub(crate) fn enqueue(&self, timeout: Timeout) -> Result<(), QueueingError> {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
+                let res = c.core().increment_work();
                 q.push(timeout);
-                if let SchedulingDecision::Schedule = c.core().increment_work() {
+                if let SchedulingDecision::Schedule = res {
                     let system = c.core().system();
                     system.schedule(c.clone());
                 }
