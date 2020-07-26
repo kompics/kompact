@@ -412,12 +412,6 @@ impl<CD: ComponentTraits> Dispatching for CD {
     }
 }
 
-impl<CD: ComponentTraits> ActorSource for CD {
-    fn path_resolvable(&self) -> PathResolvable {
-        PathResolvable::ActorId(*self.ctx().id())
-    }
-}
-
 impl<CD: ComponentTraits> ActorPathFactory for CD {
     fn actor_path(&self) -> ActorPath {
         self.ctx().actor_path()

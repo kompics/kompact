@@ -943,6 +943,11 @@ impl KompactSystem {
     pub(crate) fn supervision_port(&self) -> ProvidedRef<SupervisionPort> {
         self.inner.supervision_port()
     }
+
+    /// The remote path for the deadletter box
+    pub fn deadletter_path(&self) -> ActorPath {
+        ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
+    }
 }
 
 impl ActorRefFactory for KompactSystem {
@@ -962,9 +967,9 @@ impl Dispatching for KompactSystem {
     }
 }
 
-impl ActorSource for KompactSystem {
-    fn path_resolvable(&self) -> PathResolvable {
-        PathResolvable::System
+impl ActorPathFactory for KompactSystem {
+    fn actor_path(&self) -> ActorPath {
+        self.deadletter_path()
     }
 }
 

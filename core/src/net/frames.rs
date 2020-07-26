@@ -330,7 +330,6 @@ impl FrameExt for Data {
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         // NOTE: This method _COPIES_ the owned bytes into `dst` rather than extending with the owned bytes
-        let _payload_len = self.payload.bytes().len();
         assert!(dst.remaining_mut() >= (self.encoded_len()));
         dst.put_slice(&self.payload.bytes());
         Ok(())

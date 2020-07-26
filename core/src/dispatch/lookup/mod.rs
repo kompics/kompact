@@ -10,9 +10,8 @@ use crate::{
     actors::{ActorPath, DynActorRef},
     messaging::PathResolvable,
 };
+use rustc_hash::FxHashMap;
 use sequence_trie::SequenceTrie;
-//use std::collections::HashMap;
-use fnv::FnvHashMap;
 use uuid::Uuid;
 
 pub mod gc;
@@ -78,8 +77,9 @@ pub trait ActorLookup: Clone {
 /// This use case is not currently being utilized, but it may be in the future.
 #[derive(Clone)]
 pub struct ActorStore {
-    uuid_map: FnvHashMap<Uuid, DynActorRef>,
+    uuid_map: FxHashMap<Uuid, DynActorRef>,
     name_map: SequenceTrie<String, DynActorRef>,
+    deadletter: Option<DynActorRef>,
 }
 
 // impl ActorStore
@@ -87,8 +87,9 @@ pub struct ActorStore {
 impl ActorStore {
     pub fn new() -> Self {
         ActorStore {
-            uuid_map: FnvHashMap::default(),
+            uuid_map: FxHashMap::default(),
             name_map: SequenceTrie::new(),
+            deadletter: None,
         }
     }
 }
@@ -110,9 +111,7 @@ impl ActorLookup for ActorStore {
             },
             PathResolvable::Alias(alias) => self.name_map.insert(&vec![alias], actor),
             PathResolvable::ActorId(uuid) => self.uuid_map.insert(uuid, actor),
-            PathResolvable::System => {
-                panic!("System paths should not be registered");
-            }
+            PathResolvable::System => self.deadletter.replace(actor),
         }
     }
 
@@ -130,7 +129,7 @@ impl ActorLookup for ActorStore {
                 self.name_map.get(&[alias.clone()]).is_some()
             }
             PathResolvable::ActorId(ref uuid) => self.uuid_map.contains_key(uuid),
-            &PathResolvable::System => false, // System path registration is not allowed
+            PathResolvable::System => self.deadletter.is_some(),
         }
     }
 
@@ -139,7 +138,11 @@ impl ActorLookup for ActorStore {
     }
 
     fn get_by_named_path(&self, path: &[String]) -> Option<&DynActorRef> {
-        self.name_map.get(path)
+        if path.is_empty() {
+            self.deadletter.as_ref()
+        } else {
+            self.name_map.get(path)
+        }
     }
 
     fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef> {
@@ -147,7 +150,11 @@ impl ActorLookup for ActorStore {
     }
 
     fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef> {
-        self.name_map.get_mut(path)
+        if path.is_empty() {
+            self.deadletter.as_mut()
+        } else {
+            self.name_map.get_mut(path)
+        }
     }
 
     fn remove(&mut self, actor: DynActorRef) -> usize {

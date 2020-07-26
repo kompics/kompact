@@ -671,6 +671,26 @@ pub enum SerialisedFrame {
     Chunk(ChunkLease),
 }
 
+impl SerialisedFrame {
+    /// Returns `true` the frame is of zero length
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the number of bytes in this frame
+    pub fn len(&self) -> usize {
+        self.bytes().len()
+    }
+
+    /// Returns the data in this frame as a slice
+    pub fn bytes(&self) -> &[u8] {
+        match self {
+            SerialisedFrame::Chunk(chunk) => chunk.bytes(),
+            SerialisedFrame::Bytes(bytes) => bytes.bytes(),
+        }
+    }
+}
+
 /// An abstraction over lazy or eagerly serialised data sent to the dispatcher
 #[derive(Debug)]
 pub enum DispatchData {
@@ -734,7 +754,7 @@ pub enum DispatchEnvelope {
     /// A potential network message that must be resolved
     Msg {
         /// The source of the message
-        src: PathResolvable,
+        src: ActorPath,
         /// The destination of the message
         dst: ActorPath,
         /// The actual data to be dispatched
@@ -784,6 +804,12 @@ pub enum PathResolvable {
     Alias(String),
     /// The system path (as provided by the dispatcher)
     System,
+}
+
+impl From<ActorPath> for PathResolvable {
+    fn from(path: ActorPath) -> Self {
+        PathResolvable::Path(path)
+    }
 }
 
 /// A macro to make matching serialisation ids and deserialising easier

@@ -271,7 +271,6 @@ where
             match future.run() {
                 Poll::Pending => Handled::Ok,
                 Poll::Ready(handled) => {
-                    drop(future);
                     self.non_blocking_futures.remove(&tag);
                     handled
                 }

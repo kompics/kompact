@@ -163,57 +163,37 @@ pub fn ping_pong_throughput_static(b: &mut Bencher, pipeline: &u64) {
 
 pub fn ping_pong_latency_static(b: &mut Bencher) {
     use ppstatic::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_static_threads(b: &mut Bencher, threads: &usize) {
     use ppstatic::*;
-    ping_pong_latency(
-        b,
-        *threads,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, *threads, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_indexed(b: &mut Bencher) {
     use ppindexed::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_pipeline_static(b: &mut Bencher) {
     use pppipelinestatic::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_pipeline_indexed(b: &mut Bencher) {
     use pppipelineindexed::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(

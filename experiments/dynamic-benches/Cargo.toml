@@ -9,10 +9,12 @@ edition = "2018"
 [dependencies]
 uuid = { version = "0.8", features = ["v4"] }
 fnv = "1.0"
-fxhash = "0.2"
+#fxhash = "0.2"
 twox-hash = "1.5"
 synchronoise = "1.0"
 panoradix = "0.6"
+im = "15.0"
+rustc-hash = "1.1"
 criterion = {version = "0.3"}
 # only works on nightly
 #criterion = {version = "0.3", features=["real_blackbox"]}
@@ -38,10 +40,10 @@ rustc_version = "0.2"
 # path = "src/network_latency.rs"
 # harness = false
 
-# [[bench]]
-# name = "hashes"
-# path = "src/hashes.rs"
-# harness = false
+[[bench]]
+name = "hashes"
+path = "src/hashes.rs"
+harness = false
 
 # [[bench]]
 # name = "actorrefs"
@@ -53,7 +55,7 @@ rustc_version = "0.2"
 # path = "src/loop_opts.rs"
 # harness = false
 
-[[bench]]
-name = "pingperf"
-path = "src/pingperf.rs"
-harness = false
+# [[bench]]
+# name = "pingperf"
+# path = "src/pingperf.rs"
+# harness = false

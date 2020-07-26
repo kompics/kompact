@@ -5,8 +5,9 @@ use core::{cmp, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
-const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 1000;
-// Assume 64 byte cache lines -> 1000 cache lines per chunk
+const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 2000;
+// Assume 64 byte cache lines -> 2000 cache lines per chunk
+// (1000 are too small for a UDP datagram)
 const ENCODEBUFFER_MIN_REMAINING: usize = 64; // Always have at least a full cache line available
 
 /// Required methods for a Chunk
