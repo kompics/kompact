@@ -2,10 +2,9 @@ use super::*;
 
 use crate::{
     actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport},
-    component::{Component, ComponentContext, ExecuteResult, Provide},
-    lifecycle::{ControlEvent, ControlPort},
+    component::{Component, ComponentContext, ExecuteResult},
 };
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, pin::Pin, sync::Arc};
 
 use crate::{
     actors::{NamedPath, UniquePath},
@@ -20,7 +19,6 @@ use crate::{
         RegistrationEnvelope,
         RegistrationError,
         RegistrationPromise,
-        RegistrationResponse,
         SerialisedFrame,
     },
     net::{
@@ -32,8 +30,11 @@ use crate::{
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
-use fnv::FnvHashMap;
-use futures::{self, Async, AsyncSink, Poll, StartSend};
+use futures::{
+    self,
+    task::{Context, Poll},
+};
+use rustc_hash::FxHashMap;
 use std::{io::ErrorKind, time::Duration};
 use std::collections::VecDeque;
 use crate::net::buffer::BufferChunk;
@@ -43,6 +44,8 @@ pub mod queue_manager;
 
 const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
 const MAX_RETRY_ATTEMPTS: u8 = 10;
+
+type NetHashMap<K, V> = FxHashMap<K, V>;
 
 /// Configuration builder for the network dispatcher
 ///
@@ -83,7 +86,7 @@ impl NetworkConfig {
     ///
     /// Returns the appropriate function type for use
     /// with [system_components](KompactConfig::system_components).
-    pub fn build(self) -> impl Fn(Promise<()>) -> NetworkDispatcher {
+    pub fn build(self) -> impl Fn(KPromise<()>) -> NetworkDispatcher {
         move |notify_ready| NetworkDispatcher::with_config(self.clone(), notify_ready)
     }
 }
@@ -114,7 +117,7 @@ impl Default for NetworkConfig {
 pub struct NetworkDispatcher {
     ctx: ComponentContext<NetworkDispatcher>,
     /// Local map of connection statuses
-    connections: FnvHashMap<SocketAddr, ConnectionState>,
+    connections: NetHashMap<SocketAddr, ConnectionState>,
     /// Network configuration for this dispatcher
     cfg: NetworkConfig,
     /// Shared lookup structure for mapping [actor paths](ActorPath) and [actor refs](ActorRef)
@@ -128,7 +131,7 @@ pub struct NetworkDispatcher {
     queue_manager: QueueManager,
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
-    notify_ready: Option<Promise<()>>,
+    notify_ready: Option<KPromise<()>>,
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
     retry_map: FnvHashMap<SocketAddr, (u8)>,
@@ -152,7 +155,7 @@ impl NetworkDispatcher {
     /// let system = conf.build().expect("system");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn new(notify_ready: Promise<()>) -> Self {
+    pub fn new(notify_ready: KPromise<()>) -> Self {
         let config = NetworkConfig::default();
         NetworkDispatcher::with_config(config, notify_ready)
     }
@@ -161,14 +164,14 @@ impl NetworkDispatcher {
     ///
     /// For better readability in combination with [system_components](KompactConfig::system_components),
     /// use [NetworkConfig::build](NetworkConfig::build) instead.
-    pub fn with_config(cfg: NetworkConfig, notify_ready: Promise<()>) -> Self {
-        let lookup = Arc::new(ArcSwap::from(Arc::new(ActorStore::new())));
+    pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
+        let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         let reaper = lookup::gc::ActorRefReaper::default();
         let encode_buffer = crate::net::buffer::EncodeBuffer::new();
 
         NetworkDispatcher {
-            ctx: ComponentContext::new(),
-            connections: FnvHashMap::default(),
+            ctx: ComponentContext::uninitialised(),
+            connections: Default::default(),
             cfg,
             lookup,
             net_bridge: None,
@@ -177,8 +180,8 @@ impl NetworkDispatcher {
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
-            retry_map: FnvHashMap::default(),
             old_buffers: VecDeque::new(),
+            retry_map: Default::default(),
         }
     }
 
@@ -202,6 +205,8 @@ impl NetworkDispatcher {
     }
 
     fn start(&mut self) -> Result<(), net::NetworkBridgeErr> {
+        use lookup::ActorLookup;
+
         debug!(self.ctx.log(), "Starting self and network bridge");
         let dispatcher = self
             .actor_ref()
@@ -216,6 +221,13 @@ impl NetworkDispatcher {
             self.cfg.addr,
             dispatcher.clone(),
         );
+
+        let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
+        self.lookup.rcu(|current| {
+            let mut next = ActorStore::clone(&current);
+            next.insert(deadletter.clone(), PathResolvable::System);
+            next
+        });
 
         bridge.set_dispatcher(dispatcher);
         self.schedule_retries();
@@ -270,7 +282,8 @@ impl NetworkDispatcher {
         self.old_buffers.append(&mut retry_queue);
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
-            target.schedule_reaper()
+            target.schedule_reaper();
+            Handled::Ok
         });
     }
 
@@ -305,7 +318,10 @@ impl NetworkDispatcher {
         }
         self.schedule_once(
             Duration::from_millis(RETRY_CONNECTIONS_INTERVAL),
-            move |target, _id| target.schedule_retries(),
+            move |target, _id| {
+                target.schedule_retries();
+                Handled::Ok
+            },
         );
     }
 
@@ -350,7 +366,7 @@ impl NetworkDispatcher {
                     while let Some(frame) = self.queue_manager.pop_frame(&addr) {
                         if let Some(bridge) = &self.net_bridge {
                             //println!("Sending queued frame to newly established connection");
-                            bridge.route(addr, frame)?;
+                            bridge.route(addr, frame, net::Protocol::TCP)?;
                         }
                     }
                 }
@@ -389,9 +405,9 @@ impl NetworkDispatcher {
         R: Routable,
     {
         use crate::dispatch::lookup::ActorLookup;
-        let lookup = self.lookup.lease();
+        let lookup = self.lookup.load();
         let actor_opt = lookup.get_by_actor_path(msg.destination());
-        match msg.to_local() {
+        match msg.into_local() {
             Ok(netmsg) => {
                 if let Some(ref actor) = actor_opt {
                     actor.enqueue(netmsg);
@@ -420,10 +436,41 @@ impl NetworkDispatcher {
         R: Routable,
     {
         let dst = msg.destination();
+        let protocol: Transport = dst.protocol();
         let addr = SocketAddr::new(*dst.address(), dst.port());
-        let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
-        let serialised = msg.to_serialised(buf)?;
+        let serialised = {
+            let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
+            msg.into_serialised(buf)?
+        };
 
+        match protocol {
+            Transport::TCP => self.route_remote_tcp(addr, serialised),
+            Transport::UDP => self.route_remote_udp(addr, serialised),
+            x => unimplemented!("Unsupported protocol: {}", x),
+        }
+    }
+
+    fn route_remote_udp(
+        &mut self,
+        addr: SocketAddr,
+        serialised: SerialisedFrame,
+    ) -> Result<(), NetworkBridgeErr> {
+        if let Some(bridge) = &self.net_bridge {
+            bridge.route(addr, serialised, net::Protocol::UDP)?;
+        } else {
+            warn!(
+                self.ctx.log(),
+                "Dropping UDP message to {}, as bridge is not connected.", addr
+            );
+        }
+        Ok(())
+    }
+
+    fn route_remote_tcp(
+        &mut self,
+        addr: SocketAddr,
+        serialised: SerialisedFrame,
+    ) -> Result<(), NetworkBridgeErr> {
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
@@ -450,14 +497,14 @@ impl NetworkDispatcher {
 
                     if let Some(bridge) = &self.net_bridge {
                         while let Some(frame) = self.queue_manager.pop_frame(&addr) {
-                            bridge.route(addr, frame)?;
+                            bridge.route(addr, frame, net::Protocol::TCP)?;
                         }
                     }
                     None
                 } else {
                     // Send frame
                     if let Some(bridge) = &self.net_bridge {
-                        bridge.route(addr, serialised)?;
+                        bridge.route(addr, serialised, net::Protocol::TCP)?;
                     }
                     None
                 }
@@ -491,7 +538,7 @@ impl NetworkDispatcher {
             PathResolvable::ActorId(uuid) => {
                 ActorPath::Unique(UniquePath::with_system(self.system_path(), *uuid))
             }
-            PathResolvable::System => self.actor_path(),
+            PathResolvable::System => self.deadletter_path(),
         }
     }
 
@@ -508,28 +555,23 @@ impl NetworkDispatcher {
             match proto {
                 Transport::LOCAL => self.route_local(msg),
                 Transport::TCP => self.route_remote(msg),
-                Transport::UDP => Err(NetworkBridgeErr::Other(
-                    "UDP routing is not supported.".to_string(),
-                )),
+                Transport::UDP => self.route_remote(msg),
             }
         }
     }
 
-    fn actor_path(&mut self) -> ActorPath {
-        let uuid = *self.ctx.id();
-        ActorPath::Unique(UniquePath::with_system(self.system_path(), uuid))
+    fn deadletter_path(&mut self) -> ActorPath {
+        ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
     }
 }
 
 impl Actor for NetworkDispatcher {
     type Message = DispatchEnvelope;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
             DispatchEnvelope::Msg { src, dst, msg } => {
-                // Look up destination (local or remote), then route or err
-                let resolved_src = self.resolve_path(&src);
-                if let Err(e) = self.route((resolved_src, dst, msg)) {
+                if let Err(e) = self.route((src, dst, msg)) {
                     error!(self.ctx.log(), "Failed to route message: {:?}", e);
                 };
             }
@@ -542,60 +584,55 @@ impl Actor for NetworkDispatcher {
             DispatchEnvelope::Registration(reg) => {
                 use lookup::ActorLookup;
 
-                match reg {
-                    RegistrationEnvelope {
-                        actor,
-                        path,
-                        update,
-                        promise,
-                    } => {
-                        let ap = self.resolve_path(&path);
-                        let lease = self.lookup.lease();
-                        let res = if lease.contains(&path) && !update {
-                            warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
-                            drop(lease);
-                            Err(RegistrationError::DuplicateEntry)
-                        } else {
-                            drop(lease);
-                            let mut replaced = false;
-                            self.lookup.rcu(|current| {
-                                let mut next = (*current).clone();
-                                if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
-                                    replaced = true;
-                                }
-                                Arc::new(next)
-                            });
-                            if replaced {
-                                info!(self.ctx.log(), "Replaced entry for path={:?}", path.clone());
-                            }
-                            Ok(ap)
-                        };
-
-                        if res.is_ok() && !self.reaper.is_scheduled() {
-                            self.schedule_reaper();
+                let RegistrationEnvelope {
+                    actor,
+                    path,
+                    update,
+                    promise,
+                } = reg;
+                let ap = self.resolve_path(&path);
+                let lease = self.lookup.load();
+                let res = if lease.contains(&path) && !update {
+                    warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
+                    drop(lease);
+                    Err(RegistrationError::DuplicateEntry)
+                } else {
+                    drop(lease);
+                    let mut replaced = false;
+                    self.lookup.rcu(|current| {
+                        let mut next = ActorStore::clone(&current);
+                        if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
+                            replaced = true;
                         }
-                        match promise {
-                            RegistrationPromise::Fulfil(promise) => {
-                                promise.fulfil(res).unwrap_or_else(|e| {
-                                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
-                                });
-                            }
-                            RegistrationPromise::Reply { id, recipient } => {
-                                let msg = RegistrationResponse::new(id, res);
-                                recipient.tell(msg);
-                            }
-                            RegistrationPromise::None => (), // ignore
-                        }
+                        next
+                    });
+                    if replaced {
+                        info!(self.ctx.log(), "Replaced entry for path={:?}", path);
                     }
+                    Ok(ap)
+                };
+
+                if res.is_ok() && !self.reaper.is_scheduled() {
+                    self.schedule_reaper();
+                }
+                match promise {
+                    RegistrationPromise::Fulfil(promise) => {
+                        promise.fulfil(res).unwrap_or_else(|e| {
+                            error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                        });
+                    }
+                    RegistrationPromise::None => (), // ignore
                 }
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),
             DispatchEnvelope::LockedChunk(trash) => self.old_buffers.push_back(trash),
         }
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         warn!(self.ctx.log(), "Received network message: {:?}", msg,);
+        Handled::Ok
     }
 }
 
@@ -619,85 +656,91 @@ impl Dispatcher for NetworkDispatcher {
     }
 }
 
-impl Provide<ControlPort> for NetworkDispatcher {
-    fn handle(&mut self, event: ControlEvent) {
-        match event {
-            ControlEvent::Start => {
-                info!(self.ctx.log(), "Starting network...");
-                let res = self.start(); //.expect("Could not create NetworkDispatcher!");
-                match res {
-                    Ok(_) => {
-                        info!(self.ctx.log(), "Started network just fine.");
-                        match self.notify_ready.take() {
-                            Some(promise) => promise.fulfil(()).unwrap_or_else(|e| {
-                                error!(self.ctx.log(), "Could not start network! {:?}", e)
-                            }),
-                            None => (),
-                        }
-                    }
-                    Err(e) => {
-                        error!(self.ctx.log(), "Could not start network! {:?}", e);
-                        panic!("Kill me now!");
-                    }
+impl ComponentLifecycle for NetworkDispatcher {
+    fn on_start(&mut self) -> Handled {
+        info!(self.ctx.log(), "Starting network...");
+        let res = self.start(); //.expect("Could not create NetworkDispatcher!");
+        match res {
+            Ok(_) => {
+                info!(self.ctx.log(), "Started network just fine.");
+                if let Some(promise) = self.notify_ready.take() {
+                    promise.fulfil(()).unwrap_or_else(|e| {
+                        error!(self.ctx.log(), "Could not start network! {:?}", e)
+                    })
                 }
             }
-            ControlEvent::Stop => {
-                info!(self.ctx.log(), "Stopping network...");
-                self.stop();
-                info!(self.ctx.log(), "Stopped network.");
-            }
-            ControlEvent::Kill => {
-                info!(self.ctx.log(), "Killing network...");
-                self.kill();
-                info!(self.ctx.log(), "Killed network.");
+            Err(e) => {
+                error!(self.ctx.log(), "Could not start network! {:?}", e);
+                panic!("Kill me now!");
             }
         }
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        info!(self.ctx.log(), "Stopping network...");
+        self.stop();
+        info!(self.ctx.log(), "Stopped network.");
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        info!(self.ctx.log(), "Killing network...");
+        self.kill();
+        info!(self.ctx.log(), "Killed network.");
+        Handled::Ok
     }
 }
 
 /// Helper for forwarding [MsgEnvelope]s to actor references
-impl futures::Sink for ActorRefStrong<DispatchEnvelope> {
-    type SinkError = ();
-    type SinkItem = DispatchEnvelope;
+impl futures::sink::Sink<DispatchEnvelope> for ActorRefStrong<DispatchEnvelope> {
+    type Error = ();
 
-    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn start_send(self: Pin<&mut Self>, item: DispatchEnvelope) -> Result<(), Self::Error> {
         self.tell(item);
-        Ok(AsyncSink::Ready)
+        Ok(())
     }
 
-    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
-    fn close(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 
 /// Helper for forwarding [MsgEnvelope]s to actor references
-impl futures::Sink for DynActorRef {
-    type SinkError = ();
-    type SinkItem = NetMessage;
+impl futures::sink::Sink<NetMessage> for DynActorRef {
+    type Error = ();
 
-    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
-        DynActorRef::enqueue(self, item);
-        Ok(AsyncSink::Ready)
+    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
-    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn start_send(self: Pin<&mut Self>, item: NetMessage) -> Result<(), Self::Error> {
+        DynActorRef::enqueue(&self.as_ref(), item);
+        Ok(())
     }
 
-    fn close(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(Async::Ready(()))
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 
 trait Routable {
     fn source(&self) -> &ActorPath;
     fn destination(&self) -> &ActorPath;
-    fn to_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError>;
-    fn to_local(self) -> Result<NetMessage, SerError>;
+    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError>;
+    fn into_local(self) -> Result<NetMessage, SerError>;
 }
 
 impl Routable for NetMessage {
@@ -709,11 +752,11 @@ impl Routable for NetMessage {
         &self.receiver
     }
 
-    fn to_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
-        crate::ser_helpers::embed_msg(self, buf).map(|chunk| SerialisedFrame::Chunk(chunk))
+    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
+        crate::ser_helpers::embed_msg(self, buf).map(SerialisedFrame::Chunk)
     }
 
-    fn to_local(self) -> Result<NetMessage, SerError> {
+    fn into_local(self) -> Result<NetMessage, SerError> {
         Ok(self)
     }
 }
@@ -726,12 +769,12 @@ impl Routable for (ActorPath, ActorPath, DispatchData) {
         &self.1
     }
 
-    fn to_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
-        self.2.to_serialised(self.0, self.1, buf)
+    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
+        self.2.into_serialised(self.0, self.1, buf)
     }
 
-    fn to_local(self) -> Result<NetMessage, SerError> {
-        self.2.to_local(self.0, self.1)
+    fn into_local(self) -> Result<NetMessage, SerError> {
+        self.2.into_local(self.0, self.1)
     }
 }
 
@@ -756,7 +799,7 @@ mod dispatch_tests {
         println!("Starting KompactSystem");
         let system = cfg.build().expect("KompactSystem");
         thread::sleep(Duration::from_secs(1));
-        assert!(false, "System should not start correctly!");
+        //unreachable!("System should not start correctly! {:?}", system.label());
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -955,24 +998,109 @@ mod dispatch_tests {
         let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
         let poaf = remote.register_by_alias(&ponger_named, "custom_name");
 
-        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let ponger_unique_path =
+            pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
-        let named_path = ActorPath::Named(NamedPath::with_system(
-            remote.system_path(),
-            vec!["custom_name".into()],
-        ));
+        // let named_path = ActorPath::Named(NamedPath::with_system(
+        //     remote.system_path(),
+        //     vec!["custom_name".into()],
+        // ));
 
-        let unique_path = ActorPath::Unique(UniquePath::with_system(
-            remote.system_path(),
-            ponger_unique.id().clone(),
-        ));
+        // let unique_path = ActorPath::Unique(UniquePath::with_system(
+        //     remote.system_path(),
+        //     ponger_unique.id(),
+        // ));
 
         let (pinger_unique, piuf) =
-            system.create_and_register(move || PingerAct::new_eager(unique_path));
+            system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
         let (pinger_named, pinf) =
-            system.create_and_register(move || PingerAct::new_eager(named_path));
+            system.create_and_register(move || PingerAct::new_eager(ponger_named_path));
+
+        piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(7000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_unique.on_definition(|c| {
+            println!("pinger uniq count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors_eager_mixed_udp() {
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
+        let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+
+        let mut ponger_unique_path =
+            pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_unique_path.via_udp();
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let mut ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_named_path.via_udp();
+
+        // let named_path = ActorPath::Named(NamedPath::with_system(
+        //     remote.system_path(),
+        //     vec!["custom_name".into()],
+        // ));
+
+        // let unique_path = ActorPath::Unique(UniquePath::with_system(
+        //     remote.system_path(),
+        //     ponger_unique.id(),
+        // ));
+
+        let (pinger_unique, piuf) =
+            system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
+        let (pinger_named, pinf) =
+            system.create_and_register(move || PingerAct::new_eager(ponger_named_path));
 
         piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -1045,11 +1173,94 @@ mod dispatch_tests {
 
         let unique_path = ActorPath::Unique(UniquePath::with_system(
             remote.system_path(),
-            ponger_unique.id().clone(),
+            ponger_unique.id(),
         ));
 
         let (pinger_unique, piuf) = system.create_and_register(move || PingerAct::new(unique_path));
         let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new(named_path));
+
+        piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_unique);
+        remote.start(&ponger_named);
+        system.start(&pinger_unique);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(7000));
+
+        let pingfu = system.stop_notify(&pinger_unique);
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfu = remote.kill_notify(ponger_unique);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfu
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_unique.on_definition(|c| {
+            println!("pinger uniq count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+        pinger_named.on_definition(|c| {
+            println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
+    /// the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
+    /// the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
+    /// messages.
+    fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = remote.create_and_register(PongerAct::new);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+
+        let mut ponger_unique_path =
+            pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_unique_path.via_udp();
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let mut ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_named_path.via_udp();
+
+        // let named_path = ActorPath::Named(NamedPath::with_system(
+        //     remote.system_path(),
+        //     vec!["custom_name".into()],
+        // ));
+
+        // let unique_path = ActorPath::Unique(UniquePath::with_system(
+        //     remote.system_path(),
+        //     ponger_unique.id(),
+        // ));
+
+        let (pinger_unique, piuf) =
+            system.create_and_register(move || PingerAct::new(ponger_unique_path));
+        let (pinger_named, pinf) =
+            system.create_and_register(move || PingerAct::new(ponger_named_path));
 
         piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -1395,7 +1606,7 @@ mod dispatch_tests {
         let (ponger, pof) = system.create_and_register(PongerAct::new);
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let mut ponger_path = system.actor_path_for(&ponger);
-        ponger_path.set_transport(Transport::LOCAL);
+        ponger_path.set_protocol(Transport::LOCAL);
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(ponger_path));
 
         pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -1434,12 +1645,12 @@ mod dispatch_tests {
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let mut ponger_path =
             pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        ponger_path.set_transport(Transport::LOCAL);
+        ponger_path.set_protocol(Transport::LOCAL);
 
         let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
         let mut forwarder_path =
             fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
-        forwarder_path.set_transport(Transport::LOCAL);
+        forwarder_path.set_protocol(Transport::LOCAL);
 
         let (pinger, pif) = system.create_and_register(move || PingerAct::new(forwarder_path));
         let _pinger_path =
@@ -1483,12 +1694,12 @@ mod dispatch_tests {
         // Construct ActorPath with system's `proto` field explicitly set to LOCAL
         let mut ponger_path =
             pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-        ponger_path.set_transport(Transport::LOCAL);
+        ponger_path.set_protocol(Transport::LOCAL);
 
         let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
         let mut forwarder_path =
             fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
-        forwarder_path.set_transport(Transport::LOCAL);
+        forwarder_path.set_protocol(Transport::LOCAL);
 
         let (pinger, pif) =
             system.create_and_register(move || PingerAct::new_eager(forwarder_path));
@@ -1805,9 +2016,10 @@ mod dispatch_tests {
                 PONG_ID => Err(SerError::InvalidType(
                     "Found PongMsg, but expected PingMsg.".into(),
                 )),
-                id => Err(SerError::InvalidType(
-                    format!("Found unknown id {}, but expected PingMsg.", id).into(),
-                )),
+                id => Err(SerError::InvalidType(format!(
+                    "Found unknown id {}, but expected PingMsg.",
+                    id
+                ))),
             }
         }
     }
@@ -1830,9 +2042,10 @@ mod dispatch_tests {
                 PING_ID => Err(SerError::InvalidType(
                     "Found PingMsg, but expected PongMsg.".into(),
                 )),
-                id => Err(SerError::InvalidType(
-                    format!("Found unknown id {}, but expected PingMsg.", id).into(),
-                )),
+                id => Err(SerError::InvalidType(format!(
+                    "Found unknown id {}, but expected PingMsg.",
+                    id
+                ))),
             }
         }
     }
@@ -1848,7 +2061,7 @@ mod dispatch_tests {
     impl PingerAct {
         fn new(target: ActorPath) -> PingerAct {
             PingerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 target,
                 count: 0,
                 eager: false,
@@ -1857,7 +2070,7 @@ mod dispatch_tests {
 
         fn new_eager(target: ActorPath) -> PingerAct {
             PingerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 target,
                 count: 0,
                 eager: true,
@@ -1865,32 +2078,28 @@ mod dispatch_tests {
         }
     }
 
-    impl Provide<ControlPort> for PingerAct {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting");
-                    if self.eager {
-                        self.target
-                            .tell_serialised(PingMsg { i: 0 }, self)
-                            .expect("serialise");
-                    } else {
-                        self.target.tell(PingMsg { i: 0 }, self);
-                    }
-                }
-                _ => (),
+    impl ComponentLifecycle for PingerAct {
+        fn on_start(&mut self) -> Handled {
+            info!(self.ctx.log(), "Starting");
+            if self.eager {
+                self.target
+                    .tell_serialised(PingMsg { i: 0 }, self)
+                    .expect("serialise");
+            } else {
+                self.target.tell(PingMsg { i: 0 }, self);
             }
+            Handled::Ok
         }
     }
 
     impl Actor for PingerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _pong: Self::Message) -> () {
+        fn receive_local(&mut self, _pong: Self::Message) -> Handled {
             unimplemented!();
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     info!(self.ctx.log(), "Got msg {:?}", pong);
@@ -1898,15 +2107,16 @@ mod dispatch_tests {
                     if self.count < PING_COUNT {
                         if self.eager {
                             self.target
-                                .tell_serialised((PingMsg { i: pong.i + 1 }), self)
+                                .tell_serialised(PingMsg { i: pong.i + 1 }, self)
                                 .expect("serialise");
                         } else {
-                            self.target.tell((PingMsg { i: pong.i + 1 }), self);
+                            self.target.tell(PingMsg { i: pong.i + 1 }, self);
                         }
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
+            Handled::Ok
         }
     }
 
@@ -1919,38 +2129,29 @@ mod dispatch_tests {
     impl PongerAct {
         fn new() -> PongerAct {
             PongerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 eager: false,
             }
         }
 
         fn new_eager() -> PongerAct {
             PongerAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 eager: true,
             }
         }
     }
 
-    impl Provide<ControlPort> for PongerAct {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting");
-                }
-                _ => (),
-            }
-        }
-    }
+    ignore_lifecycle!(PongerAct);
 
     impl Actor for PongerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> () {
+        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
             unimplemented!();
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             let sender = msg.sender;
             match_deser! {msg.data; {
                 ping: PingMsg [PingPongSer] => {
@@ -1966,6 +2167,7 @@ mod dispatch_tests {
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
             }}
+            Handled::Ok
         }
     }
 
@@ -1977,25 +2179,26 @@ mod dispatch_tests {
     impl ForwarderAct {
         fn new(forward_to: ActorPath) -> Self {
             ForwarderAct {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 forward_to,
             }
         }
     }
-    ignore_control!(ForwarderAct);
+    ignore_lifecycle!(ForwarderAct);
     impl Actor for ForwarderAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> () {
+        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
             unimplemented!();
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             info!(
                 self.ctx.log(),
                 "Forwarding some msg from {} to {}", msg.sender, self.forward_to
             );
             self.forward_to.forward_with_original_sender(msg, self);
+            Handled::Ok
         }
     }
 }

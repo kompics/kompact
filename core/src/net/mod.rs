@@ -11,8 +11,8 @@ use crate::{
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
 };
 use bytes::{Buf, BufMut, BytesMut};
+use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
-use std::sync::mpsc::{channel, Receiver as Recv, RecvError, SendError, Sender};
 
 #[allow(missing_docs)]
 pub mod buffer;
@@ -20,6 +20,7 @@ pub(crate) mod buffer_pool;
 pub mod frames;
 pub(crate) mod network_channel;
 pub(crate) mod network_thread;
+pub(crate) mod udp_state;
 
 /// The state of a connection
 #[derive(Debug)]
@@ -34,6 +35,20 @@ pub enum ConnectionState {
     Closed,
     /// Threw an error
     Error(std::io::Error),
+}
+
+pub(crate) enum Protocol {
+    TCP,
+    UDP,
+}
+impl From<Transport> for Protocol {
+    fn from(t: Transport) -> Self {
+        match t {
+            Transport::TCP => Protocol::TCP,
+            Transport::UDP => Protocol::UDP,
+            _ => unimplemented!("Unsupported Protocol"),
+        }
+    }
 }
 
 /// Events on the network level
@@ -60,9 +75,11 @@ pub mod events {
     #[derive(Debug)]
     pub enum DispatchEvent {
         /// Send the SerialisedFrame to receiver associated with the SocketAddr
-        Send(SocketAddr, SerialisedFrame),
+        SendTCP(SocketAddr, SerialisedFrame),
+        /// Send the SerialisedFrame to receiver associated with the SocketAddr
+        SendUDP(SocketAddr, SerialisedFrame),
         /// Tells the network thread to Stop
-        Stop(),
+        Stop,
         /// Tells the network adress to open up a channel to the SocketAddr
         Connect(SocketAddr),
     }
@@ -135,7 +152,7 @@ pub struct Bridge {
     dispatcher: Option<DispatcherRef>,
     /// Socket the network actually bound on
     bound_addr: Option<SocketAddr>,
-    network_thread_receiver: Box<Recv<bool>>,
+    shutdown_future: KFuture<()>,
 }
 
 // impl bridge
@@ -153,16 +170,16 @@ impl Bridge {
         dispatcher_ref: DispatcherRef,
     ) -> (Self, SocketAddr) {
         let (sender, receiver) = channel();
-        let (network_thread_sender, network_thread_receiver) = channel();
+        let (shutdown_p, shutdown_f) = promise();
         let (mut network_thread, waker) = NetworkThread::new(
             network_thread_log,
             addr,
-            lookup.clone(),
+            lookup,
             receiver,
-            network_thread_sender,
+            shutdown_p,
             dispatcher_ref.clone(),
         );
-        let bound_addr = network_thread.addr.clone();
+        let bound_addr = network_thread.addr;
         let bridge = Bridge {
             // cfg: BridgeConfig::default(),
             log: bridge_log,
@@ -170,8 +187,8 @@ impl Bridge {
             network_input_queue: sender,
             waker,
             dispatcher: Some(dispatcher_ref),
-            bound_addr: Some(bound_addr.clone()),
-            network_thread_receiver: Box::new(network_thread_receiver),
+            bound_addr: Some(bound_addr),
+            shutdown_future: shutdown_f,
         };
         if let Err(e) = thread::Builder::new()
             .name("network_thread".to_string())
@@ -192,11 +209,11 @@ impl Bridge {
     /// Stops the bridge
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
-        self.network_input_queue.send(DispatchEvent::Stop())?;
+        self.network_input_queue.send(DispatchEvent::Stop)?;
         self.waker
             .wake()
             .expect("Network Bridge Waking NetworkThread in stop()");
-        self.network_thread_receiver.recv()?; // should block until something is sent
+        self.shutdown_future.wait(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }
@@ -207,10 +224,11 @@ impl Bridge {
     }
 
     /// Forwards `serialized` to the NetworkThread and makes sure that it will wake up.
-    pub fn route(
+    pub(crate) fn route(
         &self,
         addr: SocketAddr,
         serialized: SerialisedFrame,
+        protocol: Protocol,
     ) -> Result<(), NetworkBridgeErr> {
         match serialized {
             SerialisedFrame::Bytes(bytes) => {
@@ -219,17 +237,39 @@ impl Bridge {
                 let head = FrameHead::new(FrameType::Data, bytes.len());
                 head.encode_into(&mut buf);
                 buf.put_slice(bytes.bytes());
-                self.network_input_queue.send(events::DispatchEvent::Send(
-                    addr,
-                    SerialisedFrame::Bytes(buf.freeze()),
-                ))?;
+                match protocol {
+                    Protocol::TCP => {
+                        self.network_input_queue
+                            .send(events::DispatchEvent::SendTCP(
+                                addr,
+                                SerialisedFrame::Bytes(buf.freeze()),
+                            ))?;
+                    }
+                    Protocol::UDP => {
+                        self.network_input_queue
+                            .send(events::DispatchEvent::SendUDP(
+                                addr,
+                                SerialisedFrame::Bytes(buf.freeze()),
+                            ))?;
+                    }
+                }
             }
-            SerialisedFrame::Chunk(chunk) => {
-                self.network_input_queue.send(events::DispatchEvent::Send(
-                    addr,
-                    SerialisedFrame::Chunk(chunk),
-                ))?;
-            }
+            SerialisedFrame::Chunk(chunk) => match protocol {
+                Protocol::TCP => {
+                    self.network_input_queue
+                        .send(events::DispatchEvent::SendTCP(
+                            addr,
+                            SerialisedFrame::Chunk(chunk),
+                        ))?;
+                }
+                Protocol::UDP => {
+                    self.network_input_queue
+                        .send(events::DispatchEvent::SendUDP(
+                            addr,
+                            SerialisedFrame::Chunk(chunk),
+                        ))?;
+                }
+            },
         }
         self.waker.wake()?;
         Ok(())
@@ -290,4 +330,25 @@ impl From<SerError> for NetworkBridgeErr {
     fn from(error: SerError) -> Self {
         NetworkBridgeErr::Other(format!("SerError: {:?}", error))
     }
+}
+
+// Error handling helper functions
+pub(crate) fn would_block(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::WouldBlock
+}
+
+pub(crate) fn interrupted(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::Interrupted
+}
+
+pub(crate) fn no_buffer_space(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::InvalidData
+}
+
+pub(crate) fn connection_reset(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::ConnectionReset
+}
+
+pub(crate) fn broken_pipe(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::BrokenPipe
 }

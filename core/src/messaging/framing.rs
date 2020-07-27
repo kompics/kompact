@@ -386,7 +386,7 @@ impl Serialisable for ActorPath {
         // Actor Path
         match self {
             ActorPath::Unique(up) => {
-                let uuid = up.uuid_ref();
+                let uuid = up.id();
                 buf.put_slice(uuid.as_bytes())
             }
             ActorPath::Named(np) => {
@@ -440,7 +440,7 @@ impl Deserialiser<ActorPath> for ActorPath {
                         String::from_utf8_unchecked(name_bytes)
                     };
                     let parts: Vec<&str> = name.split('/').collect();
-                    if parts.len() < 1 {
+                    if parts.is_empty() {
                         return Err(SerError::InvalidData(
                             "Could not determine name for Named path type".into(),
                         ));
@@ -542,7 +542,7 @@ mod serialisation_tests {
             assert_eq!(deser_sys.address(), &expected_addr);
             match deser_path {
                 ActorPath::Unique(ref up) => {
-                    assert_eq!(up.uuid_ref(), &unique_id);
+                    assert_eq!(up.id(), unique_id);
                 }
                 ActorPath::Named(_) => panic!("expected Unique path, got Named path"),
             }

@@ -23,7 +23,7 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
     // Build the impl
     let gen = impl_component_definition(&ast);
 
-    //println!("Derived code:\n{}", gen.clone().into_string());
+    //println!("Derived code:\n{}", gen);
 
     // Return the generated impl
     gen.into()
@@ -75,14 +75,18 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 quote! {
                     if skip <= #i {
                         if count >= max_events {
-                            return ExecuteResult::new(count, #i);
+                            return ExecuteResult::new(false, count, #i);
                         }
                         #[allow(unreachable_code)]
                         { // can be Never type, which is ok, so just suppress this warning
                             if let Some(event) = self.#id.dequeue() {
-                                #handle
+                                let res = #handle
                                 count += 1;
                                 done_work = true;
+                                if let Handled::BlockOn(blocking_future) = res {
+                                    self.ctx_mut().set_blocking(blocking_future);
+                                    return ExecuteResult::new(true, count, #i);
+                                }
                             }
                         }
                     }
@@ -98,14 +102,18 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 let handle = t.as_handle();
                 quote! {
                     if count >= max_events {
-                        return ExecuteResult::new(count, #i);
+                        return ExecuteResult::new(false, count, #i);
                     }
                     #[allow(unreachable_code)]
                     { // can be Never type, which is ok, so just suppress this warning
                         if let Some(event) = self.#id.dequeue() {
-                            #handle
+                            let res = #handle
                             count += 1;
                             done_work = true;
+                            if let Handled::BlockOn(blocking_future) = res {
+                                self.ctx_mut().set_blocking(blocking_future);
+                                return ExecuteResult::new(true, count, #i);
+                            }
                         }
                     }
                 }
@@ -114,7 +122,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         let exec = if port_handles.is_empty() {
             quote! {
                 fn execute(&mut self, _max_events: usize, _skip: usize) -> ExecuteResult {
-                    ExecuteResult::new(0, 0)
+                    ExecuteResult::new(false, 0, 0)
                 }
             }
         } else {
@@ -127,7 +135,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                         done_work = false;
                         #(#port_handles)*
                     }
-                    ExecuteResult::new(count, 0)
+                    ExecuteResult::new(false, count, 0)
                 }
             }
         };
@@ -163,6 +171,33 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         // if !port_ref_impls.is_empty() {
         // println!("PortRefImpls: {}",port_ref_impls[0]);
         // }
+
+        fn make_match(f: &syn::Field, t: &syn::Type) -> TokenStream2 {
+            let f = &f.ident;
+            quote! {
+                id if id == ::std::any::TypeId::of::<#t>() =>
+                    Some(&mut self.#f as &mut dyn ::std::any::Any),
+            }
+        }
+
+        let provided_matches: Vec<_> = ports
+            .iter()
+            .filter_map(|(f, p)| match p {
+                PortField::Provided(t) => Some((*f, t)),
+                _ => None,
+            })
+            .map(|(f, t)| make_match(f, t))
+            .collect();
+
+        let required_matches: Vec<_> = ports
+            .iter()
+            .filter_map(|(f, p)| match p {
+                PortField::Required(t) => Some((*f, t)),
+                _ => None,
+            })
+            .map(|(f, t)| make_match(f, t))
+            .collect();
+
         quote! {
             impl #impl_generics ComponentDefinition for #name #ty_generics #where_clause {
                 fn setup(&mut self, self_component: ::std::sync::Arc<Component<Self>>) -> () {
@@ -179,6 +214,21 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 }
                 fn type_name() -> &'static str {
                     #name_str
+                }
+            }
+            impl #impl_generics DynamicPortAccess for #name #ty_generics #where_clause {
+                fn get_provided_port_as_any(&mut self, port_id: ::std::any::TypeId) -> Option<&mut dyn ::std::any::Any> {
+                    match port_id {
+                        #(#provided_matches),*
+                        _ => None,
+                    }
+                }
+
+                fn get_required_port_as_any(&mut self, port_id: ::std::any::TypeId) -> Option<&mut dyn ::std::any::Any> {
+                    match port_id {
+                        #(#required_matches),*
+                        _ => None,
+                    }
                 }
             }
             #(#port_ref_impls)*

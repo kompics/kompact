@@ -3,7 +3,7 @@ before_install:
   - ./travis_install_protobuf.sh
   - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
   - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.3" mdbook)
-  - (test -x $HOME/.cargo/bin/mdbook-linkcheck || cargo install mdbook-linkcheck)
+  #- (test -x $HOME/.cargo/bin/mdbook-linkcheck || cargo install mdbook-linkcheck)
   - cargo install-update -a
 
 os: linux
@@ -44,7 +44,7 @@ jobs:
         edge: true
         cleanup: false
         token: $GITHUB_TOKEN
-        local_dir: docs/book/html
+        local_dir: docs/book
         keep_history: false
         on:
           branch: master

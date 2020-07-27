@@ -35,6 +35,12 @@ impl<V> ByteSliceMap<V> {
     }
 }
 
+impl<V> Default for ByteSliceMap<V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 enum MaybeTree<V> {
     Empty,
     Tree(Box<RadixTree<V>>),

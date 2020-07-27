@@ -22,39 +22,35 @@ impl Port for TestPort {
 #[derive(ComponentDefinition)]
 pub struct TestActor {
     ctx: ComponentContext<Self>,
-    testp: ProvidedPort<TestPort, Self>,
+    testp: ProvidedPort<TestPort>,
 }
 
 impl TestActor {
     pub fn new() -> TestActor {
         TestActor {
-            ctx: ComponentContext::new(),
-            testp: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            testp: ProvidedPort::uninitialised(),
         }
     }
 }
 
-impl Provide<ControlPort> for TestActor {
-    fn handle(&mut self, _event: ControlEvent) -> () {
-        // ignore
-    }
-}
+ignore_lifecycle!(TestActor);
 
 impl Provide<TestPort> for TestActor {
-    fn handle(&mut self, _event: &'static Ping) -> () {
-        // discard
+    fn handle(&mut self, _event: &'static Ping) -> Handled {
+        Handled::Ok // discard
     }
 }
 
 impl Actor for TestActor {
     type Message = &'static Ping;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> () {
-        // discard
+    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        Handled::Ok // discard
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
-        // discard
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        Handled::Ok // discard
     }
 }
 
@@ -190,10 +186,8 @@ mod tests {
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
-        let unique_path = ActorPath::Unique(UniquePath::with_system(
-            sys.system_path(),
-            tester.id().clone(),
-        ));
+        let unique_path =
+            ActorPath::Unique(UniquePath::with_system(sys.system_path(), tester.id()));
         let mut cloned_path = unique_path.clone();
         b.iter(|| {
             cloned_path = unique_path.clone();
@@ -213,10 +207,8 @@ mod tests {
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
-        let unique_path = ActorPath::Unique(UniquePath::with_system(
-            sys.system_path(),
-            tester.id().clone(),
-        ));
+        let unique_path =
+            ActorPath::Unique(UniquePath::with_system(sys.system_path(), tester.id()));
         b.iter(|| {
             unique_path.tell((PING, PING_SER), &sys);
         });

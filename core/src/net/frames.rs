@@ -330,7 +330,6 @@ impl FrameExt for Data {
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
         // NOTE: This method _COPIES_ the owned bytes into `dst` rather than extending with the owned bytes
-        let _payload_len = self.payload.bytes().len();
         assert!(dst.remaining_mut() >= (self.encoded_len()));
         dst.put_slice(&self.payload.bytes());
         Ok(())
@@ -430,7 +429,7 @@ impl FrameExt for Start {
                 let ip = Ipv6Addr::from(src.get_u128());
                 let port = src.get_u16();
                 let addr = SocketAddr::new(IpAddr::V6(ip), port);
-                let uuid = Uuid::from_u128(src.get_u128().into());
+                let uuid = Uuid::from_u128(src.get_u128());
                 Ok(Frame::Start(Start::new(addr, uuid)))
             }
             _ => {
@@ -478,7 +477,8 @@ impl FrameExt for Ack {
     }
 
     fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
-        Ok(dst.put_u128(self.offset))
+        dst.put_u128(self.offset);
+        Ok(())
     }
 
     fn encoded_len(&self) -> usize {

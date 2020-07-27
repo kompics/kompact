@@ -1,11 +1,13 @@
 use kompact::prelude::*;
 use std::{env, fmt, ops::Range, sync::Arc};
 
+//ANCHOR: work
 struct Work {
     data: Arc<[u64]>,
     merger: fn(u64, &u64) -> u64,
     neutral: u64,
 }
+//ANCHOR_END: work
 impl Work {
     fn with(data: Vec<u64>, merger: fn(u64, &u64) -> u64, neutral: u64) -> Self {
         let moved_data: Arc<[u64]> = data.into_boxed_slice().into();
@@ -31,12 +33,14 @@ impl fmt::Debug for Work {
     }
 }
 
+//ANCHOR: work_part
 struct WorkPart {
     data: Arc<[u64]>,
     range: Range<usize>,
     merger: fn(u64, &u64) -> u64,
     neutral: u64,
 }
+//ANCHOR_END: work_part
 impl WorkPart {
     fn from(work: &Work, range: Range<usize>) -> Self {
         WorkPart {
@@ -64,19 +68,23 @@ impl fmt::Debug for WorkPart {
     }
 }
 
+//ANCHOR: work_result
 #[derive(Clone, Debug)]
 struct WorkResult(u64);
-
+//ANCHOR_END: work_result
+//ANCHOR: worker_port
 struct WorkerPort;
 impl Port for WorkerPort {
     type Indication = WorkResult;
     type Request = Never;
 }
+//ANCHOR_END: worker_port
 
+// ANCHOR: manager_definition
 #[derive(ComponentDefinition)]
 struct Manager {
     ctx: ComponentContext<Self>,
-    worker_port: RequiredPort<WorkerPort, Self>,
+    worker_port: RequiredPort<WorkerPort>,
     num_workers: usize,
     workers: Vec<Arc<Component<Worker>>>,
     worker_refs: Vec<ActorRefStrong<WorkPart>>,
@@ -86,8 +94,8 @@ struct Manager {
 impl Manager {
     fn new(num_workers: usize) -> Self {
         Manager {
-            ctx: ComponentContext::new(),
-            worker_port: RequiredPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            worker_port: RequiredPort::uninitialised(),
             num_workers,
             workers: Vec::with_capacity(num_workers),
             worker_refs: Vec::with_capacity(num_workers),
@@ -96,33 +104,41 @@ impl Manager {
         }
     }
 }
-impl Provide<ControlPort> for Manager {
-    fn handle(&mut self, event: ControlEvent) {
-        match event {
-            ControlEvent::Start => {
-                // set up our workers
-                for _i in 0..self.num_workers {
-                    let worker = self.ctx.system().create(Worker::new);
-                    worker.connect_to_required(self.worker_port.share());
-                    let worker_ref = worker.actor_ref().hold().expect("live");
-                    self.ctx.system().start(&worker);
-                    self.workers.push(worker);
-                    self.worker_refs.push(worker_ref);
-                }
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                // clean up after ourselves
-                self.worker_refs.clear();
-                let system = self.ctx.system();
-                self.workers.drain(..).for_each(|worker| {
-                    system.stop(&worker);
-                });
-            }
+// ANCHOR_END: manager_definition
+
+// ANCHOR: manager_lifecycle
+impl ComponentLifecycle for Manager {
+    fn on_start(&mut self) -> Handled {
+        // set up our workers
+        for _i in 0..self.num_workers {
+            let worker = self.ctx.system().create(Worker::new);
+            worker.connect_to_required(self.worker_port.share());
+            let worker_ref = worker.actor_ref().hold().expect("live");
+            self.ctx.system().start(&worker);
+            self.workers.push(worker);
+            self.worker_refs.push(worker_ref);
         }
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        // clean up after ourselves
+        self.worker_refs.clear();
+        let system = self.ctx.system();
+        self.workers.drain(..).for_each(|worker| {
+            system.stop(&worker);
+        });
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
+// ANCHOR_END: manager_lifecycle
+// ANCHOR: manager_worker_port
 impl Require<WorkerPort> for Manager {
-    fn handle(&mut self, event: WorkResult) {
+    fn handle(&mut self, event: WorkResult) -> Handled {
         if self.outstanding_request.is_some() {
             self.result_accumulator.push(event.0);
             if self.result_accumulator.len() == (self.num_workers + 1) {
@@ -142,12 +158,15 @@ impl Require<WorkerPort> for Manager {
                 "Got a response without an outstanding promise: {:?}", event
             );
         }
+        Handled::Ok
     }
 }
+// ANCHOR_END: manager_worker_port
+// ANCHOR: manager_actor
 impl Actor for Manager {
     type Message = Ask<Work, WorkResult>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         assert!(
             self.outstanding_request.is_none(),
             "One request at a time, please!"
@@ -182,43 +201,54 @@ impl Actor for Manager {
             }
             self.outstanding_request = Some(msg);
         }
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }
+// ANCHOR_END: manager_actor
 
+// ANCHOR: worker_definition
 #[derive(ComponentDefinition)]
 struct Worker {
     ctx: ComponentContext<Self>,
-    worker_port: ProvidedPort<WorkerPort, Self>,
+    worker_port: ProvidedPort<WorkerPort>,
 }
 impl Worker {
     fn new() -> Self {
         Worker {
-            ctx: ComponentContext::new(),
-            worker_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            worker_port: ProvidedPort::uninitialised(),
         }
     }
 }
-ignore_control!(Worker);
-ignore_requests!(WorkerPort, Worker);
+// ANCHOR_END: worker_definition
 
+// ANCHOR: worker_ports
+ignore_lifecycle!(Worker);
+ignore_requests!(WorkerPort, Worker);
+// ANCHOR_END: worker_ports
+
+// ANCHOR: worker_actor
 impl Actor for Worker {
     type Message = WorkPart;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         let my_slice = &msg.data[msg.range];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         self.worker_port.trigger(WorkResult(res));
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }
+// ANCHOR_END: worker_actor
 
+// ANCHOR: main
 pub fn main() {
     let args: Vec<String> = env::args().collect();
     assert_eq!(
@@ -230,7 +260,8 @@ pub fn main() {
     let data_size: usize = args[2].parse().expect("number");
     run_task(num_workers, data_size);
 }
-
+// ANCHOR_END: main
+// ANCHOR: main_run
 fn run_task(num_workers: usize, data_size: usize) {
     let system = KompactConfig::default().build().expect("system");
     let manager = system.create(move || Manager::new(num_workers));
@@ -240,7 +271,9 @@ fn run_task(num_workers: usize, data_size: usize) {
     let data: Vec<u64> = (1..=data_size).map(|v| v as u64).collect();
     let work = Work::with(data, overflowing_sum, 0u64);
     println!("Sending request...");
+    // ANCHOR: main_ask
     let res = manager_ref.ask(Ask::of(work)).wait();
+    // ANCHOR_END: main_ask
     println!("*******\nGot result: {}\n*******", res.0);
     assert_eq!(triangular_number(data_size as u64), res.0);
     system.shutdown().expect("shutdown");
@@ -253,6 +286,7 @@ fn triangular_number(n: u64) -> u64 {
 fn overflowing_sum(lhs: u64, rhs: &u64) -> u64 {
     lhs.overflowing_add(*rhs).0
 }
+// ANCHOR_END: main_run
 
 #[cfg(test)]
 mod tests {

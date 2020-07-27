@@ -80,32 +80,37 @@ impl<P: Port + 'static> CommonPortData<P> {
 /// #[derive(ComponentDefinition, Actor)]
 /// struct UnitProvider {
 ///    ctx: ComponentContext<Self>,
-///    unit_port: ProvidedPort<UnitPort, Self>,
+///    unit_port: ProvidedPort<UnitPort>,
 /// }
 /// impl UnitProvider {
 ///     fn new() -> UnitProvider {
 ///         UnitProvider {
-///             ctx: ComponentContext::new(),
-///             unit_port: ProvidedPort::new(),
+///             ctx: ComponentContext::uninitialised(),
+///             unit_port: ProvidedPort::uninitialised(),
 ///         }
 ///     }    
 /// }
-/// ignore_control!(UnitProvider);
+/// ignore_lifecycle!(UnitProvider);
 /// impl Provide<UnitPort> for UnitProvider {
-///     fn handle(&mut self, event: ()) -> () {
-///         event // handle event
+///     fn handle(&mut self, event: ()) -> Handled {
+///         Handled::Ok // handle event
 ///     }    
 /// }
 /// ```
-pub struct ProvidedPort<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> {
+pub struct ProvidedPort<P: Port + 'static> {
     common: CommonPortData<P>,
-    parent: Option<Weak<Component<C>>>,
+    parent: Option<Weak<dyn CoreContainer>>,
     msg_queue: Arc<ConcurrentQueue<P::Request>>,
 }
 
-impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedPort<P, C> {
-    /// Create a new provided port for port type `P` within component `C`
-    pub fn new() -> ProvidedPort<P, C> {
+impl<P: Port + 'static> ProvidedPort<P> {
+    /// Create a new provided port for port type `P`
+    ///
+    /// # Note
+    ///
+    /// This port instance can only be used *after* the parent component has been created,
+    /// and *not* during the constructor or anywhere else!
+    pub fn uninitialised() -> ProvidedPort<P> {
         ProvidedPort {
             common: CommonPortData::new(),
             parent: None,
@@ -140,7 +145,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
     pub fn share(&mut self) -> ProvidedRef<P> {
         match self.parent {
             Some(ref p) => {
-                let core_container = p.clone() as Weak<dyn CoreContainer>;
+                let core_container = p.clone();
                 ProvidedRef {
                     msg_queue: Arc::downgrade(&self.msg_queue),
                     component: core_container,
@@ -153,7 +158,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
     /// Mark `p` as the parent component of this port
     ///
     /// This method should only be used in custom [ComponentDefinition](ComponentDefinition) implementations!
-    pub fn set_parent(&mut self, p: Arc<Component<C>>) -> () {
+    pub fn set_parent(&mut self, p: Arc<dyn CoreContainer>) -> () {
         self.parent = Some(Arc::downgrade(&p));
     }
 
@@ -185,32 +190,37 @@ impl<P: Port + 'static, C: ComponentDefinition + Provide<P> + 'static> ProvidedP
 /// #[derive(ComponentDefinition, Actor)]
 /// struct UnitRequirer {
 ///    ctx: ComponentContext<Self>,
-///    unit_port: RequiredPort<UnitPort, Self>,
+///    unit_port: RequiredPort<UnitPort>,
 /// }
 /// impl UnitRequirer {
 ///     fn new() -> UnitRequirer {
 ///         UnitRequirer {
-///             ctx: ComponentContext::new(),
-///             unit_port: RequiredPort::new(),
+///             ctx: ComponentContext::uninitialised(),
+///             unit_port: RequiredPort::uninitialised(),
 ///         }
 ///     }    
 /// }
-/// ignore_control!(UnitRequirer);
+/// ignore_lifecycle!(UnitRequirer);
 /// impl Require<UnitPort> for UnitRequirer {
-///     fn handle(&mut self, event: ()) -> () {
-///         event // handle event
+///     fn handle(&mut self, event: ()) -> Handled {
+///         Handled::Ok // handle event
 ///     }    
 /// }
 /// ```
-pub struct RequiredPort<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> {
+pub struct RequiredPort<P: Port + 'static> {
     common: CommonPortData<P>,
-    parent: Option<Weak<Component<C>>>,
+    parent: Option<Weak<dyn CoreContainer>>,
     msg_queue: Arc<ConcurrentQueue<P::Indication>>,
 }
 
-impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredPort<P, C> {
-    /// Create a new required port for port type `P` within component `C`
-    pub fn new() -> RequiredPort<P, C> {
+impl<P: Port + 'static> RequiredPort<P> {
+    /// Create a new required port for port type `P`
+    ///
+    /// # Note
+    ///
+    /// This port instance can only be used *after* the parent component has been created,
+    /// and *not* during the constructor or anywhere else!
+    pub fn uninitialised() -> RequiredPort<P> {
         RequiredPort {
             common: CommonPortData::new(),
             parent: None,
@@ -245,7 +255,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     pub fn share(&mut self) -> RequiredRef<P> {
         match self.parent {
             Some(ref p) => {
-                let core_container = p.clone() as Weak<dyn CoreContainer>;
+                let core_container = p.clone();
                 RequiredRef {
                     msg_queue: Arc::downgrade(&self.msg_queue),
                     component: core_container,
@@ -258,7 +268,7 @@ impl<P: Port + 'static, C: ComponentDefinition + Require<P> + 'static> RequiredP
     /// Mark `p` as the parent component of this port
     ///
     /// This method should only be used in custom [ComponentDefinition](ComponentDefinition) implementations!
-    pub fn set_parent(&mut self, p: Arc<Component<C>>) -> () {
+    pub fn set_parent(&mut self, p: Arc<dyn CoreContainer>) -> () {
         self.parent = Some(Arc::downgrade(&p));
     }
 
@@ -288,27 +298,24 @@ impl<P: Port + 'static> Clone for ProvidedRef<P> {
 }
 
 impl<P: Port + 'static> ProvidedRef<P> {
-    pub(crate) fn new(
-        component: Weak<dyn CoreContainer>,
-        msg_queue: Weak<ConcurrentQueue<P::Request>>,
-    ) -> ProvidedRef<P> {
-        ProvidedRef {
-            component,
-            msg_queue,
-        }
-    }
+    // pub(crate) fn new(
+    //     component: Weak<dyn CoreContainer>,
+    //     msg_queue: Weak<ConcurrentQueue<P::Request>>,
+    // ) -> ProvidedRef<P> {
+    //     ProvidedRef {
+    //         component,
+    //         msg_queue,
+    //     }
+    // }
 
     pub(crate) fn enqueue(&self, event: P::Request) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(event);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    let system = c.core().system();
+                    system.schedule(c.clone());
                 }
             }
             (_q, _c) =>
@@ -348,12 +355,9 @@ impl<P: Port + 'static> RequiredRef<P> {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(event);
-                match sd {
-                    SchedulingDecision::Schedule => {
-                        let system = c.core().system();
-                        system.schedule(c.clone());
-                    }
-                    _ => (), // nothing
+                if let SchedulingDecision::Schedule = sd {
+                    let system = c.core().system();
+                    system.schedule(c.clone());
                 }
             }
             (_q, _c) =>

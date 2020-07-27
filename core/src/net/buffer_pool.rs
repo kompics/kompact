@@ -9,7 +9,12 @@ const MAX_POOL_SIZE: usize = 10000;
 pub trait ChunkAllocator: Send + 'static {
     /// ChunkAllocators deliver Chunk by raw pointers
     fn get_chunk(&self) -> *mut dyn Chunk;
-    /// This method tells the allocator that the Chunk may be de-allocated
+    /// This method tells the allocator that the [Chunk](Chunk) may be deallocated
+    ///
+    /// # Safety
+    ///
+    /// The caller *must* guarantee that the memory pointed to by `ptr`
+    /// has *not* been deallocated, yet!
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
 }
 

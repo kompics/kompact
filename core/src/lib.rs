@@ -14,20 +14,16 @@
 //! impl HelloWorldComponent {
 //!     pub fn new() -> HelloWorldComponent {
 //!         HelloWorldComponent {
-//!             ctx: ComponentContext::new()
+//!             ctx: ComponentContext::uninitialised()
 //!         }
 //!     }
 //! }
-//! impl Provide<ControlPort> for HelloWorldComponent {
-//!     fn handle(&mut self, event: ControlEvent) -> () {
-//!            match event {
-//!                ControlEvent::Start => {
-//!                    info!(self.ctx.log(), "Hello World!");
-//!                    self.ctx().system().shutdown_async();
-//!                }
-//!                _ => (), // ignore other control events
-//!            }
-//!       }
+//! impl ComponentLifecycle for HelloWorldComponent {
+//!     fn on_start(&mut self) -> Handled {
+//!         info!(self.ctx.log(), "Hello World!");
+//!         self.ctx().system().shutdown_async();
+//!         Handled::Ok
+//!     }
 //! }
 //!
 //! let system = KompactConfig::default().build().expect("system");
@@ -37,10 +33,13 @@
 //! ```
 
 #![deny(missing_docs)]
-#![allow(unused_parens)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]
+#![allow(clippy::new_without_default)]
 #![cfg_attr(nightly, feature(never_type))]
+#![cfg_attr(nightly, feature(option_expect_none))]
+#![cfg_attr(nightly, feature(async_closure))]
+#![cfg_attr(all(nightly, feature = "type_erasure"), feature(unsized_locals))]
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
@@ -79,7 +78,6 @@ mod dedicated_scheduler;
 /// Default implementations for system components
 pub mod default_components;
 mod dispatch;
-mod lifecycle;
 /// Facilities and utilities for dealing with network messages
 pub mod messaging;
 /// Default networking implementation
@@ -109,6 +107,13 @@ pub type Never = !;
 #[cfg(not(nightly))]
 pub type Never = std::convert::Infallible;
 
+/// A type of future returned from the [spawn](KompactSystem::spawn) and [spawn_off](ComponentDefinition::spawn_off) functions to await
+/// the completion of the spawned future.
+///
+/// This API currently does not support cancellation,
+/// but that feature may be added in a future API if needed.
+pub type JoinHandle<R> = futures::channel::oneshot::Receiver<R>;
+
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
@@ -123,7 +128,14 @@ pub mod prelude {
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
 
-    pub use crate::{ignore_control, ignore_indications, ignore_requests, match_deser};
+    #[allow(deprecated)]
+    pub use crate::{
+        ignore_control,
+        ignore_indications,
+        ignore_lifecycle,
+        ignore_requests,
+        match_deser,
+    };
 
     pub use crate::{
         actors::{
@@ -134,7 +146,6 @@ pub mod prelude {
             ActorRef,
             ActorRefFactory,
             ActorRefStrong,
-            ActorSource,
             Dispatcher,
             DispatcherRef,
             Dispatching,
@@ -157,9 +168,13 @@ pub mod prelude {
             Component,
             ComponentContext,
             ComponentDefinition,
+            ComponentDefinitionAccess,
+            ComponentLifecycle,
             ComponentLogging,
             CoreContainer,
+            DynamicPortAccess,
             ExecuteResult,
+            Handled,
             LockingProvideRef,
             LockingRequireRef,
             Provide,
@@ -167,7 +182,6 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        lifecycle::{ControlEvent, ControlPort},
         net::{buffer::*, buffer_pool::*},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
@@ -183,8 +197,6 @@ pub mod prelude {
             NetMessage,
             PathResolvable,
             RegistrationError,
-            RegistrationId,
-            RegistrationResponse,
             RegistrationResult,
             Serialised,
             UnpackError,
@@ -197,17 +209,22 @@ pub mod prelude {
         utils::{
             biconnect_components,
             biconnect_ports,
+            block_on,
+            block_until,
             on_dual_definition,
-            promise as kpromise,
+            promise,
             Ask,
             Fulfillable,
-            Future as KFuture,
             IterExtras,
-            Promise as KPromise,
+            KFuture,
+            KPromise,
             PromiseErr,
             TryDualLockError,
         },
     };
+
+    #[cfg(all(nightly, feature = "type_erasure"))]
+    pub use crate::utils::erased::CreateErased;
 }
 
 /// A module containing helper functions for (unit) testing
@@ -239,21 +256,21 @@ pub mod doctest_helpers {
     #[derive(ComponentDefinition, Actor)]
     pub struct TestComponent1 {
         ctx: ComponentContext<Self>,
-        test_port: ProvidedPort<TestPort, Self>,
+        test_port: ProvidedPort<TestPort>,
     }
 
     impl TestComponent1 {
         /// Create a new test component
         pub fn new() -> TestComponent1 {
             TestComponent1 {
-                ctx: ComponentContext::new(),
-                test_port: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                test_port: ProvidedPort::uninitialised(),
             }
         }
     }
-    ignore_control!(TestComponent1);
+    ignore_lifecycle!(TestComponent1);
     impl Provide<TestPort> for TestComponent1 {
-        fn handle(&mut self, _event: Never) -> () {
+        fn handle(&mut self, _event: Never) -> Handled {
             unreachable!();
         }
     }
@@ -262,21 +279,21 @@ pub mod doctest_helpers {
     #[derive(ComponentDefinition, Actor)]
     pub struct TestComponent2 {
         ctx: ComponentContext<Self>,
-        test_port: RequiredPort<TestPort, Self>,
+        test_port: RequiredPort<TestPort>,
     }
 
     impl TestComponent2 {
         /// Create a new test component
         pub fn new() -> TestComponent2 {
             TestComponent2 {
-                ctx: ComponentContext::new(),
-                test_port: RequiredPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                test_port: RequiredPort::uninitialised(),
             }
         }
     }
-    ignore_control!(TestComponent2);
+    ignore_lifecycle!(TestComponent2);
     impl Require<TestPort> for TestComponent2 {
-        fn handle(&mut self, _event: Never) -> () {
+        fn handle(&mut self, _event: Never) -> Handled {
             unreachable!();
         }
     }
@@ -366,50 +383,42 @@ mod tests {
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
         ctx: ComponentContext<TestComponent>,
-        test_port: ProvidedPort<TestPort, TestComponent>,
+        test_port: ProvidedPort<TestPort>,
         counter: u64,
     }
 
     impl TestComponent {
         fn new() -> TestComponent {
             TestComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 counter: 0,
-                test_port: ProvidedPort::new(),
+                test_port: ProvidedPort::uninitialised(),
             }
         }
     }
 
-    impl Provide<ControlPort> for TestComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting TestComponent");
-                }
-                _ => (), // ignore
-            }
-        }
-    }
+    ignore_lifecycle!(TestComponent);
 
     impl Provide<TestPort> for TestComponent {
-        fn handle(&mut self, event: Arc<u64>) -> () {
+        fn handle(&mut self, event: Arc<u64>) -> Handled {
             self.counter += *event;
             self.test_port.trigger(Arc::new(String::from("Test")));
+            Handled::Ok
         }
     }
 
     #[derive(ComponentDefinition)]
     struct RecvComponent {
         ctx: ComponentContext<RecvComponent>,
-        test_port: RequiredPort<TestPort, RecvComponent>,
+        test_port: RequiredPort<TestPort>,
         last_string: String,
     }
 
     impl RecvComponent {
         fn new() -> RecvComponent {
             RecvComponent {
-                ctx: ComponentContext::new(),
-                test_port: RequiredPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                test_port: RequiredPort::uninitialised(),
                 last_string: String::from("none ;("),
             }
         }
@@ -418,32 +427,25 @@ mod tests {
     impl Actor for RecvComponent {
         type Message = &'static str;
 
-        fn receive_local(&mut self, msg: Self::Message) -> () {
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
             info!(self.ctx.log(), "RecvComponent received {:?}", msg);
             self.last_string = msg.to_string();
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             error!(self.ctx.log(), "Got unexpected network message: {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
     }
 
-    impl Provide<ControlPort> for RecvComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting RecvComponent");
-                }
-                _ => (), // ignore
-            }
-        }
-    }
+    ignore_lifecycle!(RecvComponent);
 
     impl Require<TestPort> for RecvComponent {
-        fn handle(&mut self, event: Arc<String>) -> () {
+        fn handle(&mut self, event: Arc<String>) -> Handled {
             info!(self.ctx.log(), "Got event {}", event.as_ref());
             self.last_string = event.as_ref().clone();
+            Handled::Ok
         }
     }
 
@@ -461,7 +463,7 @@ mod tests {
         let mut settings = KompactConfig::new();
         settings
             .threads(4)
-            .executor(move |t| executors::crossbeam_channel_pool::ThreadPool::new(t));
+            .executor(executors::crossbeam_channel_pool::ThreadPool::new);
         let system = settings.build().expect("KompactSystem");
         test_with_system(system);
     }
@@ -532,35 +534,24 @@ mod tests {
     impl DedicatedComponent {
         fn new(target: ActorRef<Box<dyn Any + Send>>) -> Self {
             DedicatedComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 target,
             }
         }
     }
 
-    impl Provide<ControlPort> for DedicatedComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting DedicatedComponent");
-                }
-                ControlEvent::Stop => {
-                    info!(self.ctx.log(), "Stopping DedicatedComponent");
-                }
-                _ => (), // ignore
-            }
-        }
-    }
+    ignore_lifecycle!(DedicatedComponent);
 
     impl Actor for DedicatedComponent {
         type Message = String;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             self.target
                 .tell(Box::new(String::from("hello")) as Box<dyn Any + Send>);
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -681,23 +672,21 @@ mod tests {
     impl TimerRecvComponent {
         fn new() -> TimerRecvComponent {
             TimerRecvComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 last_string: String::from("none ;("),
             }
         }
     }
 
-    impl Provide<ControlPort> for TimerRecvComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting TimerRecvComponent");
-                    self.schedule_once(Duration::from_millis(100), |self_c, _| {
-                        self_c.last_string = String::from("TimerTest");
-                    });
-                }
-                _ => (), // ignore
-            }
+    impl ComponentLifecycle for TimerRecvComponent {
+        fn on_start(&mut self) -> Handled {
+            info!(self.ctx.log(), "Starting TimerRecvComponent");
+            self.schedule_once(Duration::from_millis(100), |self_c, _| {
+                self_c.last_string = String::from("TimerTest");
+                Handled::Ok
+            });
+
+            Handled::Ok
         }
     }
 
@@ -728,35 +717,24 @@ mod tests {
     impl CounterComponent {
         fn new() -> CounterComponent {
             CounterComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 msg_count: 0,
             }
         }
     }
 
-    impl Provide<ControlPort> for CounterComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    info!(self.ctx.log(), "Starting CounterComponent");
-                }
-                ControlEvent::Stop => {
-                    info!(self.ctx.log(), "Stopping CounterComponent");
-                }
-                _ => (), // ignore
-            }
-        }
-    }
+    ignore_lifecycle!(CounterComponent);
 
     impl Actor for CounterComponent {
         type Message = Box<dyn Any + Send>;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
+            Handled::Ok
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -828,41 +806,34 @@ mod tests {
     #[derive(ComponentDefinition)]
     struct CrasherComponent {
         ctx: ComponentContext<CrasherComponent>,
-        crash_port: ProvidedPort<CrashPort, CrasherComponent>,
+        crash_port: ProvidedPort<CrashPort>,
         crash_on_start: bool,
     }
 
     impl CrasherComponent {
         fn new(crash_on_start: bool) -> CrasherComponent {
             CrasherComponent {
-                ctx: ComponentContext::new(),
-                crash_port: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                crash_port: ProvidedPort::uninitialised(),
                 crash_on_start,
             }
         }
     }
 
-    impl Provide<ControlPort> for CrasherComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    if self.crash_on_start {
-                        info!(self.ctx.log(), "Crashing CounterComponent");
-                        panic!("Test panic please ignore");
-                    } else {
-                        info!(self.ctx.log(), "Starting CounterComponent");
-                    }
-                }
-                ControlEvent::Stop => {
-                    info!(self.ctx.log(), "Stopping CounterComponent");
-                }
-                _ => (), // ignore
+    impl ComponentLifecycle for CrasherComponent {
+        fn on_start(&mut self) -> Handled {
+            if self.crash_on_start {
+                info!(self.ctx.log(), "Crashing CrasherComponent");
+                panic!("Test panic please ignore");
+            } else {
+                info!(self.ctx.log(), "Starting CrasherComponent");
+                Handled::Ok
             }
         }
     }
 
     impl Provide<CrashPort> for CrasherComponent {
-        fn handle(&mut self, _event: ()) -> () {
+        fn handle(&mut self, _event: ()) -> Handled {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }
@@ -871,12 +842,12 @@ mod tests {
     impl Actor for CrasherComponent {
         type Message = Box<dyn Any + Send>;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) -> () {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
         }
@@ -945,19 +916,15 @@ mod tests {
     impl Stopper {
         fn new() -> Stopper {
             Stopper {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
             }
         }
     }
 
-    impl Provide<ControlPort> for Stopper {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    self.ctx().system().shutdown_async();
-                }
-                _ => (), // ignore
-            }
+    impl ComponentLifecycle for Stopper {
+        fn on_start(&mut self) -> Handled {
+            self.ctx().system().shutdown_async();
+            Handled::Ok
         }
     }
 
@@ -978,21 +945,17 @@ mod tests {
     impl ConfigComponent {
         fn new() -> ConfigComponent {
             ConfigComponent {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
                 test_value: None,
             }
         }
     }
 
-    impl Provide<ControlPort> for ConfigComponent {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    self.test_value = self.ctx().config()["a"].as_i64();
-                    self.ctx().system().shutdown_async();
-                }
-                _ => (), // ignore
-            }
+    impl ComponentLifecycle for ConfigComponent {
+        fn on_start(&mut self) -> Handled {
+            self.test_value = self.ctx().config()["a"].as_i64();
+            self.ctx().system().shutdown_async();
+            Handled::Ok
         }
     }
 
@@ -1047,5 +1010,13 @@ mod tests {
         c.on_definition(|cd| {
             assert_eq!(7i64, cd.test_value.take().unwrap());
         });
+    }
+
+    #[test]
+    fn test_system_spawn() -> () {
+        let system = KompactConfig::default().build().expect("system");
+        let handle = system.spawn(async move { "test".to_string() });
+        let res = futures::executor::block_on(handle).expect("result");
+        assert_eq!(res, "test");
     }
 }

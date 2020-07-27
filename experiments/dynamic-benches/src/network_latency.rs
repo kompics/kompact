@@ -81,19 +81,15 @@ pub fn latch_synchronoise(b: &mut Bencher) {
             let wait_latch = inner_latches.pop().unwrap();
             wait_latch.wait();
         }
-        let diff = start.elapsed();
-        diff
+        start.elapsed()
     });
 }
 
 pub fn as_binary() {
     use ppstatic::*;
-    ping_pong_latency_bin(
-        100000,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency_bin(100000, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 fn ping_pong_latency_bin<Pinger, PingerF, Ponger, PongerF, PortF>(
@@ -130,7 +126,7 @@ where
         .wait_timeout(timeout)
         .expect("Pinger never started!");
 
-    let (promise, future) = kpromise();
+    let (promise, future) = promise();
     sys1.trigger_r(Run::new(iterations, promise), &experiment_port);
     let res = future.wait();
 
@@ -167,57 +163,37 @@ pub fn ping_pong_throughput_static(b: &mut Bencher, pipeline: &u64) {
 
 pub fn ping_pong_latency_static(b: &mut Bencher) {
     use ppstatic::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_static_threads(b: &mut Bencher, threads: &usize) {
     use ppstatic::*;
-    ping_pong_latency(
-        b,
-        *threads,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, *threads, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_indexed(b: &mut Bencher) {
     use ppindexed::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_pipeline_static(b: &mut Bencher) {
     use pppipelinestatic::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 pub fn ping_pong_latency_pipeline_indexed(b: &mut Bencher) {
     use pppipelineindexed::*;
-    ping_pong_latency(
-        b,
-        1,
-        |ponger| Pinger::new(ponger),
-        Ponger::new,
-        |pinger| pinger.on_definition(|cd| cd.experiment_port()),
-    );
+    ping_pong_latency(b, 1, Pinger::new, Ponger::new, |pinger| {
+        pinger.on_definition(|cd| cd.experiment_port())
+    });
 }
 
 fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
@@ -255,10 +231,9 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
         .expect("Pinger never started!");
 
     b.iter_custom(|num_iterations| {
-        let (promise, future) = kpromise();
+        let (promise, future) = promise();
         sys1.trigger_r(Run::new(num_iterations, promise), &experiment_port);
-        let res = future.wait();
-        res
+        future.wait()
     });
 
     // Teardown
@@ -311,7 +286,7 @@ pub mod pppipelinestatic {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining_send: u64,
         remaining_recv: u64,
@@ -322,8 +297,8 @@ pub mod pppipelinestatic {
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
-                experiment_port: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                experiment_port: ProvidedPort::uninitialised(),
                 ponger,
                 remaining_send: 0u64,
                 remaining_recv: 0u64,
@@ -337,21 +312,10 @@ pub mod pppipelinestatic {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> () {
+        fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !",
@@ -367,17 +331,18 @@ pub mod pppipelinestatic {
                     .tell_serialised(Ping::EVENT, self)
                     .expect("serialise");
             }
+            Handled::Ok
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -395,6 +360,7 @@ pub mod pppipelinestatic {
                     unimplemented!("Pinger received unexpected message!")
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -406,32 +372,21 @@ pub mod pppipelinestatic {
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
             }
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -446,6 +401,7 @@ pub mod pppipelinestatic {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -526,7 +482,7 @@ pub mod pppipelineindexed {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining_send: u64,
         remaining_recv: u64,
@@ -537,8 +493,8 @@ pub mod pppipelineindexed {
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
-                experiment_port: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                experiment_port: ProvidedPort::uninitialised(),
                 ponger,
                 remaining_send: 0u64,
                 remaining_recv: 0u64,
@@ -552,21 +508,10 @@ pub mod pppipelineindexed {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> () {
+        fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !",
@@ -583,17 +528,18 @@ pub mod pppipelineindexed {
                     .tell_serialised(Ping::new(self.remaining_send), self)
                     .expect("serialise");
             }
+            Handled::Ok
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Can't instantiate Never!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -611,6 +557,7 @@ pub mod pppipelineindexed {
                     unimplemented!("Pinger received unexpected message!");
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -622,32 +569,21 @@ pub mod pppipelineindexed {
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
             }
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -662,6 +598,7 @@ pub mod pppipelineindexed {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -756,7 +693,7 @@ pub mod ppstatic {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining: u64,
         done: Option<KPromise<Duration>>,
@@ -766,8 +703,8 @@ pub mod ppstatic {
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
-                experiment_port: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                experiment_port: ProvidedPort::uninitialised(),
                 ponger,
                 remaining: 0u64,
                 done: None,
@@ -780,21 +717,10 @@ pub mod ppstatic {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> () {
+        fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !",
@@ -806,17 +732,18 @@ pub mod ppstatic {
             self.ponger
                 .tell_serialised(Ping::EVENT, self)
                 .expect("serialise");
+            Handled::Ok
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Pong, Pong>() {
@@ -839,6 +766,7 @@ pub mod ppstatic {
                     unimplemented!("Pinger received unexpected message!");
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -850,32 +778,21 @@ pub mod ppstatic {
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
             }
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -890,6 +807,7 @@ pub mod ppstatic {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -971,7 +889,7 @@ pub mod ppstatic {
         #[derive(ComponentDefinition)]
         pub struct Pinger {
             ctx: ComponentContext<Self>,
-            experiment_port: ProvidedPort<ExperimentPort, Self>,
+            experiment_port: ProvidedPort<ExperimentPort>,
             done: Option<KPromise<Duration>>,
             ponger: ActorPath,
             count: u64,
@@ -985,8 +903,8 @@ pub mod ppstatic {
         impl Pinger {
             pub fn with(count: u64, pipeline: u64, ponger: ActorPath) -> Pinger {
                 Pinger {
-                    ctx: ComponentContext::new(),
-                    experiment_port: ProvidedPort::new(),
+                    ctx: ComponentContext::uninitialised(),
+                    experiment_port: ProvidedPort::uninitialised(),
                     done: None,
                     ponger,
                     count,
@@ -1003,14 +921,10 @@ pub mod ppstatic {
             }
         }
 
-        impl Provide<ControlPort> for Pinger {
-            fn handle(&mut self, _event: ControlEvent) -> () {
-                // ignore
-            }
-        }
+        ignore_lifecycle!(Pinger);
 
         impl Provide<ExperimentPort> for Pinger {
-            fn handle(&mut self, event: Run) -> () {
+            fn handle(&mut self, event: Run) -> Handled {
                 trace!(
                     self.ctx.log(),
                     "Pinger starting run with {} iterations !",
@@ -1027,17 +941,18 @@ pub mod ppstatic {
                     self.sent_count += 1;
                     pipelined += 1;
                 }
+                Handled::Ok
             }
         }
 
         impl Actor for Pinger {
             type Message = Never;
 
-            fn receive_local(&mut self, _msg: Self::Message) -> () {
+            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
                 unimplemented!("Never can't be instantiated!");
             }
 
-            fn receive_network(&mut self, msg: NetMessage) -> () {
+            fn receive_network(&mut self, msg: NetMessage) -> Handled {
                 trace!(self.ctx.log(), "Pinger received msg {:?}", msg);
                 match msg.data.try_deserialise::<Pong, Pong>() {
                     Ok(_pong) => {
@@ -1078,6 +993,7 @@ pub mod ppstatic {
                         unimplemented!("Pinger received unexpected message!")
                     }
                 }
+                Handled::Ok
             }
         }
 
@@ -1093,25 +1009,21 @@ pub mod ppstatic {
         impl Ponger {
             pub fn new() -> Ponger {
                 Ponger {
-                    ctx: ComponentContext::new(),
+                    ctx: ComponentContext::uninitialised(),
                 }
             }
         }
 
-        impl Provide<ControlPort> for Ponger {
-            fn handle(&mut self, _event: ControlEvent) -> () {
-                // ignore
-            }
-        }
+        ignore_lifecycle!(Ponger);
 
         impl Actor for Ponger {
             type Message = Never;
 
-            fn receive_local(&mut self, _msg: Self::Message) -> () {
+            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
                 unimplemented!("Never can't be instantiated!");
             }
 
-            fn receive_network(&mut self, msg: NetMessage) -> () {
+            fn receive_network(&mut self, msg: NetMessage) -> Handled {
                 trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
                 let sender = msg.sender;
                 match msg.data.try_deserialise::<Ping, Ping>() {
@@ -1126,6 +1038,7 @@ pub mod ppstatic {
                         unimplemented!("Ponger received unexpected message!");
                     }
                 }
+                Handled::Ok
             }
         }
     }
@@ -1137,7 +1050,7 @@ pub mod ppindexed {
     #[derive(ComponentDefinition)]
     pub struct Pinger {
         ctx: ComponentContext<Self>,
-        experiment_port: ProvidedPort<ExperimentPort, Self>,
+        experiment_port: ProvidedPort<ExperimentPort>,
         ponger: ActorPath,
         remaining: u64,
         done: Option<KPromise<Duration>>,
@@ -1147,8 +1060,8 @@ pub mod ppindexed {
     impl Pinger {
         pub fn new(ponger: ActorPath) -> Pinger {
             Pinger {
-                ctx: ComponentContext::new(),
-                experiment_port: ProvidedPort::new(),
+                ctx: ComponentContext::uninitialised(),
+                experiment_port: ProvidedPort::uninitialised(),
                 ponger,
                 remaining: 0u64,
                 done: None,
@@ -1161,21 +1074,10 @@ pub mod ppindexed {
         }
     }
 
-    impl Provide<ControlPort> for Pinger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Pinger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Pinger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> () {
+        fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !",
@@ -1187,17 +1089,18 @@ pub mod ppindexed {
             self.ponger
                 .tell_serialised(Ping::new(self.remaining), self)
                 .expect("serialise");
+            Handled::Ok
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -1219,6 +1122,7 @@ pub mod ppindexed {
                     unimplemented!("Pinger received unexpected message!")
                 }
             }
+            Handled::Ok
         }
     }
 
@@ -1230,32 +1134,21 @@ pub mod ppindexed {
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
-                ctx: ComponentContext::new(),
+                ctx: ComponentContext::uninitialised(),
             }
         }
     }
 
-    impl Provide<ControlPort> for Ponger {
-        fn handle(&mut self, event: ControlEvent) -> () {
-            match event {
-                ControlEvent::Start => {
-                    debug!(self.ctx.log(), "Starting Ponger");
-                }
-                e => {
-                    debug!(self.ctx.log(), "Ponger got control event: {:?}", e);
-                }
-            }
-        }
-    }
+    ignore_lifecycle!(Ponger);
 
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> () {
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> () {
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -1270,6 +1163,7 @@ pub mod ppindexed {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
+            Handled::Ok
         }
     }
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, PathResolvable};
+use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -204,14 +204,6 @@ impl SystemField for SystemPath {
     }
 }
 
-/// A factory trait for things can produce [PathResolvable](PathResolvable) instances
-///
-/// Only makes sense for types that can [dispatch](Dispatching) messages.
-pub trait ActorSource: Dispatching {
-    /// Returns the associated path resolvable
-    fn path_resolvable(&self) -> PathResolvable;
-}
-
 /// A factory trait for things that have associated [actor paths](ActorPath)
 pub trait ActorPathFactory {
     /// Returns the associated actor path
@@ -239,9 +231,9 @@ impl<'a, 'b> Dispatching for DispatchingPath<'a, 'b> {
     }
 }
 
-impl<'a, 'b> ActorSource for DispatchingPath<'a, 'b> {
-    fn path_resolvable(&self) -> PathResolvable {
-        PathResolvable::Path(self.path.clone())
+impl<'a, 'b> ActorPathFactory for DispatchingPath<'a, 'b> {
+    fn actor_path(&self) -> ActorPath {
+        self.path.clone()
     }
 }
 
@@ -282,63 +274,102 @@ impl ActorPath {
     /// The `from` field is used as a source,
     /// and the `ActorPath` it resolved to will be supplied at the destination.
     ///
+    /// This function ensures that the protocol of the source path matches the
+    /// protocol of this path. If you would like the sender path to have a different
+    /// transport protocol, use [tell_with_sender](ActorPath::tell_with_sender) instead.
+    ///
     /// Serialisation of `m` happens lazily in the dispatcher,
     /// and only if it really goes over the network. If this actor path
     /// turns out to be local, `m` will be moved to the heap and send locally instead.
     ///
     /// In fact, this method always moves `m` onto the heap (unless it already is allocated there),
-    /// to facility this lazy serialisation.
-    /// As this method has some overhead in the case where it sure
+    /// to facilitate this lazy serialisation.
+    /// As this method has some overhead in the case where it is certain
     /// that `m` will definitely go over the network, you can use
     /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
     where
-        S: ActorSource,
+        S: ActorPathFactory + Dispatching,
         B: Into<Box<dyn Serialisable>>,
     {
+        let mut src = from.actor_path();
+        src.set_protocol(self.protocol());
+        self.tell_with_sender(m, from, src)
+    }
+
+    /// Send message `m` to the actor designated by this path
+    ///
+    /// The `from` field is used as a source and will be supplied at the destination.
+    ///
+    /// Serialisation of `m` happens lazily in the dispatcher,
+    /// and only if it really goes over the network. If this actor path
+    /// turns out to be local, `m` will be moved to the heap and send locally instead.
+    ///
+    /// In fact, this method always moves `m` onto the heap (unless it already is allocated there),
+    /// to facilitate this lazy serialisation.
+    /// As this method has some overhead in the case where it is certain
+    /// that `m` will definitely go over the network, you can use
+    /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
+    pub fn tell_with_sender<B, D>(&self, m: B, dispatch: &D, from: ActorPath) -> ()
+    where
+        B: Into<Box<dyn Serialisable>>,
+        D: Dispatching,
+    {
         let msg: Box<dyn Serialisable> = m.into();
-        let src = from.path_resolvable();
         let dst = self.clone();
         let env = DispatchEnvelope::Msg {
-            src,
+            src: from,
             dst,
             msg: DispatchData::Lazy(msg),
         };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
+        dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
     }
 
-    /// Same as [tell](ActorPath::tell), but serialises eagerly into a Pooled buffer (pre-allocated and bounded)
+    /// Send message `m` to the actor designated by this path
+    ///
+    /// This function has the same effect as [tell](ActorPath::tell),
+    /// but serialises eagerly into a Pooled buffer (pre-allocated and bounded).
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
     where
-        CD: ComponentDefinition + Sized + 'static,
+        CD: ComponentTraits + ComponentLifecycle,
+        B: Serialisable + 'static,
+    {
+        let mut src = from.actor_path();
+        src.set_protocol(self.protocol());
+        self.tell_serialised_with_sender(m, from, src)
+    }
+
+    /// Send message `m` to the actor designated by this path
+    ///
+    /// This function has the same effect as [tell](ActorPath::tell),
+    /// but serialises eagerly into a Pooled buffer (pre-allocated and bounded).
+    pub fn tell_serialised_with_sender<CD, B>(
+        &self,
+        m: B,
+        dispatch: &CD,
+        from: ActorPath,
+    ) -> Result<(), SerError>
+    where
+        CD: ComponentTraits + ComponentLifecycle,
         B: Serialisable + 'static,
     {
         if self.protocol() == Transport::LOCAL {
             // No need to serialize!
-            self.tell(m, from);
-            return Ok(());
+            self.tell_with_sender(m, dispatch, from);
+            Ok(())
         } else {
-            // Scope the buffer check so we can safely initialise it if we need to
-            {
-                if let Some(buffer) = (*from.ctx().get_buffer().borrow_mut()).as_mut() {
-                    let mut buf = buffer.get_buffer_encoder();
-                    let chunk_lease = crate::serialisation::ser_helpers::serialise_msg(
-                        &from.actor_path(),
-                        &self,
-                        &m,
-                        &mut buf,
-                    )?;
-                    let env = DispatchEnvelope::Msg {
-                        src: from.path_resolvable(),
-                        dst: self.clone(),
-                        msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
-                    };
-                    from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
-                    return Ok(());
-                } // Else Branch outside of the scope below:
-            }
-            from.ctx().initialise_pool();
-            self.tell_serialised(m, from)
+            dispatch.ctx().with_buffer(|buffer| {
+                let mut buf = buffer.get_buffer_encoder();
+                let chunk_lease =
+                    crate::serialisation::ser_helpers::serialise_msg(&from, &self, &m, &mut buf)?;
+                let env = DispatchEnvelope::Msg {
+                    src: from,
+                    dst: self.clone(),
+                    msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+                };
+                dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+                Ok(())
+            })
         }
     }
 
@@ -362,16 +393,21 @@ impl ActorPath {
     }
 
     /// Forwards the still serialised message to this path replacing the sender with the given one
-    pub fn forward_with_sender<CD>(&self, mut serialised_message: NetMessage, from: &CD) -> ()
+    pub fn forward_with_sender<D>(
+        &self,
+        mut serialised_message: NetMessage,
+        dispatch: &D,
+        from: ActorPath,
+    ) -> ()
     where
-        CD: ComponentDefinition + Sized + 'static,
+        D: Dispatching,
     {
         serialised_message.receiver = self.clone();
-        serialised_message.sender = from.actor_path();
+        serialised_message.sender = from;
         let env = DispatchEnvelope::ForwardedMsg {
             msg: serialised_message,
         };
-        from.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+        dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
     }
 
     /// Returns a temporary combination of an [ActorPath](ActorPath)
@@ -400,8 +436,23 @@ impl ActorPath {
     }
 
     /// Change the transport protocol for this actor path
-    pub fn set_transport(&mut self, proto: Transport) {
+    pub fn set_protocol(&mut self, proto: Transport) {
         self.system_mut().protocol = proto;
+    }
+
+    /// Sets the transport protocol for this actor path to UDP
+    pub fn via_udp(&mut self) {
+        self.set_protocol(Transport::UDP);
+    }
+
+    /// Sets the transport protocol for this actor path to TCP
+    pub fn via_tcp(&mut self) {
+        self.set_protocol(Transport::TCP);
+    }
+
+    /// Sets the transport protocol for this actor path to LOCAL
+    pub fn via_local(&mut self) {
+        self.set_protocol(Transport::LOCAL);
     }
 }
 
@@ -435,8 +486,8 @@ impl From<NamedPath> for ActorPath {
     }
 }
 
-const PATH_SEP: &'static str = "/";
-const UNIQUE_PATH_SEP: &'static str = "#";
+const PATH_SEP: &str = "/";
+const UNIQUE_PATH_SEP: &str = "#";
 
 impl fmt::Display for ActorPath {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -513,13 +564,8 @@ impl UniquePath {
     }
 
     /// Returns a reference to this path's unique id
-    pub fn uuid_ref(&self) -> &Uuid {
-        &self.id
-    }
-
-    /// Returns a copy of this path's unique id
-    pub fn clone_id(&self) -> Uuid {
-        self.id.clone()
+    pub fn id(&self) -> Uuid {
+        self.id
     }
 
     /// Returns a mutable reference to this path's system path part
@@ -653,7 +699,7 @@ impl FromStr for NamedPath {
         }
         let proto: Transport = s1[0].parse()?;
         let mut s2: Vec<&str> = s1[1].split(PATH_SEP).collect();
-        if s2.len() < 1 {
+        if s2.is_empty() {
             return Err(PathParseError::Form(s.to_string()));
         }
         let socket = SocketAddr::from_str(s2[0])?;
@@ -662,36 +708,15 @@ impl FromStr for NamedPath {
         } else {
             Vec::default()
         };
-        Ok(NamedPath::with_socket(proto, socket, path.clone()))
+        Ok(NamedPath::with_socket(proto, socket, path))
     }
 }
 
-// this doesn't seem to be used anywhere...
-//
-/// An actor path paired with a reference to a dispatcher
-///
-/// This struct can be used in places where an [ActorSource](ActorSource) is expected.
-// pub struct RegisteredPath {
-//     path: ActorPath,
-//     dispatcher: DispatcherRef,
-// }
-
-// impl Dispatching for RegisteredPath {
-//     fn dispatcher_ref(&self) -> DispatcherRef {
-//         self.dispatcher.clone()
-//     }
-// }
-
-// impl ActorSource for RegisteredPath {
-//     fn path_resolvable(&self) -> PathResolvable {
-//         PathResolvable::Path(self.path.clone())
-//     }
-// }
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const PATH: &'static str = "local://127.0.0.1:0/test_actor";
+    const PATH: &str = "local://127.0.0.1:0/test_actor";
 
     #[test]
     fn actor_path_strings() {

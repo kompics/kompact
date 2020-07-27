@@ -14,5 +14,5 @@ curly-quotes = true
 mathjax-support = true
 git-repository-url = "https://github.com/kompics/kompact"
 
-[output.linkcheck]
-follow-web-links = false
+#[output.linkcheck]
+#follow-web-links = false

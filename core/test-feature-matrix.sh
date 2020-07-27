@@ -5,6 +5,7 @@ set -e
 
 cargo test
 cargo test -- --ignored
+# these also test without the use_local_executor feature
 cargo test --no-default-features --features ser_id_8
 cargo test --no-default-features --features ser_id_8 -- --ignored
 cargo test --no-default-features --features ser_id_16

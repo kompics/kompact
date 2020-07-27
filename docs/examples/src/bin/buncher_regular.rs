@@ -2,21 +2,23 @@ use kompact::prelude::*;
 use kompact_examples::batching::*;
 use std::time::Duration;
 
+// ANCHOR: state
 #[derive(ComponentDefinition, Actor)]
 struct Buncher {
     ctx: ComponentContext<Self>,
-    batch_port: ProvidedPort<Batching, Self>,
+    batch_port: ProvidedPort<Batching>,
     batch_size: usize,
     timeout: Duration,
     current_batch: Vec<Ping>,
     outstanding_timeout: Option<ScheduledTimer>,
 }
+// ANCHOR_END: state
 
 impl Buncher {
     fn new(batch_size: usize, timeout: Duration) -> Buncher {
         Buncher {
-            ctx: ComponentContext::new(),
-            batch_port: ProvidedPort::new(),
+            ctx: ComponentContext::uninitialised(),
+            batch_port: ProvidedPort::uninitialised(),
             batch_size,
             timeout,
             current_batch: Vec::with_capacity(batch_size),
@@ -24,49 +26,63 @@ impl Buncher {
         }
     }
 
+    // ANCHOR: private_functions
     fn trigger_batch(&mut self) -> () {
         let mut new_batch = Vec::with_capacity(self.batch_size);
         std::mem::swap(&mut new_batch, &mut self.current_batch);
         self.batch_port.trigger(Batch(new_batch))
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> () {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id => {
                 self.trigger_batch();
+                Handled::Ok
             }
-            Some(_) => (), // just ignore outdated timeouts
-            None => warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id), // can happen during restart or teardown
+            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            None => {
+                warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
         }
     }
+    // ANCHOR_END: private_functions
 }
 
-impl Provide<ControlPort> for Buncher {
-    fn handle(&mut self, event: ControlEvent) -> () {
-        match event {
-            ControlEvent::Start => {
-                let timeout =
-                    self.schedule_periodic(self.timeout, self.timeout, Buncher::handle_timeout);
-                self.outstanding_timeout = Some(timeout);
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                if let Some(timeout) = self.outstanding_timeout.take() {
-                    self.cancel_timer(timeout);
-                }
-            }
+// ANCHOR: lifecycle
+impl ComponentLifecycle for Buncher {
+    fn on_start(&mut self) -> Handled {
+        let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
+        self.outstanding_timeout = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        if let Some(timeout) = self.outstanding_timeout.take() {
+            self.cancel_timer(timeout);
         }
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
+// ANCHOR_END: lifecycle
 
+// ANCHOR: batching_port
 impl Provide<Batching> for Buncher {
-    fn handle(&mut self, event: Ping) -> () {
+    fn handle(&mut self, event: Ping) -> Handled {
         self.current_batch.push(event);
         if self.current_batch.len() >= self.batch_size {
             self.trigger_batch();
         }
+        Handled::Ok
     }
 }
+// ANCHOR_END: batching_port
 
+// ANCHOR: main
 pub fn main() {
     let system = KompactConfig::default().build().expect("system");
     let printer = system.create(BatchPrinter::new);
@@ -95,6 +111,7 @@ pub fn main() {
 
     system.shutdown().expect("shutdown");
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

@@ -67,12 +67,14 @@ impl fmt::Debug for WorkPart {
 #[derive(Debug)]
 struct WorkResult(u64);
 
+// ANCHOR: manager_message
 #[derive(Debug)]
 enum ManagerMessage {
     Work(Ask<Work, WorkResult>),
     Result(WorkResult),
 }
-
+// ANCHOR_END: manager_message
+// ANCHOR: manager_state
 #[derive(ComponentDefinition)]
 struct Manager {
     ctx: ComponentContext<Self>,
@@ -82,10 +84,11 @@ struct Manager {
     outstanding_request: Option<Ask<Work, WorkResult>>,
     result_accumulator: Vec<u64>,
 }
+// ANCHOR_END: manager_state
 impl Manager {
     fn new(num_workers: usize) -> Self {
         Manager {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
             num_workers,
             workers: Vec::with_capacity(num_workers),
             worker_refs: Vec::with_capacity(num_workers),
@@ -94,35 +97,40 @@ impl Manager {
         }
     }
 }
-impl Provide<ControlPort> for Manager {
-    fn handle(&mut self, event: ControlEvent) {
-        match event {
-            ControlEvent::Start => {
-                // set up our workers
-                for _i in 0..self.num_workers {
-                    let worker = self.ctx.system().create(Worker::new);
-                    let worker_ref = worker.actor_ref().hold().expect("live");
-                    self.ctx.system().start(&worker);
-                    self.workers.push(worker);
-                    self.worker_refs.push(worker_ref);
-                }
-            }
-            ControlEvent::Stop | ControlEvent::Kill => {
-                // clean up after ourselves
-                self.worker_refs.clear();
-                let system = self.ctx.system();
-                self.workers.drain(..).for_each(|worker| {
-                    system.stop(&worker);
-                });
-            }
+
+impl ComponentLifecycle for Manager {
+    fn on_start(&mut self) -> Handled {
+        // set up our workers
+        for _i in 0..self.num_workers {
+            let worker = self.ctx.system().create(Worker::new);
+            let worker_ref = worker.actor_ref().hold().expect("live");
+            self.ctx.system().start(&worker);
+            self.workers.push(worker);
+            self.worker_refs.push(worker_ref);
         }
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled {
+        // clean up after ourselves
+        self.worker_refs.clear();
+        let system = self.ctx.system();
+        self.workers.drain(..).for_each(|worker| {
+            system.stop(&worker);
+        });
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled {
+        self.on_stop()
     }
 }
 
+// ANCHOR: manager_actor
 impl Actor for Manager {
     type Message = ManagerMessage;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
             ManagerMessage::Work(msg) => {
                 assert!(
@@ -182,12 +190,14 @@ impl Actor for Manager {
                 }
             }
         }
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }
+// ANCHOR_END: manager_actor
 
 #[derive(ComponentDefinition)]
 struct Worker {
@@ -196,25 +206,28 @@ struct Worker {
 impl Worker {
     fn new() -> Self {
         Worker {
-            ctx: ComponentContext::new(),
+            ctx: ComponentContext::uninitialised(),
         }
     }
 }
-ignore_control!(Worker);
+ignore_lifecycle!(Worker);
 
+// ANCHOR: worker_actor
 impl Actor for Worker {
     type Message = WithSender<WorkPart, ManagerMessage>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         let my_slice = &msg.data[msg.range.clone()];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         msg.reply(ManagerMessage::Result(WorkResult(res)));
+        Handled::Ok
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> () {
+    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
 }
+// ANCHOR_END: worker_actor
 
 pub fn main() {
     let args: Vec<String> = env::args().collect();
@@ -237,9 +250,11 @@ fn run_task(num_workers: usize, data_size: usize) {
     let data: Vec<u64> = (1..=data_size).map(|v| v as u64).collect();
     let work = Work::with(data, overflowing_sum, 0u64);
     println!("Sending request...");
+    // ANCHOR: main_ask
     let res = manager_ref
         .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
         .wait();
+    // ANCHOR_END: main_ask
     println!("*******\nGot result: {}\n*******", res.0);
     assert_eq!(triangular_number(data_size as u64), res.0);
     system.shutdown().expect("shutdown");

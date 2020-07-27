@@ -1,5 +1,8 @@
 use super::*;
-use crate::messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, UnpackError};
+use crate::{
+    component::Handled,
+    messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, UnpackError},
+};
 use std::{
     fmt,
     sync::{Arc, Weak},
@@ -42,15 +45,16 @@ where
 /// struct RawActor {
 ///    ctx: ComponentContext<Self>
 /// }
-/// ignore_control!(RawActor);
+/// ignore_lifecycle!(RawActor);
 /// impl ActorRaw for RawActor {
 ///     type Message = ();
 ///
-///     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> () {
+///     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled {
 ///         match env {
 ///            MsgEnvelope::Typed(m) => info!(self.log(), "Got a local message: {:?}", m),
 ///            MsgEnvelope::Net(nm) => info!(self.log(), "Got a network message: {:?}", nm),
 ///         }
+///         Handled::Ok
 ///     }
 /// }
 /// ```
@@ -70,7 +74,7 @@ pub trait ActorRaw {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> ();
+    fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled;
 }
 
 /// A slightly higher level Actor API that handles both local and networked messages
@@ -90,16 +94,18 @@ pub trait ActorRaw {
 /// struct NormalActor {
 ///    ctx: ComponentContext<Self>
 /// }
-/// ignore_control!(NormalActor);
+/// ignore_lifecycle!(NormalActor);
 /// impl Actor for NormalActor {
 ///     type Message = ();
 ///
-///     fn receive_local(&mut self, msg: Self::Message) -> () {
+///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
 ///         info!(self.log(), "Got a local message: {:?}", msg);
+///         Handled::Ok
 ///     }
 ///
-///     fn receive_network(&mut self, msg: NetMessage) -> () {
-///         info!(self.log(), "Got a network message: {:?}", msg)
+///     fn receive_network(&mut self, msg: NetMessage) -> Handled {
+///         info!(self.log(), "Got a network message: {:?}", msg);
+///         Handled::Ok
 ///     }
 /// }
 /// ```
@@ -116,7 +122,7 @@ pub trait Actor {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive_local(&mut self, msg: Self::Message) -> ();
+    fn receive_local(&mut self, msg: Self::Message) -> Handled;
 
     /// Handle an incoming network message
     ///
@@ -131,7 +137,7 @@ pub trait Actor {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive_network(&mut self, msg: NetMessage) -> ();
+    fn receive_network(&mut self, msg: NetMessage) -> Handled;
 }
 
 /// A dispatcher is a system component that knows how to route messages and create system paths
@@ -152,7 +158,7 @@ where
     type Message = M;
 
     #[inline(always)]
-    fn receive(&mut self, env: MsgEnvelope<M>) -> () {
+    fn receive(&mut self, env: MsgEnvelope<M>) -> Handled {
         match env {
             MsgEnvelope::Typed(m) => self.receive_local(m),
             MsgEnvelope::Net(nm) => self.receive_network(nm),
@@ -177,7 +183,7 @@ pub trait DynActorRefFactory {
 
 impl<F> DynActorRefFactory for F
 where
-    F: ActorRefFactory,
+    F: ActorRefFactory + ?Sized,
 {
     fn dyn_ref(&self) -> DynActorRef {
         self.actor_ref().dyn_ref()
@@ -208,13 +214,14 @@ pub trait Dispatching {
 /// struct NetActor {
 ///    ctx: ComponentContext<Self>
 /// }
-/// ignore_control!(NetActor);
+/// ignore_lifecycle!(NetActor);
 /// impl NetworkActor for NetActor {
 ///     type Message = ();
 ///     type Deserialiser = ();
 ///
-///     fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> () {
+///     fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> Handled {
 ///         info!(self.log(), "Got a local or deserialised remote message: {:?}", msg);
+///         Handled::Ok
 ///     }
 /// }
 /// ```
@@ -237,18 +244,19 @@ pub trait NetworkActor: ComponentLogging {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> ();
+    fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> Handled;
 
     /// Handle errors during unpacking of network messages
     ///
     /// The default implementation logs every error as a warning.
-    fn on_error(&mut self, error: UnpackError<NetMessage>) -> () {
+    fn on_error(&mut self, error: UnpackError<NetMessage>) -> Handled {
         warn!(
             self.log(),
             "Could not deserialise a message with Deserialiser with id={}. Error was: {:?}",
             Self::Deserialiser::SER_ID,
             error
         );
+        Handled::Ok
     }
 }
 
@@ -261,12 +269,12 @@ where
     type Message = M;
 
     #[inline(always)]
-    fn receive_local(&mut self, msg: Self::Message) -> () {
+    fn receive_local(&mut self, msg: Self::Message) -> Handled {
         self.receive(None, msg)
     }
 
     #[inline(always)]
-    fn receive_network(&mut self, msg: NetMessage) -> () {
+    fn receive_network(&mut self, msg: NetMessage) -> Handled {
         match msg.try_into_deserialised::<_, <Self as NetworkActor>::Deserialiser>() {
             Ok(m) => self.receive(Some(m.sender), m.content),
             Err(e) => self.on_error(e),

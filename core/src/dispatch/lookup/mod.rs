@@ -10,9 +10,8 @@ use crate::{
     actors::{ActorPath, DynActorRef},
     messaging::PathResolvable,
 };
+use rustc_hash::FxHashMap;
 use sequence_trie::SequenceTrie;
-//use std::collections::HashMap;
-use fnv::FnvHashMap;
 use uuid::Uuid;
 
 pub mod gc;
@@ -27,25 +26,25 @@ pub trait ActorLookup: Clone {
 
     fn get_by_actor_path(&self, path: &ActorPath) -> Option<&DynActorRef> {
         match path {
-            ActorPath::Unique(ref up) => self.get_by_uuid(up.uuid_ref()),
+            ActorPath::Unique(ref up) => self.get_by_uuid(&up.id()),
             ActorPath::Named(ref np) => self.get_by_named_path(np.path_ref()),
         }
     }
 
     fn get_by_uuid(&self, id: &Uuid) -> Option<&DynActorRef>;
 
-    fn get_by_named_path(&self, path: &Vec<String>) -> Option<&DynActorRef>;
+    fn get_by_named_path(&self, path: &[String]) -> Option<&DynActorRef>;
 
     fn get_mut_by_actor_path(&mut self, path: &ActorPath) -> Option<&mut DynActorRef> {
         match path {
-            ActorPath::Unique(ref up) => self.get_mut_by_uuid(up.uuid_ref()),
+            ActorPath::Unique(ref up) => self.get_mut_by_uuid(&up.id()),
             ActorPath::Named(ref np) => self.get_mut_by_named_path(np.path_ref()),
         }
     }
 
     fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef>;
 
-    fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut DynActorRef>;
+    fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef>;
 
     /// Removes all entries that point to the provided actor, returning how many were removed
     /// (most likely O(n), subject to implementation details)
@@ -55,7 +54,7 @@ pub trait ActorLookup: Clone {
     fn remove_by_uuid(&mut self, id: &Uuid) -> bool;
 
     /// Removes the value at the given key, returning `true` if it existed.
-    fn remove_by_named_path(&mut self, path: &Vec<String>) -> bool;
+    fn remove_by_named_path(&mut self, path: &[String]) -> bool;
 
     /// Performs cleanup on this lookup table, returning how many entries were affected.
     fn cleanup(&mut self) -> usize {
@@ -78,8 +77,9 @@ pub trait ActorLookup: Clone {
 /// This use case is not currently being utilized, but it may be in the future.
 #[derive(Clone)]
 pub struct ActorStore {
-    uuid_map: FnvHashMap<Uuid, DynActorRef>,
+    uuid_map: FxHashMap<Uuid, DynActorRef>,
     name_map: SequenceTrie<String, DynActorRef>,
+    deadletter: Option<DynActorRef>,
 }
 
 // impl ActorStore
@@ -87,8 +87,9 @@ pub struct ActorStore {
 impl ActorStore {
     pub fn new() -> Self {
         ActorStore {
-            uuid_map: FnvHashMap::default(),
+            uuid_map: FxHashMap::default(),
             name_map: SequenceTrie::new(),
+            deadletter: None,
         }
     }
 }
@@ -100,7 +101,7 @@ impl ActorLookup for ActorStore {
         match path {
             PathResolvable::Path(actor_path) => match actor_path {
                 ActorPath::Unique(up) => {
-                    let key = up.clone_id();
+                    let key = up.id();
                     self.uuid_map.insert(key, actor)
                 }
                 ActorPath::Named(np) => {
@@ -110,16 +111,14 @@ impl ActorLookup for ActorStore {
             },
             PathResolvable::Alias(alias) => self.name_map.insert(&vec![alias], actor),
             PathResolvable::ActorId(uuid) => self.uuid_map.insert(uuid, actor),
-            PathResolvable::System => {
-                panic!("System paths should not be registered");
-            }
+            PathResolvable::System => self.deadletter.replace(actor),
         }
     }
 
     fn contains(&self, path: &PathResolvable) -> bool {
         match path {
             PathResolvable::Path(actor_path) => match actor_path {
-                ActorPath::Unique(ref up) => self.uuid_map.contains_key(up.uuid_ref()),
+                ActorPath::Unique(ref up) => self.uuid_map.contains_key(&up.id()),
                 ActorPath::Named(ref np) => {
                     let keys = np.path_ref();
                     self.name_map.get(keys).is_some()
@@ -130,7 +129,7 @@ impl ActorLookup for ActorStore {
                 self.name_map.get(&[alias.clone()]).is_some()
             }
             PathResolvable::ActorId(ref uuid) => self.uuid_map.contains_key(uuid),
-            &PathResolvable::System => false, // System path registration is not allowed
+            PathResolvable::System => self.deadletter.is_some(),
         }
     }
 
@@ -138,16 +137,24 @@ impl ActorLookup for ActorStore {
         self.uuid_map.get(id)
     }
 
-    fn get_by_named_path(&self, path: &Vec<String>) -> Option<&DynActorRef> {
-        self.name_map.get(path)
+    fn get_by_named_path(&self, path: &[String]) -> Option<&DynActorRef> {
+        if path.is_empty() {
+            self.deadletter.as_ref()
+        } else {
+            self.name_map.get(path)
+        }
     }
 
     fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef> {
         self.uuid_map.get_mut(id)
     }
 
-    fn get_mut_by_named_path(&mut self, path: &Vec<String>) -> Option<&mut DynActorRef> {
-        self.name_map.get_mut(path)
+    fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef> {
+        if path.is_empty() {
+            self.deadletter.as_mut()
+        } else {
+            self.name_map.get_mut(path)
+        }
     }
 
     fn remove(&mut self, actor: DynActorRef) -> usize {
@@ -161,7 +168,7 @@ impl ActorLookup for ActorStore {
         self.uuid_map.remove(id).is_some()
     }
 
-    fn remove_by_named_path(&mut self, path: &Vec<String>) -> bool {
+    fn remove_by_named_path(&mut self, path: &[String]) -> bool {
         let existed = self.name_map.get(path).is_some();
         self.name_map.remove(path);
         existed
@@ -178,7 +185,7 @@ impl ActorStore {
             .uuid_map
             .iter()
             .filter(|rec| rec.1 == actor)
-            .map(|rec| rec.0.clone())
+            .map(|rec| *rec.0)
             .collect();
         let existed = matches.len();
         for m in matches {
@@ -234,7 +241,7 @@ impl ActorStore {
             .uuid_map
             .iter()
             .filter(|&(_, actor)| !actor.can_upgrade_component())
-            .map(|(key, _)| key.clone())
+            .map(|(key, _)| *key)
             .collect();
         existed += matches.len();
         for m in matches {
