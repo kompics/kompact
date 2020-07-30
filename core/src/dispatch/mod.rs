@@ -134,8 +134,8 @@ pub struct NetworkDispatcher {
     notify_ready: Option<KPromise<()>>,
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
-    retry_map: FnvHashMap<SocketAddr, (u8)>,
-    old_buffers: VecDeque<BufferChunk>,
+    retry_map: FxHashMap<SocketAddr, u8>,
+    garbage_buffers: VecDeque<BufferChunk>,
 }
 
 impl NetworkDispatcher {
@@ -180,7 +180,7 @@ impl NetworkDispatcher {
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
-            old_buffers: VecDeque::new(),
+            garbage_buffers: VecDeque::new(),
             retry_map: Default::default(),
         }
     }
@@ -275,11 +275,11 @@ impl NetworkDispatcher {
         );
 
         let mut retry_queue = VecDeque::new();
-        for mut trash in self.old_buffers.drain(..) {
+        for mut trash in self.garbage_buffers.drain(..) {
             if !trash.free() { retry_queue.push_back(trash); }
         }
         // info!(self.ctx().log(), "tried to clean {} buffer(s)", retry_queue.len()); // manual verification in testing
-        self.old_buffers.append(&mut retry_queue);
+        self.garbage_buffers.append(&mut retry_queue);
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
             target.schedule_reaper();
@@ -625,7 +625,7 @@ impl Actor for NetworkDispatcher {
                 }
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),
-            DispatchEnvelope::LockedChunk(trash) => self.old_buffers.push_back(trash),
+            DispatchEnvelope::LockedChunk(trash) => self.garbage_buffers.push_back(trash),
         }
         Handled::Ok
     }
@@ -653,6 +653,10 @@ impl Dispatcher for NetworkDispatcher {
                 sp
             }
         }
+    }
+
+    fn garbage_count(&self) -> usize {
+        self.garbage_buffers.len()
     }
 }
 
@@ -1518,13 +1522,10 @@ mod dispatch_tests {
             .expect("Kompact didn't shut down properly");
     }
 
-    /*
-    /// A WIP Test case. It runs and can be verified with the muted logging in the reaper method
     #[test]
     /// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
     /// system1 times out in its reconnection attempts and drops the enqueued buffers.
     /// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
-    //#[ignore]
     fn cleanup_bufferchunks_from_dead_actors() {
         let system1 = || {
             let mut cfg = KompactConfig::new();
@@ -1570,6 +1571,8 @@ mod dispatch_tests {
         // Kill the actor and wait for its BufferChunk to reach the NetworkDispatch and let the reaping try at least once
         system1.kill(pinger_named);
         thread::sleep(Duration::from_millis(5000));
+        // Assertion 1: The Network_Dispatcher on system1 has >0 buffers to cleanup
+        assert_ne!(0, system1.garbage_count());
 
         // Start up system2b
         println!("Setting up system2b");
@@ -1582,9 +1585,8 @@ mod dispatch_tests {
         system2b.start(&ponger_named);
         // We give the connection plenty of time to re-establish and transfer it's old queue and cleanup the BufferChunk
         thread::sleep(Duration::from_millis(10000));
-        // Final assertion,
-        // ASSERT THAT Dispatcher doesn't have the Chunk
-        // TODO: ??
+        // Assertion 2: The Network_Dispatcher on system1 now has 0 buffers to cleanup.
+        assert_eq!(0, system1.garbage_count());
 
         system1
             .shutdown()
@@ -1593,7 +1595,6 @@ mod dispatch_tests {
             .shutdown()
             .expect("Kompact didn't shut down properly");
     }
-    */
 
     const PING_COUNT: u64 = 10;
 

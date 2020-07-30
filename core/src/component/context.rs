@@ -320,25 +320,13 @@ where
     pub fn suicide(&self) -> () {
         self.component().enqueue_control(ControlEvent::Kill);
     }
-
-    /// Initializes a buffer pool which [tell_serialised(ActorPath::tell_serialised) can use.
-    pub fn initialise_pool(&self) -> () {
-        debug!(self.log(), "Initialising EncodeBuffer");
-        *self.buffer.borrow_mut() = Some(EncodeBuffer::new());
-    }
-
-    // /// Get a reference to the interior EncodeBuffer without retaining a self borrow
-    // /// initializes the private pool if it has not already been initialized
-    // /// pub
-    // fn get_buffer(&self) -> &RefCell<Option<EncodeBuffer>> {
-    //     &self.buffer
-    // }
+    
     pub(crate) fn with_buffer<R>(&self, f: impl FnOnce(&mut EncodeBuffer) -> R) -> R {
         let mut buffer_location = self.buffer.borrow_mut();
         match buffer_location.as_mut() {
             Some(buffer) => f(buffer),
             None => {
-                let mut buffer = EncodeBuffer::new();
+                let mut buffer = EncodeBuffer::with_dispatcher_ref(self.dispatcher_ref());
                 let res = f(&mut buffer);
                 *buffer_location = Some(buffer);
                 res

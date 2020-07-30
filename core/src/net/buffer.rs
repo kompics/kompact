@@ -4,6 +4,7 @@ use bytes::{Buf, BufMut};
 use core::{cmp, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
 use std::fmt::{Debug, Formatter};
+use crate::messaging::DispatchEnvelope;
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 2000;
@@ -278,6 +279,7 @@ pub struct EncodeBuffer {
     buffer_pool: BufferPool,
     write_offset: usize,
     read_offset: usize,
+    dispatcher_ref: Option<DispatcherRef>,
 }
 
 impl EncodeBuffer {
@@ -290,6 +292,23 @@ impl EncodeBuffer {
                 buffer_pool,
                 write_offset: 0,
                 read_offset: 0,
+                dispatcher_ref: None,
+            }
+        } else {
+            panic!("Couldn't initialize EncodeBuffer");
+        }
+    }
+
+    /// Creates a new EncodeBuffer with a DispatcherRef used for safe destruction of the buffers.
+    pub fn with_dispatcher_ref(dispatcher_ref: DispatcherRef) -> Self {
+        let mut buffer_pool = BufferPool::new();
+        if let Some(buffer) = buffer_pool.get_buffer() {
+            EncodeBuffer {
+                buffer,
+                buffer_pool,
+                write_offset: 0,
+                read_offset: 0,
+                dispatcher_ref: Some(dispatcher_ref),
             }
         } else {
             panic!("Couldn't initialize EncodeBuffer");
@@ -308,10 +327,11 @@ impl EncodeBuffer {
         self.write_offset
     }
 
+    /*
     /// Deallocates unlocked Buffers in the pool and returns the locked BufferChunks
-    pub(crate) fn destroy(self) -> (BufferChunk, BufferPool) {
-        (self.buffer, self.buffer_pool)
-    }
+    pub(crate) fn destroy(self) -> (BufferChunk, BufferPool, Option<DispatcherRef>) {
+        (self.buffer, self.buffer_pool, self.dispatcher_ref)
+    } */
 
     pub fn get_read_offset(&self) -> usize {
         self.read_offset
@@ -366,6 +386,22 @@ impl EncodeBuffer {
             self.buffer_pool.return_buffer(new_buffer);
         } else {
             panic!("Trying to swap buffer but no free buffers found in the pool!")
+        }
+    }
+}
+
+impl Drop for EncodeBuffer {
+    fn drop(&mut self) {
+        // If the buffer was spawned with a dispatcher_ref all locked buffers are sent to the dispatcher for garbage collection
+        if let Some(dispatcher_ref) = self.dispatcher_ref.take() {
+            // Make sure that the active_buffer is fresh and whatever was in there is locked and stored in the return queue
+            self.swap_buffer();
+            // Drain the returned queue and send locked buffers to the dispatcher
+            for mut trash in self.buffer_pool.drain_returned() {
+                if !trash.free() {
+                    dispatcher_ref.tell(DispatchEnvelope::LockedChunk(trash));
+                }
+            }
         }
     }
 }

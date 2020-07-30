@@ -16,6 +16,7 @@ use crate::{
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{fmt, sync::Mutex};
+use std::borrow::Borrow;
 
 /// A Kompact system is a collection of components and services
 ///
@@ -115,6 +116,10 @@ impl KompactSystem {
             }
         }
         Ok(sys)
+    }
+
+    pub(crate) fn garbage_count(&self) -> usize {
+        self.inner.get_internal_components().get_system_components().garbage_count()
     }
 
     pub(crate) fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
@@ -1414,6 +1419,8 @@ pub trait SystemComponents: Send + Sync {
     fn start(&self, _system: &KompactSystem) -> ();
     /// Stop all the system components
     fn stop(&self, _system: &KompactSystem) -> ();
+    /// Used in testing the garbage collection of network-buffers (BufferChunks)
+    fn garbage_count(&self) -> usize;
 }
 
 /// Extra trait for timers to implement
@@ -1469,6 +1476,10 @@ impl InternalComponents {
         f.wait();
         self.system_components.stop(system);
     }
+
+    pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
+        &*self.system_components
+    }
 }
 
 struct KompactRuntime {
@@ -1514,6 +1525,15 @@ impl KompactRuntime {
             Some(ref ic) => {
                 ic.start(system);
                 lifecycle::set_active(self.state());
+            }
+            None => panic!("KompactRuntime was not properly initialised!"),
+        }
+    }
+
+    pub(crate) fn get_internal_components(&self) -> &InternalComponents {
+        match *self.internal_components {
+            Some(ref ic) => {
+                ic
             }
             None => panic!("KompactRuntime was not properly initialised!"),
         }
@@ -1629,6 +1649,10 @@ impl KompactRuntime {
     fn assert_not_poisoned(&self) {
         assert!(!self.is_poisoned(), "KompactRuntime was poisoned!");
     }
+
+/*    pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
+        self.internal_components.borrow()
+    } */
 }
 
 impl fmt::Debug for KompactRuntime {

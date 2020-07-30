@@ -1,5 +1,6 @@
 use crate::net::buffer::{BufferChunk, Chunk, DefaultChunk};
 use std::collections::VecDeque;
+use std::collections::vec_deque::Drain;
 
 /// The number of Buffers each pool will Pre-allocate
 pub const INITIAL_BUFFER_LEN: usize = 5;
@@ -84,6 +85,10 @@ impl BufferPool {
 
     pub fn return_buffer(&mut self, buffer: BufferChunk) -> () {
         self.returned.push_back(buffer);
+    }
+
+    pub fn drain_returned(&mut self) -> Drain<BufferChunk> {
+        self.returned.drain(0..)
     }
 
     /// Iterates of returned buffers from oldest to newest trying to reclaim
