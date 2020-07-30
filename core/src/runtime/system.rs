@@ -16,7 +16,6 @@ use crate::{
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{fmt, sync::Mutex};
-use std::borrow::Borrow;
 
 /// A Kompact system is a collection of components and services
 ///
@@ -118,6 +117,8 @@ impl KompactSystem {
         Ok(sys)
     }
 
+    #[allow(dead_code)]
+    // Only used in testing
     pub(crate) fn garbage_count(&self) -> usize {
         self.inner.get_internal_components().get_system_components().garbage_count()
     }
@@ -1649,10 +1650,6 @@ impl KompactRuntime {
     fn assert_not_poisoned(&self) {
         assert!(!self.is_poisoned(), "KompactRuntime was poisoned!");
     }
-
-/*    pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
-        self.internal_components.borrow()
-    } */
 }
 
 impl fmt::Debug for KompactRuntime {

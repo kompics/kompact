@@ -115,11 +115,6 @@ impl BufferPool {
         Some(self.new_buffer())
     }
 
-    /// Must make sure that the returned BufferChunks are free before destroying them
-    pub(crate) fn destroy(self) -> VecDeque<BufferChunk> {
-        self.returned
-    }
-
     /// We use this method for assertions in tests
     #[allow(dead_code)]
     pub(crate) fn get_pool_sizes(&self) -> (usize, usize, usize) {

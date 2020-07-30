@@ -4,8 +4,6 @@ use crate::{
     timer::timer_manager::TimerRefFactory,
 };
 use std::sync::Arc;
-use std::borrow::Borrow;
-use std::ops::Deref;
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
