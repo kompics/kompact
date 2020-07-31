@@ -654,10 +654,6 @@ impl Dispatcher for NetworkDispatcher {
             }
         }
     }
-
-    fn garbage_count(&self) -> usize {
-        self.garbage_buffers.len()
-    }
 }
 
 impl ComponentLifecycle for NetworkDispatcher {
@@ -1570,10 +1566,20 @@ mod dispatch_tests {
         thread::sleep(Duration::from_millis(100));
         // Kill the actor and wait for its BufferChunk to reach the NetworkDispatch and let the reaping try at least once
         system1.kill(pinger_named);
+
         // TODO no sleeps!
         thread::sleep(Duration::from_millis(5000));
+
         // Assertion 1: The Network_Dispatcher on system1 has >0 buffers to cleanup
-        assert_ne!(0, system1.garbage_count());
+        let mut garbage_len = 0;
+        let sc: &dyn SystemComponents = system1.get_system_components();
+        match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
+            Some(cc) => {
+                garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
+            },
+            _ => {}
+        }
+        assert_ne!(0, garbage_len);
 
         // Start up system2b
         println!("Setting up system2b");
@@ -1588,8 +1594,15 @@ mod dispatch_tests {
         // We give the connection plenty of time to re-establish and transfer it's old queue and cleanup the BufferChunk
         // TODO no sleeps!
         thread::sleep(Duration::from_millis(10000));
+
         // Assertion 2: The Network_Dispatcher on system1 now has 0 buffers to cleanup.
-        assert_eq!(0, system1.garbage_count());
+        match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
+            Some(cc) => {
+                garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
+            },
+            _ => {}
+        }
+        assert_eq!(0, garbage_len);
 
         system1
             .shutdown()
