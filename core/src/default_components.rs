@@ -55,11 +55,6 @@ impl SystemComponents for DefaultComponents {
         self.dispatcher.wait_ended();
         self.deadletter_box.wait_ended();
     }
-
-    fn garbage_count(&self) -> usize {
-        // Default components has no NetworkDispatcher so we return 0
-        0
-    }
 }
 
 pub(crate) struct DefaultTimer {
@@ -135,10 +130,6 @@ where
         system.kill(self.deadletter_box.clone());
         self.dispatcher.wait_ended();
         self.deadletter_box.wait_ended();
-    }
-
-    fn garbage_count(&self) -> usize {
-        self.dispatcher.on_definition(|cd| cd.garbage_count())
     }
 }
 
@@ -240,10 +231,6 @@ impl Actor for LocalDispatcher {
 impl Dispatcher for LocalDispatcher {
     fn system_path(&mut self) -> SystemPath {
         SystemPath::new(Transport::LOCAL, "127.0.0.1".parse().unwrap(), 0)
-    }
-    fn garbage_count(&self) -> usize {
-        // Local dispatcher doesn't do garbage collection, always returns 0.
-        0
     }
 }
 

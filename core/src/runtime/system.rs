@@ -16,6 +16,8 @@ use crate::{
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{fmt, sync::Mutex};
+use std::any::TypeId;
+use crate::prelude::Any;
 
 /// A Kompact system is a collection of components and services
 ///
@@ -119,8 +121,8 @@ impl KompactSystem {
 
     #[allow(dead_code)]
     // Only used in testing
-    pub(crate) fn garbage_count(&self) -> usize {
-        self.inner.get_internal_components().get_system_components().garbage_count()
+    pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
+        self.inner.get_internal_components().get_system_components()
     }
 
     pub(crate) fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
@@ -1409,7 +1411,7 @@ pub trait SystemHandle: Dispatching {
 }
 
 /// A trait to provide custom implementations of all system components
-pub trait SystemComponents: Send + Sync {
+pub trait SystemComponents: Send + Sync + 'static {
     /// Return a reference to this deadletter box
     fn deadletter_ref(&self) -> ActorRef<Never>;
     /// Return a reference to this dispatcher
@@ -1420,8 +1422,32 @@ pub trait SystemComponents: Send + Sync {
     fn start(&self, _system: &KompactSystem) -> ();
     /// Stop all the system components
     fn stop(&self, _system: &KompactSystem) -> ();
-    /// Used in testing the garbage collection of network-buffers (BufferChunks)
-    fn garbage_count(&self) -> usize;
+    /// Allow downcasting to concrete type
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
+}
+
+impl dyn SystemComponents {
+    // Implementation copied from std::any::Any
+    /// Allow downcasting to concrete type
+    pub fn downcast<T: SystemComponents>(&self) -> Option<&T> {
+        // Get `TypeId` of the type this function is instantiated with.
+        let t = TypeId::of::<T>();
+
+        // Get `TypeId` of the type in the trait object (`self`).
+        let concrete = self.type_id();
+
+        // Compare both `TypeId`s on equality.
+        if t == concrete {
+            // SAFETY: just checked whether we are pointing to the correct type, and we can rely on
+            // that check for memory safety because we have implemented Any for all types; no other
+            // impls can exist as they would conflict with our impl.
+            unsafe { Some(&*(self as *const dyn SystemComponents as *const T)) }
+        } else {
+            None
+        }
+    }
 }
 
 /// Extra trait for timers to implement

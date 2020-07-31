@@ -149,8 +149,6 @@ pub trait Actor {
 pub trait Dispatcher: ActorRaw<Message = DispatchEnvelope> {
     /// Returns the system path for this dispatcher
     fn system_path(&mut self) -> SystemPath;
-    /// Returns the number of chunks waiting for garbage_collection, used in testing assertions
-    fn garbage_count(&self) -> usize;
 }
 
 impl<A, M: MessageBounds> ActorRaw for A
