@@ -3,6 +3,8 @@ use crate::net::{buffer_pool::BufferPool, frames};
 use bytes::{Buf, BufMut};
 use core::{cmp, ptr};
 use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
+use std::fmt::{Debug, Formatter};
+use crate::messaging::DispatchEnvelope;
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 2000;
@@ -11,7 +13,7 @@ const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 2000;
 const ENCODEBUFFER_MIN_REMAINING: usize = 64; // Always have at least a full cache line available
 
 /// Required methods for a Chunk
-pub trait Chunk: Send {
+pub trait Chunk {
     /// Returns a mutable pointer to the underlying buffer
     fn as_mut_ptr(&mut self) -> *mut u8;
     /// Returns the length of the chunk
@@ -24,12 +26,13 @@ pub trait Chunk: Send {
 
 /// A Default Kompact Chunk
 pub(crate) struct DefaultChunk {
-    chunk: [u8; BUFFER_SIZE],
+    chunk: Box<[u8]>,
 }
 
 impl DefaultChunk {
     pub fn new() -> DefaultChunk {
-        let slice = [0u8; BUFFER_SIZE];
+        let v = vec![0u8; BUFFER_SIZE];
+        let slice = v.into_boxed_slice();
         DefaultChunk { chunk: slice }
     }
 }
@@ -54,6 +57,16 @@ pub struct BufferChunk {
     chunk: *mut dyn Chunk,
     ref_count: Arc<u8>,
     locked: bool,
+}
+
+impl Debug for BufferChunk {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BufferChunk")
+            .field("Lock", &self.locked)
+//            .field("Length", &self.chunk.len())
+            .field("RefCount", &Arc::strong_count(&self.ref_count))
+            .finish()
+    }
 }
 
 impl Drop for BufferChunk {
@@ -132,7 +145,7 @@ impl BufferChunk {
         &mut self.ref_count
     }
 
-    /// Returns true if this smart_buffer is available again
+    /// Returns true if this BufferChunk is available again
     pub fn free(&mut self) -> bool {
         if self.locked {
             if Arc::strong_count(&self.ref_count) < 2 {
@@ -266,6 +279,7 @@ pub struct EncodeBuffer {
     buffer_pool: BufferPool,
     write_offset: usize,
     read_offset: usize,
+    dispatcher_ref: Option<DispatcherRef>,
 }
 
 impl EncodeBuffer {
@@ -278,6 +292,23 @@ impl EncodeBuffer {
                 buffer_pool,
                 write_offset: 0,
                 read_offset: 0,
+                dispatcher_ref: None,
+            }
+        } else {
+            panic!("Couldn't initialize EncodeBuffer");
+        }
+    }
+
+    /// Creates a new EncodeBuffer with a DispatcherRef used for safe destruction of the buffers.
+    pub fn with_dispatcher_ref(dispatcher_ref: DispatcherRef) -> Self {
+        let mut buffer_pool = BufferPool::new();
+        if let Some(buffer) = buffer_pool.get_buffer() {
+            EncodeBuffer {
+                buffer,
+                buffer_pool,
+                write_offset: 0,
+                read_offset: 0,
+                dispatcher_ref: Some(dispatcher_ref),
             }
         } else {
             panic!("Couldn't initialize EncodeBuffer");
@@ -295,6 +326,12 @@ impl EncodeBuffer {
     pub fn get_write_offset(&self) -> usize {
         self.write_offset
     }
+
+    /*
+    /// Deallocates unlocked Buffers in the pool and returns the locked BufferChunks
+    pub(crate) fn destroy(self) -> (BufferChunk, BufferPool, Option<DispatcherRef>) {
+        (self.buffer, self.buffer_pool, self.dispatcher_ref)
+    } */
 
     pub fn get_read_offset(&self) -> usize {
         self.read_offset
@@ -349,6 +386,22 @@ impl EncodeBuffer {
             self.buffer_pool.return_buffer(new_buffer);
         } else {
             panic!("Trying to swap buffer but no free buffers found in the pool!")
+        }
+    }
+}
+
+impl Drop for EncodeBuffer {
+    fn drop(&mut self) {
+        // If the buffer was spawned with a dispatcher_ref all locked buffers are sent to the dispatcher for garbage collection
+        if let Some(dispatcher_ref) = self.dispatcher_ref.take() {
+            // Make sure that the active_buffer is fresh and whatever was in there is locked and stored in the return queue
+            self.swap_buffer();
+            // Drain the returned queue and send locked buffers to the dispatcher
+            for mut trash in self.buffer_pool.drain_returned() {
+                if !trash.free() {
+                    dispatcher_ref.tell(DispatchEnvelope::LockedChunk(trash));
+                }
+            }
         }
     }
 }

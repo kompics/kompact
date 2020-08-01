@@ -15,6 +15,7 @@ use crate::{
     serialisation::ser_helpers::deserialise_msg,
 };
 use std::ops::Deref;
+use crate::net::buffer::BufferChunk;
 
 pub mod framing;
 
@@ -769,6 +770,8 @@ pub enum DispatchEnvelope {
     Registration(RegistrationEnvelope),
     /// An event from the network
     Event(EventEnvelope),
+    /// Killed components send their BufferChunks to the Dispatcher for safe de-allocation
+    LockedChunk(BufferChunk),
 }
 
 /// An event from the network

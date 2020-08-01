@@ -36,6 +36,8 @@ use futures::{
 };
 use rustc_hash::FxHashMap;
 use std::{io::ErrorKind, time::Duration};
+use std::collections::VecDeque;
+use crate::net::buffer::BufferChunk;
 
 pub mod lookup;
 pub mod queue_manager;
@@ -132,7 +134,8 @@ pub struct NetworkDispatcher {
     notify_ready: Option<KPromise<()>>,
     encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
-    retry_map: NetHashMap<SocketAddr, u8>,
+    retry_map: FxHashMap<SocketAddr, u8>,
+    garbage_buffers: VecDeque<BufferChunk>,
 }
 
 impl NetworkDispatcher {
@@ -177,6 +180,7 @@ impl NetworkDispatcher {
             reaper,
             notify_ready: Some(notify_ready),
             encode_buffer,
+            garbage_buffers: VecDeque::new(),
             retry_map: Default::default(),
         }
     }
@@ -269,6 +273,13 @@ impl NetworkDispatcher {
             self.ctx().log(),
             "Scheduling reaping at {:?}ms", next_wakeup
         );
+
+        let mut retry_queue = VecDeque::new();
+        for mut trash in self.garbage_buffers.drain(..) {
+            if !trash.free() { retry_queue.push_back(trash); }
+        }
+        // info!(self.ctx().log(), "tried to clean {} buffer(s)", retry_queue.len()); // manual verification in testing
+        self.garbage_buffers.append(&mut retry_queue);
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
             target.schedule_reaper();
@@ -614,6 +625,7 @@ impl Actor for NetworkDispatcher {
                 }
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),
+            DispatchEnvelope::LockedChunk(trash) => self.garbage_buffers.push_back(trash),
         }
         Handled::Ok
     }
@@ -1497,6 +1509,100 @@ mod dispatch_tests {
             println!("pinger named count: {}", c.count);
             assert_eq!(c.count, PING_COUNT);
         });
+
+        system1
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+        system2b
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
+    /// system1 times out in its reconnection attempts and drops the enqueued buffers.
+    /// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
+    fn cleanup_bufferchunks_from_dead_actors() {
+        let system1 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9311)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+        let system2 = || {
+            let mut cfg = KompactConfig::new();
+            cfg.system_components(
+                DeadletterBox::new,
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9312)).build(),
+            );
+            cfg.build().expect("KompactSystem")
+        };
+
+        // Set-up system2a
+        let system2a = system2();
+        //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
+        let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new);
+        let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let named_path = ActorPath::Named(NamedPath::with_system(
+            system2a.system_path(),
+            vec!["custom_name".into()],
+        ));
+        let named_path_clone = named_path.clone();
+        // Set-up system1
+        let system1: KompactSystem = system1();
+        let (pinger_named, pinf) =
+            system1.create_and_register(move || PingerAct::new_eager(named_path_clone));
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        // Kill system2a
+        system2a.shutdown().ok();
+        // Start system1
+        system1.start(&pinger_named);
+        // Wait for the pings to be sent from the actor to the NetworkDispatch and onto the Thread
+        thread::sleep(Duration::from_millis(100));
+        // Kill the actor and wait for its BufferChunk to reach the NetworkDispatch and let the reaping try at least once
+        system1.kill(pinger_named);
+
+        // TODO no sleeps!
+        thread::sleep(Duration::from_millis(5000));
+
+        // Assertion 1: The Network_Dispatcher on system1 has >0 buffers to cleanup
+        let mut garbage_len = 0;
+        let sc: &dyn SystemComponents = system1.get_system_components();
+        match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
+            Some(cc) => {
+                garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
+            },
+            _ => {}
+        }
+        assert_ne!(0, garbage_len);
+
+        // Start up system2b
+        println!("Setting up system2b");
+        let system2b = system2();
+        let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new);
+        let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+        ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        println!("Starting actor on system2b");
+        system2b.start(&ponger_named);
+
+        // We give the connection plenty of time to re-establish and transfer it's old queue and cleanup the BufferChunk
+        // TODO no sleeps!
+        thread::sleep(Duration::from_millis(10000));
+
+        // Assertion 2: The Network_Dispatcher on system1 now has 0 buffers to cleanup.
+        match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
+            Some(cc) => {
+                garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
+            },
+            _ => {}
+        }
+        assert_eq!(0, garbage_len);
 
         system1
             .shutdown()
