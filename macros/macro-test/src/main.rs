@@ -15,6 +15,7 @@ impl Port for PingPongPort {
     type Request = Ping;
 }
 
+
 #[derive(ComponentDefinition, Actor)]
 struct Pinger {
     ctx: ComponentContext<Pinger>,
@@ -49,6 +50,51 @@ impl Require<PingPongPort> for Pinger {
 }
 
 impl Provide<PingPongPort> for Pinger {
+    fn handle(&mut self, _event: Ping) -> Handled {
+        println!("Got a ping!");
+        Handled::Ok
+    }
+}
+
+// Tests that the macro allows multiple ports
+#[derive(ComponentDefinition, Actor)]
+struct Pinger2 {
+    ctx: ComponentContext<Pinger2>,
+    ppp: RequiredPort<PingPongPort>,
+    ppp2: RequiredPort<PingPongPort2>,
+    pppp: ProvidedPort<PingPongPort>,
+    test: i32,
+}
+
+struct PingPongPort2;
+
+impl Port for PingPongPort2 {
+    type Indication = Pong;
+    type Request = Ping;
+}
+
+impl ComponentLifecycle for Pinger2 {
+    fn on_start(&mut self) -> Handled {
+        println!("Starting Pinger... {}", self.test);
+        Handled::Ok
+    }
+}
+
+impl Require<PingPongPort> for Pinger2 {
+    fn handle(&mut self, _event: Pong) -> Handled {
+        println!("Got a pong!");
+        Handled::Ok
+    }
+}
+
+impl Require<PingPongPort2> for Pinger2 {
+    fn handle(&mut self, _event: Pong) -> Handled {
+        println!("Got a pong!");
+        Handled::Ok
+    }
+}
+
+impl Provide<PingPongPort> for Pinger2 {
     fn handle(&mut self, _event: Ping) -> Handled {
         println!("Got a ping!");
         Handled::Ok
