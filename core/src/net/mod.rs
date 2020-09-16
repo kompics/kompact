@@ -9,6 +9,7 @@ use std::{io, net::SocketAddr, sync::Arc, thread};
 use crate::{
     messaging::SerialisedFrame,
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
+    prelude::NetworkConfig,
 };
 use bytes::{Buf, BufMut, BytesMut};
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
@@ -168,6 +169,7 @@ impl Bridge {
         bridge_log: KompactLogger,
         addr: SocketAddr,
         dispatcher_ref: DispatcherRef,
+        network_config: &NetworkConfig,
     ) -> (Self, SocketAddr) {
         let (sender, receiver) = channel();
         let (shutdown_p, shutdown_f) = promise();
@@ -178,6 +180,7 @@ impl Bridge {
             receiver,
             shutdown_p,
             dispatcher_ref.clone(),
+            network_config.clone(),
         );
         let bound_addr = network_thread.addr;
         let bridge = Bridge {

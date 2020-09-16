@@ -1,5 +1,6 @@
 use super::*;
 use crate::{
+    dispatch::NetworkConfig,
     messaging::{DispatchEnvelope, EventEnvelope},
     net::{
         buffer_pool::BufferPool,
@@ -87,6 +88,7 @@ impl NetworkThread {
         input_queue: Recv<DispatchEvent>,
         shutdown_promise: KPromise<()>,
         dispatcher_ref: DispatcherRef,
+        config: NetworkConfig,
     ) -> (NetworkThread, Waker) {
         // Set-up the Listener
         debug!(
@@ -120,7 +122,10 @@ impl NetworkThread {
                 let waker = Waker::new(poll.registry(), DISPATCHER)
                     .expect("failed to create Waker for DISPATCHER");
 
-                let mut buffer_pool = BufferPool::new();
+                let mut buffer_pool = BufferPool::with_config(
+                    &config.get_buffer_config(),
+                    &config.get_custom_allocator(),
+                );
 
                 let udp_buffer = buffer_pool
                     .get_buffer()
@@ -154,7 +159,10 @@ impl NetworkThread {
                 )
             }
             Err(e) => {
-                panic!("NetworkThread failed to bind to address: {:?}", e);
+                panic!(
+                    "NetworkThread failed to bind to address: {:?}, addr {:?}",
+                    e, &addr
+                );
             }
         }
     }
@@ -793,7 +801,7 @@ fn bind_with_retries(
 #[allow(unused_must_use)]
 mod tests {
     use super::*;
-    use crate::dispatch::NetworkConfig;
+    use crate::{dispatch::NetworkConfig, prelude::BufferConfig};
     use std::net::{IpAddr, Ipv4Addr};
 
     // Cleaner test-cases for manually running the thread
@@ -839,6 +847,7 @@ mod tests {
             input_queue_1_receiver,
             dispatch_shutdown_sender1,
             dispatcher_ref.clone(),
+            NetworkConfig::default(),
         );
 
         let (network_thread2, _) = NetworkThread::new(
@@ -848,6 +857,7 @@ mod tests {
             input_queue_2_receiver,
             dispatch_shutdown_sender2,
             dispatcher_ref,
+            NetworkConfig::default(),
         );
 
         (
@@ -1003,6 +1013,42 @@ mod tests {
                 .unwrap()
         );
     }
+
+    #[test]
+    fn network_thread_custom_buffer_config() -> () {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9788);
+        let buffer_config = BufferConfig::new(128, 13, 14, 10);
+        let network_config = NetworkConfig::with_buffer_config(addr, buffer_config);
+        let mut cfg = KompactConfig::new();
+        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        let system = cfg.build().expect("KompactSystem");
+
+        // Set-up the the threads arguments
+        // TODO: Mock this properly instead
+        let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
+        //network_thread_registration.set_readiness(Interest::empty());
+        let (_, input_queue_1_receiver) = channel();
+        let (dispatch_shutdown_sender1, _) = promise();
+        let logger = system.logger().clone();
+        let dispatcher_ref = system.dispatcher_ref();
+
+        // Set up the two network threads
+        let (mut network_thread, _) = NetworkThread::new(
+            logger.clone(),
+            addr,
+            lookup.clone(),
+            input_queue_1_receiver,
+            dispatch_shutdown_sender1,
+            dispatcher_ref.clone(),
+            network_config,
+        );
+        // Assert that the buffer_pool is created correctly
+        let (pool_size, _) = network_thread.buffer_pool.get_pool_sizes();
+        assert_eq!(pool_size, 13); // initial_pool_size
+        assert_eq!(network_thread.buffer_pool.get_buffer().unwrap().len(), 128);
+        network_thread.stop();
+    }
+
     /*
     #[test]
     fn graceful_network_shutdown() -> () {

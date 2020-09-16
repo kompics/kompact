@@ -54,7 +54,7 @@ slog 							= "2"
 slog-async 						= "2"
 slog-term 						= "2"
 rustc-hash 						= "1.1"
-hocon 							= {version = "0.3", default-features = false}
+hocon 							= {version = "0.3.5", default-features = false}
 hierarchical_hash_wheel_timer 	= "1.0"
 owning_ref 						= "0.4"
 futures 						= "0.3"

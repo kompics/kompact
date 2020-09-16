@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::prelude::{BufferConfig, ChunkAllocator};
 use std::task::Poll;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -320,18 +321,80 @@ where
     pub fn suicide(&self) -> () {
         self.component().enqueue_control(ControlEvent::Kill);
     }
-    
+
     pub(crate) fn with_buffer<R>(&self, f: impl FnOnce(&mut EncodeBuffer) -> R) -> R {
-        let mut buffer_location = self.buffer.borrow_mut();
-        match buffer_location.as_mut() {
-            Some(buffer) => f(buffer),
-            None => {
-                let mut buffer = EncodeBuffer::with_dispatcher_ref(self.dispatcher_ref());
-                let res = f(&mut buffer);
-                *buffer_location = Some(buffer);
-                res
+        {
+            // Scoping the borrow
+            if let Some(buffer) = self.buffer.borrow_mut().as_mut() {
+                return f(buffer);
             }
         }
+        self.init_buffers(None, None);
+        self.with_buffer(f)
+    }
+
+    /// May be used for manual initialization of a components local `EncodeBuffer`.
+    /// If this method is never called explicitly the actor will implicitly call it when it tries
+    /// to serialise its first message.
+    /// If buffers have already been initialized, explicitly or implicitly, the method does nothing.
+    ///
+    /// A custom `BufferConfig` may be specified, if `None` is given the actor will first try
+    /// to parse the configuration from the system wide Configuration,
+    /// If that fails, it will use the default config.
+    ///
+    /// A custom `ChunkAllocator` may also be specified.
+    /// if `None` is given the actor will use the default allocator
+    ///
+    /// Note: The NetworkConfig never affects the Actors Buffers.
+    pub fn init_buffers(
+        &self,
+        buffer_config: Option<BufferConfig>,
+        custom_allocator: Option<Arc<dyn ChunkAllocator>>,
+    ) -> () {
+        let mut buffer_location = self.buffer.borrow_mut();
+        match buffer_location.as_mut() {
+            Some(_) => return, // already initialized, do nothing
+            None => {
+                // Need to create a new Buffer, fetch BufferConfig
+                let cfg = {
+                    if let Some(cfg) = buffer_config {
+                        cfg
+                    } else {
+                        self.get_buffer_config()
+                    }
+                };
+
+                if custom_allocator.is_some() {
+                    debug!(
+                        self.log(),
+                        "init_buffers with custom allocator, config {:?}.", &cfg
+                    );
+                } else {
+                    debug!(
+                        self.log(),
+                        "init_buffers with default allocator, config {:?}.", &cfg
+                    );
+                }
+
+                let buffer = EncodeBuffer::with_dispatcher_ref(
+                    self.dispatcher_ref(),
+                    &cfg,
+                    custom_allocator,
+                );
+                *buffer_location = Some(buffer);
+            }
+        }
+    }
+
+    /// Returns a BufferConfig from the global configuration or the default configuration.
+    fn get_buffer_config(&self) -> BufferConfig {
+        BufferConfig::from_config(self.config())
+    }
+
+    /// We use this method for assertions in tests
+    #[allow(dead_code)]
+    pub(crate) fn get_buffer_location(&self) -> &RefCell<Option<EncodeBuffer>> {
+        &self.buffer
     }
 }
 
