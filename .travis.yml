@@ -21,6 +21,7 @@ jobs:
       name: "Build and test root: nightly"
       rust: nightly
       script:
+        - rustup default nightly-2020-09-21 # remove this line when current external bug is fixed
         - cargo build --verbose --all
         - cargo test --verbose --all
     - stage: test-features
