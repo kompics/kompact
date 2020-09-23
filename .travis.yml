@@ -10,6 +10,8 @@ os: linux
 dist: xenial
 language: rust
 jobs:
+  allow_failures:
+    - if: rust = nightly
   include:
     - stage: test
       name: "Build and test root: stable"
@@ -17,11 +19,16 @@ jobs:
       script:
         - cargo build --verbose --all
         - cargo test --verbose --all
+    - stage: test # remove this stage when nightly passes
+      name: "Build and test root: nightly-2020-09-21"
+      rust: nightly-2020-09-21
+      script:
+        - cargo build --verbose --all
+        - cargo test --verbose --all
     - stage: test
       name: "Build and test root: nightly"
       rust: nightly
       script:
-        - rustup default nightly-2020-09-21 # remove this line when current external bug is fixed
         - cargo build --verbose --all
         - cargo test --verbose --all
     - stage: test-features
@@ -32,6 +39,12 @@ jobs:
         - ./test-feature-matrix.sh
     - stage: test-features
       rust: nightly
+      name: "Test feature matrix: nightly"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh
+    - stage: test-features  # remove this stage when nightly passes
+      rust: nightly-2020-09-21
       name: "Test feature matrix: nightly"
       script:
         - cd core

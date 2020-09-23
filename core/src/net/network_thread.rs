@@ -802,7 +802,6 @@ fn bind_with_retries(
 mod tests {
     use super::*;
     use crate::{dispatch::NetworkConfig, prelude::BufferConfig};
-    use std::net::{IpAddr, Ipv4Addr};
 
     // Cleaner test-cases for manually running the thread
     fn poll_and_handle(thread: &mut NetworkThread) -> () {
@@ -872,8 +871,8 @@ mod tests {
     fn merge_connections_basic() -> () {
         // Sets up two NetworkThreads and does mutual connection request
 
-        let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7778);
-        let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7780);
+        let addr1 = "127.0.0.1:7778".parse().expect("Address should work");
+        let addr2 = "127.0.0.1:7780".parse().expect("Address should work");
 
         let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
             setup_two_threads(addr1, addr2);
@@ -945,8 +944,8 @@ mod tests {
         // Sets up two NetworkThreads and does mutual connection request
         // This test uses a different order of events than basic
 
-        let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8778);
-        let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8780);
+        let addr1 = "127.0.0.1:8778".parse().expect("Address should work");
+        let addr2 = "127.0.0.1:8780".parse().expect("Address should work");
 
         let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
             setup_two_threads(addr1, addr2);
@@ -1016,8 +1015,12 @@ mod tests {
 
     #[test]
     fn network_thread_custom_buffer_config() -> () {
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9788);
-        let buffer_config = BufferConfig::new(128, 13, 14, 10);
+        let addr = "127.0.0.1:9788".parse().expect("Address should work");
+        let mut buffer_config = BufferConfig::new();
+        buffer_config.chunk_size(128);
+        buffer_config.max_pool_count(14);
+        buffer_config.initial_pool_count(13);
+        buffer_config.encode_min_remaining(10);
         let network_config = NetworkConfig::with_buffer_config(addr, buffer_config);
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());

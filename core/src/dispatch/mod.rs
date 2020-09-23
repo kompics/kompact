@@ -75,7 +75,7 @@ impl NetworkConfig {
         NetworkConfig {
             addr,
             transport: Transport::TCP,
-            buffer_config: BufferConfig::default(),
+            buffer_config: BufferConfig::new(),
             custom_allocator: None,
         }
     }
@@ -139,7 +139,7 @@ impl Default for NetworkConfig {
         NetworkConfig {
             addr: "127.0.0.1:0".parse().unwrap(),
             transport: Transport::TCP,
-            buffer_config: BufferConfig::default(),
+            buffer_config: BufferConfig::new(),
             custom_allocator: None,
         }
     }

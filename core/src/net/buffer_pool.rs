@@ -50,6 +50,7 @@ impl BufferPool {
         config: &BufferConfig,
         custom_allocator: &Option<Arc<dyn ChunkAllocator>>,
     ) -> Self {
+        config.validate();
         let chunk_allocator = {
             if let Some(allocator) = custom_allocator {
                 allocator.clone()

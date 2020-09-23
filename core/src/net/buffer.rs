@@ -32,8 +32,8 @@ pub struct BufferConfig {
 }
 
 impl BufferConfig {
-    /// Create a new BufferConfig with reasonable values
-    pub fn default() -> Self {
+    /// Create a new BufferConfig with default values which may be overwritten
+    pub fn new() -> Self {
         BufferConfig {
             chunk_size: 128 * 1000,   // 128Kb chunks
             initial_pool_count: 2,    // 256Kb initial/minimum BufferPools
@@ -42,27 +42,27 @@ impl BufferConfig {
         }
     }
 
-    /// Creates a new BufferConfig with specified values and performs validation
-    pub fn new(
-        chunk_size: usize,
-        initial_pool_count: usize,
-        max_pool_count: usize,
-        encode_min_remaining: usize,
-    ) -> Self {
-        let buffer_config = BufferConfig {
-            chunk_size,
-            initial_pool_count,
-            max_pool_count,
-            encode_min_remaining,
-        };
-        buffer_config.validate();
-        buffer_config
+    /// Sets the BufferConfigs chunk_size to the given value
+    pub fn chunk_size(&mut self, size: usize) -> () {
+        self.chunk_size = size;
+    }
+    /// Sets the BufferConfigs initial_pool_count to the given value
+    pub fn initial_pool_count(&mut self, count: usize) -> () {
+        self.initial_pool_count = count;
+    }
+    /// Sets the BufferConfigs max_pool_count to the given value
+    pub fn max_pool_count(&mut self, count: usize) -> () {
+        self.max_pool_count = count;
+    }
+    /// Sets the BufferConfigs encode_min_remaining to the given value
+    pub fn encode_min_remaining(&mut self, size: usize) -> () {
+        self.encode_min_remaining = size;
     }
 
     /// Tries to deserialize a BufferConfig from the specified in the given `config`.
     /// Returns a default BufferConfig if it fails to read from the config.
     pub fn from_config(config: &Hocon) -> BufferConfig {
-        let mut buffer_config = BufferConfig::default();
+        let mut buffer_config = BufferConfig::new();
         if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
             buffer_config.chunk_size = chunk_size as usize;
         }
@@ -832,14 +832,17 @@ mod tests {
     #[should_panic(expected = "chunk_size must be greater than encode_min_remaining")]
     fn invalid_encode_min_remaining_validation() {
         // The BufferConfig should panic because encode_min_remain too high
-        let _ = BufferConfig::new(128, 10, 10, 128);
+        let mut buffer_config = BufferConfig::new();
+        buffer_config.chunk_size(128);
+        buffer_config.encode_min_remaining(128);
+        buffer_config.validate();
     }
 
     // This test instantiates an EncodeBuffer and writes the same string into it enough times that
     // the EncodeBuffer should overload multiple times and will have to succeed in reusing >=1 Chunk
     #[test]
     fn encode_buffer_overload_reuse_default_config() {
-        let buffer_config = BufferConfig::default();
+        let buffer_config = BufferConfig::new();
         let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
         // Check the buffer pool sizes
         assert_eq!(
@@ -854,12 +857,12 @@ mod tests {
     // As above, except we create a much larger BufferPool with larger Chunks manually configured
     #[test]
     fn encode_buffer_overload_reuse_manually_configured_large_buffers() {
-        let buffer_config = BufferConfig::new(
-            50000000, // 50 MB chunk_size
-            10,       // 500 MB pool init value
-            20,       // 1 GB pool max size
-            256,      // 256 B min_remaining
-        );
+        let mut buffer_config = BufferConfig::new();
+        buffer_config.chunk_size(50000000);     // 50 MB chunk_size
+        buffer_config.initial_pool_count(10);  // 500 MB pool init value
+        buffer_config.max_pool_count(20);      // 1 GB pool max size
+        buffer_config.encode_min_remaining(256);// 256 B min_remaining
+
         let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
         assert_eq!(encode_buffer.buffer.len(), 50000000);
         // Check the buffer pool sizes
@@ -944,7 +947,7 @@ mod tests {
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
         // Instantiate an encode buffer with default values
-        let buffer_config = BufferConfig::default();
+        let buffer_config = BufferConfig::new();
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
         use std::string::ToString;
@@ -958,7 +961,7 @@ mod tests {
     #[test]
     fn aligned_after_drop() {
         // Instantiate an encode buffer with default values
-        let buffer_config = BufferConfig::default();
+        let buffer_config = BufferConfig::new();
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         {
             let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
@@ -1003,10 +1006,13 @@ mod tests {
     impl ComponentLifecycle for BufferTestActor {
         fn on_start(&mut self) -> Handled {
             if self.custom_buf {
+                let mut buffer_config = BufferConfig::new();
+                buffer_config.encode_min_remaining(30);
+                buffer_config.max_pool_count(5);
+                buffer_config.initial_pool_count(4);
+                buffer_config.chunk_size(128);
                 // Initialize the buffers
-                self.ctx
-                    .borrow()
-                    .init_buffers(Some(BufferConfig::new(128, 4, 5, 30)), None);
+                self.ctx.borrow().init_buffers(Some(buffer_config), None);
             }
             // Use the Buffer
             let _ = self.ctx.actor_path().clone().tell_serialised(120, self);
@@ -1023,6 +1029,11 @@ mod tests {
     }
     fn buffer_config_testing_system() -> KompactSystem {
         let mut cfg = KompactConfig::new();
+        let mut network_buffer_config = BufferConfig::new();
+        network_buffer_config.chunk_size(512);
+        network_buffer_config.initial_pool_count(2);
+        network_buffer_config.max_pool_count(3);
+        network_buffer_config.encode_min_remaining(10);
         cfg.load_config_str(
             r#"{
                 buffer_config {
@@ -1036,7 +1047,7 @@ mod tests {
         cfg.system_components(DeadletterBox::new, {
             NetworkConfig::with_buffer_config(
                 "127.0.0.1:0".parse().expect("Address should work"),
-                BufferConfig::new(512, 2, 3, 10),
+                network_buffer_config,
             )
             .build()
         });
