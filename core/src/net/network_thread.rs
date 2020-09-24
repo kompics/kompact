@@ -1016,11 +1016,11 @@ mod tests {
     #[test]
     fn network_thread_custom_buffer_config() -> () {
         let addr = "127.0.0.1:9788".parse().expect("Address should work");
-        let mut buffer_config = BufferConfig::new();
+        let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(128);
-        buffer_config.max_pool_count(14);
+        buffer_config.max_chunk_count(14);
         buffer_config.initial_pool_count(13);
-        buffer_config.encode_min_remaining(10);
+        buffer_config.encode_buf_min_free_space(10);
         let network_config = NetworkConfig::with_buffer_config(addr, buffer_config);
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());

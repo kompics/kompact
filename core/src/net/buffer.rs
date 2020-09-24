@@ -21,71 +21,80 @@ const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
 /// The configuration for the network buffers
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BufferConfig {
-    /// Specifies the length of `BufferChunk`s
+    /// Specifies the size in bytes of `BufferChunk`s
     pub(crate) chunk_size: usize,
-    /// Specifies the amount of `BufferChunk` a `BufferPool` will pre-allocate on creation
-    pub(crate) initial_pool_count: usize,
-    /// Specifies the maximum amount of `BufferChunk`s individual `BufferPool`s will allocate
-    pub(crate) max_pool_count: usize,
-    /// Minimum number of bytes an `EncodeBuffer` must have available before serialisation into it
-    pub(crate) encode_min_remaining: usize,
+    /// Specifies the number of `BufferChunk` a `BufferPool` will pre-allocate on creation.
+    pub(crate) initial_chunk_count: usize,
+    /// Specifies the max number of `BufferChunk`s each `BufferPool` may have.
+    pub(crate) max_chunk_count: usize,
+    /// Minimum number of bytes an `EncodeBuffer` must have available before serialisation into it.
+    pub(crate) encode_buf_min_free_space: usize,
 }
 
 impl BufferConfig {
     /// Create a new BufferConfig with default values which may be overwritten
-    pub fn new() -> Self {
+    /// `chunk_size` default value is 128,000.
+    /// `initial_chunk_count` default value is 2.
+    /// `max_chunk_count` default value is 1000.
+    /// `encode_buf_min_free_space` is 64.
+    pub fn default() -> Self {
         BufferConfig {
             chunk_size: 128 * 1000,   // 128Kb chunks
-            initial_pool_count: 2,    // 256Kb initial/minimum BufferPools
-            max_pool_count: 1000,     // 128Mb maximum BufferPools
-            encode_min_remaining: 64, // typical L1 cache line size
+            initial_chunk_count: 2,    // 256Kb initial/minimum BufferPools
+            max_chunk_count: 1000,     // 128Mb maximum BufferPools
+            encode_buf_min_free_space: 64, // typical L1 cache line size
         }
     }
 
-    /// Sets the BufferConfigs chunk_size to the given value
+    /// Sets the BufferConfigs `chunk_size` to the given number of bytes.
+    /// Must be greater than 127 AND greater than `encode_buf_min_free_space`
     pub fn chunk_size(&mut self, size: usize) -> () {
         self.chunk_size = size;
     }
-    /// Sets the BufferConfigs initial_pool_count to the given value
+    /// Sets the BufferConfigs `initial_chunk_count` to the given number.
+    /// Must be <= `max_chunk_count`.
     pub fn initial_pool_count(&mut self, count: usize) -> () {
-        self.initial_pool_count = count;
+        self.initial_chunk_count = count;
     }
-    /// Sets the BufferConfigs max_pool_count to the given value
-    pub fn max_pool_count(&mut self, count: usize) -> () {
-        self.max_pool_count = count;
+    /// Sets the BufferConfigs `max_chunk_count` to the given number.
+    /// Must be >= `initial_pool_count`.
+    pub fn max_chunk_count(&mut self, count: usize) -> () {
+        self.max_chunk_count = count;
     }
-    /// Sets the BufferConfigs encode_min_remaining to the given value
-    pub fn encode_min_remaining(&mut self, size: usize) -> () {
-        self.encode_min_remaining = size;
+    /// Sets the BufferConfigs `encode_buf_min_free_space` to the given number of bytes.
+    /// Must be < `chunk_size`.
+    pub fn encode_buf_min_free_space(&mut self, size: usize) -> () {
+        self.encode_buf_min_free_space = size;
     }
 
     /// Tries to deserialize a BufferConfig from the specified in the given `config`.
     /// Returns a default BufferConfig if it fails to read from the config.
     pub fn from_config(config: &Hocon) -> BufferConfig {
-        let mut buffer_config = BufferConfig::new();
+        let mut buffer_config = BufferConfig::default();
         if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
             buffer_config.chunk_size = chunk_size as usize;
         }
         if let Some(initial_pool_count) = config["buffer_config"]["initial_pool_count"].as_i64() {
-            buffer_config.initial_pool_count = initial_pool_count as usize;
+            buffer_config.initial_chunk_count = initial_pool_count as usize;
         }
         if let Some(max_pool_count) = config["buffer_config"]["max_pool_count"].as_i64() {
-            buffer_config.max_pool_count = max_pool_count as usize;
+            buffer_config.max_chunk_count = max_pool_count as usize;
         }
         if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_i64()
         {
-            buffer_config.encode_min_remaining = encode_min_remaining as usize;
+            buffer_config.encode_buf_min_free_space = encode_min_remaining as usize;
         }
         buffer_config.validate();
         buffer_config
     }
 
-    /// Performs basic sanity checks on the config parameters
+    /// Performs basic sanity checks on the config parameters and causes a Panic if it is invalid.
+    /// Is called automatically by the `BufferPool` on creation.
     pub fn validate(&self) {
-        if self.initial_pool_count > self.max_pool_count {
+        if self.initial_chunk_count > self.max_chunk_count {
             panic!("initial_pool_count may not be greater than max_pool_count")
         }
-        if self.chunk_size <= self.encode_min_remaining {
+        if self.chunk_size <= self.encode_buf_min_free_space {
             panic!("chunk_size must be greater than encode_min_remaining")
         }
         if self.chunk_size < 128 {
@@ -390,7 +399,7 @@ impl EncodeBuffer {
                 write_offset: 0,
                 read_offset: 0,
                 dispatcher_ref: None,
-                min_remaining: config.encode_min_remaining,
+                min_remaining: config.encode_buf_min_free_space,
             }
         } else {
             panic!("Couldn't initialize EncodeBuffer");
@@ -411,7 +420,7 @@ impl EncodeBuffer {
                 write_offset: 0,
                 read_offset: 0,
                 dispatcher_ref: Some(dispatcher_ref),
-                min_remaining: config.encode_min_remaining,
+                min_remaining: config.encode_buf_min_free_space,
             }
         } else {
             panic!("Couldn't initialize EncodeBuffer");
@@ -832,9 +841,9 @@ mod tests {
     #[should_panic(expected = "chunk_size must be greater than encode_min_remaining")]
     fn invalid_encode_min_remaining_validation() {
         // The BufferConfig should panic because encode_min_remain too high
-        let mut buffer_config = BufferConfig::new();
+        let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(128);
-        buffer_config.encode_min_remaining(128);
+        buffer_config.encode_buf_min_free_space(128);
         buffer_config.validate();
     }
 
@@ -842,14 +851,14 @@ mod tests {
     // the EncodeBuffer should overload multiple times and will have to succeed in reusing >=1 Chunk
     #[test]
     fn encode_buffer_overload_reuse_default_config() {
-        let buffer_config = BufferConfig::new();
+        let buffer_config = BufferConfig::default();
         let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
         // Check the buffer pool sizes
         assert_eq!(
             encode_buffer.buffer_pool.get_pool_sizes(),
             (
-                buffer_config.initial_pool_count, // No additional has been allocated
-                buffer_config.initial_pool_count - 1  // Currently in the pool
+                buffer_config.initial_chunk_count, // No additional has been allocated
+                buffer_config.initial_chunk_count - 1  // Currently in the pool
             )
         );
     }
@@ -857,11 +866,11 @@ mod tests {
     // As above, except we create a much larger BufferPool with larger Chunks manually configured
     #[test]
     fn encode_buffer_overload_reuse_manually_configured_large_buffers() {
-        let mut buffer_config = BufferConfig::new();
+        let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(50000000);     // 50 MB chunk_size
         buffer_config.initial_pool_count(10);  // 500 MB pool init value
-        buffer_config.max_pool_count(20);      // 1 GB pool max size
-        buffer_config.encode_min_remaining(256);// 256 B min_remaining
+        buffer_config.max_chunk_count(20);      // 1 GB pool max size
+        buffer_config.encode_buf_min_free_space(256);// 256 B min_remaining
 
         let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
         assert_eq!(encode_buffer.buffer.len(), 50000000);
@@ -893,7 +902,7 @@ mod tests {
             .hocon();
         let buffer_config = BufferConfig::from_config(&hocon.unwrap());
         // Ensure we successfully parsed the Config
-        assert_eq!(buffer_config.encode_min_remaining, 2 as usize);
+        assert_eq!(buffer_config.encode_buf_min_free_space, 2 as usize);
         let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
         // Ensure that the
         assert_eq!(encode_buffer.buffer.len(), 128);
@@ -917,7 +926,7 @@ mod tests {
 
             // Create a string that's bigger than the ENCODEBUFFER_MIN_REMAINING
             let mut test_string = "".to_string();
-            for i in 0..=&buffer_config.encode_min_remaining + 1 {
+            for i in 0..=&buffer_config.encode_buf_min_free_space + 1 {
                 // Make sure the string isn't just the same char over and over again,
                 // Means we test for some more correctness in buffers
                 test_string.push((i.to_string()).chars().next().unwrap());
@@ -925,9 +934,9 @@ mod tests {
             let mut cnt = 0;
 
             // Make sure we churn through all the initial buffers.
-            for _ in 0..=&buffer_config.initial_pool_count + 1 {
+            for _ in 0..=&buffer_config.initial_chunk_count + 1 {
                 // Make sure we fill up a chunk per iteration:
-                for _ in 0..=(&buffer_config.chunk_size / &buffer_config.encode_min_remaining) + 1 {
+                for _ in 0..=(&buffer_config.chunk_size / &buffer_config.encode_buf_min_free_space) + 1 {
                     buffer_encoder.put_slice(test_string.clone().as_bytes());
                     let chunk = buffer_encoder.get_chunk_lease();
                     assert_eq!(
@@ -947,7 +956,7 @@ mod tests {
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
         // Instantiate an encode buffer with default values
-        let buffer_config = BufferConfig::new();
+        let buffer_config = BufferConfig::default();
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
         use std::string::ToString;
@@ -961,7 +970,7 @@ mod tests {
     #[test]
     fn aligned_after_drop() {
         // Instantiate an encode buffer with default values
-        let buffer_config = BufferConfig::new();
+        let buffer_config = BufferConfig::default();
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         {
             let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
@@ -1006,9 +1015,9 @@ mod tests {
     impl ComponentLifecycle for BufferTestActor {
         fn on_start(&mut self) -> Handled {
             if self.custom_buf {
-                let mut buffer_config = BufferConfig::new();
-                buffer_config.encode_min_remaining(30);
-                buffer_config.max_pool_count(5);
+                let mut buffer_config = BufferConfig::default();
+                buffer_config.encode_buf_min_free_space(30);
+                buffer_config.max_chunk_count(5);
                 buffer_config.initial_pool_count(4);
                 buffer_config.chunk_size(128);
                 // Initialize the buffers
@@ -1029,11 +1038,11 @@ mod tests {
     }
     fn buffer_config_testing_system() -> KompactSystem {
         let mut cfg = KompactConfig::new();
-        let mut network_buffer_config = BufferConfig::new();
+        let mut network_buffer_config = BufferConfig::default();
         network_buffer_config.chunk_size(512);
         network_buffer_config.initial_pool_count(2);
-        network_buffer_config.max_pool_count(3);
-        network_buffer_config.encode_min_remaining(10);
+        network_buffer_config.max_chunk_count(3);
+        network_buffer_config.encode_buf_min_free_space(10);
         cfg.load_config_str(
             r#"{
                 buffer_config {

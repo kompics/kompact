@@ -61,14 +61,14 @@ impl BufferPool {
             }
         };
         let mut pool = VecDeque::<BufferChunk>::new();
-        for _ in 0..config.initial_pool_count {
+        for _ in 0..config.initial_chunk_count {
             pool.push_front(BufferChunk::from_chunk(chunk_allocator.get_chunk()));
         }
         BufferPool {
             pool,
-            pool_size: config.initial_pool_count,
+            pool_size: config.initial_chunk_count,
             chunk_allocator,
-            max_pool_size: config.max_pool_count,
+            max_pool_size: config.max_chunk_count,
         }
     }
 
