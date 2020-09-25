@@ -1,9 +1,6 @@
-# make sure protobuf library and mdbook are installed for build to succeed
+# make sure protobuf library is installed
 before_install:
   - ./travis_install_protobuf.sh
-  - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
-  - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.3" mdbook)
-  - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
 
 os: linux
 dist: xenial
@@ -31,6 +28,7 @@ jobs:
     - stage: test-features
       rust: nightly
       name: "Test feature matrix: nightly"
+      before_install: curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
       script:
         - export CARGO_INCREMENTAL=0
         - export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off"
@@ -46,6 +44,10 @@ jobs:
     - stage: deploy
       rust: nightly
       name: "Github Release"
+      # make sure mdbook is installed
+      before_install:
+        - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
+        - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.3" mdbook)
       script: mdbook build docs
       deploy:
         provider: pages
