@@ -3,8 +3,7 @@ before_install:
   - ./travis_install_protobuf.sh
   - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
   - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.3" mdbook)
-  #- (test -x $HOME/.cargo/bin/mdbook-linkcheck || cargo install mdbook-linkcheck)
-#  - cargo install-update -a
+  - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
 
 os: linux
 dist: xenial
@@ -33,8 +32,17 @@ jobs:
       rust: nightly
       name: "Test feature matrix: nightly"
       script:
+        - export CARGO_INCREMENTAL=0
+        - export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off"
+        - cargo build --verbose --all $CARGO_OPTIONS
+        - cargo test --verbose --all $CARGO_OPTIONS
         - cd core
         - ./test-feature-matrix.sh
+        - cd ..
+        - |
+          zip -0 ccov.zip `find . \( -name "kompact*.gc*" \) -print`;
+          ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" -o lcov.info;
+          bash <(curl -s https://codecov.io/bash) -f lcov.info;
     - stage: deploy
       rust: nightly
       name: "Github Release"
