@@ -23,6 +23,7 @@
 	- [Basic Communication](distributed/basiccommunication.md)
 	- [Named Services](distributed/namedservices.md)
 	- [Serialisation](distributed/serialisation.md)
+	- [Configuring Buffers](distributed/networkbuffers.md)
 - [Async/Await Interaction](async/index.md)
 
 [Project Info](project.md)

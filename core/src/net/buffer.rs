@@ -39,10 +39,10 @@ impl BufferConfig {
     /// `encode_buf_min_free_space` is 64.
     pub fn default() -> Self {
         BufferConfig {
-            chunk_size: 128 * 1000,   // 128Kb chunks
-            initial_chunk_count: 2,    // 256Kb initial/minimum BufferPools
-            max_chunk_count: 1000,     // 128Mb maximum BufferPools
-            encode_buf_min_free_space: 64, // typical L1 cache line size
+            chunk_size: 128 * 1000,         // 128KB chunks
+            initial_chunk_count: 2,         // 256KB initial/minimum BufferPools
+            max_chunk_count: 1000,          // 128MB maximum BufferPools
+            encode_buf_min_free_space: 64,  // typical L1 cache line size
         }
     }
 
