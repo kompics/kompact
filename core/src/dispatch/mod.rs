@@ -22,11 +22,12 @@ use crate::{
         SerialisedFrame,
     },
     net::{
-        buffer::{BufferEncoder, EncodeBuffer},
+        buffer::{BufferChunk, BufferConfig, BufferEncoder, EncodeBuffer},
         events::NetworkEvent,
         ConnectionState,
         NetworkBridgeErr,
     },
+    prelude::ChunkAllocator,
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
@@ -35,9 +36,7 @@ use futures::{
     task::{Context, Poll},
 };
 use rustc_hash::FxHashMap;
-use std::{io::ErrorKind, time::Duration};
-use std::collections::VecDeque;
-use crate::net::buffer::BufferChunk;
+use std::{collections::VecDeque, io::ErrorKind, time::Duration};
 
 pub mod lookup;
 pub mod queue_manager;
@@ -61,18 +60,51 @@ type NetHashMap<K, V> = FxHashMap<K, V>;
 /// let system = conf.build().expect("system");
 /// # system.shutdown().expect("shutdown");
 /// ```
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct NetworkConfig {
     addr: SocketAddr,
     transport: Transport,
+    buffer_config: BufferConfig,
+    custom_allocator: Option<Arc<dyn ChunkAllocator>>,
 }
 
 impl NetworkConfig {
     /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
+    /// NetworkDispatcher and NetworkThread will use the default `BufferConfig`
     pub fn new(addr: SocketAddr) -> Self {
         NetworkConfig {
             addr,
             transport: Transport::TCP,
+            buffer_config: BufferConfig::default(),
+            custom_allocator: None,
+        }
+    }
+
+    /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
+    /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
+    pub fn with_buffer_config(addr: SocketAddr, buffer_config: BufferConfig) -> Self {
+        buffer_config.validate();
+        NetworkConfig {
+            addr,
+            transport: Transport::TCP,
+            buffer_config,
+            custom_allocator: None,
+        }
+    }
+
+    /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
+    /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
+    pub fn with_custom_allocator(
+        addr: SocketAddr,
+        buffer_config: BufferConfig,
+        custom_allocator: Arc<dyn ChunkAllocator>,
+    ) -> Self {
+        buffer_config.validate();
+        NetworkConfig {
+            addr,
+            transport: Transport::TCP,
+            buffer_config,
+            custom_allocator: Some(custom_allocator),
         }
     }
 
@@ -89,6 +121,16 @@ impl NetworkConfig {
     pub fn build(self) -> impl Fn(KPromise<()>) -> NetworkDispatcher {
         move |notify_ready| NetworkDispatcher::with_config(self.clone(), notify_ready)
     }
+
+    /// Returns a pointer to the configurations `BufferConfig`
+    pub fn get_buffer_config(&self) -> &BufferConfig {
+        &self.buffer_config
+    }
+
+    /// Returns a pointer to the CustomAllocator option so that it can be cloned by the caller.
+    pub fn get_custom_allocator(&self) -> &Option<Arc<dyn ChunkAllocator>> {
+        return &self.custom_allocator;
+    }
 }
 
 /// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::TCP)
@@ -97,6 +139,8 @@ impl Default for NetworkConfig {
         NetworkConfig {
             addr: "127.0.0.1:0".parse().unwrap(),
             transport: Transport::TCP,
+            buffer_config: BufferConfig::default(),
+            custom_allocator: None,
         }
     }
 }
@@ -167,7 +211,10 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         let reaper = lookup::gc::ActorRefReaper::default();
-        let encode_buffer = crate::net::buffer::EncodeBuffer::new();
+        let encode_buffer = crate::net::buffer::EncodeBuffer::with_config(
+            &cfg.buffer_config,
+            &cfg.custom_allocator,
+        );
 
         NetworkDispatcher {
             ctx: ComponentContext::uninitialised(),
@@ -220,6 +267,7 @@ impl NetworkDispatcher {
             bridge_logger,
             self.cfg.addr,
             dispatcher.clone(),
+            &self.cfg,
         );
 
         let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
@@ -276,7 +324,9 @@ impl NetworkDispatcher {
 
         let mut retry_queue = VecDeque::new();
         for mut trash in self.garbage_buffers.drain(..) {
-            if !trash.free() { retry_queue.push_back(trash); }
+            if !trash.free() {
+                retry_queue.push_back(trash);
+            }
         }
         // info!(self.ctx().log(), "tried to clean {} buffer(s)", retry_queue.len()); // manual verification in testing
         self.garbage_buffers.append(&mut retry_queue);
@@ -807,23 +857,6 @@ mod dispatch_tests {
         ));
         println!("Got path: {}", named_path);
     }
-    /*
-    #[test]
-    fn tokio_cleanup() {
-        use tokio::net::TcpListener;
-
-        let addr = "127.0.0.1:0"
-            .parse::<SocketAddr>()
-            .expect("Could not parse address!");
-        let listener = TcpListener::bind(&addr).expect("Could not bind socket!");
-        let actual_addr = listener.local_addr().expect("Could not get real address!");
-        println!("Bound on {}", actual_addr);
-        drop(listener);
-        let listener2 = TcpListener::bind(&actual_addr).expect("Could not re-bind socket!");
-        let actual_addr2 = listener2.local_addr().expect("Could not get real address!");
-        println!("Bound again on {}", actual_addr2);
-        assert_eq!(actual_addr, actual_addr2);
-    } */
 
     #[test]
     fn network_cleanup() {
@@ -1576,7 +1609,7 @@ mod dispatch_tests {
         match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
             Some(cc) => {
                 garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
-            },
+            }
             _ => {}
         }
         assert_ne!(0, garbage_len);
@@ -1599,7 +1632,7 @@ mod dispatch_tests {
         match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
             Some(cc) => {
                 garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
-            },
+            }
             _ => {}
         }
         assert_eq!(0, garbage_len);
@@ -1613,7 +1646,6 @@ mod dispatch_tests {
     }
 
     const PING_COUNT: u64 = 10;
-
     #[test]
     fn local_delivery() {
         let mut cfg = KompactConfig::new();
@@ -2097,7 +2129,7 @@ mod dispatch_tests {
 
     impl ComponentLifecycle for PingerAct {
         fn on_start(&mut self) -> Handled {
-            info!(self.ctx.log(), "Starting");
+            debug!(self.ctx.log(), "Starting");
             if self.eager {
                 self.target
                     .tell_serialised(PingMsg { i: 0 }, self)
@@ -2119,7 +2151,7 @@ mod dispatch_tests {
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
-                    info!(self.ctx.log(), "Got msg {:?}", pong);
+                    debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
                         if self.eager {
@@ -2172,7 +2204,7 @@ mod dispatch_tests {
             let sender = msg.sender;
             match_deser! {msg.data; {
                 ping: PingMsg [PingPongSer] => {
-                    info!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
+                    debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
                     let pong = PongMsg { i: ping.i };
                     if self.eager {
                         sender
@@ -2210,7 +2242,7 @@ mod dispatch_tests {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
-            info!(
+            debug!(
                 self.ctx.log(),
                 "Forwarding some msg from {} to {}", msg.sender, self.forward_to
             );

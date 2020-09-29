@@ -11,11 +11,13 @@ use std::{any::Any, convert::TryFrom};
 use uuid::Uuid;
 
 use crate::{
-    net::{buffer::ChunkLease, frames::FRAME_HEAD_LEN},
+    net::{
+        buffer::{BufferChunk, ChunkLease},
+        frames::FRAME_HEAD_LEN,
+    },
     serialisation::ser_helpers::deserialise_msg,
 };
 use std::ops::Deref;
-use crate::net::buffer::BufferChunk;
 
 pub mod framing;
 

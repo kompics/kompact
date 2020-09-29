@@ -1,16 +1,107 @@
 use super::*;
-use crate::net::{buffer_pool::BufferPool, frames};
+use crate::{
+    messaging::DispatchEnvelope,
+    net::{
+        buffer_pool::{BufferPool, ChunkAllocator},
+        frames,
+    },
+};
 use bytes::{Buf, BufMut};
 use core::{cmp, ptr};
-use std::{io::Cursor, mem::MaybeUninit, sync::Arc};
-use std::fmt::{Debug, Formatter};
-use crate::messaging::DispatchEnvelope;
+use hocon::Hocon;
+use std::{
+    fmt::{Debug, Formatter},
+    io::Cursor,
+    mem::MaybeUninit,
+    sync::Arc,
+};
 
 const FRAME_HEAD_LEN: usize = frames::FRAME_HEAD_LEN as usize;
-const BUFFER_SIZE: usize = ENCODEBUFFER_MIN_REMAINING * 2000;
-// Assume 64 byte cache lines -> 2000 cache lines per chunk
-// (1000 are too small for a UDP datagram)
-const ENCODEBUFFER_MIN_REMAINING: usize = 64; // Always have at least a full cache line available
+
+/// The configuration for the network buffers
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct BufferConfig {
+    /// Specifies the size in bytes of `BufferChunk`s
+    pub(crate) chunk_size: usize,
+    /// Specifies the number of `BufferChunk` a `BufferPool` will pre-allocate on creation.
+    pub(crate) initial_chunk_count: usize,
+    /// Specifies the max number of `BufferChunk`s each `BufferPool` may have.
+    pub(crate) max_chunk_count: usize,
+    /// Minimum number of bytes an `EncodeBuffer` must have available before serialisation into it.
+    pub(crate) encode_buf_min_free_space: usize,
+}
+
+impl BufferConfig {
+    /// Create a new BufferConfig with default values which may be overwritten
+    /// `chunk_size` default value is 128,000.
+    /// `initial_chunk_count` default value is 2.
+    /// `max_chunk_count` default value is 1000.
+    /// `encode_buf_min_free_space` is 64.
+    pub fn default() -> Self {
+        BufferConfig {
+            chunk_size: 128 * 1000,         // 128KB chunks
+            initial_chunk_count: 2,         // 256KB initial/minimum BufferPools
+            max_chunk_count: 1000,          // 128MB maximum BufferPools
+            encode_buf_min_free_space: 64,  // typical L1 cache line size
+        }
+    }
+
+    /// Sets the BufferConfigs `chunk_size` to the given number of bytes.
+    /// Must be greater than 127 AND greater than `encode_buf_min_free_space`
+    pub fn chunk_size(&mut self, size: usize) -> () {
+        self.chunk_size = size;
+    }
+    /// Sets the BufferConfigs `initial_chunk_count` to the given number.
+    /// Must be <= `max_chunk_count`.
+    pub fn initial_chunk_count(&mut self, count: usize) -> () {
+        self.initial_chunk_count = count;
+    }
+    /// Sets the BufferConfigs `max_chunk_count` to the given number.
+    /// Must be >= `initial_chunk_count`.
+    pub fn max_chunk_count(&mut self, count: usize) -> () {
+        self.max_chunk_count = count;
+    }
+    /// Sets the BufferConfigs `encode_buf_min_free_space` to the given number of bytes.
+    /// Must be < `chunk_size`.
+    pub fn encode_buf_min_free_space(&mut self, size: usize) -> () {
+        self.encode_buf_min_free_space = size;
+    }
+
+    /// Tries to deserialize a BufferConfig from the specified in the given `config`.
+    /// Returns a default BufferConfig if it fails to read from the config.
+    pub fn from_config(config: &Hocon) -> BufferConfig {
+        let mut buffer_config = BufferConfig::default();
+        if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
+            buffer_config.chunk_size = chunk_size as usize;
+        }
+        if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
+            buffer_config.initial_chunk_count = initial_chunk_count as usize;
+        }
+        if let Some(max_pool_count) = config["buffer_config"]["max_pool_count"].as_i64() {
+            buffer_config.max_chunk_count = max_pool_count as usize;
+        }
+        if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_i64()
+        {
+            buffer_config.encode_buf_min_free_space = encode_min_remaining as usize;
+        }
+        buffer_config.validate();
+        buffer_config
+    }
+
+    /// Performs basic sanity checks on the config parameters and causes a Panic if it is invalid.
+    /// Is called automatically by the `BufferPool` on creation.
+    pub fn validate(&self) {
+        if self.initial_chunk_count > self.max_chunk_count {
+            panic!("initial_chunk_count may not be greater than max_pool_count")
+        }
+        if self.chunk_size <= self.encode_buf_min_free_space {
+            panic!("chunk_size must be greater than encode_min_remaining")
+        }
+        if self.chunk_size < 128 {
+            panic!("chunk_size smaller than 128 is not allowed")
+        }
+    }
+}
 
 /// Required methods for a Chunk
 pub trait Chunk {
@@ -30,8 +121,8 @@ pub(crate) struct DefaultChunk {
 }
 
 impl DefaultChunk {
-    pub fn new() -> DefaultChunk {
-        let v = vec![0u8; BUFFER_SIZE];
+    pub fn new(size: usize) -> DefaultChunk {
+        let v = vec![0u8; size];
         let slice = v.into_boxed_slice();
         DefaultChunk { chunk: slice }
     }
@@ -63,7 +154,7 @@ impl Debug for BufferChunk {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BufferChunk")
             .field("Lock", &self.locked)
-//            .field("Length", &self.chunk.len())
+            .field("Length", &self.len())
             .field("RefCount", &Arc::strong_count(&self.ref_count))
             .finish()
     }
@@ -82,9 +173,9 @@ unsafe impl Send for BufferChunk {}
 
 impl BufferChunk {
     /// Allocate a new Default BufferChunk
-    pub fn new() -> Self {
+    pub fn new(size: usize) -> Self {
         BufferChunk {
-            chunk: Box::into_raw(Box::new(DefaultChunk::new())),
+            chunk: Box::into_raw(Box::new(DefaultChunk::new(size))),
             ref_count: Arc::new(0),
             locked: false,
         }
@@ -207,8 +298,11 @@ impl<'a> BufMut for BufferEncoder<'a> {
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
         self.encode_buffer.write_offset += cnt;
-        if self.encode_buffer.remaining() < ENCODEBUFFER_MIN_REMAINING {
-            self.encode_buffer.swap_buffer();
+        if self.encode_buffer.write_offset > self.encode_buffer.buffer.len() {
+            panic!(
+                "Fatal error in buffers, write-pointer exceeding buffer length,\
+            this should not happen"
+            );
         }
     }
 
@@ -227,7 +321,10 @@ impl<'a> BufMut for BufferEncoder<'a> {
     where
         Self: Sized,
     {
-        assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
+        assert!(
+            src.remaining() <= self.encode_buffer.buffer.len(),
+            "src too big for buffering"
+        );
         if self.remaining_mut() < src.remaining() {
             // Not enough space in current chunk, need to swap it
             self.encode_buffer.swap_buffer();
@@ -252,7 +349,10 @@ impl<'a> BufMut for BufferEncoder<'a> {
 
     /// Override default impl to allow for large slices to be put in at a time
     fn put_slice(&mut self, src: &[u8]) {
-        assert!(src.remaining() <= BUFFER_SIZE, "src too big for buffering");
+        assert!(
+            src.remaining() <= self.encode_buffer.buffer.len(),
+            "src too big for buffering"
+        );
         if self.remaining_mut() < src.len() {
             // Not enough space in current chunk, need to swap it
             self.encode_buffer.swap_buffer();
@@ -260,8 +360,10 @@ impl<'a> BufMut for BufferEncoder<'a> {
 
         assert!(
             self.remaining_mut() >= src.len(),
-            "EncodeBuffer trying to write too big of a slice, len: {}",
-            src.len()
+            "EncodeBuffer trying to write too big, slice len: {}, Chunk len: {}, Remaining: {}",
+            src.len(),
+            self.encode_buffer.buffer.len(),
+            self.remaining_mut()
         );
         unsafe {
             let dst = self.bytes_mut();
@@ -280,12 +382,16 @@ pub struct EncodeBuffer {
     write_offset: usize,
     read_offset: usize,
     dispatcher_ref: Option<DispatcherRef>,
+    min_remaining: usize,
 }
 
 impl EncodeBuffer {
     /// Creates a new EncodeBuffer, allocates a new BufferPool.
-    pub fn new() -> Self {
-        let mut buffer_pool = BufferPool::new();
+    pub fn with_config(
+        config: &BufferConfig,
+        custom_allocator: &Option<Arc<dyn ChunkAllocator>>,
+    ) -> Self {
+        let mut buffer_pool = BufferPool::with_config(config, custom_allocator);
         if let Some(buffer) = buffer_pool.get_buffer() {
             EncodeBuffer {
                 buffer,
@@ -293,6 +399,7 @@ impl EncodeBuffer {
                 write_offset: 0,
                 read_offset: 0,
                 dispatcher_ref: None,
+                min_remaining: config.encode_buf_min_free_space,
             }
         } else {
             panic!("Couldn't initialize EncodeBuffer");
@@ -300,8 +407,12 @@ impl EncodeBuffer {
     }
 
     /// Creates a new EncodeBuffer with a DispatcherRef used for safe destruction of the buffers.
-    pub fn with_dispatcher_ref(dispatcher_ref: DispatcherRef) -> Self {
-        let mut buffer_pool = BufferPool::new();
+    pub fn with_dispatcher_ref(
+        dispatcher_ref: DispatcherRef,
+        config: &BufferConfig,
+        custom_allocator: Option<Arc<dyn ChunkAllocator>>,
+    ) -> Self {
+        let mut buffer_pool = BufferPool::with_config(config, &custom_allocator);
         if let Some(buffer) = buffer_pool.get_buffer() {
             EncodeBuffer {
                 buffer,
@@ -309,6 +420,7 @@ impl EncodeBuffer {
                 write_offset: 0,
                 read_offset: 0,
                 dispatcher_ref: Some(dispatcher_ref),
+                min_remaining: config.encode_buf_min_free_space,
             }
         } else {
             panic!("Couldn't initialize EncodeBuffer");
@@ -338,7 +450,7 @@ impl EncodeBuffer {
     }
 
     /// Extracts the bytes between the read-pointer and the write-pointer and advances the read-pointer
-    /// Ensures there's a minimum of `ENCODEBUFFER_MIN_REMAINING` left in the current buffer which minimizes overflow during swap
+    /// Ensures there's a configurable-minimum left in the current buffer, minimizes overflow during swap
     pub(crate) fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
         let cnt = self.write_offset - self.read_offset;
         if cnt > 0 {
@@ -347,7 +459,7 @@ impl EncodeBuffer {
                 .buffer
                 .get_lease(self.write_offset - cnt, self.write_offset);
 
-            if self.remaining() < ENCODEBUFFER_MIN_REMAINING {
+            if self.remaining() < self.min_remaining {
                 self.swap_buffer();
             }
 
@@ -695,23 +807,126 @@ unsafe impl Send for ChunkLease {}
 
 #[cfg(test)]
 mod tests {
-    // This is very non-exhaustive testing, just a
+    // This is very non-exhaustive testing, just basic sanity checks
 
     use super::*;
+    use crate::prelude::NetMessage;
+    use hocon::HoconLoader;
+    use std::{borrow::Borrow, time::Duration};
+
+    #[test]
+    #[should_panic(expected = "initial_chunk_count may not be greater than max_pool_count")]
+    fn invalid_pool_counts_config_validation() {
+        let hocon = HoconLoader::new()
+            .load_str(
+                r#"{
+            buffer_config {
+                chunk_size: 64,
+                initial_chunk_count: 3,
+                max_pool_count: 2,
+                encode_min_remaining: 2,
+                }
+            }"#,
+            )
+            .unwrap()
+            .hocon();
+        // This should succeed
+        let cfg = hocon.unwrap();
+
+        // Validation should panic
+        let _ = BufferConfig::from_config(&cfg);
+    }
+
+    #[test]
+    #[should_panic(expected = "chunk_size must be greater than encode_min_remaining")]
+    fn invalid_encode_min_remaining_validation() {
+        // The BufferConfig should panic because encode_min_remain too high
+        let mut buffer_config = BufferConfig::default();
+        buffer_config.chunk_size(128);
+        buffer_config.encode_buf_min_free_space(128);
+        buffer_config.validate();
+    }
 
     // This test instantiates an EncodeBuffer and writes the same string into it enough times that
-    // the EncodeBuffer should overload multiple times and will have to try to free at least 1 Chunk
+    // the EncodeBuffer should overload multiple times and will have to succeed in reusing >=1 Chunk
     #[test]
-    fn encode_buffer_overload() {
+    fn encode_buffer_overload_reuse_default_config() {
+        let buffer_config = BufferConfig::default();
+        let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
+        // Check the buffer pool sizes
+        assert_eq!(
+            encode_buffer.buffer_pool.get_pool_sizes(),
+            (
+                buffer_config.initial_chunk_count, // No additional has been allocated
+                buffer_config.initial_chunk_count - 1  // Currently in the pool
+            )
+        );
+    }
+
+    // As above, except we create a much larger BufferPool with larger Chunks manually configured
+    #[test]
+    fn encode_buffer_overload_reuse_manually_configured_large_buffers() {
+        let mut buffer_config = BufferConfig::default();
+        buffer_config.chunk_size(50000000);     // 50 MB chunk_size
+        buffer_config.initial_chunk_count(10);  // 500 MB pool init value
+        buffer_config.max_chunk_count(20);      // 1 GB pool max size
+        buffer_config.encode_buf_min_free_space(256);// 256 B min_remaining
+
+        let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
+        assert_eq!(encode_buffer.buffer.len(), 50000000);
+        // Check the buffer pool sizes
+        assert_eq!(
+            encode_buffer.buffer_pool.get_pool_sizes(),
+            (
+                10,     // No additional has been allocated
+                10 - 1  // Currently in the pool
+            )
+        );
+    }
+
+    // As above, except we create small buffers from a Hocon config.
+    #[test]
+    fn encode_buffer_overload_reuse_hocon_configured_small_buffers() {
+        let hocon = HoconLoader::new()
+            .load_str(
+                r#"{
+            buffer_config {
+                chunk_size: 128,
+                initial_chunk_count: 2,
+                max_pool_count: 2,
+                encode_min_remaining: 2,
+                }
+            }"#,
+            )
+            .unwrap()
+            .hocon();
+        let buffer_config = BufferConfig::from_config(&hocon.unwrap());
+        // Ensure we successfully parsed the Config
+        assert_eq!(buffer_config.encode_buf_min_free_space, 2 as usize);
+        let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
+        // Ensure that the
+        assert_eq!(encode_buffer.buffer.len(), 128);
+        // Check the buffer pool sizes
+        assert_eq!(
+            encode_buffer.buffer_pool.get_pool_sizes(),
+            (
+                2,     // No additional has been allocated
+                2 - 1  // Currently in the pool
+            )
+        );
+    }
+
+    // Creates an EncodeBuffer from the given config and uses the configured values to ensure
+    // The pool is exhausted (or would be if no reuse) and reuses buffers at least once.
+    fn encode_buffer_overload_reuse(buffer_config: &BufferConfig) -> EncodeBuffer {
         // Instantiate an encode buffer with default values
-        let mut encode_buffer = EncodeBuffer::new();
+        let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         {
             let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
 
             // Create a string that's bigger than the ENCODEBUFFER_MIN_REMAINING
-            use std::string::ToString;
             let mut test_string = "".to_string();
-            for i in 0..=ENCODEBUFFER_MIN_REMAINING + 1 {
+            for i in 0..=&buffer_config.encode_buf_min_free_space + 1 {
                 // Make sure the string isn't just the same char over and over again,
                 // Means we test for some more correctness in buffers
                 test_string.push((i.to_string()).chars().next().unwrap());
@@ -719,9 +934,9 @@ mod tests {
             let mut cnt = 0;
 
             // Make sure we churn through all the initial buffers.
-            for _ in 0..=crate::net::buffer_pool::INITIAL_BUFFER_LEN + 1 {
+            for _ in 0..=&buffer_config.initial_chunk_count + 1 {
                 // Make sure we fill up a chunk per iteration:
-                for _ in 0..=(BUFFER_SIZE / ENCODEBUFFER_MIN_REMAINING) + 1 {
+                for _ in 0..=(&buffer_config.chunk_size / &buffer_config.encode_buf_min_free_space) + 1 {
                     buffer_encoder.put_slice(test_string.clone().as_bytes());
                     let chunk = buffer_encoder.get_chunk_lease();
                     assert_eq!(
@@ -734,25 +949,19 @@ mod tests {
                 }
             }
         }
-        // Check the buffer pool sizes
-        assert_eq!(
-            encode_buffer.buffer_pool.get_pool_sizes(),
-            (
-                crate::net::buffer_pool::INITIAL_BUFFER_LEN, // Total allocated
-                0,                                           // Available
-                crate::net::buffer_pool::INITIAL_BUFFER_LEN - 1
-            )
-        ); // Returned
+        encode_buffer
     }
 
     #[test]
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
-        let mut encode_buffer = EncodeBuffer::new();
+        // Instantiate an encode buffer with default values
+        let buffer_config = BufferConfig::default();
+        let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
         use std::string::ToString;
         let mut test_string = "".to_string();
-        for i in 0..=BUFFER_SIZE + 10 {
+        for i in 0..=buffer_config.chunk_size + 10 {
             test_string.push((i.to_string()).chars().next().unwrap());
         }
         buffer_encoder.put(test_string.as_bytes());
@@ -760,13 +969,149 @@ mod tests {
 
     #[test]
     fn aligned_after_drop() {
-        let mut encode_buffer = EncodeBuffer::new();
+        // Instantiate an encode buffer with default values
+        let buffer_config = BufferConfig::default();
+        let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         {
             let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
             buffer_encoder.put_i32(16);
         }
-        // Check the buffer pool sizes
+        // Check the read and write pointers are aligned despite no read call
         assert_eq!(encode_buffer.write_offset, encode_buffer.read_offset);
         assert_eq!(encode_buffer.write_offset, 4);
+    }
+
+    #[derive(ComponentDefinition)]
+    struct BufferTestActor {
+        ctx: ComponentContext<BufferTestActor>,
+        custom_buf: bool,
+    }
+    impl BufferTestActor {
+        fn with_custom_buffer() -> BufferTestActor {
+            BufferTestActor {
+                ctx: ComponentContext::uninitialised(),
+                custom_buf: true,
+            }
+        }
+
+        fn without_custom_buffer() -> BufferTestActor {
+            BufferTestActor {
+                ctx: ComponentContext::uninitialised(),
+                custom_buf: false,
+            }
+        }
+    }
+    impl Actor for BufferTestActor {
+        type Message = ();
+
+        fn receive_local(&mut self, _: Self::Message) -> Handled {
+            Handled::Ok
+        }
+
+        fn receive_network(&mut self, _: NetMessage) -> Handled {
+            Handled::Ok
+        }
+    }
+    impl ComponentLifecycle for BufferTestActor {
+        fn on_start(&mut self) -> Handled {
+            if self.custom_buf {
+                let mut buffer_config = BufferConfig::default();
+                buffer_config.encode_buf_min_free_space(30);
+                buffer_config.max_chunk_count(5);
+                buffer_config.initial_chunk_count(4);
+                buffer_config.chunk_size(128);
+                // Initialize the buffers
+                self.ctx.borrow().init_buffers(Some(buffer_config), None);
+            }
+            // Use the Buffer
+            let _ = self.ctx.actor_path().clone().tell_serialised(120, self);
+            Handled::Ok
+        }
+
+        fn on_stop(&mut self) -> Handled {
+            Handled::Ok
+        }
+
+        fn on_kill(&mut self) -> Handled {
+            Handled::Ok
+        }
+    }
+    fn buffer_config_testing_system() -> KompactSystem {
+        let mut cfg = KompactConfig::new();
+        let mut network_buffer_config = BufferConfig::default();
+        network_buffer_config.chunk_size(512);
+        network_buffer_config.initial_chunk_count(2);
+        network_buffer_config.max_chunk_count(3);
+        network_buffer_config.encode_buf_min_free_space(10);
+        cfg.load_config_str(
+            r#"{
+                buffer_config {
+                    chunk_size: 256,
+                    initial_chunk_count: 3,
+                    max_pool_count: 4,
+                    encode_min_remaining: 20,
+                    }
+                }"#,
+        );
+        cfg.system_components(DeadletterBox::new, {
+            NetworkConfig::with_buffer_config(
+                "127.0.0.1:0".parse().expect("Address should work"),
+                network_buffer_config,
+            )
+            .build()
+        });
+        cfg.build().expect("KompactSystem")
+    }
+    // This integration test sets up a KompactSystem with a Hocon BufferConfig,
+    // then runs init_buffers on an Actor with different settings (in the on_start method of dummy),
+    // and finally asserts that the actors buffers were set up using the on_start parameters.
+    #[test]
+    fn buffer_config_init_buffers_overrides_hocon_and_default() {
+        let system = buffer_config_testing_system();
+        let (dummy, _df) = system.create_and_register(BufferTestActor::with_custom_buffer);
+        let dummy_f = system.register_by_alias(&dummy, "dummy");
+        let _ = dummy_f.wait_expect(Duration::from_millis(1000), "dummy failed");
+        system.start(&dummy);
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(100));
+
+        // Read the buffer_len
+        let mut buffer_len = 0;
+        let mut buffer_write_pointer = 0;
+        dummy.on_definition(|c| {
+            if let Some(encode_buffer) = c.ctx.get_buffer_location().borrow().as_ref() {
+                buffer_len = encode_buffer.buffer.len();
+                buffer_write_pointer = encode_buffer.write_offset;
+            }
+        });
+        // Assert that the buffer was initialized with parameter in the actors on_start method
+        assert_eq!(buffer_len, 128);
+        // Check that the buffer was used
+        assert_ne!(buffer_write_pointer, 0);
+    }
+
+    #[test]
+    fn buffer_config_hocon_overrides_default() {
+        let system = buffer_config_testing_system();
+        let (dummy, _df) = system.create_and_register(BufferTestActor::without_custom_buffer);
+        let dummy_f = system.register_by_alias(&dummy, "dummy");
+        let _ = dummy_f.wait_expect(Duration::from_millis(1000), "dummy failed");
+        system.start(&dummy);
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(100));
+
+        // Read the buffer_len
+        let mut buffer_len = 0;
+        let mut buffer_write_pointer = 0;
+        dummy.on_definition(|c| {
+            if let Some(encode_buffer) = c.ctx.get_buffer_location().borrow().as_ref() {
+                buffer_len = encode_buffer.buffer.len();
+                buffer_write_pointer = encode_buffer.write_offset;
+            }
+        });
+        // Assert that the buffer was initialized with parameters in the hocon config string
+        assert_eq!(buffer_len, 256);
+        // Check that the buffer was used
+        assert_ne!(buffer_write_pointer, 0);
     }
 }

@@ -15,7 +15,6 @@ impl Port for PingPongPort {
     type Request = Ping;
 }
 
-
 #[derive(ComponentDefinition, Actor)]
 struct Pinger {
     ctx: ComponentContext<Pinger>,

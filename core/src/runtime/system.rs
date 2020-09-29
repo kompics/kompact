@@ -15,8 +15,7 @@ use crate::{
 };
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
-use std::{fmt, sync::Mutex};
-use std::any::TypeId;
+use std::{any::TypeId, fmt, sync::Mutex};
 
 /// A Kompact system is a collection of components and services
 ///
@@ -1558,9 +1557,7 @@ impl KompactRuntime {
 
     pub(crate) fn get_internal_components(&self) -> &InternalComponents {
         match *self.internal_components {
-            Some(ref ic) => {
-                ic
-            }
+            Some(ref ic) => ic,
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
