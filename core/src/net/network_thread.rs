@@ -1019,7 +1019,7 @@ mod tests {
         let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(128);
         buffer_config.max_chunk_count(14);
-        buffer_config.initial_pool_count(13);
+        buffer_config.initial_chunk_count(13);
         buffer_config.encode_buf_min_free_space(10);
         let network_config = NetworkConfig::with_buffer_config(addr, buffer_config);
         let mut cfg = KompactConfig::new();

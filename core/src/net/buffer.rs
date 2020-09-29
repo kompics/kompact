@@ -53,11 +53,11 @@ impl BufferConfig {
     }
     /// Sets the BufferConfigs `initial_chunk_count` to the given number.
     /// Must be <= `max_chunk_count`.
-    pub fn initial_pool_count(&mut self, count: usize) -> () {
+    pub fn initial_chunk_count(&mut self, count: usize) -> () {
         self.initial_chunk_count = count;
     }
     /// Sets the BufferConfigs `max_chunk_count` to the given number.
-    /// Must be >= `initial_pool_count`.
+    /// Must be >= `initial_chunk_count`.
     pub fn max_chunk_count(&mut self, count: usize) -> () {
         self.max_chunk_count = count;
     }
@@ -74,8 +74,8 @@ impl BufferConfig {
         if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
             buffer_config.chunk_size = chunk_size as usize;
         }
-        if let Some(initial_pool_count) = config["buffer_config"]["initial_pool_count"].as_i64() {
-            buffer_config.initial_chunk_count = initial_pool_count as usize;
+        if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
+            buffer_config.initial_chunk_count = initial_chunk_count as usize;
         }
         if let Some(max_pool_count) = config["buffer_config"]["max_pool_count"].as_i64() {
             buffer_config.max_chunk_count = max_pool_count as usize;
@@ -92,7 +92,7 @@ impl BufferConfig {
     /// Is called automatically by the `BufferPool` on creation.
     pub fn validate(&self) {
         if self.initial_chunk_count > self.max_chunk_count {
-            panic!("initial_pool_count may not be greater than max_pool_count")
+            panic!("initial_chunk_count may not be greater than max_pool_count")
         }
         if self.chunk_size <= self.encode_buf_min_free_space {
             panic!("chunk_size must be greater than encode_min_remaining")
@@ -815,14 +815,14 @@ mod tests {
     use std::{borrow::Borrow, time::Duration};
 
     #[test]
-    #[should_panic(expected = "initial_pool_count may not be greater than max_pool_count")]
+    #[should_panic(expected = "initial_chunk_count may not be greater than max_pool_count")]
     fn invalid_pool_counts_config_validation() {
         let hocon = HoconLoader::new()
             .load_str(
                 r#"{
             buffer_config {
                 chunk_size: 64,
-                initial_pool_count: 3,
+                initial_chunk_count: 3,
                 max_pool_count: 2,
                 encode_min_remaining: 2,
                 }
@@ -868,7 +868,7 @@ mod tests {
     fn encode_buffer_overload_reuse_manually_configured_large_buffers() {
         let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(50000000);     // 50 MB chunk_size
-        buffer_config.initial_pool_count(10);  // 500 MB pool init value
+        buffer_config.initial_chunk_count(10);  // 500 MB pool init value
         buffer_config.max_chunk_count(20);      // 1 GB pool max size
         buffer_config.encode_buf_min_free_space(256);// 256 B min_remaining
 
@@ -892,7 +892,7 @@ mod tests {
                 r#"{
             buffer_config {
                 chunk_size: 128,
-                initial_pool_count: 2,
+                initial_chunk_count: 2,
                 max_pool_count: 2,
                 encode_min_remaining: 2,
                 }
@@ -1018,7 +1018,7 @@ mod tests {
                 let mut buffer_config = BufferConfig::default();
                 buffer_config.encode_buf_min_free_space(30);
                 buffer_config.max_chunk_count(5);
-                buffer_config.initial_pool_count(4);
+                buffer_config.initial_chunk_count(4);
                 buffer_config.chunk_size(128);
                 // Initialize the buffers
                 self.ctx.borrow().init_buffers(Some(buffer_config), None);
@@ -1040,14 +1040,14 @@ mod tests {
         let mut cfg = KompactConfig::new();
         let mut network_buffer_config = BufferConfig::default();
         network_buffer_config.chunk_size(512);
-        network_buffer_config.initial_pool_count(2);
+        network_buffer_config.initial_chunk_count(2);
         network_buffer_config.max_chunk_count(3);
         network_buffer_config.encode_buf_min_free_space(10);
         cfg.load_config_str(
             r#"{
                 buffer_config {
                     chunk_size: 256,
-                    initial_pool_count: 3,
+                    initial_chunk_count: 3,
                     max_pool_count: 4,
                     encode_min_remaining: 20,
                     }

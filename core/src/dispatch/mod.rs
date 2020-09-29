@@ -2129,7 +2129,7 @@ mod dispatch_tests {
 
     impl ComponentLifecycle for PingerAct {
         fn on_start(&mut self) -> Handled {
-            info!(self.ctx.log(), "Starting");
+            debug!(self.ctx.log(), "Starting");
             if self.eager {
                 self.target
                     .tell_serialised(PingMsg { i: 0 }, self)
@@ -2151,7 +2151,7 @@ mod dispatch_tests {
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
-                    info!(self.ctx.log(), "Got msg {:?}", pong);
+                    debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
                     if self.count < PING_COUNT {
                         if self.eager {
@@ -2204,7 +2204,7 @@ mod dispatch_tests {
             let sender = msg.sender;
             match_deser! {msg.data; {
                 ping: PingMsg [PingPongSer] => {
-                    info!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
+                    debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
                     let pong = PongMsg { i: ping.i };
                     if self.eager {
                         sender
@@ -2242,7 +2242,7 @@ mod dispatch_tests {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
-            info!(
+            debug!(
                 self.ctx.log(),
                 "Forwarding some msg from {} to {}", msg.sender, self.forward_to
             );
