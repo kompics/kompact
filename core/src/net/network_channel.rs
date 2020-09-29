@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     messaging::SerialisedFrame,
     net::{
-        buffer::{BufferChunk, DecodeBuffer},
+        buffers::{BufferChunk, DecodeBuffer},
         frames::{Ack, Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
     },
 };
@@ -49,8 +49,9 @@ impl TcpChannel {
         buffer_chunk: BufferChunk,
         state: ChannelState,
         own_addr: SocketAddr,
+        network_config: &NetworkConfig,
     ) -> Self {
-        let input_buffer = DecodeBuffer::new(buffer_chunk);
+        let input_buffer = DecodeBuffer::new(buffer_chunk, network_config.get_buffer_config());
         TcpChannel {
             stream,
             outbound_queue: VecDeque::new(),
@@ -77,9 +78,9 @@ impl TcpChannel {
     }
 
     /// Internal helper function for special frames
-    fn send_frame(&mut self, frame: Frame) -> () {
+    fn send_frame(&mut self, mut frame: Frame) -> () {
         let len = frame.encoded_len() + FRAME_HEAD_LEN as usize;
-        let mut bytes = BytesMut::with_capacity(128);
+        let mut bytes = BytesMut::with_capacity(len);
         bytes.truncate(len);
         if let Ok(()) = frame.encode_into(&mut bytes) {
             self.outbound_queue
@@ -196,7 +197,7 @@ impl TcpChannel {
     }
 
     pub fn graceful_shutdown(&mut self) -> () {
-        let bye = Frame::Bye();
+        let mut bye = Frame::Bye();
         let mut bye_bytes = BytesMut::with_capacity(128);
         let len = bye.encoded_len() + FRAME_HEAD_LEN as usize;
         bye_bytes.truncate(len);
@@ -245,14 +246,12 @@ impl TcpChannel {
                         // Split the data and continue sending the rest later if we sent less than the full frame
                         SerialisedFrame::Bytes(bytes) => {
                             if n < bytes.len() {
-                                //eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
                                 let _ = bytes.split_to(n); // Discard the already sent split off part.
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
                         SerialisedFrame::Chunk(chunk) => {
-                            if n < chunk.bytes().len() {
-                                //eprintln!("\n {:?} splitting bytes\n", self); // This shouldn't happen often.
+                            if n < chunk.remaining() {
                                 chunk.advance(n);
                                 self.outbound_queue.push_front(serialized_frame);
                             }
@@ -299,8 +298,7 @@ impl std::fmt::Debug for TcpChannel {
         f.debug_struct("TcpChannel")
             .field("State", &self.state)
             .field("Messages", &self.messages)
-            .field("Read offset", &self.input_buffer.get_read_offset())
-            .field("Write offset", &self.input_buffer.get_write_offset())
+            .field("Decode Buffer", &self.input_buffer)
             .field("Outbound Queue", &self.outbound_queue.len())
             .finish()
     }

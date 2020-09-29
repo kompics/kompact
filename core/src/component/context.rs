@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::prelude::{BufferConfig, ChunkAllocator};
+use crate::net::buffers::{BufferConfig, ChunkAllocator};
 use std::task::Poll;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

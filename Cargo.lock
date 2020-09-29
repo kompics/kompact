@@ -1082,6 +1082,7 @@ dependencies = [
  "oncemutex",
  "owning_ref",
  "protobuf",
+ "rand",
  "rustc-hash",
  "rustc_version",
  "sequence_trie",

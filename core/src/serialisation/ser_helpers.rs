@@ -5,18 +5,13 @@
 use crate::{
     actors::ActorPath,
     messaging::{HeapOrSer, NetData, NetMessage, Serialised},
-    net::buffer::ChunkLease,
-    serialisation::{Deserialiser, SerError, SerIdBuf, Serialisable, Serialiser},
-};
-use bytes::{buf::BufMut, Buf, BytesMut};
-
-use crate::{
     net::{
-        buffer::BufferEncoder,
+        buffers::{BufferEncoder, ChunkLease},
         frames::{FrameHead, FrameType, FRAME_HEAD_LEN},
     },
-    serialisation::ser_id::SerIdBufMut,
+    serialisation::*,
 };
+use bytes::{buf::BufMut, Buf, BytesMut};
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -108,7 +103,20 @@ pub fn serialise_msg<B>(
 where
     B: Serialisable + ?Sized,
 {
-    // Reserve space for the header:
+    // Check size hint and try to reserve space to avoid chaining
+    let mut reserve_size = 0;
+    if let Some(hint) = msg.size_hint() {
+        reserve_size += hint;
+    }
+    if let Some(hint) = src.size_hint() {
+        reserve_size += hint;
+    }
+    if let Some(hint) = dst.size_hint() {
+        reserve_size += hint;
+    }
+    buf.try_reserve(reserve_size + FRAME_HEAD_LEN as usize);
+
+    // Make space for the header:
     buf.pad(FRAME_HEAD_LEN as usize);
 
     src.serialise(buf)?; // src
@@ -149,7 +157,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
             buf.put(bytes);
         }
         HeapOrSer::Pooled(lease) => {
-            buf.put(lease.bytes());
+            buf.put(lease);
         }
     }
     match buf.get_chunk_lease() {
