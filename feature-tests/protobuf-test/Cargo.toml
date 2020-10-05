@@ -1,6 +1,6 @@
 [package]
 name = "protobuf-test"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2018"
 publish = false
@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 kompact = { path = "../../core/", features = ["protobuf"]}
 protobuf = "2"
-bytes = "0.5.2"
+bytes = "0.5"
 
 [build-dependencies]
-protoc-rust = "2.10.1"
+protoc-rust = "2.18"

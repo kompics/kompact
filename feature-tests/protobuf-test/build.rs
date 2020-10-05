@@ -1,15 +1,11 @@
 extern crate protoc_rust;
 
-use protoc_rust::Customize;
 
 fn main() {
-    protoc_rust::run(protoc_rust::Args {
-        out_dir: "src/messages",
-        includes: &["./proto"],
-        input: &["./proto/example.proto"],
-        customize: Customize {
-            ..Default::default()
-        },
-    })
-    .expect("protoc");
+	protoc_rust::Codegen::new()
+        .out_dir("src/messages")
+        .inputs(&["./proto/example.proto"])
+        .include("./proto")
+        .run()
+        .expect("Running protoc failed.");
 }
