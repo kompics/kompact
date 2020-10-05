@@ -112,10 +112,7 @@ where
     let id = Uuid::new_v4();
     let future = f(ComponentDefinitionAccess::from_ref(component));
     let core = component.ctx().component();
-    let waker = async_task::waker_fn(move || {
-        let id = id; // move id
-        core.enqueue_control(ControlEvent::Poll(id));
-    });
+    let waker = task_waker::create(id, core);
     let boxed = Box::pin(future);
     NonBlockingFuture {
         future: boxed,
@@ -178,3 +175,53 @@ where
 }
 
 unsafe impl<CD> Send for ComponentDefinitionAccess<CD> where CD: ComponentDefinition + 'static {} // will only be sent WITH the component, which is safe
+
+mod task_waker {
+    use super::*;
+    use std::{
+        mem::{self, ManuallyDrop},
+        task::{RawWaker, RawWakerVTable, Waker},
+    };
+
+    pub fn create(id: Uuid, core: Arc<dyn CoreContainer>) -> Waker {
+        let task = TaskWaker { id, core };
+        let raw = Arc::into_raw(Arc::new(task)) as *const ();
+        let vtable = &TaskWaker::VTABLE;
+        unsafe { Waker::from_raw(RawWaker::new(raw, vtable)) }
+    }
+
+    #[derive(Debug, Clone)]
+    struct TaskWaker {
+        id: Uuid,
+        core: Arc<dyn CoreContainer>,
+    }
+
+    impl TaskWaker {
+        const VTABLE: RawWakerVTable = RawWakerVTable::new(
+            Self::clone_waker,
+            Self::wake,
+            Self::wake_by_ref,
+            Self::drop_waker,
+        );
+
+        unsafe fn clone_waker(ptr: *const ()) -> RawWaker {
+            let arc = ManuallyDrop::new(Arc::from_raw(ptr as *const TaskWaker));
+            mem::forget(arc.clone());
+            RawWaker::new(ptr, &Self::VTABLE)
+        }
+
+        unsafe fn wake(ptr: *const ()) {
+            let arc = Arc::from_raw(ptr as *const TaskWaker);
+            arc.core.enqueue_control(ControlEvent::Poll(arc.id));
+        }
+
+        unsafe fn wake_by_ref(ptr: *const ()) {
+            let arc = ManuallyDrop::new(Arc::from_raw(ptr as *const TaskWaker));
+            arc.core.enqueue_control(ControlEvent::Poll(arc.id));
+        }
+
+        unsafe fn drop_waker(ptr: *const ()) {
+            drop(Arc::from_raw(ptr as *const TaskWaker));
+        }
+    }
+}

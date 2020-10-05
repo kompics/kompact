@@ -39,10 +39,10 @@ impl BufferConfig {
     /// `encode_buf_min_free_space` is 64.
     pub fn default() -> Self {
         BufferConfig {
-            chunk_size: 128 * 1000,         // 128KB chunks
-            initial_chunk_count: 2,         // 256KB initial/minimum BufferPools
-            max_chunk_count: 1000,          // 128MB maximum BufferPools
-            encode_buf_min_free_space: 64,  // typical L1 cache line size
+            chunk_size: 128 * 1000,        // 128KB chunks
+            initial_chunk_count: 2,        // 256KB initial/minimum BufferPools
+            max_chunk_count: 1000,         // 128MB maximum BufferPools
+            encode_buf_min_free_space: 64, // typical L1 cache line size
         }
     }
 
@@ -51,16 +51,19 @@ impl BufferConfig {
     pub fn chunk_size(&mut self, size: usize) -> () {
         self.chunk_size = size;
     }
+
     /// Sets the BufferConfigs `initial_chunk_count` to the given number.
     /// Must be <= `max_chunk_count`.
     pub fn initial_chunk_count(&mut self, count: usize) -> () {
         self.initial_chunk_count = count;
     }
+
     /// Sets the BufferConfigs `max_chunk_count` to the given number.
     /// Must be >= `initial_chunk_count`.
     pub fn max_chunk_count(&mut self, count: usize) -> () {
         self.max_chunk_count = count;
     }
+
     /// Sets the BufferConfigs `encode_buf_min_free_space` to the given number of bytes.
     /// Must be < `chunk_size`.
     pub fn encode_buf_min_free_space(&mut self, size: usize) -> () {
@@ -867,10 +870,10 @@ mod tests {
     #[test]
     fn encode_buffer_overload_reuse_manually_configured_large_buffers() {
         let mut buffer_config = BufferConfig::default();
-        buffer_config.chunk_size(50000000);     // 50 MB chunk_size
-        buffer_config.initial_chunk_count(10);  // 500 MB pool init value
-        buffer_config.max_chunk_count(20);      // 1 GB pool max size
-        buffer_config.encode_buf_min_free_space(256);// 256 B min_remaining
+        buffer_config.chunk_size(50000000); // 50 MB chunk_size
+        buffer_config.initial_chunk_count(10); // 500 MB pool init value
+        buffer_config.max_chunk_count(20); // 1 GB pool max size
+        buffer_config.encode_buf_min_free_space(256); // 256 B min_remaining
 
         let encode_buffer = encode_buffer_overload_reuse(&buffer_config);
         assert_eq!(encode_buffer.buffer.len(), 50000000);
@@ -936,7 +939,9 @@ mod tests {
             // Make sure we churn through all the initial buffers.
             for _ in 0..=&buffer_config.initial_chunk_count + 1 {
                 // Make sure we fill up a chunk per iteration:
-                for _ in 0..=(&buffer_config.chunk_size / &buffer_config.encode_buf_min_free_space) + 1 {
+                for _ in
+                    0..=(&buffer_config.chunk_size / &buffer_config.encode_buf_min_free_space) + 1
+                {
                     buffer_encoder.put_slice(test_string.clone().as_bytes());
                     let chunk = buffer_encoder.get_chunk_lease();
                     assert_eq!(
