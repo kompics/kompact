@@ -13,6 +13,8 @@ use std::{
 
 use super::*;
 
+pub use iter_extras::*;
+
 /// This error type is returned when on [`on_dual_definition`](fn.on_dual_definition.html) fails,
 /// indicating that a proper lock could not be established on both components.
 #[derive(Debug)]
@@ -368,15 +370,6 @@ macro_rules! ignore_control {
         ignore_lifecycle!($component);
     };
 }
-// macro_rules! ignore_control {
-//     ($component:ty) => {
-//         impl Provide<ControlPort> for $component {
-//             fn handle(&mut self, _event: ControlEvent) -> () {
-//                 () // ignore all
-//             }
-//         }
-//     };
-// }
 
 /// A macro that provides an empty implementation of the provided handler for the given `$port` on the given `$component`
 ///
@@ -418,38 +411,76 @@ macro_rules! ignore_indications {
     };
 }
 
-/// Additional iterator functions
-pub trait IterExtras: Iterator + Sized {
-    // this variant requires #![feature(unsized_locals)]
-    //pub trait IterExtras: Iterator {
+#[cfg(not(nightly))]
+mod iter_extras {
+    /// Additional iterator functions
+    pub trait IterExtras: Iterator + Sized {
+        // this variant requires #![feature(unsized_locals)]
+        //pub trait IterExtras: Iterator {
 
-    /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
-    ///
-    /// Behaves like `iterator.for_each(|item| f(item, t.clone()))`, except that it avoids cloning
-    /// in the case where the iterator contains a single item or for the last item in a larger iterator.
-    ///
-    /// Use this when cloning `T` is relatively expensive compared to `f`.
-    fn for_each_with<T, F>(mut self, t: T, mut f: F)
-    where
-        T: Clone,
-        F: FnMut(Self::Item, T),
-    {
-        let mut current: Option<Self::Item> = self.next();
-        let mut next: Option<Self::Item> = self.next();
-        while next.is_some() {
-            let item = current.take().unwrap();
-            f(item, t.clone());
-            current = next;
-            next = self.next();
-        }
-        if let Some(item) = current.take() {
-            f(item, t)
+        /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
+        ///
+        /// Behaves like `iterator.for_each(|item| f(item, t.clone()))`, except that it avoids cloning
+        /// in the case where the iterator contains a single item or for the last item in a larger iterator.
+        ///
+        /// Use this when cloning `T` is relatively expensive compared to `f`.
+        fn for_each_with<T, F>(mut self, t: T, mut f: F)
+        where
+            T: Clone,
+            F: FnMut(Self::Item, T),
+        {
+            let mut current: Option<Self::Item> = self.next();
+            let mut next: Option<Self::Item> = self.next();
+            while next.is_some() {
+                let item = current.take().unwrap();
+                f(item, t.clone());
+                current = next;
+                next = self.next();
+            }
+            if let Some(item) = current.take() {
+                f(item, t)
+            }
         }
     }
+
+    impl<T: Sized> IterExtras for T where T: Iterator {}
 }
-impl<T: Sized> IterExtras for T where T: Iterator {}
+
 // this variant requires #![feature(unsized_locals)]
-//impl<T: ?Sized> IterExtras for T where T: Iterator {}
+#[cfg(nightly)]
+mod iter_extras {
+    /// Additional iterator functions
+    pub trait IterExtras: Iterator {
+        // this variant requires #![feature(unsized_locals)]
+        //pub trait IterExtras: Iterator {
+
+        /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
+        ///
+        /// Behaves like `iterator.for_each(|item| f(item, t.clone()))`, except that it avoids cloning
+        /// in the case where the iterator contains a single item or for the last item in a larger iterator.
+        ///
+        /// Use this when cloning `T` is relatively expensive compared to `f`.
+        fn for_each_with<T, F>(mut self, t: T, mut f: F)
+        where
+            T: Clone,
+            F: FnMut(Self::Item, T),
+        {
+            let mut current: Option<Self::Item> = self.next();
+            let mut next: Option<Self::Item> = self.next();
+            while next.is_some() {
+                let item = current.take().unwrap();
+                f(item, t.clone());
+                current = next;
+                next = self.next();
+            }
+            if let Some(item) = current.take() {
+                f(item, t)
+            }
+        }
+    }
+
+    impl<T: ?Sized> IterExtras for T where T: Iterator {}
+}
 
 #[cfg(all(nightly, feature = "type_erasure"))]
 pub mod erased {

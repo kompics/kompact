@@ -634,19 +634,6 @@ where
         crate::serialisation::ser_helpers::serialiser_to_serialised(t.0, t.1)
     }
 }
-// Doesn't work due to: https://github.com/rust-lang/rust/issues/50133
-// Use [serialise_to_serialised](crate::serialisation::helpers::serialise_to_serialised(ser))
-// or the `dyn` version below instead.
-// impl<S> TryFrom<&S> for Serialised
-// where
-//     S: Serialisable,
-// {
-//     type Error = SerError;
-
-//     fn try_from(ser: &S) -> Result<Self, Self::Error> {
-//         crate::serialisation::helpers::serialise_to_serialised(ser)
-//     }
-// }
 
 impl TryFrom<&dyn Serialisable> for Serialised {
     type Error = SerError;

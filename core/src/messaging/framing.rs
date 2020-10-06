@@ -204,31 +204,6 @@ impl TryFrom<u8> for SystemPathHeader {
     }
 }
 
-// don't think this is needed
-// impl Serialisable for SystemPathHeader {
-//     fn serid(&self) -> u64 {
-//         SerIdents::SystemPathHeader as u64
-//     }
-
-//     fn size_hint(&self) -> Option<usize> {
-//         // 1 byte containing
-//         //      1 bit for path type
-//         //      5 bits for protocol
-//         //      2 bits for address type
-//         Some(1)
-//     }
-
-//     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-//         // Grab the underlying Big-Endian 8-bit storage from named fields
-//         buf.put_u8(self.storage[0]);
-//         Ok(())
-//     }
-
-//     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
-//         unimplemented!()
-//     }
-// }
-
 /// # Actor Path Serialization
 /// An actor path is either Unique or Named and contains a [SystemPath].
 /// The SystemPath's header disambiguates the type (Path type).

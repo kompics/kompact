@@ -156,7 +156,6 @@ pub struct Bridge {
     shutdown_future: KFuture<()>,
 }
 
-// impl bridge
 impl Bridge {
     /// Creates a new bridge
     ///
@@ -335,7 +334,9 @@ impl From<SerError> for NetworkBridgeErr {
     }
 }
 
-// Error handling helper functions
+/*
+* Error handling helper functions
+*/
 pub(crate) fn would_block(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::WouldBlock
 }

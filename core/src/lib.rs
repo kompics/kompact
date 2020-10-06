@@ -39,15 +39,13 @@
 #![cfg_attr(nightly, feature(never_type))]
 #![cfg_attr(nightly, feature(option_expect_none))]
 #![cfg_attr(nightly, feature(async_closure))]
-#![cfg_attr(all(nightly, feature = "type_erasure"), feature(unsized_locals))]
+#![cfg_attr(nightly, feature(unsized_locals))]
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
 
-// Protocol buffers serialisation support
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
-// Serde serialisation support
 #[cfg(feature = "serde_support")]
 pub use self::serialisation::serde_serialisers;
 use self::{
@@ -61,7 +59,7 @@ use self::{
     utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
-// The default crate for scheduler implementations
+/// The default crate for scheduler implementations
 pub use executors;
 #[allow(unused_imports)]
 use kompact_actor_derive::*;

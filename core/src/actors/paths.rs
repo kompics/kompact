@@ -27,7 +27,6 @@ pub enum Transport {
     UDP = 0b10,
 }
 
-// impl Transport
 impl Transport {
     /// Returns `true` if this is an instance of [Transport::LOCAL](Transport::LOCAL)
     pub fn is_local(&self) -> bool {

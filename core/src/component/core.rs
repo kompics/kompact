@@ -69,10 +69,6 @@ impl ComponentCore {
     }
 }
 
-// The compiler gets stuck into a recursive loop trying to figure this out itself
-//unsafe impl<C: ComponentDefinition + Sized> Send for Component<C> {}
-//unsafe impl<C: ComponentDefinition + Sized> Sync for Component<C> {}
-
 unsafe impl Send for ComponentCore {}
 
 unsafe impl Sync for ComponentCore {}

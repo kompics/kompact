@@ -82,8 +82,6 @@ pub struct ActorStore {
     deadletter: Option<DynActorRef>,
 }
 
-// impl ActorStore
-// TODO refactor ActorPaths so that there's an enum key that can be used for all get/put functions
 impl ActorStore {
     pub fn new() -> Self {
         ActorStore {

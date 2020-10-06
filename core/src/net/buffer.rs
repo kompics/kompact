@@ -810,7 +810,6 @@ unsafe impl Send for ChunkLease {}
 
 #[cfg(test)]
 mod tests {
-    // This is very non-exhaustive testing, just basic sanity checks
 
     use super::*;
     use crate::prelude::NetMessage;

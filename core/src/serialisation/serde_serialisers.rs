@@ -847,16 +847,6 @@ impl<'de, 'a> MapAccess<'de> for ElementCounting<'a, 'de> {
     }
 }
 
-// struct Enum<'a, 'de: 'a> {
-//     buffer: &'a mut BufDeserializer<'de>,
-// }
-
-// impl<'a, 'de> Enum<'a, 'de> {
-//     fn new(buffer: &'a mut BufDeserializer<'de>) -> Self {
-//         Enum { buffer }
-//     }
-// }
-
 // `EnumAccess` is provided to the `Visitor` to give it the ability to determine
 // which variant of the enum is supposed to be deserialized.
 //

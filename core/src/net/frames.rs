@@ -205,7 +205,7 @@ impl From<u8> for FrameType {
     }
 }
 
-// Head of each frame
+/// Head of each frame
 #[derive(Debug)]
 pub(crate) struct FrameHead {
     frame_type: FrameType,
@@ -220,8 +220,8 @@ impl FrameHead {
         }
     }
 
-    // Encodes own fields and entire frame length into `dst`.
-    // This conforms to the length_delimited decoder found in the framed writer
+    /// Encodes own fields and entire frame length into `dst`.
+    /// This conforms to the length_delimited decoder found in the framed writer
     pub(crate) fn encode_into<B: BufMut>(&self, dst: &mut B) {
         assert!(dst.remaining_mut() >= FRAME_HEAD_LEN as usize);
         // Represents total length, including bytes for encoding length

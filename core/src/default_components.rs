@@ -26,9 +26,6 @@ impl DefaultComponents {
 }
 
 impl SystemComponents for DefaultComponents {
-    // fn timer_ref(&self) -> timer::TimerRef {
-    //     self.timer.timer_ref()
-    // }
     fn deadletter_ref(&self) -> ActorRef<Never> {
         self.deadletter_box.actor_ref()
     }
