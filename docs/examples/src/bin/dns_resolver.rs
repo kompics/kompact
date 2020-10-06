@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use async_std_resolver::{config, resolver, AsyncStdResolver};
 use dialoguer::Input;
 use kompact::prelude::*;
@@ -106,7 +107,7 @@ fn main() {
                 "stop" => break,
                 _ => {
                     let mut outstanding = Vec::new();
-                    for domain in s.split(",") {
+                    for domain in s.split(',') {
                         let domain = domain.trim();
                         info!(system.logger(), "Sending request for {}", domain);
                         let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));

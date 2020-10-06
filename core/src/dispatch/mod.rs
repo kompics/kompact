@@ -129,7 +129,7 @@ impl NetworkConfig {
 
     /// Returns a pointer to the CustomAllocator option so that it can be cloned by the caller.
     pub fn get_custom_allocator(&self) -> &Option<Arc<dyn ChunkAllocator>> {
-        return &self.custom_allocator;
+        &self.custom_allocator
     }
 }
 

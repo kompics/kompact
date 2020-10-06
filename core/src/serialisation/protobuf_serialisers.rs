@@ -29,7 +29,7 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
                 SerError::Unknown("Protobuf serialisation reported an Utf8Error.".into())
             }
             ProtobufError::MessageNotInitialized { message: msg } => {
-                SerError::InvalidData(format!("Protobuf serialisation reported: {}", msg).into())
+                SerError::InvalidData(format!("Protobuf serialisation reported: {}", msg))
             }
         })
     }
@@ -62,7 +62,7 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
                 SerError::Unknown("Protobuf deserialisation reported an Utf8Error.".into())
             }
             ProtobufError::MessageNotInitialized { message: msg } => {
-                SerError::InvalidData(format!("Protobuf deserialisation reported: {}", msg).into())
+                SerError::InvalidData(format!("Protobuf deserialisation reported: {}", msg))
             }
         });
         r.map(|_| m)

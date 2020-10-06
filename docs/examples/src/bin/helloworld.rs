@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 // ANCHOR: component
 use kompact::prelude::*;
 

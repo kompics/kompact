@@ -352,37 +352,32 @@ where
         custom_allocator: Option<Arc<dyn ChunkAllocator>>,
     ) -> () {
         let mut buffer_location = self.buffer.borrow_mut();
-        match buffer_location.as_mut() {
-            Some(_) => return, // already initialized, do nothing
-            None => {
-                // Need to create a new Buffer, fetch BufferConfig
-                let cfg = {
-                    if let Some(cfg) = buffer_config {
-                        cfg
-                    } else {
-                        self.get_buffer_config()
-                    }
-                };
 
-                if custom_allocator.is_some() {
-                    debug!(
-                        self.log(),
-                        "init_buffers with custom allocator, config {:?}.", &cfg
-                    );
+        if buffer_location.as_mut().is_none() {
+            // Need to create a new Buffer, fetch BufferConfig
+            let cfg = {
+                if let Some(cfg) = buffer_config {
+                    cfg
                 } else {
-                    debug!(
-                        self.log(),
-                        "init_buffers with default allocator, config {:?}.", &cfg
-                    );
+                    self.get_buffer_config()
                 }
+            };
 
-                let buffer = EncodeBuffer::with_dispatcher_ref(
-                    self.dispatcher_ref(),
-                    &cfg,
-                    custom_allocator,
+            if custom_allocator.is_some() {
+                debug!(
+                    self.log(),
+                    "init_buffers with custom allocator, config {:?}.", &cfg
                 );
-                *buffer_location = Some(buffer);
+            } else {
+                debug!(
+                    self.log(),
+                    "init_buffers with default allocator, config {:?}.", &cfg
+                );
             }
+
+            let buffer =
+                EncodeBuffer::with_dispatcher_ref(self.dispatcher_ref(), &cfg, custom_allocator);
+            *buffer_location = Some(buffer);
         }
     }
 

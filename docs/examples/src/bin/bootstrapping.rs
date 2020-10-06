@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use kompact::{prelude::*, serde_serialisers::*};
 use kompact_examples::trusting::*;
 use serde::{Deserialize, Serialize};
@@ -105,7 +106,7 @@ impl EventualLeaderElector {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
                 if new_leader != self.leader {
-                    self.period = self.period + self.delta;
+                    self.period += self.delta;
                     self.leader = new_leader;
                     if let Some(ref leader) = self.leader {
                         self.omega_port.trigger(Trust(leader.clone()));

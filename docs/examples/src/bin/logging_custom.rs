@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use kompact::prelude::*;
 use std::{fs::OpenOptions, sync::Arc, time::Duration};
 

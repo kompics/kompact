@@ -239,6 +239,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 enum ComponentField {
     Ctx,

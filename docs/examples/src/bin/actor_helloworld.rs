@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 // ANCHOR: actor
 use kompact::prelude::*;
 use std::sync::Arc;

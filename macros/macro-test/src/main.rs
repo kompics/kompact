@@ -136,7 +136,7 @@ fn main() {
         conf.throughput(5);
     }
     let system = conf.build().expect("KompactSystem");
-    let pingerc = system.create(move || Pinger::new());
+    let pingerc = system.create(Pinger::new);
     let pinger_ppp: RequiredRef<PingPongPort> = pingerc.required_ref(); //pingerc.on_definition(|cd| cd.ppp.share());
     system
         .start_notify(&pingerc)

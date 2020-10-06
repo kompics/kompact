@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use kompact::prelude::*;
 use std::{env, fmt, ops::Range, sync::Arc};
 

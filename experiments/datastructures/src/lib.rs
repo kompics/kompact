@@ -52,10 +52,7 @@ impl<V> MaybeTree<V> {
     }
 
     fn is_empty(&self) -> bool {
-        match self {
-            MaybeTree::Empty => true,
-            _ => false,
-        }
+        matches!(self, MaybeTree::Empty)
     }
 
     fn get(&self, key: &[u8]) -> Option<&V> {
@@ -78,6 +75,7 @@ impl<V> MaybeTree<V> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum RadixTree<V> {
     Value { key_suffix: Box<[u8]>, value: V },
     Node { children: [MaybeTree<V>; 256] },

@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use kompact::{prelude::*, serde_serialisers::*};
 use kompact_examples::trusting::*;
 use std::{

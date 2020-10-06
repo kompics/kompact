@@ -138,13 +138,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 let id = c.id();
                 self.children.insert(id, c.clone());
                 debug!(self.ctx.log(), "Component({}) was started.", id);
-                self.notify_listeners(&id, |l| {
-                    if let ListenEvent::Started(_) = l {
-                        true
-                    } else {
-                        false
-                    }
-                });
+                self.notify_listeners(&id, |l| matches!(l, ListenEvent::Started(_)));
                 if self.shutdown.is_some() {
                     warn!(
                         self.ctx.log(),
@@ -155,13 +149,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
             }
             SupervisorMsg::Stopped(id) => {
                 debug!(self.ctx.log(), "Component({}) was stopped.", id);
-                self.notify_listeners(&id, |l| {
-                    if let ListenEvent::Stopped(_) = l {
-                        true
-                    } else {
-                        false
-                    }
-                });
+                self.notify_listeners(&id, |l| matches!(l, ListenEvent::Stopped(_)));
             }
             SupervisorMsg::Killed(id) => {
                 match self.children.remove(&id) {
@@ -177,13 +165,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         } else {
                             debug!(self.ctx.log(), "Component({}) was killed but there are still outstanding references preventing deallocation.", id);
                         }
-                        self.notify_listeners(&id, |l| {
-                            if let ListenEvent::Destroyed(_) = l {
-                                true
-                            } else {
-                                false
-                            }
-                        });
+                        self.notify_listeners(&id, |l| matches!(l, ListenEvent::Destroyed(_)));
                         self.drop_listeners(&id);
                     }
                     None => warn!(self.ctx.log(), "An untracked Component({}) was killed.", id),

@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use kompact::prelude::*;
 use kompact_examples::batching::*;
 use std::time::Duration;

@@ -73,10 +73,7 @@ impl TcpChannel {
     }
 
     pub fn connected(&self) -> bool {
-        match self.state {
-            ChannelState::Connected(_, _) => true,
-            _ => false,
-        }
+        matches!(self.state, ChannelState::Connected(_, _))
     }
 
     /// Internal helper function for special frames

@@ -30,10 +30,7 @@ pub enum Transport {
 impl Transport {
     /// Returns `true` if this is an instance of [Transport::LOCAL](Transport::LOCAL)
     pub fn is_local(&self) -> bool {
-        match *self {
-            Transport::LOCAL => true,
-            _ => false,
-        }
+        matches!(*self, Transport::LOCAL)
     }
 
     /// Returns `true` if this is *not* an instance of [Transport::LOCAL](Transport::LOCAL)
@@ -60,18 +57,18 @@ impl FromStr for Transport {
             "local" => Ok(Transport::LOCAL),
             "tcp" => Ok(Transport::TCP),
             "udp" => Ok(Transport::UDP),
-            _ => Err(TransportParseError(())),
+            _ => Err(TransportParseError),
         }
     }
 }
 
 /// Error type for parsing the [Transport](Transport) from a string
 #[derive(Clone, Debug)]
-pub struct TransportParseError(());
+pub struct TransportParseError;
 
 impl fmt::Display for TransportParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(&self.to_string())
+        fmt.write_str("TransportParseError")
     }
 }
 
@@ -94,7 +91,11 @@ pub enum PathParseError {
 
 impl fmt::Display for PathParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.write_str(&self.to_string())
+        match self {
+            PathParseError::Form(s) => write!(fmt, "Invalid formatting: {}", s),
+            PathParseError::Transport(e) => write!(fmt, "Could not parse transport: {}", e),
+            PathParseError::Addr(e) => write!(fmt, "Could not parse address: {}", e),
+        }
     }
 }
 

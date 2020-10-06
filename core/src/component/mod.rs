@@ -110,10 +110,7 @@ impl Handled {
 
     /// Returns true if this instance is an [Handled::Ok](Handled::Ok) variant
     pub fn is_ok(&self) -> bool {
-        match self {
-            Handled::Ok => true,
-            _ => false,
-        }
+        matches!(self, Handled::Ok)
     }
 }
 impl Default for Handled {
