@@ -204,6 +204,7 @@ mod task_waker {
             Self::drop_waker,
         );
 
+        #[allow(clippy::redundant_clone)]
         unsafe fn clone_waker(ptr: *const ()) -> RawWaker {
             let arc = ManuallyDrop::new(Arc::from_raw(ptr as *const TaskWaker));
             mem::forget(arc.clone());
