@@ -57,7 +57,7 @@ jobs:
         - export RUSTDOCFLAGS="-Cpanic=abort"
         - cargo build --verbose $CARGO_OPTIONS
         - cd core
-        - ./test-features.sh
+        - ./test-feature-matrix.sh
         - cd ..
         - |
           zip -0 ccov.zip `find . \( -name "kompact*.gc*" -not -name "kompact_examples*.gc*" \) -print`;
