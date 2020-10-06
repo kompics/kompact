@@ -816,7 +816,9 @@ mod tests {
     use hocon::HoconLoader;
     use std::{borrow::Borrow, time::Duration};
 
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
+    #[ignore]
     #[should_panic(expected = "initial_chunk_count may not be greater than max_pool_count")]
     fn invalid_pool_counts_config_validation() {
         let hocon = HoconLoader::new()
@@ -839,7 +841,9 @@ mod tests {
         let _ = BufferConfig::from_config(&cfg);
     }
 
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
+    #[ignore]
     #[should_panic(expected = "chunk_size must be greater than encode_min_remaining")]
     fn invalid_encode_min_remaining_validation() {
         // The BufferConfig should panic because encode_min_remain too high
@@ -956,7 +960,9 @@ mod tests {
         encode_buffer
     }
 
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
+    #[ignore]
     #[should_panic(expected = "src too big for buffering")]
     fn encode_buffer_panic() {
         // Instantiate an encode buffer with default values

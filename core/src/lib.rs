@@ -851,7 +851,9 @@ mod tests {
         }
     }
 
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
+    #[ignore]
     fn test_component_failure() -> () {
         let system = KompactConfig::default().build().expect("KompactSystem");
 

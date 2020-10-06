@@ -829,13 +829,15 @@ impl Routable for (ActorPath, ActorPath, DispatchData) {
 }
 
 #[cfg(test)]
-mod dispatch_tests {
+mod tests {
     use super::{super::*, *};
     use crate::prelude::Any;
     use bytes::{Buf, BufMut};
     use std::{thread, time::Duration};
 
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
+    #[ignore]
     #[should_panic(expected = "KompactSystem: Poisoned")]
     fn failed_network() {
         let mut cfg = KompactConfig::new();

@@ -26,21 +26,40 @@ jobs:
         - cd core
         - ./test-feature-matrix.sh
     - stage: test-features
+      rust: stable
+      name: "Test ignored feature matrix: stable"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh --ignored
+    - stage: test-features
       rust: nightly
       name: "Test feature matrix: nightly"
-      before_install: 
-        - ./travis_install_protobuf.sh
-        - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
       script:
-        - export CARGO_INCREMENTAL=0
-        - export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off"
-        - cargo build --verbose --all $CARGO_OPTIONS
-        - cargo test --verbose --all $CARGO_OPTIONS
         - cd core
         - ./test-feature-matrix.sh
+    - stage: test-features
+      rust: nightly
+      name: "Test ignored feature matrix: nightly"
+      script:
+        - cd core
+        - ./test-feature-matrix.sh --ignored
+    - stage: coverage
+      name: "Test Coverage"
+      before_install:
+        - ./travis_install_protobuf.sh
+        - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+      rust: nightly
+      script:
+        - export CARGO_INCREMENTAL=0
+        - export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+        - export RUSTDOCFLAGS="-Cpanic=abort"
+        - cargo build --verbose $CARGO_OPTIONS
+        - cargo test --verbose $CARGO_OPTIONS
+        - cd core
+        - ./test-features.sh
         - cd ..
         - |
-          zip -0 ccov.zip `find . \( -name "kompact*.gc*" \) -print`;
+          zip -0 ccov.zip `find . \( -name "kompact*.gc*" -not -name "kompact_examples*.gc*" \) -print`;
           ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" -o lcov.info;
           bash <(curl -s https://codecov.io/bash) -f lcov.info;
     - stage: deploy
