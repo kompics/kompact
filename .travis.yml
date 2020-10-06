@@ -1,6 +1,7 @@
 # make sure protobuf library is installed
 before_install:
   - ./travis_install_protobuf.sh
+  - rustup component add clippy
 
 os: linux
 dist: xenial
@@ -48,6 +49,7 @@ jobs:
       before_install:
         - ./travis_install_protobuf.sh
         - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+        - rustup component add clippy
       rust: nightly
       script:
         - export CARGO_INCREMENTAL=0
