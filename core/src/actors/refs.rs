@@ -26,11 +26,6 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
         q as Arc<dyn DynMsgQueue>
     }
 
-    // #[allow(clippy::wrong_self_convention)]
-    // pub(crate) fn into_dyn_weak(q: Weak<Self>) -> Weak<dyn DynMsgQueue> {
-    //     q as Weak<dyn DynMsgQueue>
-    // }
-
     #[inline(always)]
     pub(crate) fn push(&self, value: MsgEnvelope<M>) {
         self.inner.push(value)
@@ -188,8 +183,6 @@ impl fmt::Display for DynActorRef {
 impl PartialEq for DynActorRef {
     fn eq(&self, other: &DynActorRef) -> bool {
         match (self.component.upgrade(), other.component.upgrade()) {
-            // this may have some issues with comparing vtable pointers
-            //(Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
             (Some(ref me), Some(ref it)) => me.id() == it.id(),
             _ => false,
         }
@@ -337,8 +330,6 @@ impl<M: MessageBounds> fmt::Display for ActorRefStrong<M> {
 
 impl<M: MessageBounds> PartialEq for ActorRefStrong<M> {
     fn eq(&self, other: &ActorRefStrong<M>) -> bool {
-        // this may have some issues with comparing vtable pointers
-        //Arc::ptr_eq(&self.component, &other.component)
         self.component.id() == other.component.id()
     }
 }
@@ -487,10 +478,6 @@ impl<M: MessageBounds> ActorRef<M> {
     /// This can fail if the component pointed to by this ref is already deallocated,
     /// in which case `None` is returned.
     pub fn dyn_ref(&self) -> DynActorRef {
-        // self.component.upgrade().map(|c| {
-        //     let component: Weak<dyn CoreContainer> = c.clone_dyn();
-        //     DynActorRef { component }
-        // })
         match self.component.upgrade() {
             Some(c) => {
                 let component: Weak<dyn CoreContainer> = c.downgrade_dyn();
@@ -562,8 +549,6 @@ impl<M: MessageBounds> fmt::Display for ActorRef<M> {
 impl<M: MessageBounds> PartialEq for ActorRef<M> {
     fn eq(&self, other: &ActorRef<M>) -> bool {
         match (self.component.upgrade(), other.component.upgrade()) {
-            // this may have some issues with comparing vtable pointers
-            //(Some(ref me), Some(ref it)) => Arc::ptr_eq(me, it),
             (Some(ref me), Some(ref it)) => me.id() == it.id(),
             _ => false,
         }

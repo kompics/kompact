@@ -471,16 +471,6 @@ impl<'de> BufDeserializer<'de> {
     fn counting<'a>(&'a mut self, len: usize) -> ElementCounting<'a, 'de> {
         ElementCounting::new(self, len)
     }
-
-    // fn as_enum<'a>(&'a mut self) -> Enum<'a, 'de> {
-    //     Enum::new(self)
-    // }
-
-    // fn reborrow<'a: 'de>(&'a mut self) -> BufDeserializer<'a> {
-    //     BufDeserializer {
-    //         buffer: &mut *self.buffer,
-    //     }
-    // }
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
@@ -890,7 +880,6 @@ impl<'a, 'de: 'a> VariantAccess<'de> for &'a mut BufDeserializer<'de> {
         V: Visitor<'de>,
     {
         de::Deserializer::deserialize_tuple(self, len, visitor)
-        //self.buffer.deserialize_tuple(len, visitor)
     }
 
     fn struct_variant<V>(
@@ -902,8 +891,6 @@ impl<'a, 'de: 'a> VariantAccess<'de> for &'a mut BufDeserializer<'de> {
         V: Visitor<'de>,
     {
         de::Deserializer::deserialize_struct(self, "name isn't used anyway", fields, visitor)
-        //self.buffer
-        //    .deserialize_struct("name isn't used anyway", fields, visitor)
     }
 }
 

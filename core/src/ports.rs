@@ -298,16 +298,6 @@ impl<P: Port + 'static> Clone for ProvidedRef<P> {
 }
 
 impl<P: Port + 'static> ProvidedRef<P> {
-    // pub(crate) fn new(
-    //     component: Weak<dyn CoreContainer>,
-    //     msg_queue: Weak<ConcurrentQueue<P::Request>>,
-    // ) -> ProvidedRef<P> {
-    //     ProvidedRef {
-    //         component,
-    //         msg_queue,
-    //     }
-    // }
-
     pub(crate) fn enqueue(&self, event: P::Request) -> () {
         match (self.msg_queue.upgrade(), self.component.upgrade()) {
             (Some(q), Some(c)) => {
