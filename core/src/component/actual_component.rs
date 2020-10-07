@@ -37,7 +37,7 @@ macro_rules! run_blocking {
     };
 }
 
-pub(crate) type RecoveryFunction = dyn Fn(FaultContext) -> RecoveryHandler + Send + 'static;
+pub(crate) type RecoveryFunction = dyn FnOnce(FaultContext) -> RecoveryHandler + Send + 'static;
 
 /// Kompact's default fault recovery policy is to simply ignore the fault
 pub fn default_recovery_function(ctx: FaultContext) -> RecoveryHandler {
@@ -248,7 +248,7 @@ impl<CD: ComponentTraits> Component<CD> {
     /// See [RecoveryHandler](RecoveryHandler) for more information.
     pub fn set_recovery_function<F>(&self, f: F) -> ()
     where
-        F: Fn(FaultContext) -> RecoveryHandler + Send + 'static,
+        F: FnOnce(FaultContext) -> RecoveryHandler + Send + 'static,
     {
         let boxed = Box::new(f);
         let mut current = self.recovery_function.lock().unwrap();
@@ -512,9 +512,14 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
                 }
                 lifecycle::set_faulty(&self.core.state);
                 if let Some(ref supervisor) = self.supervisor {
-                    if let Ok(guard) = self.recovery_function.lock() {
+                    if let Ok(mut guard) = self.recovery_function.lock() {
                         let context = FaultContext::new(self.core.id, e);
-                        let handler = (*guard)(context);
+                        let mut recovery_function: Box<RecoveryFunction> =
+                            Box::new(default_recovery_function);
+                        // replace fault handler with default, so we can own the correct one
+                        // (it's anyway only going to be called once)
+                        std::mem::swap(guard.deref_mut(), &mut recovery_function);
+                        let handler = recovery_function(context);
                         supervisor.enqueue(SupervisorMsg::Faulty(handler));
                     } else {
                         error!(

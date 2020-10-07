@@ -364,12 +364,12 @@ mod test_helpers {
 #[cfg(test)]
 mod tests {
     use super::test_helpers::*;
+    use std::sync::Mutex;
 
-    use std::{fs::File, io::Write, ops::Deref, thread, time};
-    //use futures::{Future, future};
-    //use futures_cpupool::CpuPool;
     use super::prelude::*;
-    use std::{sync::Arc, time::Duration};
+    use std::{fs::File, io::Write, ops::Deref, sync::Arc, thread, time, time::Duration};
+
+    use once_cell::sync::Lazy;
 
     struct TestPort;
 
@@ -920,7 +920,6 @@ mod tests {
         let cc = system.create(|| CrasherComponent::new(false));
 
         cc.set_recovery_function(move |fault| {
-            let sender = sender.clone();
             fault.recover_with(move |_ctx, system, log| {
                 info!(log, "Recovering into RecvComponent");
                 let rcd = system.create(RecvComponent::new);
@@ -952,6 +951,162 @@ mod tests {
         rcd.on_definition(|c| {
             assert_eq!(c.last_string, String::from("MsgTest"));
         });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[derive(Debug)]
+    enum StringMsg {
+        Get(KPromise<&'static str>),
+        Put(&'static str),
+        Crash,
+    }
+
+    #[derive(ComponentDefinition)]
+    struct RecovererComponent {
+        ctx: ComponentContext<Self>,
+        last_string: &'static str,
+    }
+
+    static RECOVERER_CURRENT_REF: Lazy<Mutex<Option<ActorRef<StringMsg>>>> =
+        Lazy::new(|| Mutex::new(None));
+
+    impl RecovererComponent {
+        fn set_current_ref(aref: ActorRef<<Self as Actor>::Message>) -> () {
+            let mut guard = RECOVERER_CURRENT_REF.lock().expect("ref guard");
+            *guard = Some(aref);
+        }
+
+        fn get_current_ref() -> Option<ActorRef<StringMsg>> {
+            let guard = RECOVERER_CURRENT_REF.lock().expect("ref guard");
+            guard.clone()
+        }
+
+        #[allow(dead_code)]
+        fn unset_current_ref() -> () {
+            let mut guard = RECOVERER_CURRENT_REF.lock().expect("ref guard");
+            *guard = None;
+        }
+
+        fn new() -> Self {
+            RecovererComponent {
+                ctx: ComponentContext::uninitialised(),
+                last_string: "created",
+            }
+        }
+
+        fn with_msg(msg: &'static str) -> Self {
+            RecovererComponent {
+                ctx: ComponentContext::uninitialised(),
+                last_string: msg,
+            }
+        }
+    }
+
+    impl Default for RecovererComponent {
+        fn default() -> Self {
+            RecovererComponent {
+                ctx: ComponentContext::uninitialised(),
+                last_string: "default",
+            }
+        }
+    }
+
+    impl ComponentLifecycle for RecovererComponent {
+        fn on_start(&mut self) -> Handled {
+            info!(self.ctx.log(), "Starting RecovererComponent");
+            let aref = self.actor_ref();
+            Self::set_current_ref(aref);
+            self.ctx
+                .set_recovery_function(move |fault| fault.restart_default::<RecovererComponent>());
+            Handled::Ok
+        }
+    }
+
+    impl Actor for RecovererComponent {
+        type Message = StringMsg;
+
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            info!(self.ctx.log(), "Got msg: {:?}", msg);
+            match msg {
+                StringMsg::Get(promise) => {
+                    promise.fulfil(self.last_string).expect("fulfilled");
+                }
+                StringMsg::Put(s) => {
+                    self.last_string = s;
+                    self.ctx.set_recovery_function(move |fault| {
+                        fault.recover_with(move |_ctx, system, logger| {
+                            info!(logger, "Recovering with message: {}", s);
+                            let rc = system.create(move || RecovererComponent::with_msg(s));
+                            let rc_ref = rc.actor_ref();
+                            Self::set_current_ref(rc_ref);
+                            system.start(&rc);
+                        })
+                    });
+                }
+                StringMsg::Crash => {
+                    info!(self.ctx.log(), "Crashing RecovererComponent");
+                    panic!("Test panic please ignore");
+                }
+            }
+            Handled::Ok
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!();
+        }
+    }
+
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
+    #[test]
+    #[ignore]
+    fn test_component_recovery_with_state() -> () {
+        let system = KompactConfig::default().build().expect("KompactSystem");
+
+        let one_sec = Duration::from_millis(1000);
+
+        // limit scope
+        let rc = system.create(RecovererComponent::new);
+
+        let f = system.start_notify(&rc);
+
+        let res = f.wait_timeout(one_sec);
+
+        assert!(res.is_ok(), "Component should not crash on start");
+
+        let rc_ref = RecovererComponent::get_current_ref().expect("ref");
+
+        rc_ref.tell(StringMsg::Crash);
+
+        thread::sleep(one_sec);
+
+        assert!(rc.is_faulty(), "Component should have crashed.");
+
+        // get new reference
+        let rc_ref = RecovererComponent::get_current_ref().expect("ref");
+
+        let (p, f) = promise::<&'static str>();
+
+        rc_ref.tell(StringMsg::Get(p));
+
+        let current_string = f.wait_timeout(one_sec).expect("GET");
+        assert_eq!("default", current_string);
+        rc_ref.tell(StringMsg::Put("MsgTest"));
+        rc_ref.tell(StringMsg::Crash);
+
+        thread::sleep(one_sec);
+
+        // get new reference
+        let rc_ref = RecovererComponent::get_current_ref().expect("ref");
+
+        let (p, f) = promise::<&'static str>();
+
+        rc_ref.tell(StringMsg::Get(p));
+
+        let current_string = f.wait_timeout(one_sec).expect("GET");
+        assert_eq!("MsgTest", current_string);
 
         system
             .shutdown()

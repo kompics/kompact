@@ -407,7 +407,7 @@ where
     /// if you call this from more than one place.
     pub fn set_recovery_function<F>(&self, f: F) -> ()
     where
-        F: Fn(FaultContext) -> RecoveryHandler + Send + 'static,
+        F: FnOnce(FaultContext) -> RecoveryHandler + Send + 'static,
     {
         self.typed_component().set_recovery_function(f);
     }
