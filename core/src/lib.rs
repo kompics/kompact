@@ -908,6 +908,56 @@ mod tests {
             .expect("Kompact didn't shut down properly");
     }
 
+    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
+    #[test]
+    #[ignore]
+    fn test_component_recovery() -> () {
+        let system = KompactConfig::default().build().expect("KompactSystem");
+
+        let (sender, receiver) = std::sync::mpsc::channel::<Arc<Component<RecvComponent>>>();
+
+        // limit scope
+        let cc = system.create(|| CrasherComponent::new(false));
+
+        cc.set_recovery_function(move |fault| {
+            let sender = sender.clone();
+            fault.recover_with(move |_ctx, system, log| {
+                info!(log, "Recovering into RecvComponent");
+                let rcd = system.create(RecvComponent::new);
+                system.start(&rcd);
+                sender.send(rcd).expect("sent component");
+            })
+        });
+
+        let ccref = cc.actor_ref();
+
+        let f = system.start_notify(&cc);
+
+        let res = f.wait_timeout(Duration::from_millis(1000));
+        assert!(res.is_ok(), "Component should not crash on start");
+
+        ccref.tell(Box::new(()) as Box<dyn Any + Send>);
+
+        let rcd = receiver
+            .recv_timeout(Duration::from_millis(1000))
+            .expect("receive component");
+
+        assert!(cc.is_faulty(), "Component should have crashed.");
+
+        let rcd_ref = rcd.actor_ref();
+        rcd_ref.tell("MsgTest");
+
+        thread::sleep(Duration::from_millis(10));
+
+        rcd.on_definition(|c| {
+            assert_eq!(c.last_string, String::from("MsgTest"));
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
     #[derive(ComponentDefinition, Actor)]
     struct Stopper {
         ctx: ComponentContext<Self>,

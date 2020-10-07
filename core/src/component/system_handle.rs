@@ -2,7 +2,8 @@ use super::*;
 
 use crate::messaging::RegistrationResult;
 
-pub(super) struct ContextSystemHandle {
+/// The [SystemHandle](SystemHandle) provided by a [ComponentContext](ComponentContext)
+pub struct ContextSystemHandle {
     component: Arc<dyn CoreContainer>,
 }
 

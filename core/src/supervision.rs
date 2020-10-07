@@ -1,11 +1,14 @@
 use super::prelude::*;
 use crate::{
+    component::ContextSystemHandle,
     utils::{Fulfillable, KPromise},
     ControlEvent,
+    KompactLogger,
 };
 
 use std::{
     collections::HashMap,
+    fmt,
     sync::{Arc, Mutex},
 };
 use uuid::Uuid;
@@ -34,13 +37,133 @@ impl ListenEvent {
     }
 }
 
-#[allow(dead_code)]
+/// Information about the fault that occurred
+pub struct FaultContext {
+    /// The id of the component that faulted
+    pub component_id: Uuid,
+    /// The concrete error produced by [catch_unwind](panic::catch_unwind)
+    pub fault: Box<dyn Any + Send>,
+}
+impl FaultContext {
+    pub(crate) fn new(component_id: Uuid, fault: Box<dyn Any + Send>) -> Self {
+        FaultContext {
+            component_id,
+            fault,
+        }
+    }
+
+    /// Produce a [Recoverhandler](RecoveryHandler) with `f` describing
+    /// the actions to take in order to recover from this fault
+    ///
+    /// The action described by this object will be executed on the Supervisor.
+    /// This means you *cannot* block on the result of any notify futures,
+    /// without *deadlocking* your system!
+    ///
+    /// If you need to perform a complicated setup sequence, consider starting
+    /// a temporary component to drive the futures involved, instead of handling
+    /// everything in the recovery handler.
+    pub fn recover_with<F>(self, f: F) -> RecoveryHandler
+    where
+        F: FnOnce(Self, ContextSystemHandle, &KompactLogger) + Send + 'static,
+    {
+        let boxed = Box::new(f);
+        RecoveryHandler {
+            ctx: self,
+            action: boxed,
+        }
+    }
+
+    /// Simply ignore the fault and don't recover at all
+    pub fn ignore(self) -> RecoveryHandler {
+        self.recover_with(move |ctx, _, logger| {
+            warn!(
+                logger,
+                "Ignoring fault of component id={}", ctx.component_id
+            );
+        })
+    }
+
+    /// Create and start the [Default](Default) instance of `C`
+    pub fn restart_default<C>(self) -> RecoveryHandler
+    where
+        C: ComponentDefinition + Default,
+    {
+        self.recover_with(move |ctx, system, logger| {
+            info!(
+                logger,
+                "Restarting a {} to replace instance with id={}",
+                C::type_name(),
+                ctx.component_id
+            );
+            let cd = system.create(C::default);
+            system.start(&cd);
+        })
+    }
+}
+impl fmt::Debug for FaultContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error_msg: String = if let Some(error_msg) = self.fault.downcast_ref::<&str>() {
+            error_msg.to_string()
+        } else if let Some(error_msg) = self.fault.downcast_ref::<String>() {
+            error_msg.clone()
+        } else {
+            format!(
+                "Component panicked with a non-string message with type id={:?}",
+                self.fault.type_id()
+            )
+        };
+        f.debug_struct("RecoveryHandler")
+            .field("component_id", &self.component_id)
+            .field("action", &error_msg)
+            .finish()
+    }
+}
+
+/// Instructions on how to recover from a component fault
+///
+/// The action described by this object will be executed on the Supervisor.
+/// This means you *cannot* block on the result of any notify futures,
+/// without *deadlocking* your system!
+///
+/// If you need to perform a complicated setup sequence, consider starting
+/// a temporary component to drive the futures involved, instead of handling
+/// everything in the recovery handler.
+///
+/// An instance of this can be produced via [FaultContext::recover_with](FaultContext::recover_with)
+/// or other convenience methods on [FaultContext](FaultContext).
+pub struct RecoveryHandler {
+    /// The context of the fault that occurred
+    ctx: FaultContext,
+    /// The actions to take in response to the fault
+    action: Box<dyn FnOnce(FaultContext, ContextSystemHandle, &KompactLogger) + Send>,
+}
+impl RecoveryHandler {
+    fn recover(self, system: ContextSystemHandle, logger: &KompactLogger) -> () {
+        (self.action)(self.ctx, system, logger)
+    }
+}
+impl fmt::Debug for RecoveryHandler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RecoveryHandler")
+            .field("ctx", &self.ctx)
+            .field("action", &"<func>")
+            .finish()
+    }
+}
+impl Clone for RecoveryHandler {
+    fn clone(&self) -> Self {
+        // This is a bit silly but port types require Clone,
+        // even if there's only a single supervisor.
+        panic!("Don't clone recovery handlers!");
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum SupervisorMsg {
     Started(Arc<dyn CoreContainer>),
     Stopped(Uuid),
     Killed(Uuid),
-    Faulty(Uuid),
+    Faulty(RecoveryHandler),
     Listen(Arc<Mutex<KPromise<()>>>, ListenEvent),
     Shutdown(Arc<Mutex<KPromise<()>>>),
 }
@@ -172,7 +295,8 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 }
                 self.shutdown_if_no_more_children()
             }
-            SupervisorMsg::Faulty(id) => {
+            SupervisorMsg::Faulty(recover_handler) => {
+                let id = recover_handler.ctx.component_id;
                 warn!(
                     self.ctx.log(),
                     "Component({}) has been marked as faulty.", id
@@ -182,6 +306,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     Some(carc) => drop(carc),
                     None => warn!(self.ctx.log(), "Component({}) faulted during start!.", id),
                 }
+                recover_handler.recover(self.ctx.context_system(), self.ctx.log());
                 self.shutdown_if_no_more_children()
             }
             SupervisorMsg::Listen(amp, event) => match Arc::try_unwrap(amp) {

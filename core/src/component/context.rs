@@ -282,6 +282,10 @@ where
         }
     }
 
+    pub(crate) fn context_system(&self) -> ContextSystemHandle {
+        ContextSystemHandle::from(self.component())
+    }
+
     /// Returns the component instance wrapping this component definition
     ///
     /// This is mostly meant to be passed along for scheduling and the like.
@@ -292,7 +296,7 @@ where
 
     /// Returns a handle to the Kompact system this component is a part of
     pub fn system(&self) -> impl SystemHandle {
-        ContextSystemHandle::from(self.component())
+        self.context_system()
     }
 
     /// Returns a reference to the system dispatcher
@@ -390,6 +394,22 @@ where
     #[allow(dead_code)]
     pub(crate) fn get_buffer_location(&self) -> &RefCell<Option<EncodeBuffer>> {
         &self.buffer
+    }
+
+    /// Set the recovery function for this component
+    ///
+    /// See [RecoveryHandler](RecoveryHandler) for more information.
+    ///
+    /// You can perform action repeatedly in order to store state
+    /// to use while recovering from a failure.
+    /// Do note, however, that this call causes an additional mutex lock
+    /// which is not necessarily cheap and can theoretically deadlock,
+    /// if you call this from more than one place.
+    pub fn set_recovery_function<F>(&self, f: F) -> ()
+    where
+        F: Fn(FaultContext) -> RecoveryHandler + Send + 'static,
+    {
+        self.typed_component().set_recovery_function(f);
     }
 }
 
