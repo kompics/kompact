@@ -199,7 +199,7 @@ pub mod prelude {
             Serialised,
             UnpackError,
         },
-        timer::timer_manager::{ScheduledTimer, Timer, TimerRefFactory},
+        timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},
     };
 
     pub use crate::{

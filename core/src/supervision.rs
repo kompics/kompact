@@ -306,7 +306,11 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     Some(carc) => drop(carc),
                     None => warn!(self.ctx.log(), "Component({}) faulted during start!.", id),
                 }
-                recover_handler.recover(self.ctx.context_system(), self.ctx.log());
+                if self.shutdown.is_none() {
+                    recover_handler.recover(self.ctx.context_system(), self.ctx.log());
+                } else {
+                    warn!(self.log(), "Not running recovery handler due to ongoing shutdown.");
+                }
                 self.shutdown_if_no_more_children()
             }
             SupervisorMsg::Listen(amp, event) => match Arc::try_unwrap(amp) {

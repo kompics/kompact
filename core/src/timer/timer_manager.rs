@@ -177,6 +177,32 @@ pub trait Timer<C: ComponentDefinition> {
     fn cancel_timer(&mut self, handle: ScheduledTimer);
 }
 
+/// API for cancelling timers
+///
+/// While only components can schedule timers,
+/// cancelling timers can be done anywhere, where a
+/// [TimerRef](TimerRef) is available.
+pub trait CanCancelTimers {
+    /// Cancel the timer indicated by the `handle`
+    ///
+    /// This method is asynchronous, and calling it is no guarantee
+    /// than an already scheduled timeout is not going to fire before it
+    /// is actually cancelled.
+    ///
+    /// However, calling this method will definitely prevent *periodic* timeouts
+    /// from being rescheduled.
+    fn cancel_timer(&self, handle: ScheduledTimer);
+}
+
+impl<F> CanCancelTimers for F
+where
+    F: TimerRefFactory,
+{
+    fn cancel_timer(&self, handle: ScheduledTimer) {
+        self.timer_ref().cancel(&handle.0);
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct Timeout(pub(crate) Uuid);
 
