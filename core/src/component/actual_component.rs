@@ -37,6 +37,13 @@ macro_rules! run_blocking {
     };
 }
 
+pub(crate) type RecoveryFunction = dyn FnOnce(FaultContext) -> RecoveryHandler + Send + 'static;
+
+/// Kompact's default fault recovery policy is to simply ignore the fault
+pub fn default_recovery_function(ctx: FaultContext) -> RecoveryHandler {
+    ctx.ignore()
+}
+
 /// A concrete component instance
 ///
 /// The component class itself is application agnostic,
@@ -50,6 +57,7 @@ pub struct Component<CD: ComponentTraits> {
     // system components don't have supervision
     supervisor: Option<ProvidedRef<SupervisionPort>>,
     logger: KompactLogger,
+    recovery_function: Mutex<Box<RecoveryFunction>>,
 }
 
 impl<CD: ComponentTraits> Component<CD> {
@@ -72,6 +80,7 @@ impl<CD: ComponentTraits> Component<CD> {
             msg_queue: TypedMsgQueue::new(),
             supervisor: Some(supervisor),
             logger,
+            recovery_function: Mutex::new(Box::new(default_recovery_function)),
         }
     }
 
@@ -95,6 +104,7 @@ impl<CD: ComponentTraits> Component<CD> {
             msg_queue: TypedMsgQueue::new(),
             supervisor: Some(supervisor),
             logger,
+            recovery_function: Mutex::new(Box::new(default_recovery_function)),
         }
     }
 
@@ -113,6 +123,7 @@ impl<CD: ComponentTraits> Component<CD> {
             msg_queue: TypedMsgQueue::new(),
             supervisor: None,
             logger,
+            recovery_function: Mutex::new(Box::new(default_recovery_function)),
         }
     }
 
@@ -135,6 +146,7 @@ impl<CD: ComponentTraits> Component<CD> {
             msg_queue: TypedMsgQueue::new(),
             supervisor: None,
             logger,
+            recovery_function: Mutex::new(Box::new(default_recovery_function)),
         }
     }
 
@@ -229,6 +241,18 @@ impl<CD: ComponentTraits> Component<CD> {
                 return;
             }
         }
+    }
+
+    /// Set the recovery function for this component
+    ///
+    /// See [RecoveryHandler](RecoveryHandler) for more information.
+    pub fn set_recovery_function<F>(&self, f: F) -> ()
+    where
+        F: FnOnce(FaultContext) -> RecoveryHandler + Send + 'static,
+    {
+        let boxed = Box::new(f);
+        let mut current = self.recovery_function.lock().unwrap();
+        *current = boxed;
     }
 
     fn inner_execute(&self) -> SchedulingDecision {
@@ -488,7 +512,22 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
                 }
                 lifecycle::set_faulty(&self.core.state);
                 if let Some(ref supervisor) = self.supervisor {
-                    supervisor.enqueue(SupervisorMsg::Faulty(self.core.id));
+                    if let Ok(mut guard) = self.recovery_function.lock() {
+                        let context = FaultContext::new(self.core.id, e);
+                        let mut recovery_function: Box<RecoveryFunction> =
+                            Box::new(default_recovery_function);
+                        // replace fault handler with default, so we can own the correct one
+                        // (it's anyway only going to be called once)
+                        std::mem::swap(guard.deref_mut(), &mut recovery_function);
+                        let handler = recovery_function(context);
+                        supervisor.enqueue(SupervisorMsg::Faulty(handler));
+                    } else {
+                        error!(
+                        self.logger,
+                        "A recovery function mutex was poisoned in component of type {} with id {}. This component can not recover from its fault!",
+                        CD::type_name(), self.core.id
+                    );
+                    }
                 } else {
                     // we are the supervisor!
                     error!(

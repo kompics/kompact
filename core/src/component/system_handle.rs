@@ -1,8 +1,9 @@
 use super::*;
 
-use crate::messaging::RegistrationResult;
+use crate::{messaging::RegistrationResult, timer::timer_manager::CanCancelTimers};
 
-pub(super) struct ContextSystemHandle {
+/// The [SystemHandle](SystemHandle) provided by a [ComponentContext](ComponentContext)
+pub struct ContextSystemHandle {
     component: Arc<dyn CoreContainer>,
 }
 
@@ -118,5 +119,11 @@ impl SystemHandle for ContextSystemHandle {
 impl Dispatching for ContextSystemHandle {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.component.system().dispatcher_ref()
+    }
+}
+
+impl CanCancelTimers for ContextSystemHandle {
+    fn cancel_timer(&self, handle: ScheduledTimer) {
+        self.component.system().cancel_timer(handle);
     }
 }

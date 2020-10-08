@@ -48,9 +48,6 @@ impl LifecycleState {
         }
     }
 
-    // pub(crate) apply(state: &AtomicU64) {
-
-    // }
     pub(crate) fn load(state: &AtomicU64) -> Self {
         let current_state = state.load(Ordering::SeqCst);
         Self::from_current(current_state)

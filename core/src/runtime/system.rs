@@ -11,7 +11,7 @@ use crate::{
         RegistrationResult,
     },
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
-    timer::timer_manager::TimerRefFactory,
+    timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
@@ -990,7 +990,7 @@ impl TimerRefFactory for KompactSystem {
 ///
 /// This is meant for use from within components, where blocking APIs
 /// are unacceptable.
-pub trait SystemHandle: Dispatching {
+pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// Create a new component
     ///
     /// Uses `f` to create an instance of a [ComponentDefinition](ComponentDefinition),

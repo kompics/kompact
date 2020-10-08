@@ -1039,16 +1039,6 @@ mod tests {
         let ponger_named_path =
             poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
-        // let named_path = ActorPath::Named(NamedPath::with_system(
-        //     remote.system_path(),
-        //     vec!["custom_name".into()],
-        // ));
-
-        // let unique_path = ActorPath::Unique(UniquePath::with_system(
-        //     remote.system_path(),
-        //     ponger_unique.id(),
-        // ));
-
         let (pinger_unique, piuf) =
             system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
         let (pinger_named, pinf) =
@@ -1121,16 +1111,6 @@ mod tests {
         let mut ponger_named_path =
             poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
         ponger_named_path.via_udp();
-
-        // let named_path = ActorPath::Named(NamedPath::with_system(
-        //     remote.system_path(),
-        //     vec!["custom_name".into()],
-        // ));
-
-        // let unique_path = ActorPath::Unique(UniquePath::with_system(
-        //     remote.system_path(),
-        //     ponger_unique.id(),
-        // ));
 
         let (pinger_unique, piuf) =
             system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
@@ -1281,16 +1261,6 @@ mod tests {
         let mut ponger_named_path =
             poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
         ponger_named_path.via_udp();
-
-        // let named_path = ActorPath::Named(NamedPath::with_system(
-        //     remote.system_path(),
-        //     vec!["custom_name".into()],
-        // ));
-
-        // let unique_path = ActorPath::Unique(UniquePath::with_system(
-        //     remote.system_path(),
-        //     ponger_unique.id(),
-        // ));
 
         let (pinger_unique, piuf) =
             system.create_and_register(move || PingerAct::new(ponger_unique_path));

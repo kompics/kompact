@@ -318,21 +318,6 @@ impl NetMessage {
     pub fn ser_id(&self) -> &SerId {
         &self.data.ser_id
     }
-
-    // /// Returns a reference to the sender's actor path
-    // pub fn sender(&self) -> &ActorPath {
-    //     &self.sender
-    // }
-
-    // /// Returns a reference to the receiver's actor path
-    // pub fn receiver(&self) -> &ActorPath {
-    //     &self.receiver
-    // }
-
-    // /// Returns a reference to the data in this message
-    // pub fn data(&self) -> &NetData {
-    //     &self.data
-    // }
 }
 
 impl NetData {
@@ -708,10 +693,6 @@ impl DispatchData {
             DispatchData::Lazy(ser) => {
                 let ser_id = ser.ser_id();
                 Ok(NetMessage::with_box(ser_id, src, dst, ser))
-                // match ser.local() {
-                //     Ok(s) => Ok(NetMessage::with_box(ser_id, src, dst, s)),
-                //     Err(ser) => crate::serialisation::ser_helpers::serialise_to_msg(src, dst, ser),
-                // }
             }
             DispatchData::Serialised((mut chunk, _ser_id)) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first

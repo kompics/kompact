@@ -29,7 +29,7 @@ mod actual_component;
 pub(crate) mod lifecycle;
 pub use actual_component::*;
 mod system_handle;
-use system_handle::*;
+pub use system_handle::*;
 mod definition;
 pub use definition::*;
 mod core;

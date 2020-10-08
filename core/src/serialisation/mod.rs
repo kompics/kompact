@@ -254,27 +254,6 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn trivial_deser_equivalence() {
-    //     let t1 = Test1 { i: 42 };
-    //     let t1c = t1.clone();
-    //     //let t1_des: Deserialisable<Test1> = t1;
-
-    //     //assert_eq!(1, Deserialisable::<Test1>::id(&t1));
-
-    //     match Deserialisable::<Test1>::get_deserialised(t1) {
-    //         Ok(t2) => assert_eq!(t1c, t2),
-    //         Err(e) => panic!(e),
-    //     }
-
-    //     let t1b = Box::new(t1c.clone());
-
-    //     match Deserialisable::<Test1>::get_deserialised(t1b) {
-    //         Ok(t2) => assert_eq!(t1c, t2),
-    //         Err(e) => panic!(e),
-    //     }
-    // }
-
     #[test]
     fn ser_deser_equivalence() {
         let t1 = Test1 { i: 42 };
@@ -292,10 +271,5 @@ mod tests {
             Ok(t2) => assert_eq!(t1c, t2),
             Err(e) => panic!(e),
         }
-        //        match Deserialisable::<Test1>::get(t1) {
-        //            Ok(t2) => assert_eq!(t1c, t2),
-        //            Err(e) => panic!(e),
-        //        }  Err(e) => panic!(e),
-        //        }
     }
 }

@@ -282,7 +282,7 @@ impl Bridge {
     /// # Side effects
     /// When the connection is successul:
     ///     - a `ConnectionState::Connected` is dispatched on the network bridge event queue
-    //      - NetworkThread will listen for incoming messages and write outgoing messages on the channel
+    ///     - NetworkThread will listen for incoming messages and write outgoing messages on the channel
     ///
     /// # Errors
     /// If the provided protocol is not supported
