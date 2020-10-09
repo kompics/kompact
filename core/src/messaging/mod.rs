@@ -3,7 +3,7 @@
 use crate::{
     actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
     net::{buffer::BufferEncoder, events::NetworkEvent},
-    serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser},
+    serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser, TryClone},
     utils,
 };
 use bytes::{Buf, Bytes};
@@ -320,6 +320,16 @@ impl NetMessage {
     }
 }
 
+impl TryClone for NetMessage {
+    fn try_clone(&self) -> Result<Self, SerError> {
+        self.data.try_clone().map(|data| NetMessage {
+            sender: self.sender.clone(),
+            receiver: self.receiver.clone(),
+            data,
+        })
+    }
+}
+
 impl NetData {
     /// Create a new data instance from a serialisation id and some allocated data
     pub fn with(ser_id: SerId, data: HeapOrSer) -> Self {
@@ -445,6 +455,34 @@ impl NetData {
     /// Returns a reference to the serialisation id of this data
     pub fn ser_id(&self) -> &SerId {
         &self.ser_id
+    }
+}
+
+impl TryClone for NetData {
+    fn try_clone(&self) -> Result<Self, SerError> {
+        self.data.try_clone().map(|data| NetData {
+            ser_id: self.ser_id,
+            data,
+        })
+    }
+}
+
+impl TryClone for HeapOrSer {
+    fn try_clone(&self) -> Result<Self, SerError> {
+        match self {
+            HeapOrSer::Boxed(ser) => {
+                let mut buf: Vec<u8> = Vec::new();
+                let res = ser.serialise(&mut buf);
+                res.map(|_| HeapOrSer::Serialised(Bytes::from(buf)))
+            }
+            HeapOrSer::Serialised(bytes) => Ok(HeapOrSer::Serialised(bytes.clone())),
+            HeapOrSer::Pooled(chunk) => {
+                // TODO Change once #96 lands
+                let mut buf: Vec<u8> = Vec::with_capacity(chunk.remaining());
+                buf.extend_from_slice(chunk.bytes());
+                Ok(HeapOrSer::Serialised(Bytes::from(buf)))
+            }
+        }
     }
 }
 
@@ -1102,6 +1140,7 @@ mod deser_macro_tests {
         }
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
     struct BSer;
 
     impl Serialiser<MsgB> for BSer {

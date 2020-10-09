@@ -309,7 +309,10 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 if self.shutdown.is_none() {
                     recover_handler.recover(self.ctx.context_system(), self.ctx.log());
                 } else {
-                    warn!(self.log(), "Not running recovery handler due to ongoing shutdown.");
+                    warn!(
+                        self.log(),
+                        "Not running recovery handler due to ongoing shutdown."
+                    );
                 }
                 self.shutdown_if_no_more_children()
             }

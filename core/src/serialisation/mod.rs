@@ -188,6 +188,18 @@ mod ser_id {
 
 pub use ser_id::*;
 
+/// A fallable version of the `Clone` trait
+pub trait TryClone: Sized {
+    /// Tries to produce a copy of `self` or returns an error
+    fn try_clone(&self) -> Result<Self, SerError>;
+}
+
+impl<T: Clone> TryClone for T {
+    fn try_clone(&self) -> Result<Self, SerError> {
+        Ok(self.clone())
+    }
+}
+
 /// A module with helper functions for serialisation tests
 pub mod ser_test_helpers {
     use super::*;
@@ -225,6 +237,7 @@ mod tests {
         i: u64,
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
     struct T1Ser;
 
     impl Serialiser<Test1> for T1Ser {

@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::messaging::HeapOrSer;
+
 /// Errors that can be thrown during serialisation or deserialisation
 #[derive(Debug)]
 pub enum SerError {
@@ -9,6 +11,8 @@ pub enum SerError {
     InvalidType(String),
     /// The Buffer we're serializing into failed
     BufferError(String),
+    /// Type can not be cloned
+    NoClone,
     /// Any other kind of error
     Unknown(String),
 }
@@ -40,6 +44,10 @@ impl fmt::Display for SerError {
                 "The provided type was not appropriate for (de-)serialisation: {}",
                 s
             ),
+            SerError::NoClone => write!(
+                f,
+                "The provided type can not be cloned, but try_clone() was attempted"
+            ),
             SerError::Unknown(s) => write!(f, "A serialisation error occurred: {}", s),
         }
     }
@@ -61,7 +69,7 @@ pub trait SerialisationId {
 }
 
 /// A trait for types that can serialise data of type `T`
-pub trait Serialiser<T>: Send {
+pub trait Serialiser<T>: Send + TryClone {
     /// The serialisation id for this serialiser
     ///
     /// Serialisation ids are used to determine the deserialiser to use with a particular byte buffer.
@@ -86,6 +94,13 @@ pub trait Serialiser<T>: Send {
     ///
     /// Returns a [SerError](SerError) if unsuccessful.
     fn serialise(&self, v: &T, buf: &mut dyn BufMut) -> Result<(), SerError>;
+
+    /// Produce a copy of `v`, if possible
+    ///
+    /// If it can't be done cheaply, simply return `None` (which is the default implementation).
+    fn try_clone_data(&self, _v: &T) -> Option<T> {
+        None
+    }
 }
 
 /// A trait for values that can serialise themselves into a buffer
@@ -125,6 +140,13 @@ pub trait Serialisable: Send + Debug {
     /// Calls [serialise](Serialisable::serialise) internally by default.
     fn serialised(&self) -> Result<crate::messaging::Serialised, SerError> {
         crate::serialisation::ser_helpers::serialise_to_serialised(self)
+    }
+
+    /// Try to produce a cheap in-memory copy of this
+    ///
+    /// The default implementation returns `None`.
+    fn cloned(&self) -> Option<Box<dyn Serialisable>> {
+        None
     }
 }
 
@@ -194,7 +216,7 @@ where
 impl<T, S> Serialisable for SerialisableValue<T, S>
 where
     T: Send + Debug + 'static,
-    S: Serialiser<T>,
+    S: Serialiser<T> + 'static,
 {
     fn ser_id(&self) -> SerId {
         self.ser.ser_id()
@@ -211,6 +233,15 @@ where
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         let b: Box<dyn Any + Send> = Box::new(self.v);
         Ok(b)
+    }
+
+    fn cloned(&self) -> Option<Box<dyn Serialisable>> {
+        self.ser.try_clone().ok().and_then(|ser| {
+            self.ser.try_clone_data(&self.v).map(|v| {
+                let b: Box<dyn Serialisable> = Box::new(SerialisableValue::new(v, ser));
+                b
+            })
+        })
     }
 }
 

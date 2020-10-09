@@ -1938,6 +1938,7 @@ mod tests {
         i: u64,
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
     struct PingPongSer;
 
     impl PingPongSer {
