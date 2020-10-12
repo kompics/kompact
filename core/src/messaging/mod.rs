@@ -131,6 +131,11 @@ impl NetMessage {
         }
     }
 
+    /// Return a reference to the `sender` field
+    pub fn sender(&self) -> &ActorPath {
+        &self.sender
+    }
+
     /// Try to deserialise the data into a value of type `T` wrapped into a message
     ///
     /// This method attempts to deserialise the contents into an

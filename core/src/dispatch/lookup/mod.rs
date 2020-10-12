@@ -15,7 +15,6 @@ use sequence_trie::SequenceTrie;
 use uuid::Uuid;
 
 pub mod gc;
-pub mod groups;
 
 pub trait ActorLookup: Clone {
     /// Inserts or replaces the `path` in the lookup structure.

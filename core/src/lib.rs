@@ -81,6 +81,8 @@ pub mod messaging;
 /// Default networking implementation
 pub mod net;
 mod ports;
+/// Facilities for routing messages
+pub mod routing;
 /// Kompact system runtime facilities, such as configuration and schedulers
 pub mod runtime;
 mod serialisation;
