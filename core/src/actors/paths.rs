@@ -63,7 +63,7 @@ impl FromStr for Transport {
 }
 
 /// Error type for parsing the [Transport](Transport) from a string
-#[derive(Clone, Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct TransportParseError;
 
 impl fmt::Display for TransportParseError {
@@ -79,7 +79,7 @@ impl Error for TransportParseError {
 }
 
 /// Error type for parsing [paths](ActorPath) from a string
-#[derive(Clone, Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PathParseError {
     /// The format is wrong
     Form(String),
@@ -87,6 +87,8 @@ pub enum PathParseError {
     Transport(TransportParseError),
     /// The network address was invalid
     Addr(AddrParseError),
+    /// The path contains a disallowed character
+    IllegalCharacter(char),
 }
 
 impl fmt::Display for PathParseError {
@@ -95,6 +97,9 @@ impl fmt::Display for PathParseError {
             PathParseError::Form(s) => write!(fmt, "Invalid formatting: {}", s),
             PathParseError::Transport(e) => write!(fmt, "Could not parse transport: {}", e),
             PathParseError::Addr(e) => write!(fmt, "Could not parse address: {}", e),
+            PathParseError::IllegalCharacter(c) => {
+                write!(fmt, "The path contains an illegal character: {}", c)
+            }
         }
     }
 }
@@ -109,6 +114,7 @@ impl Error for PathParseError {
             &PathParseError::Form(_) => None,
             &PathParseError::Transport(ref e) => Some(e),
             &PathParseError::Addr(ref e) => Some(e),
+            &PathParseError::IllegalCharacter(_) => None,
         }
     }
 }
@@ -486,17 +492,42 @@ impl From<NamedPath> for ActorPath {
     }
 }
 
-const PATH_SEP: &str = "/";
-const UNIQUE_PATH_SEP: &str = "#";
+/// Separator for segments in named actor paths
+///
+/// # Example
+///
+/// `tcp://127.0.0.1:8080/segment1/segment2`
+pub const PATH_SEP: char = '/';
+/// Separator for the id in unique actor paths
+///
+/// # Example
+///
+/// `tcp://127.0.0.1:8080#1e555f40-de1d-4aee-8202-64fdc27edfa8`
+pub const UNIQUE_PATH_SEP: char = '#';
+/// Marker for broadcast routing
+///
+/// # Example
+///
+/// `tcp://127.0.0.1:8080/segment1/*`
+/// will route to all actors whose path starts with `segment1`.
+pub const BROADCAST_MARKER: char = '*';
+/// Marker for select routing
+///
+/// # Example
+///
+/// `tcp://127.0.0.1:8080/segment1/?`
+/// will route to some actor whose path starts with `segment1`.
+pub const SELECT_MARKER: char = '?';
 
 impl fmt::Display for ActorPath {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &ActorPath::Named(ref np) => {
-                let path = np
-                    .path
-                    .iter()
-                    .fold(String::new(), |acc, arg| acc + PATH_SEP + arg);
+                let path = np.path.iter().fold(String::new(), |mut acc, arg| {
+                    acc.push(PATH_SEP);
+                    acc.push_str(arg);
+                    acc
+                });
                 write!(fmt, "{}{}", np.system, path)
             }
             &ActorPath::Unique(ref up) => write!(fmt, "{}{}{}", up.system, UNIQUE_PATH_SEP, up.id),
@@ -633,6 +664,11 @@ impl NamedPath {
     /// Make sure that none of the elements of the `path` vector contain slashes (i.e., `/`),
     /// as those will be the path separators for the individual elements later.
     pub fn new(protocol: Transport, address: IpAddr, port: u16, path: Vec<String>) -> NamedPath {
+        debug_assert!(
+            crate::actors::validate_lookup_path(&path).is_ok(),
+            "Path contains illegal characters: {:?}",
+            path
+        );
         NamedPath {
             system: SystemPath::new(protocol, address, port),
             path,
@@ -644,6 +680,11 @@ impl NamedPath {
     /// Make sure that none of the elements of the `path` vector contain slashes (i.e., `/`),
     /// as those will be the path separators for the individual elements later.
     pub fn with_socket(protocol: Transport, socket: SocketAddr, path: Vec<String>) -> NamedPath {
+        debug_assert!(
+            crate::actors::validate_lookup_path(&path).is_ok(),
+            "Path contains illegal characters: {:?}",
+            path
+        );
         NamedPath {
             system: SystemPath::with_socket(protocol, socket),
             path,
@@ -655,6 +696,11 @@ impl NamedPath {
     /// Make sure that none of the elements of the `path` vector contain slashes (i.e., `/`),
     /// as those will be the path separators for the individual elements later.
     pub fn with_system(system: SystemPath, path: Vec<String>) -> NamedPath {
+        debug_assert!(
+            crate::actors::validate_lookup_path(&path).is_ok(),
+            "Path contains illegal characters: {:?}",
+            path
+        );
         NamedPath { system, path }
     }
 
@@ -684,8 +730,7 @@ impl TryFrom<String> for NamedPath {
     type Error = PathParseError;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        let p = NamedPath::from_str(&s)?;
-        Ok(p)
+        NamedPath::from_str(&s)
     }
 }
 
@@ -704,12 +749,77 @@ impl FromStr for NamedPath {
         }
         let socket = SocketAddr::from_str(s2[0])?;
         let path: Vec<String> = if s2.len() > 1 {
-            s2.split_off(1).into_iter().map(|s| s.to_string()).collect()
+            s2.split_off(1).into_iter().map(|v| v.to_string()).collect()
         } else {
             Vec::default()
         };
+        validate_lookup_path(&path)?;
         Ok(NamedPath::with_socket(proto, socket, path))
     }
+}
+
+pub(crate) fn parse_path(s: &str) -> Vec<String> {
+    s.split(PATH_SEP)
+        .into_iter()
+        .map(|v| v.to_string())
+        .collect()
+}
+
+pub(crate) fn validate_lookup_path(path: &[String]) -> Result<(), PathParseError> {
+    let len = path.len();
+    for (index, segment) in path.iter().enumerate() {
+        validate_lookup_path_segment(segment, (index + 1) == len)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_insert_path(path: &[String]) -> Result<(), PathParseError> {
+    for segment in path.iter() {
+        validate_insert_path_segment(segment)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_lookup_path_segment(
+    segment: &str,
+    is_last: bool,
+) -> Result<(), PathParseError> {
+    if segment.is_empty() {
+        return Err(PathParseError::Form(
+            "Path segments may not be empty!".to_string(),
+        ));
+    }
+    for c in segment.chars() {
+        match c {
+            PATH_SEP => return Err(PathParseError::IllegalCharacter(PATH_SEP)),
+            BROADCAST_MARKER if !is_last => {
+                return Err(PathParseError::IllegalCharacter(BROADCAST_MARKER))
+            }
+            SELECT_MARKER if !is_last => {
+                return Err(PathParseError::IllegalCharacter(SELECT_MARKER))
+            }
+            UNIQUE_PATH_SEP => return Err(PathParseError::IllegalCharacter(UNIQUE_PATH_SEP)),
+            _ => (), // ok
+        }
+    }
+    Ok(())
+}
+pub(crate) fn validate_insert_path_segment(segment: &str) -> Result<(), PathParseError> {
+    if segment.is_empty() {
+        return Err(PathParseError::Form(
+            "Path segments may not be empty!".to_string(),
+        ));
+    }
+    for c in segment.chars() {
+        match c {
+            PATH_SEP => return Err(PathParseError::IllegalCharacter(PATH_SEP)),
+            BROADCAST_MARKER => return Err(PathParseError::IllegalCharacter(BROADCAST_MARKER)),
+            SELECT_MARKER => return Err(PathParseError::IllegalCharacter(SELECT_MARKER)),
+            UNIQUE_PATH_SEP => return Err(PathParseError::IllegalCharacter(UNIQUE_PATH_SEP)),
+            _ => (), // ok
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

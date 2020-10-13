@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::messaging::HeapOrSer;
-
 /// Errors that can be thrown during serialisation or deserialisation
 #[derive(Debug)]
 pub enum SerError {

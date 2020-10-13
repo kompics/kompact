@@ -5,6 +5,7 @@ use bytes::buf::BufMutExt;
 use protobuf::{Message, ProtobufError};
 
 /// Kompact serialisation marker for protobuf messages
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProtobufSer;
 
 impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {

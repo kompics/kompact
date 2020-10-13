@@ -239,19 +239,30 @@ impl NetworkThread {
                                 warn!(self.log, "Error during UDP reading: {}", e);
                             }
                         }
-                        use dispatch::lookup::ActorLookup;
+                        use dispatch::lookup::{ActorLookup, LookupResult};
 
                         // Forward the data frame to the correct actor
                         let lease_lookup = self.lookup.load();
                         for envelope in udp_state.incoming_messages.drain(..) {
                             match lease_lookup.get_by_actor_path(&envelope.receiver) {
-                            Some(actor) => {
-                                actor.enqueue(envelope);
+                                LookupResult::Ref(actor) => {
+                                    actor.enqueue(envelope);
+                                }
+                                LookupResult::Group(group) => {
+                                    group.route(envelope, &self.log);
+                                }
+                                LookupResult::None => {
+                                    debug!(self.log, "Could not find actor reference for destination: {:?}, dropping message", envelope.receiver);
+                                }
+                                LookupResult::Err(e) => {
+                                    error!(
+                                        self.log,
+                                        "An error occurred during local actor lookup for destination: {:?}, dropping message. The error was: {}",
+                                        envelope.receiver,
+                                        e
+                                    );
+                                }
                             }
-                            None => {
-                                debug!(self.log, "Could not find actor reference for destination: {:?}, dropping message", envelope.receiver)
-                            }
-                        }
                         }
                     }
                 } else {
@@ -514,7 +525,7 @@ impl NetworkThread {
                         return ret;
                     }
                     Ok(Frame::Data(fr)) => {
-                        use dispatch::lookup::ActorLookup;
+                        use dispatch::lookup::{ActorLookup, LookupResult};
                         use serialisation::ser_helpers::deserialise_msg;
 
                         // Forward the data frame to the correct actor
@@ -522,11 +533,22 @@ impl NetworkThread {
                         let buf = fr.payload();
                         let envelope = deserialise_msg(buf).expect("s11n errors");
                         match lease_lookup.get_by_actor_path(&envelope.receiver) {
-                            None => {
-                                debug!(&self.log, "Could not find actor reference for destination: {:?}, dropping message", &envelope.receiver)
-                            }
-                            Some(actor) => {
+                            LookupResult::Ref(actor) => {
                                 actor.enqueue(envelope);
+                            }
+                            LookupResult::Group(group) => {
+                                group.route(envelope, &self.log);
+                            }
+                            LookupResult::None => {
+                                warn!(self.log, "Could not find actor reference for destination: {:?}, dropping message", envelope.receiver);
+                            }
+                            LookupResult::Err(e) => {
+                                error!(
+                                    self.log,
+                                    "An error occurred during local actor lookup for destination: {:?}, dropping message. The error was: {}",
+                                    envelope.receiver,
+                                    e
+                                );
                             }
                         }
                     }

@@ -273,7 +273,8 @@ impl NetworkDispatcher {
         let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
         self.lookup.rcu(|current| {
             let mut next = ActorStore::clone(&current);
-            next.insert(deadletter.clone(), PathResolvable::System);
+            next.insert(deadletter.clone(), PathResolvable::System)
+                .expect("Deadletter shouldn't error");
             next
         });
 
@@ -454,15 +455,20 @@ impl NetworkDispatcher {
     where
         R: Routable,
     {
-        use crate::dispatch::lookup::ActorLookup;
+        use crate::dispatch::lookup::{ActorLookup, LookupResult};
         let lookup = self.lookup.load();
-        let actor_opt = lookup.get_by_actor_path(msg.destination());
+        let lookup_result = lookup.get_by_actor_path(msg.destination());
         match msg.into_local() {
-            Ok(netmsg) => {
-                if let Some(ref actor) = actor_opt {
+            Ok(netmsg) => match lookup_result {
+                LookupResult::Ref(actor) => {
                     actor.enqueue(netmsg);
                     Ok(())
-                } else {
+                }
+                LookupResult::Group(group) => {
+                    group.route(netmsg, self.log());
+                    Ok(())
+                }
+                LookupResult::None => {
                     error!(
                         self.ctx.log(),
                         "No local actor found at {:?}. Forwarding to DeadletterBox",
@@ -471,7 +477,17 @@ impl NetworkDispatcher {
                     self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
                     Ok(())
                 }
-            }
+                LookupResult::Err(e) => {
+                    error!(
+                        self.ctx.log(),
+                        "An error occurred during local actor lookup at {:?}. Forwarding to DeadletterBox. The error was: {}",
+                        netmsg.receiver,
+                        e
+                    );
+                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                    Ok(())
+                }
+            },
             Err(e) => {
                 error!(self.log(), "Could not serialise msg: {:?}. Dropping...", e);
                 Ok(()) // consider this an ok:ish result
@@ -632,7 +648,7 @@ impl Actor for NetworkDispatcher {
                 };
             }
             DispatchEnvelope::Registration(reg) => {
-                use lookup::ActorLookup;
+                use lookup::{ActorLookup, InsertResult};
 
                 let RegistrationEnvelope {
                     actor,
@@ -648,18 +664,18 @@ impl Actor for NetworkDispatcher {
                     Err(RegistrationError::DuplicateEntry)
                 } else {
                     drop(lease);
-                    let mut replaced = false;
+                    let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
                         let mut next = ActorStore::clone(&current);
-                        if let Some(_old_entry) = next.insert(actor.clone(), path.clone()) {
-                            replaced = true;
-                        }
+                        result = next.insert(actor.clone(), path.clone());
                         next
                     });
-                    if replaced {
-                        info!(self.ctx.log(), "Replaced entry for path={:?}", path);
+                    if let Ok(ref res) = result {
+                        if !res.is_empty() {
+                            info!(self.ctx.log(), "Replaced entry for path={:?}", path);
+                        }
                     }
-                    Ok(ap)
+                    result.map(|_| ap).map_err(RegistrationError::InvalidPath)
                 };
 
                 if res.is_ok() && !self.reaper.is_scheduled() {

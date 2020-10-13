@@ -7,44 +7,134 @@
 //!     4. Broadcast to _all_ listeners, ensuring that the route/lookup exists in at least one of them.
 
 use crate::{
-    actors::{ActorPath, DynActorRef},
-    messaging::PathResolvable,
+    actors::{ActorPath, DynActorRef, PathParseError},
+    messaging::{NetMessage, PathResolvable},
+    routing::groups::{
+        RoutingGroup,
+        RoutingPolicy,
+        StorePolicy,
+        DEFAULT_BROADCAST_POLICY,
+        DEFAULT_SELECT_POLICY,
+    },
 };
 use rustc_hash::FxHashMap;
 use sequence_trie::SequenceTrie;
+use std::ops::Deref;
 use uuid::Uuid;
 
 pub mod gc;
 
+/// Result of an actor path lookup
+#[derive(Debug)]
+pub enum LookupResult<'a> {
+    /// Result is a single concrete actor
+    Ref(&'a DynActorRef),
+    /// Result is a group of actors with a routing policy
+    Group(RoutingGroup<'a>),
+    /// There was no match
+    None,
+    /// Some error occurred during lookup
+    Err(String),
+}
+impl<'a> LookupResult<'a> {
+    /// Returns true if there is no result
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        matches!(self, LookupResult::None)
+    }
+}
+impl<'a> From<Option<&'a DynActorRef>> for LookupResult<'a> {
+    fn from(entry: Option<&'a DynActorRef>) -> Self {
+        match entry {
+            Some(aref) => LookupResult::Ref(aref),
+            None => LookupResult::None,
+        }
+    }
+}
+
+/// Result of an actor path insert
+///
+/// That is, the returned value is the previous entry.
+#[derive(Debug)]
+pub enum InsertResult {
+    /// Entry is a single concrete actor
+    Ref(DynActorRef),
+    /// Entry is a routing policy
+    Policy(StorePolicy),
+    /// There was no previous entry
+    None,
+}
+impl InsertResult {
+    /// Returns true if there is no result
+    pub fn is_empty(&self) -> bool {
+        matches!(self, InsertResult::None)
+    }
+}
+impl From<Option<ActorTreeEntry>> for InsertResult {
+    fn from(entry: Option<ActorTreeEntry>) -> Self {
+        match entry {
+            Some(ActorTreeEntry::Ref(aref)) => InsertResult::Ref(aref),
+            Some(ActorTreeEntry::Policy(policy)) => InsertResult::Policy(policy),
+            None => InsertResult::None,
+        }
+    }
+}
+impl From<Option<DynActorRef>> for InsertResult {
+    fn from(entry: Option<DynActorRef>) -> Self {
+        match entry {
+            Some(aref) => InsertResult::Ref(aref),
+            None => InsertResult::None,
+        }
+    }
+}
+
+/// A trait for actor lookup mechanisms
 pub trait ActorLookup: Clone {
     /// Inserts or replaces the `path` in the lookup structure.
+    ///
     /// If an entry already exists, it is removed and returned before being replaced.
-    fn insert(&mut self, actor: DynActorRef, path: PathResolvable) -> Option<DynActorRef>;
+    fn insert(
+        &mut self,
+        actor: DynActorRef,
+        path: PathResolvable,
+    ) -> Result<InsertResult, PathParseError>;
+
+    /// Set the routing policy at the provided place in the actor tree to be `policy`
+    ///
+    /// Returns the old entry, if one existed (could be a policy or an actor reference).
+    fn set_routing_policy(
+        &mut self,
+        policy: StorePolicy,
+        path: &[String],
+    ) -> Result<InsertResult, PathParseError>;
 
     /// Returns true if the evaluated path is already stored.
     fn contains(&self, path: &PathResolvable) -> bool;
 
-    fn get_by_actor_path(&self, path: &ActorPath) -> Option<&DynActorRef> {
+    fn get_by_actor_path<'a, 'b>(&'a self, path: &'b ActorPath) -> LookupResult<'a> {
         match path {
-            ActorPath::Unique(ref up) => self.get_by_uuid(&up.id()),
+            ActorPath::Unique(ref up) => match self.get_by_uuid(&up.id()) {
+                Some(aref) => LookupResult::Ref(aref),
+                None => LookupResult::None,
+            },
             ActorPath::Named(ref np) => self.get_by_named_path(np.path_ref()),
         }
     }
 
     fn get_by_uuid(&self, id: &Uuid) -> Option<&DynActorRef>;
 
-    fn get_by_named_path(&self, path: &[String]) -> Option<&DynActorRef>;
+    fn get_by_named_path<'a, 'b>(&'a self, path: &'b [String]) -> LookupResult<'a>;
 
-    fn get_mut_by_actor_path(&mut self, path: &ActorPath) -> Option<&mut DynActorRef> {
-        match path {
-            ActorPath::Unique(ref up) => self.get_mut_by_uuid(&up.id()),
-            ActorPath::Named(ref np) => self.get_mut_by_named_path(np.path_ref()),
-        }
-    }
+    // fn get_mut_by_actor_path(&mut self, path: &ActorPath) -> Option<&mut DynActorRef> {
+    //     match path {
+    //         ActorPath::Unique(ref up) => self.get_mut_by_uuid(&up.id()),
+    //         ActorPath::Named(ref np) => self.get_mut_by_named_path(np.path_ref()),
+    //     }
+    // }
 
-    fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef>;
+    // fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef>;
 
-    fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef>;
+    // fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef>;
 
     /// Removes all entries that point to the provided actor, returning how many were removed
     /// (most likely O(n), subject to implementation details)
@@ -60,6 +150,12 @@ pub trait ActorLookup: Clone {
     fn cleanup(&mut self) -> usize {
         0
     }
+}
+
+#[derive(Debug, Clone)]
+enum ActorTreeEntry {
+    Ref(DynActorRef),
+    Policy(StorePolicy),
 }
 
 /// Lookup structure for storing and retrieving `DynActorRef`s.
@@ -78,7 +174,7 @@ pub trait ActorLookup: Clone {
 #[derive(Clone)]
 pub struct ActorStore {
     uuid_map: FxHashMap<Uuid, DynActorRef>,
-    name_map: SequenceTrie<String, DynActorRef>,
+    name_map: SequenceTrie<String, ActorTreeEntry>,
     deadletter: Option<DynActorRef>,
 }
 
@@ -93,24 +189,42 @@ impl ActorStore {
 }
 
 impl ActorLookup for ActorStore {
-    /// Inserts or replaces the `path` in the lookup structure.
-    /// If an entry already exists, it is removed and returned before being replaced.
-    fn insert(&mut self, actor: DynActorRef, path: PathResolvable) -> Option<DynActorRef> {
+    fn insert(
+        &mut self,
+        actor: DynActorRef,
+        path: PathResolvable,
+    ) -> Result<InsertResult, PathParseError> {
         match path {
             PathResolvable::Path(actor_path) => match actor_path {
                 ActorPath::Unique(up) => {
                     let key = up.id();
-                    self.uuid_map.insert(key, actor)
+                    Ok(self.uuid_map.insert(key, actor).into())
                 }
                 ActorPath::Named(np) => {
                     let keys = np.path_ref();
-                    self.name_map.insert(keys, actor)
+                    let prev = self.name_map.insert(keys, ActorTreeEntry::Ref(actor));
+                    Ok(prev.into())
                 }
             },
-            PathResolvable::Alias(alias) => self.name_map.insert(&vec![alias], actor),
-            PathResolvable::ActorId(uuid) => self.uuid_map.insert(uuid, actor),
-            PathResolvable::System => self.deadletter.replace(actor),
+            PathResolvable::Alias(ref alias) => {
+                let path = crate::actors::parse_path(alias);
+                crate::actors::validate_insert_path(&path)?;
+                let prev = self.name_map.insert(&path, ActorTreeEntry::Ref(actor));
+                Ok(prev.into())
+            }
+            PathResolvable::ActorId(uuid) => Ok(self.uuid_map.insert(uuid, actor).into()),
+            PathResolvable::System => Ok(self.deadletter.replace(actor).into()),
         }
+    }
+
+    fn set_routing_policy(
+        &mut self,
+        policy: StorePolicy,
+        path: &[String],
+    ) -> Result<InsertResult, PathParseError> {
+        crate::actors::validate_insert_path(path)?;
+        let prev = self.name_map.insert(path, ActorTreeEntry::Policy(policy));
+        Ok(prev.into())
     }
 
     fn contains(&self, path: &PathResolvable) -> bool {
@@ -119,12 +233,22 @@ impl ActorLookup for ActorStore {
                 ActorPath::Unique(ref up) => self.uuid_map.contains_key(&up.id()),
                 ActorPath::Named(ref np) => {
                     let keys = np.path_ref();
+                    debug_assert!(
+                        crate::actors::validate_lookup_path(&keys).is_ok(),
+                        "Path contains illegal characters: {:?}",
+                        keys
+                    );
                     self.name_map.get(keys).is_some()
                 }
             },
             PathResolvable::Alias(ref alias) => {
-                //  TODO avoid clone here
-                self.name_map.get(&[alias.clone()]).is_some()
+                let path = crate::actors::parse_path(alias);
+                debug_assert!(
+                    crate::actors::validate_lookup_path(&path).is_ok(),
+                    "Path contains illegal characters: {:?}",
+                    path
+                );
+                self.name_map.get(&path).is_some()
             }
             PathResolvable::ActorId(ref uuid) => self.uuid_map.contains_key(uuid),
             PathResolvable::System => self.deadletter.is_some(),
@@ -135,25 +259,127 @@ impl ActorLookup for ActorStore {
         self.uuid_map.get(id)
     }
 
-    fn get_by_named_path(&self, path: &[String]) -> Option<&DynActorRef> {
+    fn get_by_named_path<'a, 'b>(&'a self, path: &'b [String]) -> LookupResult<'a> {
+        use crate::actors::{BROADCAST_MARKER, SELECT_MARKER};
         if path.is_empty() {
-            self.deadletter.as_ref()
+            self.deadletter.as_ref().into()
         } else {
-            self.name_map.get(path)
+            debug_assert!(
+                crate::actors::validate_lookup_path(path).is_ok(),
+                "Path contains illegal characters: {:?}",
+                path
+            );
+            let last_index = path.len() - 1;
+            let (lookup_path, marker_opt): (&'b [String], Option<char>) = match path[last_index]
+                .chars()
+                .next()
+                .expect("Should not be empty")
+            {
+                // this is validated above
+                BROADCAST_MARKER => (&path[0..last_index], Some(BROADCAST_MARKER)),
+                SELECT_MARKER => (&path[0..last_index], Some(SELECT_MARKER)),
+                _ => (path, None),
+            };
+            match self.name_map.get_node(lookup_path) {
+                Some(node) => {
+                    if let Some(entry) = node.value() {
+                        match entry {
+                            ActorTreeEntry::Ref(aref) => {
+                                if let Some(marker) = marker_opt {
+                                    LookupResult::Err(format!("Expected a routing policy (marker={}), but found an actor reference at path={:?}", marker, path))
+                                } else {
+                                    LookupResult::Ref(aref)
+                                }
+                            }
+                            ActorTreeEntry::Policy(policy) => {
+                                let children: Vec<&'a DynActorRef> = node
+                                    .children()
+                                    .into_iter()
+                                    .flat_map(|child| {
+                                        child.value().and_then(|v| {
+                                            if let ActorTreeEntry::Ref(aref) = v {
+                                                Some(aref)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    })
+                                    .collect();
+                                if let Some(marker) = marker_opt {
+                                    // requested routing
+                                    match marker {
+                                        BROADCAST_MARKER => {
+                                            if let Some(broadcast_policy) = policy.broadcast() {
+                                                let group =
+                                                    RoutingGroup::new(children, broadcast_policy);
+                                                LookupResult::Group(group)
+                                            } else {
+                                                LookupResult::Err(format!("Expected a broadcast policy (marker={}), but found a non-broadcast policy at path={:?}", marker, path))
+                                            }
+                                        }
+                                        SELECT_MARKER => {
+                                            if let Some(select_policy) = policy.select() {
+                                                let group =
+                                                    RoutingGroup::new(children, select_policy);
+                                                LookupResult::Group(group)
+                                            } else {
+                                                LookupResult::Err(format!("Expected a select policy (marker={}), but found a non-select policy at path={:?}", marker, path))
+                                            }
+                                        }
+                                        _ => unreachable!(
+                                            "Only put marker characters in to marker field!"
+                                        ),
+                                    }
+                                } else {
+                                    // transparent routing
+                                    let group = RoutingGroup::new(children, policy.deref());
+                                    LookupResult::Group(group)
+                                }
+                            }
+                        }
+                    } else if let Some(marker) = marker_opt {
+                        // implicit routing
+                        let policy: &(dyn RoutingPolicy<DynActorRef, NetMessage> + Send + Sync) =
+                            match marker {
+                                BROADCAST_MARKER => &DEFAULT_BROADCAST_POLICY,
+                                SELECT_MARKER => &DEFAULT_SELECT_POLICY,
+                                _ => unreachable!("Only put marker characters in to marker field!"),
+                            };
+                        let children: Vec<&'a DynActorRef> = node
+                            .children()
+                            .into_iter()
+                            .flat_map(|child| {
+                                child.value().and_then(|v| {
+                                    if let ActorTreeEntry::Ref(aref) = v {
+                                        Some(aref)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            })
+                            .collect();
+                        let group = RoutingGroup::new(children, policy);
+                        LookupResult::Group(group)
+                    } else {
+                        LookupResult::None
+                    }
+                }
+                None => LookupResult::None,
+            }
         }
     }
 
-    fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef> {
-        self.uuid_map.get_mut(id)
-    }
+    // fn get_mut_by_uuid(&mut self, id: &Uuid) -> Option<&mut DynActorRef> {
+    //     self.uuid_map.get_mut(id)
+    // }
 
-    fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef> {
-        if path.is_empty() {
-            self.deadletter.as_mut()
-        } else {
-            self.name_map.get_mut(path)
-        }
-    }
+    // fn get_mut_by_named_path(&mut self, path: &[String]) -> Option<&mut DynActorRef> {
+    //     if path.is_empty() {
+    //         self.deadletter.as_mut()
+    //     } else {
+    //         self.name_map.get_mut(path)
+    //     }
+    // }
 
     fn remove(&mut self, actor: DynActorRef) -> usize {
         let mut num_deleted = 0;
@@ -196,7 +422,13 @@ impl ActorStore {
         let matches: Vec<_> = self
             .name_map
             .iter()
-            .filter(|rec| rec.1 == actor)
+            .filter(|&(_, entry)| {
+                if let ActorTreeEntry::Ref(other_actor) = entry {
+                    actor == other_actor
+                } else {
+                    false
+                }
+            })
             .map(|(key, _)| {
                 // Clone the entire Vec<&String> path to be able to remove entries below
                 let mut cl = Vec::new();
@@ -220,7 +452,13 @@ impl ActorStore {
         let matches: Vec<_> = self
             .name_map
             .iter()
-            .filter(|&(_, actor)| !actor.can_upgrade_component())
+            .filter(|&(_, entry)| {
+                if let ActorTreeEntry::Ref(actor) = entry {
+                    !actor.can_upgrade_component()
+                } else {
+                    false
+                }
+            })
             .map(|(key, _)| {
                 // Clone the entire Vec<&String> path to be able to remove entries below
                 let mut cl = Vec::new();

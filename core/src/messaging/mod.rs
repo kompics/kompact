@@ -1,13 +1,13 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
 use crate::{
-    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds},
+    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds, PathParseError},
     net::{buffer::BufferEncoder, events::NetworkEvent},
     serialisation::{Deserialiser, SerError, SerId, Serialisable, Serialiser, TryClone},
     utils,
 };
 use bytes::{Buf, Bytes};
-use std::{any::Any, convert::TryFrom};
+use std::any::Any;
 use uuid::Uuid;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
     },
     serialisation::ser_helpers::deserialise_msg,
 };
-use std::ops::Deref;
+use std::{convert::TryFrom, ops::Deref, str::FromStr};
 
 pub mod framing;
 
@@ -558,12 +558,14 @@ impl<T> UnpackError<T> {
 }
 
 /// An error that can occur during [actor path](ActorPath) registration
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RegistrationError {
     /// An actor path with the same name exists already
     DuplicateEntry,
     /// This kind of registration is unsupported by the system's dispatcher implementation
     Unsupported,
+    /// The supplied path was not invalid
+    InvalidPath(PathParseError),
 }
 
 /// Convenience alias for the result of a path registration attempt
@@ -825,6 +827,23 @@ pub enum PathResolvable {
 impl From<ActorPath> for PathResolvable {
     fn from(path: ActorPath) -> Self {
         PathResolvable::Path(path)
+    }
+}
+impl TryFrom<String> for PathResolvable {
+    type Error = PathParseError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let parsed = crate::actors::parse_path(&value);
+        crate::actors::validate_lookup_path(&parsed).map(|_| PathResolvable::Alias(value))
+    }
+}
+impl FromStr for PathResolvable {
+    type Err = PathParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let parsed = crate::actors::parse_path(value);
+        crate::actors::validate_lookup_path(&parsed)
+            .map(|_| PathResolvable::Alias(value.to_string()))
     }
 }
 

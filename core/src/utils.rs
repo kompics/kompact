@@ -413,6 +413,8 @@ macro_rules! ignore_indications {
 
 #[cfg(not(nightly))]
 mod iter_extras {
+    use crate::serialisation::{SerError, TryClone};
+
     /// Additional iterator functions
     pub trait IterExtras: Iterator + Sized {
         /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
