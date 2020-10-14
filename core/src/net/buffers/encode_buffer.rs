@@ -317,19 +317,19 @@ mod tests {
     #[test]
     fn encode_buffer_overload_reuse_manually_configured_large_buffers() {
         let mut buffer_config = BufferConfig::default();
-        buffer_config.chunk_size(50000000); // 50 MB chunk_size
-        buffer_config.initial_chunk_count(10); // 500 MB pool init value
-        buffer_config.max_chunk_count(20); // 1 GB pool max size
+        buffer_config.chunk_size(5000000); // 5 MB chunk_size
+        buffer_config.initial_chunk_count(5); // 50 MB pool init value
+        buffer_config.max_chunk_count(10); // 100 MB pool max size
         buffer_config.encode_buf_min_free_space(256); // 256 B min_remaining
         let data_len = buffer_config.chunk_size - buffer_config.encode_buf_min_free_space - 8;
         let encode_buffer = encode_chain_overload_reuse(&buffer_config, data_len);
-        assert_eq!(encode_buffer.buffer.len(), 50000000);
+        assert_eq!(encode_buffer.buffer.len(), 5000000);
         // Check the buffer pool sizes
         assert_eq!(
             encode_buffer.buffer_pool.get_pool_sizes(),
             (
-                10,     // No additional has been allocated
-                10 - 1  // Currently in the pool
+                5,     // No additional has been allocated
+                5 - 1  // Currently in the pool
             )
         );
     }
