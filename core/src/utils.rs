@@ -338,13 +338,7 @@ where
 /// that the compiler cannot determine on its own
 ///
 /// This is equivalent to the following code:
-/// ```no_run
-/// let name = if let Pattern(name) = expression {
-///     name   
-/// } else {
-///     unreachable!();   
-/// };
-/// ```
+/// `let name = if let Pattern(name) = expression { name } else { unreachable!(); };`
 #[macro_export]
 macro_rules! let_irrefutable {
     ($name:ident, $pattern:pat = $expression:expr) => {
