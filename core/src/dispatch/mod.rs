@@ -1187,7 +1187,7 @@ mod tests {
     /// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
     fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
         let mut net_cfg = NetworkConfig::default();
-        net_cfg.buffer_config.chunk_size(65536);
+        net_cfg.buffer_config.chunk_size(66000);
         let (system, remote) = {
             let system = || {
                 let mut cfg = KompactConfig::new();
@@ -1203,7 +1203,7 @@ mod tests {
             poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
         ponger_named_path.via_udp();
         let (pinger_named, pinf) = system
-            .create_and_register(move || BigPingerAct::new_lazy(ponger_named_path, 65536 * 3 / 4));
+            .create_and_register(move || BigPingerAct::new_lazy(ponger_named_path, 1500 * 3 / 4));
 
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
@@ -1236,7 +1236,7 @@ mod tests {
     /// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
     fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
         let mut net_cfg = NetworkConfig::default();
-        net_cfg.buffer_config.chunk_size(65536);
+        net_cfg.buffer_config.chunk_size(66000);
         let buf_cfg = &net_cfg.buffer_config;
         let (system, remote) = {
             let system = || {
@@ -1254,7 +1254,7 @@ mod tests {
             poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
         ponger_named_path.via_udp();
         let (pinger_named, pinf) = system.create_and_register(move || {
-            BigPingerAct::new_eager(ponger_named_path, 65536 * 3 / 4, buf_cfg.clone())
+            BigPingerAct::new_eager(ponger_named_path, 1500 * 3 / 4, buf_cfg.clone())
         });
 
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
