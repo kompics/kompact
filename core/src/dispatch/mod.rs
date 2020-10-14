@@ -600,13 +600,13 @@ impl NetworkDispatcher {
             PathResolvable::Path(actor_path) => Ok(actor_path.clone()),
             PathResolvable::Alias(alias) => self
                 .system_path()
-                .to_named_with_string(alias)
+                .into_named_with_string(alias)
                 .map(|p| p.into()),
             PathResolvable::Segments(segments) => self
                 .system_path()
-                .to_named_with_vec(segments.to_vec())
+                .into_named_with_vec(segments.to_vec())
                 .map(|p| p.into()),
-            PathResolvable::ActorId(id) => Ok(self.system_path().to_unique(*id).into()),
+            PathResolvable::ActorId(id) => Ok(self.system_path().into_unique(*id).into()),
             PathResolvable::System => Ok(self.deadletter_path()),
         }
     }

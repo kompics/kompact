@@ -181,23 +181,23 @@ impl SystemPath {
     ///
     /// Paths created with this function will be validated to be a valid lookup path,
     /// and an error will be returned if they are not.
-    pub fn to_named_with_string(self, path: &str) -> Result<NamedPath, PathParseError> {
+    pub fn into_named_with_string(self, path: &str) -> Result<NamedPath, PathParseError> {
         let parsed = parse_path(path);
-        self.to_named_with_vec(parsed)
+        self.into_named_with_vec(parsed)
     }
 
     /// Create a named path starting with this system path and ending with the sequence of path segments
     ///
     /// Paths created with this function will be validated to be a valid lookup path,
     /// and an error will be returned if they are not.
-    pub fn to_named_with_vec(self, path: Vec<String>) -> Result<NamedPath, PathParseError> {
+    pub fn into_named_with_vec(self, path: Vec<String>) -> Result<NamedPath, PathParseError> {
         validate_lookup_path(&path)?;
         let named = NamedPath::with_system(self, path);
         Ok(named)
     }
 
     /// Create a unique path starting with this system path and ending with the given `id`
-    pub fn to_unique(self, id: Uuid) -> UniquePath {
+    pub fn into_unique(self, id: Uuid) -> UniquePath {
         UniquePath::with_system(self, id)
     }
 }
@@ -489,21 +489,35 @@ impl ActorPath {
     /// If this path is a named path, return the underlying named path
     ///
     /// Otherwise return `None`.
-    pub fn as_named(self) -> Option<NamedPath> {
+    pub fn named(self) -> Option<NamedPath> {
         match self {
             ActorPath::Named(p) => Some(p),
             _ => None,
         }
     }
 
+    /// Return the underlying named path
+    ///
+    /// Panics if this is not actually a named path variant.
+    pub fn unwrap_named(self) -> NamedPath {
+        self.named().unwrap()
+    }
+
     /// If this path is a unique path, return the underlying unique path
     ///
     /// Otherwise return `None`.
-    pub fn as_unique(self) -> Option<UniquePath> {
+    pub fn unique(self) -> Option<UniquePath> {
         match self {
             ActorPath::Unique(p) => Some(p),
             _ => None,
         }
+    }
+
+    /// Return the underlying unique path
+    ///
+    /// Panics if this is not actually a uniqe path variant.
+    pub fn unwrap_unique(self) -> UniquePath {
+        self.unique().unwrap()
     }
 }
 

@@ -124,7 +124,7 @@ mod tests {
         assert_eq!(1, total_count(&receivers));
 
         group_ref.tell(CountMe, &system);
-        let alternative_group_ref: ActorPath = (group_ref.clone().as_named().unwrap() / '?').into();
+        let alternative_group_ref: ActorPath = (group_ref.clone().unwrap_named() / '?').into();
         alternative_group_ref.tell(CountMe, &system);
         std::thread::sleep(SLEEP_TIME);
         assert_eq!(3, total_count(&receivers));
@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(1, total_count(&receivers));
 
         group_ref.tell(CountMe, &system);
-        let alternative_group_ref: ActorPath = (group_ref.clone().as_named().unwrap() / '?').into();
+        let alternative_group_ref: ActorPath = (group_ref.clone().unwrap_named() / '?').into();
         alternative_group_ref.tell(CountMe, &system);
         std::thread::sleep(SLEEP_TIME);
         assert_eq!(3, total_count(&receivers));
@@ -188,7 +188,7 @@ mod tests {
 
         let other_source_ref: ActorPath = system
             .system_path()
-            .to_named_with_string("other_source")
+            .into_named_with_string("other_source")
             .expect("actor path")
             .into();
 
@@ -227,7 +227,7 @@ mod tests {
             .collect();
         let group_ref: ActorPath = system
             .system_path()
-            .to_named_with_string("routing-group/?")
+            .into_named_with_string("routing-group/?")
             .expect("actor path")
             .into();
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
@@ -254,7 +254,7 @@ mod tests {
 
         let other_source_ref: ActorPath = system
             .system_path()
-            .to_named_with_string("other_source")
+            .into_named_with_string("other_source")
             .expect("actor path")
             .into();
 
@@ -322,7 +322,7 @@ mod tests {
         assert_eq!(3, counts[1]);
         assert_eq!(3, counts[2]);
 
-        let alternative_group_ref: ActorPath = (group_ref.clone().as_named().unwrap() / '*').into();
+        let alternative_group_ref: ActorPath = (group_ref.clone().unwrap_named() / '*').into();
         alternative_group_ref.tell(CountMe, &system);
         std::thread::sleep(SLEEP_TIME);
         assert_eq!(12, total_count(&receivers));
@@ -354,7 +354,7 @@ mod tests {
             .collect();
         let group_ref: ActorPath = system
             .system_path()
-            .to_named_with_string("routing-group/*")
+            .into_named_with_string("routing-group/*")
             .expect("actor path")
             .into();
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers

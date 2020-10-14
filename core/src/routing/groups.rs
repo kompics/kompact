@@ -474,7 +474,7 @@ mod tests {
 
         let other_source_ref: ActorPath = system
             .system_path()
-            .to_named_with_string("other_source")
+            .into_named_with_string("other_source")
             .expect("actor path")
             .into();
 
