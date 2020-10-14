@@ -5,6 +5,7 @@ use std::{
     error::Error,
     fmt::{self, Debug},
     net::{AddrParseError, IpAddr, SocketAddr},
+    ops::Div,
     str::FromStr,
 };
 use uuid::Uuid;
@@ -174,6 +175,30 @@ impl SystemPath {
     /// Returns the port associated with with this system path
     pub fn port(&self) -> u16 {
         self.port
+    }
+
+    /// Create a named path starting with this system path and ending with the given string
+    ///
+    /// Paths created with this function will be validated to be a valid lookup path,
+    /// and an error will be returned if they are not.
+    pub fn to_named_with_string(self, path: &str) -> Result<NamedPath, PathParseError> {
+        let parsed = parse_path(path);
+        self.to_named_with_vec(parsed)
+    }
+
+    /// Create a named path starting with this system path and ending with the sequence of path segments
+    ///
+    /// Paths created with this function will be validated to be a valid lookup path,
+    /// and an error will be returned if they are not.
+    pub fn to_named_with_vec(self, path: Vec<String>) -> Result<NamedPath, PathParseError> {
+        validate_lookup_path(&path)?;
+        let named = NamedPath::with_system(self, path);
+        Ok(named)
+    }
+
+    /// Create a unique path starting with this system path and ending with the given `id`
+    pub fn to_unique(self, id: Uuid) -> UniquePath {
+        UniquePath::with_system(self, id)
     }
 }
 
@@ -460,6 +485,26 @@ impl ActorPath {
     pub fn via_local(&mut self) {
         self.set_protocol(Transport::LOCAL);
     }
+
+    /// If this path is a named path, return the underlying named path
+    ///
+    /// Otherwise return `None`.
+    pub fn as_named(self) -> Option<NamedPath> {
+        match self {
+            ActorPath::Named(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    /// If this path is a unique path, return the underlying unique path
+    ///
+    /// Otherwise return `None`.
+    pub fn as_unique(self) -> Option<UniquePath> {
+        match self {
+            ActorPath::Unique(p) => Some(p),
+            _ => None,
+        }
+    }
 }
 
 impl SystemField for ActorPath {
@@ -718,6 +763,27 @@ impl NamedPath {
     pub fn system_mut(&mut self) -> &mut SystemPath {
         &mut self.system
     }
+
+    /// Add the given `segment` to the path, if it is valid to do so
+    pub fn push(&mut self, segment: String) -> Result<(), PathParseError> {
+        if let Some(last_segment) = self.path.last() {
+            validate_lookup_path_segment(last_segment, false)?;
+        }
+        validate_lookup_path_segment(&segment, true)?;
+        self.path.push(segment);
+        Ok(())
+    }
+
+    /// Add the given relative `path` to this path, if it is valid to do so
+    pub fn append(mut self, path: &str) -> Result<Self, PathParseError> {
+        if let Some(last_segment) = self.path.last() {
+            validate_lookup_path_segment(last_segment, false)?;
+        }
+        let mut segments = parse_path(path);
+        self.path.append(&mut segments);
+        validate_lookup_path(&self.path)?;
+        Ok(self)
+    }
 }
 
 impl SystemField for NamedPath {
@@ -755,6 +821,30 @@ impl FromStr for NamedPath {
         };
         validate_lookup_path(&path)?;
         Ok(NamedPath::with_socket(proto, socket, path))
+    }
+}
+
+/// Some syntactic sugar for [append](NamedPath::append)
+///
+/// Allows the pretty `path / "segment" / "*"` syntax
+/// to create sub-paths of `path`.
+impl Div<&str> for NamedPath {
+    type Output = Self;
+
+    fn div(self, rhs: &str) -> Self::Output {
+        self.append(rhs).expect("illegal path")
+    }
+}
+/// Some syntactic sugar for [push](NamedPath::push)
+///
+/// Allows the pretty `path / '*'` syntax
+/// to create a broadcast variant of `path`.
+impl Div<char> for NamedPath {
+    type Output = Self;
+
+    fn div(mut self, rhs: char) -> Self::Output {
+        self.push(rhs.to_string()).expect("illegal path");
+        self
     }
 }
 

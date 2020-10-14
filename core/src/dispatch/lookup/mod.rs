@@ -212,6 +212,11 @@ impl ActorLookup for ActorStore {
                 let prev = self.name_map.insert(&path, ActorTreeEntry::Ref(actor));
                 Ok(prev.into())
             }
+            PathResolvable::Segments(path) => {
+                crate::actors::validate_insert_path(&path)?;
+                let prev = self.name_map.insert(&path, ActorTreeEntry::Ref(actor));
+                Ok(prev.into())
+            }
             PathResolvable::ActorId(uuid) => Ok(self.uuid_map.insert(uuid, actor).into()),
             PathResolvable::System => Ok(self.deadletter.replace(actor).into()),
         }
@@ -249,6 +254,14 @@ impl ActorLookup for ActorStore {
                     path
                 );
                 self.name_map.get(&path).is_some()
+            }
+            PathResolvable::Segments(ref path) => {
+                debug_assert!(
+                    crate::actors::validate_lookup_path(path).is_ok(),
+                    "Path contains illegal characters: {:?}",
+                    path
+                );
+                self.name_map.get(path).is_some()
             }
             PathResolvable::ActorId(ref uuid) => self.uuid_map.contains_key(uuid),
             PathResolvable::System => self.deadletter.is_some(),

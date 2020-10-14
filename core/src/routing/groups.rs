@@ -39,7 +39,7 @@ pub static DEFAULT_SELECT_POLICY: SenderHashBucketRouting<DefaultHasherBuilder> 
         field_extractor: NetMessage::sender,
     };
 
-/// Cloneable [RoutingPolicy](RoutingPolicy) wrapper used in the [ActorStore](kompact::dispatch::lookup::ActorStore)
+/// Cloneable [RoutingPolicy](RoutingPolicy) wrapper used inside the `ActorStore`
 #[derive(Debug)]
 pub struct StorePolicy(Box<dyn RoutingPolicy<DynActorRef, NetMessage> + Send + Sync>);
 impl StorePolicy {
@@ -223,7 +223,7 @@ impl<M, T: Hash, H: BuildHasher + Clone> FieldHashBucketRouting<M, T, H> {
 
     /// Provides the bucket index for the `msg` for `length` buckets
     ///
-    /// It does so by calling [hash_message](hash_message) internally
+    /// It does so by calling [hash_message](Self::hash_message) internally
     /// and then using modulo arithmentic to decide a bucket from the hash.
     pub fn get_bucket(&self, msg: &M, length: usize) -> usize {
         let hash = self.hash_message(msg);
@@ -311,8 +311,7 @@ impl RoutingPolicy<DynActorRef, NetMessage> for BroadcastRouting {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use std::{sync::Arc, time::Duration};
+    use crate::{prelude::*, routing::test_helpers::*};
 
     const GROUP_SIZE: usize = 3;
     const NUM_MESSAGES: usize = 30;
@@ -338,17 +337,6 @@ mod tests {
             let group = RoutingGroup::new(Vec::new(), &router);
             println!("Group: {:?}", group);
         }
-    }
-
-    fn individual_count(receivers: &[Arc<Component<ReceiverComponent>>]) -> Vec<usize> {
-        receivers
-            .iter()
-            .map(|component| component.on_definition(|cd| cd.count))
-            .collect()
-    }
-
-    fn total_count(receivers: &[Arc<Component<ReceiverComponent>>]) -> usize {
-        individual_count(receivers).iter().sum()
     }
 
     #[test]
@@ -484,8 +472,11 @@ mod tests {
         let counts = individual_count(&receivers);
         assert!(counts.iter().any(|&v| v == 3));
 
-        let other_source_ref: ActorPath =
-            NamedPath::with_system(system.system_path(), vec!["other_source".to_string()]).into();
+        let other_source_ref: ActorPath = system
+            .system_path()
+            .to_named_with_string("other_source")
+            .expect("actor path")
+            .into();
 
         let msg4 = NetMessage::with_box(
             CountMe::SER_ID,
@@ -608,66 +599,5 @@ mod tests {
         assert_eq!(NUM_MESSAGES + 4, counts[2]);
 
         system.shutdown().expect("shutdown");
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    struct CountMe;
-    impl Serialisable for CountMe {
-        fn ser_id(&self) -> SerId {
-            Self::SER_ID
-        }
-
-        fn size_hint(&self) -> Option<usize> {
-            Some(0)
-        }
-
-        fn serialise(&self, _buf: &mut dyn BufMut) -> Result<(), SerError> {
-            Ok(())
-        }
-
-        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
-            Ok(self)
-        }
-
-        fn cloned(&self) -> Option<Box<dyn Serialisable>> {
-            Some(Box::new(*self))
-        }
-    }
-    impl Deserialiser<CountMe> for CountMe {
-        const SER_ID: SerId = 42;
-
-        fn deserialise(_buf: &mut dyn Buf) -> Result<CountMe, SerError> {
-            Ok(CountMe)
-        }
-    }
-
-    #[derive(ComponentDefinition)]
-    struct ReceiverComponent {
-        ctx: ComponentContext<Self>,
-        count: usize,
-    }
-    impl Default for ReceiverComponent {
-        fn default() -> Self {
-            ReceiverComponent {
-                ctx: ComponentContext::uninitialised(),
-                count: 0,
-            }
-        }
-    }
-    ignore_lifecycle!(ReceiverComponent);
-    impl Actor for ReceiverComponent {
-        type Message = Never;
-
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
-            unreachable!("Can't instantiate Never type!");
-        }
-
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
-            match_deser!(msg; {
-                _count_me: CountMe [CountMe] => self.count += 1,
-                !Err(e) => error!(self.log(), "Received something else: {:?}", e),
-            });
-            Handled::Ok
-        }
     }
 }

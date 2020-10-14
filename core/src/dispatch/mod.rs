@@ -7,17 +7,20 @@ use crate::{
 use std::{net::SocketAddr, pin::Pin, sync::Arc};
 
 use crate::{
-    actors::{NamedPath, UniquePath},
+    actors::NamedPath,
     dispatch::{lookup::ActorStore, queue_manager::QueueManager},
     messaging::{
+        ActorRegistration,
         DispatchData,
         DispatchEnvelope,
         EventEnvelope,
         MsgEnvelope,
         NetMessage,
         PathResolvable,
+        PolicyRegistration,
         RegistrationEnvelope,
         RegistrationError,
+        RegistrationEvent,
         RegistrationPromise,
         SerialisedFrame,
     },
@@ -35,6 +38,7 @@ use futures::{
     self,
     task::{Context, Poll},
 };
+use lookup::{ActorLookup, InsertResult, LookupResult};
 use rustc_hash::FxHashMap;
 use std::{collections::VecDeque, io::ErrorKind, time::Duration};
 
@@ -252,8 +256,6 @@ impl NetworkDispatcher {
     }
 
     fn start(&mut self) -> Result<(), net::NetworkBridgeErr> {
-        use lookup::ActorLookup;
-
         debug!(self.ctx.log(), "Starting self and network bridge");
         let dispatcher = self
             .actor_ref()
@@ -455,7 +457,6 @@ impl NetworkDispatcher {
     where
         R: Routable,
     {
-        use crate::dispatch::lookup::{ActorLookup, LookupResult};
         let lookup = self.lookup.load();
         let lookup_result = lookup.get_by_actor_path(msg.destination());
         match msg.into_local() {
@@ -594,17 +595,19 @@ impl NetworkDispatcher {
         Ok(())
     }
 
-    fn resolve_path(&mut self, resolvable: &PathResolvable) -> ActorPath {
+    fn resolve_path(&mut self, resolvable: &PathResolvable) -> Result<ActorPath, PathParseError> {
         match resolvable {
-            PathResolvable::Path(actor_path) => actor_path.clone(),
-            PathResolvable::Alias(alias) => ActorPath::Named(NamedPath::with_system(
-                self.system_path(),
-                vec![alias.clone()],
-            )),
-            PathResolvable::ActorId(uuid) => {
-                ActorPath::Unique(UniquePath::with_system(self.system_path(), *uuid))
-            }
-            PathResolvable::System => self.deadletter_path(),
+            PathResolvable::Path(actor_path) => Ok(actor_path.clone()),
+            PathResolvable::Alias(alias) => self
+                .system_path()
+                .to_named_with_string(alias)
+                .map(|p| p.into()),
+            PathResolvable::Segments(segments) => self
+                .system_path()
+                .to_named_with_vec(segments.to_vec())
+                .map(|p| p.into()),
+            PathResolvable::ActorId(id) => Ok(self.system_path().to_unique(*id).into()),
+            PathResolvable::System => Ok(self.deadletter_path()),
         }
     }
 
@@ -629,6 +632,104 @@ impl NetworkDispatcher {
     fn deadletter_path(&mut self) -> ActorPath {
         ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
     }
+
+    fn register_actor(
+        &mut self,
+        registration: ActorRegistration,
+        update: bool,
+        promise: RegistrationPromise,
+    ) {
+        let ActorRegistration { actor, path } = registration;
+        let res = self
+            .resolve_path(&path)
+            .map_err(RegistrationError::InvalidPath)
+            .and_then(|ap| {
+                let lease = self.lookup.load();
+                if lease.contains(&path) && !update {
+                    warn!(
+                        self.ctx.log(),
+                        "Detected duplicate path during registration. The path will not be re-registered"
+                    );
+                    drop(lease);
+                    Err(RegistrationError::DuplicateEntry)
+                } else {
+                    drop(lease);
+                    let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
+                    self.lookup.rcu(|current| {
+                        let mut next = ActorStore::clone(&current);
+                        result = next.insert(actor.clone(), path.clone());
+                        next
+                    });
+                    if let Ok(ref res) = result {
+                        if !res.is_empty() {
+                            info!(self.ctx.log(), "Replaced entry for path={:?}", path);
+                        }
+                    }
+                    result.map(|_| ap).map_err(RegistrationError::InvalidPath)
+                }
+            });
+        if res.is_ok() && !self.reaper.is_scheduled() {
+            self.schedule_reaper();
+        }
+        match promise {
+            RegistrationPromise::Fulfil(promise) => {
+                promise.fulfil(res).unwrap_or_else(|e| {
+                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                });
+            }
+            RegistrationPromise::None => (), // ignore
+        }
+    }
+
+    fn register_policy(
+        &mut self,
+        registration: PolicyRegistration,
+        update: bool,
+        promise: RegistrationPromise,
+    ) {
+        let PolicyRegistration { policy, path } = registration;
+        let lease = self.lookup.load();
+        let path_res = PathResolvable::Segments(path);
+        let res = self
+            .resolve_path(&path_res)
+            .map_err(RegistrationError::InvalidPath)
+            .and_then(|ap| {
+                if lease.contains(&path_res) && !update {
+                    warn!(
+                        self.ctx.log(),
+                        "Detected duplicate path during registration. The path will not be re-registered",
+                    );
+                    drop(lease);
+                    Err(RegistrationError::DuplicateEntry)
+                } else {
+                    drop(lease);
+                    //let PathResolvable::Segments(path) = path_res;
+                    // This should work, we just assigned it above, 
+                    // but the Rust compiler can't figure that out
+                    let_irrefutable!(path, PathResolvable::Segments(path) = path_res);
+                    let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
+                    self.lookup.rcu(|current| {
+                        let mut next = ActorStore::clone(&current);
+                        result = next.set_routing_policy(policy.clone(), &path);
+                        next
+                    });
+                    if let Ok(ref res) = result {
+                        if !res.is_empty() {
+                            info!(self.ctx.log(), "Replaced entry for path={:?}", path);
+                        }
+                    }
+                    result.map(|_| ap).map_err(RegistrationError::InvalidPath)
+                }
+            });
+        match promise {
+            RegistrationPromise::Fulfil(promise) => {
+                promise.fulfil(res).unwrap_or_else(|e| {
+                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                });
+            }
+            RegistrationPromise::None => (), // ignore
+        }
+    }
 }
 
 impl Actor for NetworkDispatcher {
@@ -648,46 +749,14 @@ impl Actor for NetworkDispatcher {
                 };
             }
             DispatchEnvelope::Registration(reg) => {
-                use lookup::{ActorLookup, InsertResult};
-
                 let RegistrationEnvelope {
-                    actor,
-                    path,
+                    event,
                     update,
                     promise,
                 } = reg;
-                let ap = self.resolve_path(&path);
-                let lease = self.lookup.load();
-                let res = if lease.contains(&path) && !update {
-                    warn!(self.ctx.log(), "Detected duplicate path during registration. The path will not be re-registered");
-                    drop(lease);
-                    Err(RegistrationError::DuplicateEntry)
-                } else {
-                    drop(lease);
-                    let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
-                    self.lookup.rcu(|current| {
-                        let mut next = ActorStore::clone(&current);
-                        result = next.insert(actor.clone(), path.clone());
-                        next
-                    });
-                    if let Ok(ref res) = result {
-                        if !res.is_empty() {
-                            info!(self.ctx.log(), "Replaced entry for path={:?}", path);
-                        }
-                    }
-                    result.map(|_| ap).map_err(RegistrationError::InvalidPath)
-                };
-
-                if res.is_ok() && !self.reaper.is_scheduled() {
-                    self.schedule_reaper();
-                }
-                match promise {
-                    RegistrationPromise::Fulfil(promise) => {
-                        promise.fulfil(res).unwrap_or_else(|e| {
-                            error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
-                        });
-                    }
-                    RegistrationPromise::None => (), // ignore
+                match event {
+                    RegistrationEvent::Actor(rea) => self.register_actor(rea, update, promise),
+                    RegistrationEvent::Policy(rep) => self.register_policy(rep, update, promise),
                 }
             }
             DispatchEnvelope::Event(ev) => self.on_event(ev),

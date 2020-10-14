@@ -41,7 +41,7 @@ impl ListenEvent {
 pub struct FaultContext {
     /// The id of the component that faulted
     pub component_id: Uuid,
-    /// The concrete error produced by [catch_unwind](panic::catch_unwind)
+    /// The concrete error produced by [catch_unwind](std::panic::catch_unwind)
     pub fault: Box<dyn Any + Send>,
 }
 impl FaultContext {
@@ -129,8 +129,8 @@ impl fmt::Debug for FaultContext {
 /// a temporary component to drive the futures involved, instead of handling
 /// everything in the recovery handler.
 ///
-/// An instance of this can be produced via [FaultContext::recover_with](FaultContext::recover_with)
-/// or other convenience methods on [FaultContext](FaultContext).
+/// An instance of this can be produced via [FaultContext::recover_with](crate::prelude::FaultContext::recover_with)
+/// or other convenience methods on [FaultContext](crate::prelude::FaultContext).
 pub struct RecoveryHandler {
     /// The context of the fault that occurred
     ctx: FaultContext,

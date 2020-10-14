@@ -114,6 +114,9 @@ pub type Never = std::convert::Infallible;
 /// but that feature may be added in a future API if needed.
 pub type JoinHandle<R> = futures::channel::oneshot::Receiver<R>;
 
+/// A simple type alias Kompact's slog `Logger` type signature.
+pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
+
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
@@ -185,6 +188,7 @@ pub mod prelude {
         net::{buffer::*, buffer_pool::*},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
+        supervision::{FaultContext, RecoveryHandler},
         Never,
     };
 
@@ -222,6 +226,8 @@ pub mod prelude {
             TryDualLockError,
         },
     };
+
+    pub use crate::routing::groups::StorePolicy;
 
     #[cfg(all(nightly, feature = "type_erasure"))]
     pub use crate::utils::erased::CreateErased;
@@ -298,9 +304,6 @@ pub mod doctest_helpers {
         }
     }
 }
-
-/// A simple type alias Kompact's slog `Logger` type signature.
-pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]
 mod test_helpers {

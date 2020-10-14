@@ -227,8 +227,8 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> KFuture<Result<
     /// this method will panic with an appropriate error message.
     pub fn wait_expect(self, timeout: Duration, error_msg: &'static str) -> T {
         self.wait_timeout(timeout)
-            .unwrap_or_else(|_| panic!("{} (caused by timeout)", error_msg))
-            .unwrap_or_else(|_| panic!("{} (caused by result)", error_msg))
+            .unwrap_or_else(|e| panic!("{}\n    Error was caused by timeout: {:?}", error_msg, e))
+            .unwrap_or_else(|e| panic!("{}\n    Error was caused by result: {:?}", error_msg, e))
     }
 }
 
@@ -332,6 +332,28 @@ where
         let response = f(self.content);
         self.promise.fulfil(response)
     }
+}
+
+/// A macro that provides a shorthand for an irrefutable let binding,
+/// that the compiler cannot determine on its own
+///
+/// This is equivalent to the following code:
+/// ```ignore
+/// let name = if let Pattern(name) = expression {
+///     name   
+/// } else {
+///     unreachable!();   
+/// };
+/// ```
+#[macro_export]
+macro_rules! let_irrefutable {
+    ($name:ident, $pattern:pat = $expression:expr) => {
+        let $name = if let $pattern = $expression {
+            $name
+        } else {
+            unreachable!("Pattern is irrefutable!");
+        };
+    };
 }
 
 /// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
