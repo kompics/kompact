@@ -180,7 +180,7 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        net::{buffer::*, buffer_pool::*},
+        net::buffers::ChunkLease,
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         Never,

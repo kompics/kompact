@@ -12,12 +12,12 @@ use uuid::Uuid;
 use super::*;
 use crate::{
     actors::TypedMsgQueue,
+    net::buffers::EncodeBuffer,
     supervision::*,
     timer::timer_manager::{ExecuteAction, ScheduledTimer, Timer, TimerManager, TimerRefFactory},
 };
 use rustc_hash::FxHashMap;
 
-use crate::net::buffer::EncodeBuffer;
 #[cfg(all(nightly, feature = "type_erasure"))]
 use crate::utils::erased::CreateErased;
 use owning_ref::{Erased, OwningRefMut};
