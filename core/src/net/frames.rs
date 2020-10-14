@@ -6,7 +6,7 @@ use bytes::{Buf, BufMut};
 //use bytes::IntoBuf;
 use std::{self, fmt::Debug};
 
-use crate::net::buffer::ChunkLease;
+use crate::net::buffers::ChunkLease;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use uuid::Uuid;
 
@@ -89,16 +89,16 @@ impl Frame {
         }
     }*/
     /// Encode a frame into a BufMut
-    pub fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
-        let head = FrameHead::new(self.frame_type(), self.encoded_len());
+    pub fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()> {
+        let mut head = FrameHead::new(self.frame_type(), self.encoded_len());
         head.encode_into(dst);
-        match *self {
-            Frame::StreamRequest(ref frame) => frame.encode_into(dst),
-            Frame::CreditUpdate(ref frame) => frame.encode_into(dst),
-            Frame::Data(ref frame) => frame.encode_into(dst),
-            Frame::Hello(ref frame) => frame.encode_into(dst),
-            Frame::Start(ref frame) => frame.encode_into(dst),
-            Frame::Ack(ref frame) => frame.encode_into(dst),
+        match self {
+            Frame::StreamRequest(frame) => frame.encode_into(dst),
+            Frame::CreditUpdate(frame) => frame.encode_into(dst),
+            Frame::Data(frame) => frame.encode_into(dst),
+            Frame::Hello(frame) => frame.encode_into(dst),
+            Frame::Start(frame) => frame.encode_into(dst),
+            Frame::Ack(frame) => frame.encode_into(dst),
             Frame::Bye() => Ok(()),
         }
     }
@@ -120,7 +120,7 @@ impl Frame {
 /// Trait for unifying the Encode/Decode of the different FrameTypes.
 pub(crate) trait FrameExt {
     fn decode_from(src: ChunkLease) -> Result<Frame, FramingError>;
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()>;
+    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()>;
     fn encoded_len(&self) -> usize;
 }
 
@@ -222,7 +222,7 @@ impl FrameHead {
 
     /// Encodes own fields and entire frame length into `dst`.
     /// This conforms to the length_delimited decoder found in the framed writer
-    pub(crate) fn encode_into<B: BufMut>(&self, dst: &mut B) {
+    pub(crate) fn encode_into<B: BufMut>(&mut self, dst: &mut B) {
         assert!(dst.remaining_mut() >= FRAME_HEAD_LEN as usize);
         // Represents total length, including bytes for encoding length
         // NOTE: This is not needed, and thus commented out, if length_delimited is also used for writing (as in the kompcis code)
@@ -309,7 +309,7 @@ impl Data {
     }
 
     pub(crate) fn encoded_len(&self) -> usize {
-        self.payload.bytes().len()
+        self.payload.capacity()
     }
 
     /// Consumes this frame and returns the raw payload buffer
@@ -328,10 +328,13 @@ impl FrameExt for Data {
         Ok(Frame::Data(data_frame))
     }
 
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+    /// This method should only be used for non-data frames, it copies and consumes the data!
+    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()> {
         // NOTE: This method _COPIES_ the owned bytes into `dst` rather than extending with the owned bytes
         assert!(dst.remaining_mut() >= (self.encoded_len()));
-        dst.put_slice(&self.payload.bytes());
+        while self.payload.has_remaining() {
+            dst.put_slice(self.payload.bytes());
+        }
         Ok(())
     }
 
@@ -353,7 +356,7 @@ impl FrameExt for StreamRequest {
         Ok(Frame::StreamRequest(stream_req))
     }
 
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()> {
         assert!(dst.remaining_mut() >= self.encoded_len());
         //dst.put_u32_be(self.stream_id.into());
         dst.put_u32(self.credit_capacity);
@@ -386,7 +389,7 @@ impl FrameExt for Hello {
         }
     }
 
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()> {
         match self.addr {
             SocketAddr::V4(v4) => {
                 dst.put_u8(4); // version
@@ -438,7 +441,7 @@ impl FrameExt for Start {
         }
     }
 
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()> {
         match self.addr {
             SocketAddr::V4(v4) => {
                 dst.put_u8(4); // version
@@ -476,7 +479,7 @@ impl FrameExt for Ack {
         }))
     }
 
-    fn encode_into<B: BufMut>(&self, dst: &mut B) -> Result<(), ()> {
+    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), ()> {
         dst.put_u128(self.offset);
         Ok(())
     }
@@ -491,7 +494,7 @@ impl FrameExt for CreditUpdate {
         unimplemented!()
     }
 
-    fn encode_into<B: BufMut>(&self, _dst: &mut B) -> Result<(), ()> {
+    fn encode_into<B: BufMut>(&mut self, _dst: &mut B) -> Result<(), ()> {
         unimplemented!()
     }
 

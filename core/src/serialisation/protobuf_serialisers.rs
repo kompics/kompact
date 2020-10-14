@@ -51,8 +51,18 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
     }
 
     fn get_deserialised(self) -> Result<M, SerError> {
-        let ProtobufDeser { msg: mut m, buf: b } = self;
-        let r = m.merge_from_bytes(b.bytes()).map_err(|e| match e {
+        let ProtobufDeser {
+            msg: mut m,
+            buf: mut b,
+        } = self;
+        let pr = {
+            if b.bytes().len() < b.remaining() {
+                m.merge_from_bytes(b.to_bytes().bytes())
+            } else {
+                m.merge_from_bytes(b.bytes())
+            }
+        };
+        let r = pr.map_err(|e| match e {
             ProtobufError::IoError(_) => {
                 SerError::Unknown("Protobuf deserialisation reported an IoError.".into())
             }

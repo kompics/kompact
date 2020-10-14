@@ -24,13 +24,7 @@ use crate::{
         RegistrationPromise,
         SerialisedFrame,
     },
-    net::{
-        buffer::{BufferChunk, BufferConfig, BufferEncoder, EncodeBuffer},
-        events::NetworkEvent,
-        ConnectionState,
-        NetworkBridgeErr,
-    },
-    prelude::ChunkAllocator,
+    net::{buffers::*, events::NetworkEvent, ConnectionState, NetworkBridgeErr},
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
@@ -215,7 +209,7 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         let reaper = lookup::gc::ActorRefReaper::default();
-        let encode_buffer = crate::net::buffer::EncodeBuffer::with_config(
+        let encode_buffer = crate::net::buffers::EncodeBuffer::with_config(
             &cfg.buffer_config,
             &cfg.custom_allocator,
         );
@@ -506,7 +500,7 @@ impl NetworkDispatcher {
         let protocol: Transport = dst.protocol();
         let addr = SocketAddr::new(*dst.address(), dst.port());
         let serialised = {
-            let buf = &mut BufferEncoder::new(&mut self.encode_buffer);
+            let buf = &mut self.encode_buffer.get_buffer_encoder();
             msg.into_serialised(buf)?
         };
 
@@ -918,7 +912,8 @@ mod tests {
     use super::{super::*, *};
     use crate::prelude::Any;
     use bytes::{Buf, BufMut};
-    use std::{thread, time::Duration};
+    use serde::export::Formatter;
+    use std::{fmt::Debug, thread, time::Duration};
 
     // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
@@ -1163,6 +1158,208 @@ mod tests {
         });
         pinger_named.on_definition(|c| {
             println!("pinger named count: {}", c.count);
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
+    /// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+    fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
+        let mut net_cfg = NetworkConfig::default();
+        net_cfg.buffer_config.chunk_size(128);
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_named, ponf) = remote.create_and_register(BigPongerAct::new_lazy);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+
+        let (pinger_named, pinf) =
+            system.create_and_register(move || BigPingerAct::new_lazy(ponger_named_path, 120));
+
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_named);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(15000));
+
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
+    /// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+    fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
+        let mut net_cfg = NetworkConfig::default();
+        net_cfg.buffer_config.chunk_size(128);
+        let buf_cfg = &net_cfg.buffer_config;
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_named, ponf) =
+            remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+
+        let (pinger_named, pinf) = system.create_and_register(move || {
+            BigPingerAct::new_eager(ponger_named_path, 120, buf_cfg.clone())
+        });
+
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_named);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(15000));
+
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
+    /// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+    fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
+        let mut net_cfg = NetworkConfig::default();
+        net_cfg.buffer_config.chunk_size(65536);
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_named, ponf) = remote.create_and_register(BigPongerAct::new_lazy);
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let mut ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_named_path.via_udp();
+        let (pinger_named, pinf) = system
+            .create_and_register(move || BigPingerAct::new_lazy(ponger_named_path, 65536 * 3 / 4));
+
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_named);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(15000));
+
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
+            assert_eq!(c.count, PING_COUNT);
+        });
+
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[test]
+    /// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
+    /// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+    fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
+        let mut net_cfg = NetworkConfig::default();
+        net_cfg.buffer_config.chunk_size(65536);
+        let buf_cfg = &net_cfg.buffer_config;
+        let (system, remote) = {
+            let system = || {
+                let mut cfg = KompactConfig::new();
+                cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
+                cfg.build().expect("KompactSystem")
+            };
+            (system(), system())
+        };
+        let (ponger_named, ponf) =
+            remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
+        let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+        let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        let mut ponger_named_path =
+            poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+        ponger_named_path.via_udp();
+        let (pinger_named, pinf) = system.create_and_register(move || {
+            BigPingerAct::new_eager(ponger_named_path, 65536 * 3 / 4, buf_cfg.clone())
+        });
+
+        pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+        remote.start(&ponger_named);
+        system.start(&pinger_named);
+
+        // TODO maybe we could do this a bit more reliable?
+        thread::sleep(Duration::from_millis(15000));
+
+        let pingfn = system.stop_notify(&pinger_named);
+        let pongfn = remote.kill_notify(ponger_named);
+
+        pingfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Pinger never stopped!");
+        pongfn
+            .wait_timeout(Duration::from_millis(1000))
+            .expect("Ponger never died!");
+        pinger_named.on_definition(|c| {
             assert_eq!(c.count, PING_COUNT);
         });
 
@@ -2305,6 +2502,366 @@ mod tests {
                 "Forwarding some msg from {} to {}", msg.sender, self.forward_to
             );
             self.forward_to.forward_with_original_sender(msg, self);
+            Handled::Ok
+        }
+    }
+    // BigPing and BigPong
+    use rand::{thread_rng, Rng};
+
+    #[derive(Clone)]
+    struct BigPingMsg {
+        i: u64,
+        data: Vec<u8>,
+        sum: u64,
+    }
+
+    impl BigPingMsg {
+        pub fn new(i: u64, data_size: usize) -> Self {
+            let mut data = Vec::<u8>::with_capacity(data_size);
+            for _ in 0..data_size {
+                data.push(thread_rng().gen());
+            }
+            let mut sum: u64 = 0;
+            for d in &data {
+                sum = sum + *d as u64;
+            }
+            BigPingMsg { i, data, sum }
+        }
+
+        pub fn validate(&self) -> () {
+            let mut sum: u64 = 0;
+            for d in &self.data {
+                sum = sum + *d as u64;
+            }
+            assert_eq!(self.sum, sum, "BigPingMsg invalid, {:?}", self);
+        }
+    }
+
+    #[derive(Clone)]
+    struct BigPongMsg {
+        i: u64,
+        data: Vec<u8>,
+        sum: u64,
+    }
+
+    impl BigPongMsg {
+        pub fn new(i: u64, data_size: usize) -> BigPongMsg {
+            let mut data = Vec::<u8>::with_capacity(data_size);
+            for _ in 0..data_size {
+                data.push(thread_rng().gen());
+            }
+            let mut sum: u64 = 0;
+            for d in &data {
+                sum = sum + *d as u64;
+            }
+            BigPongMsg { i, data, sum }
+        }
+
+        pub fn validate(&self) -> () {
+            let mut sum: u64 = 0;
+            for d in &self.data {
+                sum = sum + *d as u64;
+            }
+            assert_eq!(self.sum, sum, "BigPongMsg invalid, {:?}", self);
+        }
+    }
+
+    impl Debug for BigPingMsg {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("BigPingMsg")
+                .field("i", &self.i)
+                .field("data length", &self.data.len())
+                .field("sum", &self.sum)
+                .field("data 0", &self.data[0])
+                .field("data n", &self.data[&self.data.len() - 1])
+                .finish()
+        }
+    }
+    impl Debug for BigPongMsg {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("BigPongMsg")
+                .field("i", &self.i)
+                .field("data length", &self.data.len())
+                .field("sum", &self.sum)
+                .field("data 0", &self.data[0])
+                .field("data n", &self.data[&self.data.len() - 1])
+                .finish()
+        }
+    }
+
+    struct BigPingPongSer;
+
+    impl BigPingPongSer {
+        const SID: SerId = 43;
+    }
+
+    impl Serialisable for BigPingMsg {
+        fn ser_id(&self) -> SerId {
+            43
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(32 + self.data.len())
+        }
+
+        fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
+            buf.put_i8(PING_ID);
+            buf.put_u64(self.i);
+            buf.put_u64(self.data.len() as u64);
+            //buf.put_slice(self.data.as_slice());
+            for d in &self.data {
+                buf.put_u8(*d);
+            }
+            buf.put_u64(self.sum);
+            Result::Ok(())
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
+            Ok(self)
+        }
+    }
+
+    impl Serialisable for BigPongMsg {
+        fn ser_id(&self) -> SerId {
+            43
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(32 + self.data.len())
+        }
+
+        fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
+            buf.put_i8(PONG_ID);
+            buf.put_u64(self.i);
+            buf.put_u64(self.data.len() as u64);
+            //buf.put_slice(self.data.as_slice());
+            for d in &self.data {
+                buf.put_u8(*d);
+            }
+            buf.put_u64(self.sum);
+            Result::Ok(())
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
+            Ok(self)
+        }
+    }
+
+    impl Deserialiser<BigPingMsg> for BigPingPongSer {
+        const SER_ID: SerId = Self::SID;
+
+        fn deserialise(buf: &mut dyn Buf) -> Result<BigPingMsg, SerError> {
+            if buf.remaining() < 18 {
+                return Err(SerError::InvalidData(format!(
+                    "Serialised typed has 18 bytes but only {} bytes remain in buffer.",
+                    buf.remaining()
+                )));
+            }
+            match buf.get_i8() {
+                PING_ID => {
+                    let i = buf.get_u64();
+                    let data_len = buf.get_u64() as usize;
+                    let mut data = Vec::with_capacity(data_len as usize);
+                    for j in 0..data_len {
+                        data.insert(j, buf.get_u8());
+                    }
+                    let sum = buf.get_u64();
+                    assert_eq!(buf.remaining(), 0, "Buffer too big! {}", buf.remaining());
+                    Ok(BigPingMsg { i, data, sum })
+                }
+                PONG_ID => Err(SerError::InvalidType(
+                    "Found BigPongMsg, but expected BigPingMsg.".into(),
+                )),
+                id => Err(SerError::InvalidType(format!(
+                    "Found unknown id {}, but expected BigPingMsg.",
+                    id
+                ))),
+            }
+        }
+    }
+
+    impl Deserialiser<BigPongMsg> for BigPingPongSer {
+        const SER_ID: SerId = Self::SID;
+
+        fn deserialise(buf: &mut dyn Buf) -> Result<BigPongMsg, SerError> {
+            if buf.remaining() < 18 {
+                return Err(SerError::InvalidData(format!(
+                    "Serialised typed has 18 bytes but only {} bytes remain in buffer.",
+                    buf.remaining()
+                )));
+            }
+            match buf.get_i8() {
+                PONG_ID => {
+                    let i = buf.get_u64();
+                    let data_len = buf.get_u64() as usize;
+                    let mut data = Vec::with_capacity(data_len as usize);
+                    for j in 0..data_len {
+                        data.insert(j, buf.get_u8());
+                    }
+                    let sum = buf.get_u64();
+                    assert_eq!(buf.remaining(), 0, "Buffer too big!");
+                    Ok(BigPongMsg { i, data, sum })
+                }
+                PING_ID => Err(SerError::InvalidType(
+                    "Found BigPingMsg, but expected BigPongMsg.".into(),
+                )),
+                id => Err(SerError::InvalidType(format!(
+                    "Found unknown id {}, but expected BigPingMsg.",
+                    id
+                ))),
+            }
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct BigPingerAct {
+        ctx: ComponentContext<BigPingerAct>,
+        target: ActorPath,
+        count: u64,
+        data_size: usize,
+        eager: bool,
+        buffer_config: BufferConfig,
+    }
+
+    #[allow(dead_code)]
+    impl BigPingerAct {
+        fn new_lazy(target: ActorPath, data_size: usize) -> BigPingerAct {
+            BigPingerAct {
+                ctx: ComponentContext::uninitialised(),
+                target,
+                count: 0,
+                data_size,
+                eager: false,
+                buffer_config: BufferConfig::default(),
+            }
+        }
+
+        fn new_eager(
+            target: ActorPath,
+            data_size: usize,
+            buffer_config: BufferConfig,
+        ) -> BigPingerAct {
+            BigPingerAct {
+                ctx: ComponentContext::uninitialised(),
+                target,
+                count: 0,
+                data_size,
+                eager: true,
+                buffer_config: buffer_config,
+            }
+        }
+    }
+
+    impl ComponentLifecycle for BigPingerAct {
+        fn on_start(&mut self) -> Handled {
+            let ping = BigPingMsg::new(0, self.data_size);
+            if self.eager {
+                self.ctx
+                    .init_buffers(Some(self.buffer_config.clone()), None);
+            }
+            debug!(self.ctx.log(), "Starting, sending first ping: {:?}", ping);
+            if self.eager {
+                self.target.tell_serialised(ping, self).expect("serialise");
+            } else {
+                self.target.tell(ping, self);
+            }
+            Handled::Ok
+        }
+    }
+
+    impl Actor for BigPingerAct {
+        type Message = Never;
+
+        fn receive_local(&mut self, _pong: Self::Message) -> Handled {
+            unimplemented!();
+        }
+
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            match msg.try_deserialise::<BigPongMsg, BigPingPongSer>() {
+                Ok(pong) => {
+                    debug!(self.ctx.log(), "Got msg {:?}", pong);
+                    pong.validate();
+                    assert_eq!(
+                        pong.data.len(),
+                        self.data_size,
+                        "Incorrect Pong data-length"
+                    );
+                    self.count += 1;
+                    if self.count < PING_COUNT {
+                        let ping = BigPingMsg::new(pong.i + 1, self.data_size);
+                        if self.eager {
+                            self.target.tell_serialised(ping, self).expect("serialise");
+                        } else {
+                            self.target.tell(ping, self);
+                        }
+                    }
+                }
+                Err(e) => error!(self.ctx.log(), "Error deserialising BigPongMsg: {:?}", e),
+            }
+            Handled::Ok
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct BigPongerAct {
+        ctx: ComponentContext<BigPongerAct>,
+        eager: bool,
+        buffer_config: BufferConfig,
+    }
+
+    #[allow(dead_code)]
+    impl BigPongerAct {
+        fn new_lazy() -> BigPongerAct {
+            BigPongerAct {
+                ctx: ComponentContext::uninitialised(),
+                eager: false,
+                buffer_config: BufferConfig::default(),
+            }
+        }
+
+        fn new_eager(buffer_config: BufferConfig) -> BigPongerAct {
+            BigPongerAct {
+                ctx: ComponentContext::uninitialised(),
+                eager: true,
+                buffer_config: buffer_config,
+            }
+        }
+    }
+
+    impl ComponentLifecycle for BigPongerAct {
+        fn on_start(&mut self) -> Handled {
+            if self.eager {
+                self.ctx
+                    .init_buffers(Some(self.buffer_config.clone()), None);
+            }
+            Handled::Ok
+        }
+    }
+
+    impl Actor for BigPongerAct {
+        type Message = Never;
+
+        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
+            unimplemented!();
+        }
+
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            let sender = msg.sender;
+            match_deser! {msg.data; {
+                ping: BigPingMsg [BigPingPongSer] => {
+                    debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
+                    ping.validate();
+                    let pong = BigPongMsg::new(ping.i, ping.data.len());
+                    if self.eager {
+                        sender
+                            .tell_serialised(pong, self)
+                            .expect("BigPongMsg should serialise");
+                    } else {
+                        sender.tell(pong, self);
+                    }
+                },
+                !Err(e) => error!(self.ctx.log(), "Error deserialising BigPingMsg: {:?}", e),
+            }}
             Handled::Ok
         }
     }

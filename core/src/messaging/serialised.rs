@@ -52,7 +52,6 @@ impl<E> TryFrom<Result<Serialised, E>> for Serialised {
     }
 }
 
-// TODO: Move framing from the pooled data creation to the Network dispatcher!
 /// Wrapper used to wrap framed values for transfer to the Network thread
 #[derive(Debug)]
 pub enum SerialisedFrame {
@@ -70,14 +69,36 @@ impl SerialisedFrame {
 
     /// Returns the number of bytes in this frame
     pub fn len(&self) -> usize {
-        self.bytes().len()
+        match self {
+            SerialisedFrame::Chunk(chunk) => chunk.remaining(),
+            SerialisedFrame::Bytes(bytes) => bytes.remaining(),
+        }
     }
 
     /// Returns the data in this frame as a slice
+    ///
+    /// # Note
+    ///
+    /// In case of chaining only the front is returned!
     pub fn bytes(&self) -> &[u8] {
         match self {
             SerialisedFrame::Chunk(chunk) => chunk.bytes(),
             SerialisedFrame::Bytes(bytes) => bytes.bytes(),
+        }
+    }
+
+    /// Used by UDP sending which requires the frame to be a contiguous byte-sequence.
+    /// Does nothing if it's already contiguous.
+    pub fn make_contiguous(&mut self) {
+        if self.len() > self.bytes().len() {
+            match self {
+                SerialisedFrame::Chunk(chunk) => {
+                    *self = SerialisedFrame::Bytes(chunk.to_bytes());
+                }
+                _ => {
+                    unreachable!("Can't convert uncontiguous Bytes to contiguous");
+                }
+            }
         }
     }
 }

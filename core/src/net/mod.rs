@@ -16,8 +16,7 @@ use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
 
 #[allow(missing_docs)]
-pub mod buffer;
-pub(crate) mod buffer_pool;
+pub mod buffers;
 pub mod frames;
 pub(crate) mod network_channel;
 pub(crate) mod network_thread;
@@ -236,8 +235,9 @@ impl Bridge {
             SerialisedFrame::Bytes(bytes) => {
                 let size = FrameHead::encoded_len() + bytes.len();
                 let mut buf = BytesMut::with_capacity(size);
-                let head = FrameHead::new(FrameType::Data, bytes.len());
+                let mut head = FrameHead::new(FrameType::Data, bytes.len());
                 head.encode_into(&mut buf);
+                // TODO: what is this used for?
                 buf.put_slice(bytes.bytes());
                 match protocol {
                     Protocol::TCP => {

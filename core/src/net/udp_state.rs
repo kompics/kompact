@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     messaging::{NetMessage, SerialisedFrame},
-    net::buffer::{BufferChunk, DecodeBuffer},
+    net::buffers::{BufferChunk, DecodeBuffer},
 };
 use mio::net::UdpSocket;
 use network_thread::*;
@@ -18,12 +18,17 @@ pub(super) struct UdpState {
 }
 
 impl UdpState {
-    pub(super) fn new(socket: UdpSocket, buffer_chunk: BufferChunk, logger: KompactLogger) -> Self {
+    pub(super) fn new(
+        socket: UdpSocket,
+        buffer_chunk: BufferChunk,
+        logger: KompactLogger,
+        network_config: &NetworkConfig,
+    ) -> Self {
         UdpState {
             logger,
             socket,
             outbound_queue: VecDeque::new(),
-            input_buffer: DecodeBuffer::new(buffer_chunk),
+            input_buffer: DecodeBuffer::new(buffer_chunk, network_config.get_buffer_config()),
             incoming_messages: VecDeque::new(),
         }
     }
@@ -35,7 +40,7 @@ impl UdpState {
     pub(super) fn try_write(&mut self) -> io::Result<usize> {
         let mut sent_bytes: usize = 0;
         let mut interrupts = 0;
-        while let Some((addr, frame)) = self.outbound_queue.pop_front() {
+        while let Some((addr, mut frame)) = self.outbound_queue.pop_front() {
             if frame.len() > MAX_PACKET_SIZE {
                 warn!(
                     self.logger,
@@ -45,6 +50,7 @@ impl UdpState {
                     MAX_PACKET_SIZE
                 );
             } else {
+                frame.make_contiguous();
                 match self.socket.send_to(frame.bytes(), addr) {
                     Ok(n) => {
                         // This really shouldn't happen, and can lead to inconsistent network messages
@@ -153,6 +159,10 @@ impl UdpState {
     }
 
     pub(super) fn swap_buffer(&mut self, new_buffer: &mut BufferChunk) -> () {
+        // Panic here with descriptive message of the problem
+        if new_buffer.len() < MAX_PACKET_SIZE {
+            panic!("Invalid Buffer Config, chunk_size < UDP MAX_PACKET_SIZE")
+        };
         self.input_buffer.swap_buffer(new_buffer);
     }
 }

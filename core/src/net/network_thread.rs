@@ -3,7 +3,7 @@ use crate::{
     dispatch::NetworkConfig,
     messaging::{DispatchEnvelope, EventEnvelope},
     net::{
-        buffer_pool::BufferPool,
+        buffers::BufferPool,
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
         ConnectionState,
@@ -64,6 +64,7 @@ pub struct NetworkThread {
     sent_msgs: u64,
     stopped: bool,
     shutdown_promise: Option<KPromise<()>>,
+    network_config: NetworkConfig,
 }
 
 /// Return values for IO Operations on the [NetworkChannel](net::network_channel::NetworkChannel) abstraction
@@ -88,7 +89,7 @@ impl NetworkThread {
         input_queue: Recv<DispatchEvent>,
         shutdown_promise: KPromise<()>,
         dispatcher_ref: DispatcherRef,
-        config: NetworkConfig,
+        network_config: NetworkConfig,
     ) -> (NetworkThread, Waker) {
         // Set-up the Listener
         debug!(
@@ -123,15 +124,16 @@ impl NetworkThread {
                     .expect("failed to create Waker for DISPATCHER");
 
                 let mut buffer_pool = BufferPool::with_config(
-                    &config.get_buffer_config(),
-                    &config.get_custom_allocator(),
+                    &network_config.get_buffer_config(),
+                    &network_config.get_custom_allocator(),
                 );
 
                 let udp_buffer = buffer_pool
                     .get_buffer()
                     .expect("Could not get buffer for setting up UDP");
 
-                let udp_state = UdpState::new(udp_socket, udp_buffer, logger.clone());
+                let udp_state =
+                    UdpState::new(udp_socket, udp_buffer, logger.clone(), &network_config);
                 let channel_map: FxHashMap<SocketAddr, TcpChannel> = FxHashMap::default();
                 let token_map: FxHashMap<Token, SocketAddr> = FxHashMap::default();
 
@@ -154,6 +156,7 @@ impl NetworkThread {
                         stopped: false,
                         shutdown_promise: Some(shutdown_promise),
                         dispatcher_ref,
+                        network_config,
                     },
                     waker,
                 )
@@ -658,7 +661,14 @@ impl NetworkThread {
     ) -> io::Result<()> {
         if let Some(buffer) = self.buffer_pool.get_buffer() {
             self.token_map.insert(self.token, *addr);
-            let mut channel = TcpChannel::new(stream, self.token, buffer, state, self.addr);
+            let mut channel = TcpChannel::new(
+                stream,
+                self.token,
+                buffer,
+                state,
+                self.addr,
+                &self.network_config,
+            );
             debug!(self.log, "Saying Hello to {}", addr);
             // Whatever error is thrown here will be re-triggered and handled later.
             channel.initialise(&self.addr);
@@ -823,7 +833,7 @@ fn bind_with_retries(
 #[allow(unused_must_use)]
 mod tests {
     use super::*;
-    use crate::{dispatch::NetworkConfig, prelude::BufferConfig};
+    use crate::{dispatch::NetworkConfig, net::buffers::BufferConfig};
 
     // Cleaner test-cases for manually running the thread
     fn poll_and_handle(thread: &mut NetworkThread) -> () {
