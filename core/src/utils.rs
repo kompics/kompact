@@ -338,7 +338,7 @@ where
 /// that the compiler cannot determine on its own
 ///
 /// This is equivalent to the following code:
-/// ```ignore
+/// ```no_run
 /// let name = if let Pattern(name) = expression {
 ///     name   
 /// } else {
