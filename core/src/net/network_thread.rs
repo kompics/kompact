@@ -729,6 +729,7 @@ impl NetworkThread {
                             }
                             Err(e) => {
                                 warn!(self.log, "Error during UDP sending: {}", e);
+                                debug!(self.log, "UDP erro debug info: {:?}", e);
                             }
                         }
                     } else {

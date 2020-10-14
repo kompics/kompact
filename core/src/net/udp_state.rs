@@ -7,7 +7,10 @@ use mio::net::UdpSocket;
 use network_thread::*;
 use std::{collections::VecDeque, io, net::SocketAddr};
 
-const MAX_PACKET_SIZE: usize = 65536;
+// Note that this is a theoretical IPv4 limit.
+// This may be violated with IPv6 jumbograms.
+// More importantly, individual OSs can have their limit much lower!
+const MAX_PACKET_SIZE: usize = 65535;
 
 pub(super) struct UdpState {
     logger: KompactLogger,
@@ -41,40 +44,30 @@ impl UdpState {
         let mut sent_bytes: usize = 0;
         let mut interrupts = 0;
         while let Some((addr, mut frame)) = self.outbound_queue.pop_front() {
-            if frame.len() > MAX_PACKET_SIZE {
-                warn!(
-                    self.logger,
-                    "A UDP package to {} was too large and has been dropped: {} > {}",
-                    addr,
-                    frame.len(),
-                    MAX_PACKET_SIZE
-                );
-            } else {
-                frame.make_contiguous();
-                match self.socket.send_to(frame.bytes(), addr) {
-                    Ok(n) => {
-                        // This really shouldn't happen, and can lead to inconsistent network messages
-                        assert_eq!(n, frame.len(), "A UDP frame was written incompletely!");
-                        sent_bytes += n;
-                    }
-                    Err(ref err) if would_block(err) => {
-                        // re-insert the data at the front of the buffer and return
-                        self.outbound_queue.push_front((addr, frame));
-                        return Ok(sent_bytes);
-                    }
-                    Err(err) if interrupted(&err) => {
-                        // re-insert the data at the front of the buffer
-                        self.outbound_queue.push_front((addr, frame));
-                        interrupts += 1;
-                        if interrupts >= MAX_INTERRUPTS {
-                            return Err(err);
-                        }
-                    }
-                    // Other errors we'll consider fatal.
-                    Err(err) => {
-                        self.outbound_queue.push_front((addr, frame));
+            frame.make_contiguous();
+            match self.socket.send_to(frame.bytes(), addr) {
+                Ok(n) => {
+                    // This really shouldn't happen, and can lead to inconsistent network messages
+                    assert_eq!(n, frame.len(), "A UDP frame was written incompletely!");
+                    sent_bytes += n;
+                }
+                Err(ref err) if would_block(err) => {
+                    // re-insert the data at the front of the buffer and return
+                    self.outbound_queue.push_front((addr, frame));
+                    return Ok(sent_bytes);
+                }
+                Err(err) if interrupted(&err) => {
+                    // re-insert the data at the front of the buffer
+                    self.outbound_queue.push_front((addr, frame));
+                    interrupts += 1;
+                    if interrupts >= MAX_INTERRUPTS {
                         return Err(err);
                     }
+                }
+                // Other errors we'll consider fatal.
+                Err(err) => {
+                    self.outbound_queue.push_front((addr, frame));
+                    return Err(err);
                 }
             }
         }
