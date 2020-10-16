@@ -8,7 +8,6 @@ use std::{net::SocketAddr, pin::Pin, sync::Arc};
 
 use crate::{
     actors::NamedPath,
-    dispatch::{lookup::ActorStore, queue_manager::QueueManager},
     messaging::{
         ActorRegistration,
         DispatchData,
@@ -32,7 +31,8 @@ use futures::{
     self,
     task::{Context, Poll},
 };
-use lookup::{ActorLookup, InsertResult, LookupResult};
+use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
+use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
 use std::{collections::VecDeque, io::ErrorKind, time::Duration};
 
@@ -269,7 +269,7 @@ impl NetworkDispatcher {
         let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
         self.lookup.rcu(|current| {
             let mut next = ActorStore::clone(&current);
-            next.insert(deadletter.clone(), PathResolvable::System)
+            next.insert(PathResolvable::System, deadletter.clone())
                 .expect("Deadletter shouldn't error");
             next
         });
@@ -651,7 +651,7 @@ impl NetworkDispatcher {
                     let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
                         let mut next = ActorStore::clone(&current);
-                        result = next.insert(actor.clone(), path.clone());
+                        result = next.insert(path.clone(), actor.clone());
                         next
                     });
                     if let Ok(ref res) = result {
@@ -704,7 +704,7 @@ impl NetworkDispatcher {
                     let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
                         let mut next = ActorStore::clone(&current);
-                        result = next.set_routing_policy(policy.clone(), &path);
+                        result = next.set_routing_policy(&path, policy.clone());
                         next
                     });
                     if let Ok(ref res) = result {

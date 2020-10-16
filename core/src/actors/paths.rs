@@ -764,13 +764,18 @@ impl NamedPath {
     }
 
     /// Returns a reference to the path vector
-    pub fn path_ref(&self) -> &Vec<String> {
+    pub fn path_ref(&self) -> &[String] {
         &self.path
     }
 
     /// Returns a copy to the path vector
     pub fn clone_path(&self) -> Vec<String> {
         self.path.clone()
+    }
+
+    /// Return just the path vector, discarding the SystemPath
+    pub fn into_path(self) -> Vec<String> {
+        self.path
     }
 
     /// Returns a mutable reference to this path's system path part
@@ -862,14 +867,22 @@ impl Div<char> for NamedPath {
     }
 }
 
-pub(crate) fn parse_path(s: &str) -> Vec<String> {
+/// Split the `&str` into segments using [PATH_SEP](crate::constants::PATH_SEP)
+pub fn parse_path(s: &str) -> Vec<String> {
     s.split(PATH_SEP)
         .into_iter()
         .map(|v| v.to_string())
         .collect()
 }
 
-pub(crate) fn validate_lookup_path(path: &[String]) -> Result<(), PathParseError> {
+/// Check that the given path is valid as a lookup path
+///
+/// Lookup paths must not contain the following characters:
+/// - [PATH_SEP](crate::constants::PATH_SEP)
+/// - [UNIQUE_PATH_SEP](crate::constants::UNIQUE_PATH_SEP)
+/// - [BROADCAST_MARKER](crate::constants::BROADCAST_MARKER) unless as the only item in the last string
+/// - [SELECT_MARKER](crate::constants::SELECT_MARKER) unless as the only item in the last string
+pub fn validate_lookup_path(path: &[String]) -> Result<(), PathParseError> {
     let len = path.len();
     for (index, segment) in path.iter().enumerate() {
         validate_lookup_path_segment(segment, (index + 1) == len)?;
@@ -877,7 +890,14 @@ pub(crate) fn validate_lookup_path(path: &[String]) -> Result<(), PathParseError
     Ok(())
 }
 
-pub(crate) fn validate_insert_path(path: &[String]) -> Result<(), PathParseError> {
+/// Check that the given path is valid as an insert path
+///
+/// Insert paths must not contain the following characters:
+/// - [PATH_SEP](crate::constants::PATH_SEP)
+/// - [UNIQUE_PATH_SEP](crate::constants::UNIQUE_PATH_SEP)
+/// - [BROADCAST_MARKER](crate::constants::BROADCAST_MARKER)
+/// - [SELECT_MARKER](crate::constants::SELECT_MARKER)
+pub fn validate_insert_path(path: &[String]) -> Result<(), PathParseError> {
     for segment in path.iter() {
         validate_insert_path_segment(segment)?;
     }
@@ -893,13 +913,14 @@ pub(crate) fn validate_lookup_path_segment(
             "Path segments may not be empty!".to_string(),
         ));
     }
+    let len = segment.len();
     for c in segment.chars() {
         match c {
             PATH_SEP => return Err(PathParseError::IllegalCharacter(PATH_SEP)),
-            BROADCAST_MARKER if !is_last => {
+            BROADCAST_MARKER if !is_last && len == 1 => {
                 return Err(PathParseError::IllegalCharacter(BROADCAST_MARKER))
             }
-            SELECT_MARKER if !is_last => {
+            SELECT_MARKER if !is_last && len == 1 => {
                 return Err(PathParseError::IllegalCharacter(SELECT_MARKER))
             }
             UNIQUE_PATH_SEP => return Err(PathParseError::IllegalCharacter(UNIQUE_PATH_SEP)),

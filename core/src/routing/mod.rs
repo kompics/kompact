@@ -406,4 +406,132 @@ mod tests {
         drop(receiver_refs);
         system.shutdown().expect("shutdown");
     }
+
+    #[test]
+    fn test_nested_select() {
+        let system = new_kompact_system();
+
+        let receivers: Vec<Arc<Component<ReceiverComponent>>> = (0..3)
+            .map(|_i| system.create(ReceiverComponent::default))
+            .collect();
+        let group_ref: ActorPath = system
+            .system_path()
+            .into_named_with_string("routing-group/?")
+            .expect("actor path")
+            .into();
+        let mut receiver_reg_fs: Vec<KFuture<RegistrationResult>> = Vec::with_capacity(3);
+        receiver_reg_fs.push(system.register_by_alias(&receivers[0], "routing-group/receiver1"));
+        receiver_reg_fs.push(system.register_by_alias(&receivers[1], "routing-group/receiver2"));
+        receiver_reg_fs
+            .push(system.register_by_alias(&receivers[2], "routing-group/receivers/node1"));
+        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
+            .into_iter()
+            .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
+            .collect();
+        receivers.iter().for_each(|c| system.start(c));
+
+        group_ref.tell(CountMe, &system);
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(1, total_count(&receivers));
+
+        group_ref.tell(CountMe, &system);
+        group_ref.tell(CountMe, &system);
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(3, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        assert!(counts.iter().any(|&v| v == 3));
+
+        let other_source_ref: ActorPath = system
+            .system_path()
+            .into_named_with_string("other_source")
+            .expect("actor path")
+            .into();
+
+        group_ref.tell(CountMe, &other_source_ref.using_dispatcher(&system));
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(4, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        // they could  end up in the same bucket
+        assert!(
+            (counts.iter().any(|&v| v == 3) && counts.iter().any(|&v| v == 1))
+                || counts.iter().any(|&v| v == 4)
+        );
+
+        for _i in 0..NUM_MESSAGES {
+            group_ref.tell(CountMe, &other_source_ref.using_dispatcher(&system));
+        }
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(NUM_MESSAGES + 4, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        // they could technically end up in the same bucket
+        assert!(
+            (counts.iter().any(|&v| v == 3) && counts.iter().any(|&v| v == NUM_MESSAGES + 1))
+                || counts.iter().any(|&v| v == NUM_MESSAGES + 4)
+        );
+
+        drop(receiver_refs);
+        system.shutdown().expect("shutdown");
+    }
+
+    #[test]
+    fn test_nested_broadcast() {
+        let system = new_kompact_system();
+
+        let receivers: Vec<Arc<Component<ReceiverComponent>>> = (0..3)
+            .map(|_i| system.create(ReceiverComponent::default))
+            .collect();
+        let group_ref: ActorPath = system
+            .system_path()
+            .into_named_with_string("routing-group/*")
+            .expect("actor path")
+            .into();
+        let mut receiver_reg_fs: Vec<KFuture<RegistrationResult>> = Vec::with_capacity(3);
+        receiver_reg_fs.push(system.register_by_alias(&receivers[0], "routing-group/receiver1"));
+        receiver_reg_fs.push(system.register_by_alias(&receivers[1], "routing-group/receiver2"));
+        receiver_reg_fs
+            .push(system.register_by_alias(&receivers[2], "routing-group/receivers/node1"));
+        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
+            .into_iter()
+            .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
+            .collect();
+        receivers.iter().for_each(|c| system.start(c));
+
+        group_ref.tell(CountMe, &system);
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(3, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        assert_eq!(1, counts[0]);
+        assert_eq!(1, counts[1]);
+        assert_eq!(1, counts[2]);
+
+        group_ref.tell(CountMe, &system);
+        group_ref.tell(CountMe, &system);
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(9, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        assert_eq!(3, counts[0]);
+        assert_eq!(3, counts[1]);
+        assert_eq!(3, counts[2]);
+
+        group_ref.tell(CountMe, &system);
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!(12, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        assert_eq!(4, counts[0]);
+        assert_eq!(4, counts[1]);
+        assert_eq!(4, counts[2]);
+
+        for _i in 0..NUM_MESSAGES {
+            group_ref.tell(CountMe, &system);
+        }
+        std::thread::sleep(SLEEP_TIME);
+        assert_eq!((NUM_MESSAGES + 4) * GROUP_SIZE, total_count(&receivers));
+        let counts = individual_count(&receivers);
+        assert_eq!(NUM_MESSAGES + 4, counts[0]);
+        assert_eq!(NUM_MESSAGES + 4, counts[1]);
+        assert_eq!(NUM_MESSAGES + 4, counts[2]);
+
+        drop(receiver_refs);
+        system.shutdown().expect("shutdown");
+    }
 }

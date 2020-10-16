@@ -91,6 +91,8 @@ mod supervision;
 pub mod timer;
 mod utils;
 
+pub use dispatch::lookup;
+
 /// A more readable placeholder for a stable Never (`!`) type.
 ///
 /// It is recommended to use this in port directions and actor types, which do not expect any messages, instead of the unit type `()`.
@@ -116,6 +118,11 @@ pub type JoinHandle<R> = futures::channel::oneshot::Receiver<R>;
 
 /// A simple type alias Kompact's slog `Logger` type signature.
 pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
+
+/// Useful Kompact constants are re-exported in this module
+pub mod constants {
+    pub use crate::actors::{BROADCAST_MARKER, PATH_SEP, SELECT_MARKER, UNIQUE_PATH_SEP};
+}
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
@@ -153,9 +160,11 @@ pub mod prelude {
             DispatcherRef,
             Dispatching,
             DispatchingPath,
+            DynActorRef,
             MessageBounds,
             NamedPath,
             NetworkActor,
+            PathParseError,
             Receiver,
             Recipient,
             Request,
@@ -238,6 +247,11 @@ pub mod prelude {
 /// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
     pub use crate::serialisation::ser_test_helpers;
+}
+
+/// A module containing helper functions for benchmarking
+pub mod prelude_bench {
+    pub use crate::actors::{parse_path, validate_insert_path, validate_lookup_path};
 }
 
 /// Helper structs and functions for doctests.
