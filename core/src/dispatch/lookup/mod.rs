@@ -164,11 +164,11 @@ enum ActorTreeEntry {
 
 /// Lookup structure for storing and retrieving `DynActorRef`s.
 ///
-/// UUID-based references are stored in a [HashMap], and path-based named references
+/// UUID-based references are stored in a `HashMap`, and path-based named references
 /// are stored in a Trie structure.
 ///
 /// # Notes
-/// The sequence trie supports the use case of grouping many [DynActorRefs] under the same path,
+/// The sequence trie supports the use case of grouping many [DynActorRef] under the same path,
 /// similar to a directory structure. Thus, actors can broadcast to all actors under a certain path
 /// without requiring explicit identifiers for them.
 ///
@@ -360,25 +360,30 @@ impl ActorLookup for ActorStore {
                             }
                         }
                     } else if let Some(marker) = marker_opt {
-                        // implicit routing
-                        let policy: &(dyn RoutingPolicy<DynActorRef, NetMessage> + Send + Sync) =
-                            match marker {
+                        if cfg!(feature = "implicit_routes") {
+                            // implicit routing
+                            let policy: &(dyn RoutingPolicy<DynActorRef, NetMessage>
+                                  + Send
+                                  + Sync) = match marker {
                                 BROADCAST_MARKER => &DEFAULT_BROADCAST_POLICY,
                                 SELECT_MARKER => &DEFAULT_SELECT_POLICY,
                                 _ => unreachable!("Only put marker characters in to marker field!"),
                             };
-                        let children: Vec<&'a DynActorRef> = node
-                            .values()
-                            .flat_map(|v| {
-                                if let ActorTreeEntry::Ref(aref) = v {
-                                    Some(aref)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
-                        let group = RoutingGroup::new(children, policy);
-                        LookupResult::Group(group)
+                            let children: Vec<&'a DynActorRef> = node
+                                .values()
+                                .flat_map(|v| {
+                                    if let ActorTreeEntry::Ref(aref) = v {
+                                        Some(aref)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+                            let group = RoutingGroup::new(children, policy);
+                            LookupResult::Group(group)
+                        } else {
+                            LookupResult::None
+                        }
                     } else {
                         LookupResult::None
                     }

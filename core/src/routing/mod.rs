@@ -218,6 +218,7 @@ mod tests {
         system.shutdown().expect("shutdown");
     }
 
+    #[cfg(feature = "implicit_routes")]
     #[test]
     fn test_implicit_select() {
         let system = new_kompact_system();
@@ -345,6 +346,7 @@ mod tests {
         system.shutdown().expect("shutdown");
     }
 
+    #[cfg(feature = "implicit_routes")]
     #[test]
     fn test_implicit_broadcast() {
         let system = new_kompact_system();
@@ -407,6 +409,7 @@ mod tests {
         system.shutdown().expect("shutdown");
     }
 
+    #[cfg(feature = "implicit_routes")]
     #[test]
     fn test_nested_select() {
         let system = new_kompact_system();
@@ -473,6 +476,7 @@ mod tests {
         system.shutdown().expect("shutdown");
     }
 
+    #[cfg(feature = "implicit_routes")]
     #[test]
     fn test_nested_broadcast() {
         let system = new_kompact_system();

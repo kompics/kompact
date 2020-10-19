@@ -86,7 +86,7 @@ version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d373d78ded7d0b3fa8039375718cde0aace493f2e34fb60f51cbf567562ca801"
 dependencies = [
- "async-task 4.0.2",
+ "async-task",
  "concurrent-queue",
  "fastrand",
  "futures-lite",
@@ -174,12 +174,6 @@ dependencies = [
  "futures",
  "trust-dns-resolver",
 ]
-
-[[package]]
-name = "async-task"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17772156ef2829aadc587461c7753af20b7e8db1529bc66855add962a3b35d3"
 
 [[package]]
 name = "async-task"
@@ -280,7 +274,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5e170dbede1f740736619b776d7251cb1b9095c435c34d8ca9f57fcd2f335e9"
 dependencies = [
  "async-channel",
- "async-task 4.0.2",
+ "async-task",
  "atomic-waker",
  "fastrand",
  "futures-lite",
@@ -710,12 +704,11 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
 name = "executors"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51668026b5662c70fd8d80649803332eb9de1098fff41c555ab9ede33dcf4a6"
+version = "0.8.0"
+source = "git+https://github.com/Bathtor/rust-executors?branch=master#5aa28fc023387c0ef7ccca3072dd19460d658982"
 dependencies = [
  "arr_macro",
- "async-task 3.0.0",
+ "async-task",
  "core_affinity",
  "crossbeam-channel",
  "crossbeam-deque",

@@ -24,17 +24,18 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [features]
-default 			= ["serde_support","slog/max_level_trace", "slog/release_max_level_info", "ser_id_64", "use_local_executor"]
+default 			= ["serde_support","slog/max_level_trace", "slog/release_max_level_info", "ser_id_64", "use_local_executor", "implicit_routes"]
 silent_logging 		= ["serde_support", "slog/max_level_info", "slog/release_max_level_error"]
 low_latency 		= ["executors/ws-no-park"]
 ser_id_64 			= []
 ser_id_32 			= []
 ser_id_16 			= []
 ser_id_8 			= []
-thread_pinning 		= ["core_affinity", "executors/thread-pinning"]
+thread_pinning 		= ["core_affinity", "executors/numa-aware"]
 serde_support 		= ["serde", "bytes/serde"]
 type_erasure 		= []
 use_local_executor 	= []
+implicit_routes		= []
 
 [dependencies]
 log 							= "0.4"
@@ -58,7 +59,8 @@ hierarchical_hash_wheel_timer 	= "1.0"
 owning_ref 						= "0.4"
 futures 						= "0.3"
 async-std 						= "1.6"
-executors						= "0.7"
+# TODO change this once 0.8 is released
+executors						= {version = "0.8", git = "https://github.com/Bathtor/rust-executors", branch = "master"}
 
 # Optional
 protobuf 						= {version = "2", optional = true, features = ["with-bytes"]}
