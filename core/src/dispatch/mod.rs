@@ -60,6 +60,7 @@ pub struct NetworkConfig {
     transport: Transport,
     buffer_config: BufferConfig,
     custom_allocator: Option<Arc<dyn ChunkAllocator>>,
+    tcp_nodelay: bool,
 }
 
 impl NetworkConfig {
@@ -71,6 +72,7 @@ impl NetworkConfig {
             transport: Transport::TCP,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
+            tcp_nodelay: false,
         }
     }
 
@@ -83,6 +85,7 @@ impl NetworkConfig {
             transport: Transport::TCP,
             buffer_config,
             custom_allocator: None,
+            tcp_nodelay: false,
         }
     }
 
@@ -99,6 +102,7 @@ impl NetworkConfig {
             transport: Transport::TCP,
             buffer_config,
             custom_allocator: Some(custom_allocator),
+            tcp_nodelay: false,
         }
     }
 
@@ -125,6 +129,18 @@ impl NetworkConfig {
     pub fn get_custom_allocator(&self) -> &Option<Arc<dyn ChunkAllocator>> {
         &self.custom_allocator
     }
+
+    /// Reads the tcp_nodelay parameter of the NetworkConfig
+    pub fn get_tcp_nodelay(&self) -> bool {
+        self.tcp_nodelay
+    }
+
+    /// If set to true the Nagle algorithm will be turned off for all TCP Network-channels
+    /// Decreases network-latency at the cost of reduced throughput and increased congestion.
+    /// Default value is FALSE, i.e. Nagle algorithm is turned on by default.
+    pub fn set_tcp_nodelay(&mut self, nodelay: bool) {
+        self.tcp_nodelay = nodelay;
+    }
 }
 
 /// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::TCP)
@@ -135,6 +151,7 @@ impl Default for NetworkConfig {
             transport: Transport::TCP,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
+            tcp_nodelay: false,
         }
     }
 }

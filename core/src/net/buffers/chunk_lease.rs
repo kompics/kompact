@@ -6,8 +6,8 @@ use std::cmp::Ordering;
 #[derive(Debug)]
 pub struct ChunkLease {
     content: &'static mut [u8],
-    written: usize,
-    read: usize,
+    write_pointer: usize,
+    read_pointer: usize,
     chain_head_len: usize,
     lock: Arc<u8>,
     chain: Option<Box<ChunkLease>>,
@@ -19,13 +19,13 @@ impl ChunkLease {
     /// Creates a new ChunkLease from a static byte-slice with already written bytes and a `lock`.
     pub fn new(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
         let capacity = content.len();
-        let written = content.len();
+        let write_pointer = content.len();
         ChunkLease {
             content,
-            written,
+            write_pointer,
             chain_head_len: capacity,
             lock,
-            read: 0,
+            read_pointer: 0,
             chain: None,
             chain_len: capacity,
         }
@@ -42,13 +42,13 @@ impl ChunkLease {
     /// Proper framing thus requires 1. pad(), 2 serialise into DecodeBuffer, 3. get_chunk_lease, 4. insert_head
     pub(crate) fn insert_head(&mut self, mut head: FrameHead) {
         // Store the write pointer
-        let written = self.written;
+        let written = self.write_pointer;
         // Move write-pointer to the front of the buffer:
-        self.written = 0;
+        self.write_pointer = 0;
         // Encode the into self
         head.encode_into(self);
         // Restore write-pointer
-        self.written = written;
+        self.write_pointer = written;
     }
 
     /// Appends `new_tail` to the end of the ChunkLease chain
@@ -86,7 +86,7 @@ impl ChunkLease {
                 }
             }
             Ordering::Less => {
-                // Split of the data in chain_head and retain self as the "tail"
+                // Split of the data in self and retain self while returning the "tail" of the split
                 unsafe {
                     let content_ptr = (&mut *self.content).as_mut_ptr();
                     let head_bytes = std::slice::from_raw_parts_mut(content_ptr, position);
@@ -140,35 +140,70 @@ impl ChunkLease {
             }
         }
     }
+
+    /// Transforms this ChunkLease into an ChunkRef immutable and cloneable smart-pointer
+    pub fn into_chunk_ref(self) -> ChunkRef {
+        let chain = {
+            if let Some(chain) = self.chain {
+                Some(Box::new(chain.into_chunk_ref()))
+            } else {
+                None
+            }
+        };
+        ChunkRef::new(
+            self.content,
+            0,
+            self.chain_head_len,
+            self.lock,
+            chain,
+            self.chain_len,
+        )
+    }
+
+    /// Transforms this ChunkLease into an ChunkRef immutable and cloneable smart-pointer
+    /// Appends `tail` to the end of the new ChunkRef returned by the function.
+    pub fn into_chunk_ref_with_tail(self, tail: ChunkRef) -> ChunkRef {
+        let mut chunk_ref = self.into_chunk_ref();
+        chunk_ref.chain(tail);
+        chunk_ref
+    }
+
+    /// Transforms this ChunkLease into an ChunkRef immutable and cloneable smart-pointer
+    /// Appends `self` to the end of `head`
+    pub fn into_chunk_ref_with_head(self, mut head: ChunkRef) -> ChunkRef {
+        let chunk_ref = self.into_chunk_ref();
+        head.chain(chunk_ref);
+        head
+    }
 }
 
 impl Buf for ChunkLease {
     fn remaining(&self) -> usize {
-        self.chain_len - self.read
+        self.chain_len - self.read_pointer
     }
 
     // Returns a slice starting from the read-pointer up to (possibly) the
     fn bytes(&self) -> &[u8] {
-        self.get_bytes_at(self.read)
+        self.get_bytes_at(self.read_pointer)
     }
 
     fn advance(&mut self, cnt: usize) {
-        self.read += cnt;
+        self.read_pointer += cnt;
     }
 }
 
 // BufMut currently only used for injecting a FrameHead at the front.
 impl BufMut for ChunkLease {
     fn remaining_mut(&self) -> usize {
-        self.chain_len - self.written
+        self.chain_len - self.write_pointer
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        self.written += cnt;
+        self.write_pointer += cnt;
     }
 
     fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        self.get_bytes_mut_at(self.written)
+        self.get_bytes_mut_at(self.write_pointer)
     }
 }
 
@@ -179,184 +214,91 @@ mod tests {
     use super::*;
     use bytes::Bytes;
 
-    /// Three test cases for the chain and split:
-    /// 1st with chains before and after split
-    /// 2nd without any chains
-    /// 3rd with chaining before split but not after
-    /// Assertions on byte-contents, lengths, and ChunkLease.chain.is_some()/is_none()
-    #[test]
-    fn chunk_lease_chain_and_split_with_chains() {
+    // Use different data sizes and buffer sizes to test different kinds of chains/splits.
+    // Creates two test-strings both of length data_len
+    fn chain_and_split_test(
+        chunk_len: usize,
+        data_len: usize,
+    ) -> (EncodeBuffer, ChunkLease, ChunkLease) {
         // Create an EncodeBuffer with a small chunk_size
         // Inserts two test-strings into the EncodeBuffer, both of which spans multiple chunk-leases
         // the two strings are extracted as a single continuous chunk-lease.
         // The ChunkLease is then split and the two halves are compared to the original test-strings
         let mut cfg = BufferConfig::default();
-        cfg.chunk_size(128);
+        cfg.chunk_size(chunk_len);
         cfg.initial_chunk_count(2);
         // let pool = BufferPool::with_config(&cfg, &None);
         let mut encode_buffer = EncodeBuffer::with_config(&cfg, &None);
 
         // Create some data
         let mut test_string = "".to_string();
-        for i in 0..300 {
+        for i in 0..data_len {
             test_string.push((i.to_string()).chars().next().unwrap());
         }
         let mut test_string2 = "".to_string();
-        for i in 300..600 {
+        for i in data_len..data_len * 2 {
             test_string2.push((i.to_string()).chars().next().unwrap());
         }
-        {
-            // Create a ChunkLease with two identical messages from the data
-            let mut both_strings = {
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
-                buffer_encoder.put_slice(test_string.as_bytes());
-                buffer_encoder.put_slice(test_string2.as_bytes());
-                buffer_encoder.get_chunk_lease().unwrap()
-            };
+        // Create a ChunkLease with two identical messages from the data
+        let mut both_strings = {
+            let mut buffer_encoder = encode_buffer.get_buffer_encoder();
+            buffer_encoder.put_slice(test_string.as_bytes());
+            buffer_encoder.put_slice(test_string2.as_bytes());
+            buffer_encoder.get_chunk_lease().unwrap()
+        };
 
-            // Assert the lengths before split
-            assert_eq!(both_strings.remaining(), test_string.as_bytes().len() * 2);
+        // Assert the lengths before split
+        assert_eq!(both_strings.remaining(), test_string.as_bytes().len() * 2);
 
-            // Split the double down the middle
-            let mut second_half = both_strings.split_at(both_strings.remaining() / 2);
-            let mut first_half = both_strings; // easier to read assertions
+        // Split the double down the middle
+        let mut second_half = both_strings.split_at(both_strings.remaining() / 2);
+        let mut first_half = both_strings; // easier to read assertions
 
-            // Assert lengths after split
-            assert_eq!(second_half.remaining(), first_half.remaining());
-            assert_eq!(test_string.as_bytes().len(), second_half.remaining());
+        // Assert lengths after split
+        assert_eq!(second_half.remaining(), first_half.remaining());
+        assert_eq!(test_string.as_bytes().len(), second_half.remaining());
 
-            let test_bytes = Bytes::copy_from_slice(test_string.as_bytes());
-            let test_bytes2 = Bytes::copy_from_slice(test_string2.as_bytes());
-            // Assert bytes are intact:
-            assert_eq!(test_bytes, first_half.to_bytes());
-            assert_eq!(test_bytes2, second_half.to_bytes());
+        let test_bytes = Bytes::copy_from_slice(test_string.as_bytes());
+        let test_bytes2 = Bytes::copy_from_slice(test_string2.as_bytes());
+        // Assert the content is correct
+        assert_eq!(test_bytes, first_half.to_bytes());
+        assert_eq!(test_bytes2, second_half.to_bytes());
 
-            // Assert that chunks are locked correctly
-            encode_buffer.swap_buffer(); // ensure that the last chunk is swapped
-            assert_eq!(
-                encode_buffer.buffer_pool.count_locked_chunks(),
-                (600 / 128) + 1
-            );
+        encode_buffer.swap_buffer(); // ensure that the last chunk is swapped
 
-            // Assert that both have chains (thanks to the chosen lengths)
-            assert!(first_half.chain.is_some());
-            assert!(second_half.chain.is_some());
-        }
-        assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);
+        (encode_buffer, first_half, second_half)
+    }
+
+    /// Three test cases for the chain and split:
+    /// 1st with chains before and after split
+    /// 2nd without no chains
+    /// 3rd with chaining before split but not after (split at chain boundary)
+    /// Assertions on byte-contents, lengths done in test function
+    #[test]
+    fn chunk_lease_chain_and_split_with_chains() {
+        let (mut encode_buffer, first, second) = chain_and_split_test(128, 300);
+        // We've asserted the bytes are correct now we check the tests unique properties
+        assert!(first.chain.is_some());
+        assert!(second.chain.is_some());
+        assert_eq!(
+            encode_buffer.buffer_pool.count_locked_chunks(),
+            600 / 128 + 1
+        );
     }
 
     #[test]
     fn chunk_lease_chain_and_split_without_chains() {
-        // Create an EncodeBuffer with a small chunk_size
-        // Inserts two test-strings into the EncodeBuffer, both of which spans multiple chunk-leases
-        // the two strings are extracted as a single continuous chunk-lease.
-        // The ChunkLease is then split and the two halves are compared to the original test-strings
-        let mut cfg = BufferConfig::default();
-        cfg.chunk_size(128);
-        cfg.initial_chunk_count(2);
-        let mut encode_buffer = EncodeBuffer::with_config(&cfg, &None);
-
-        // Create some data
-        let mut test_string = "".to_string();
-        let mut test_string2 = "".to_string();
-        for i in 0..64 {
-            test_string.push((i.to_string()).chars().next().unwrap());
-        }
-        for i in 64..128 {
-            test_string2.push((i.to_string()).chars().next().unwrap());
-        }
-        {
-            // Create a ChunkLease with two identical messages from the data
-            let mut both_strings = {
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
-                buffer_encoder.put_slice(test_string.as_bytes());
-                buffer_encoder.put_slice(test_string2.as_bytes());
-                buffer_encoder.get_chunk_lease().unwrap()
-            };
-
-            // Assert the lengths before split
-            assert_eq!(both_strings.remaining(), test_string.as_bytes().len() * 2);
-            // Assert that it is not a chain
-            assert!(both_strings.chain.is_none());
-
-            // Split the double down the middle
-            let mut second_half = both_strings.split_at(both_strings.remaining() / 2);
-            let mut first_half = both_strings;
-            // Assert lengths after split
-            assert_eq!(second_half.remaining(), first_half.remaining());
-            assert_eq!(test_string.as_bytes().len(), second_half.remaining());
-
-            let test_bytes = Bytes::copy_from_slice(test_string.as_bytes());
-            let test_bytes2 = Bytes::copy_from_slice(test_string2.as_bytes());
-            // Assert bytes are intact:
-            assert_eq!(test_bytes, first_half.to_bytes());
-            assert_eq!(test_bytes2, second_half.to_bytes());
-
-            // Assert that chunks are locked correctly
-            encode_buffer.swap_buffer(); // ensure that the last chunk is swapped
-            assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 1);
-
-            // Assert that neither has a chain (thanks to the chosen lengths)
-            assert!(first_half.chain.is_none());
-            assert!(second_half.chain.is_none());
-        }
-        assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);
+        let (mut encode_buffer, first, second) = chain_and_split_test(128, 64);
+        assert!(first.chain.is_none());
+        assert!(second.chain.is_none());
+        assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 1);
     }
 
     #[test]
     fn chunk_lease_chain_and_split_with_distinct_chunks() {
-        // Create an EncodeBuffer with a small chunk_size
-        // Inserts two test-strings into the EncodeBuffer, both of which spans multiple chunk-leases
-        // the two strings are extracted as a single continuous chunk-lease.
-        // The ChunkLease is then split and the two halves are compared to the original test-strings
-        let mut cfg = BufferConfig::default();
-        cfg.chunk_size(128);
-        cfg.initial_chunk_count(2);
-        let mut encode_buffer = EncodeBuffer::with_config(&cfg, &None);
-
-        // Create some data
-        let mut test_string = "".to_string();
-        let mut test_string2 = "".to_string();
-        for i in 0..128 {
-            test_string.push((i.to_string()).chars().next().unwrap());
-        }
-        for i in 128..256 {
-            test_string2.push((i.to_string()).chars().next().unwrap());
-        }
-        // We scope all the ChunkLeases so we can see if they release the locks
-        {
-            // Create a ChunkLease with two identical messages from the data
-            let mut both_strings = {
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
-                buffer_encoder.put_slice(test_string.as_bytes());
-                buffer_encoder.put_slice(test_string2.as_bytes());
-                buffer_encoder.get_chunk_lease().unwrap()
-            };
-
-            // Assert the lengths before split
-            assert_eq!(both_strings.remaining(), test_string.as_bytes().len() * 2);
-
-            // Split the double down the middle
-            let mut second_half = both_strings.split_at(both_strings.remaining() / 2);
-            let mut first_half = both_strings;
-            // Assert lengths after split
-            assert_eq!(second_half.remaining(), first_half.remaining());
-            assert_eq!(test_string.as_bytes().len(), second_half.remaining());
-
-            let test_bytes = Bytes::copy_from_slice(test_string.as_bytes());
-            let test_bytes2 = Bytes::copy_from_slice(test_string2.as_bytes());
-            // Assert bytes are intact:
-            assert_eq!(test_bytes, first_half.to_bytes());
-            assert_eq!(test_bytes2, second_half.to_bytes());
-
-            // Assert that chunks are locked correctly
-            encode_buffer.swap_buffer(); // ensure that the second chunk is swapped
-            assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 2);
-            // Assert that neither has a chain (thanks to the chosen lengths)
-            assert!(first_half.chain.is_none());
-            assert!(second_half.chain.is_none());
-        }
-        // ChunkLeases dropped when out of scope, no more locks
-        assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);
+        let (mut encode_buffer, first, second) = chain_and_split_test(128, 128);
+        assert!(first.chain.is_none());
+        assert!(second.chain.is_none());
+        assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 2);
     }
 }

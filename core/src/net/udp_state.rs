@@ -18,6 +18,7 @@ pub(super) struct UdpState {
     outbound_queue: VecDeque<(SocketAddr, SerialisedFrame)>,
     input_buffer: DecodeBuffer,
     pub(super) incoming_messages: VecDeque<NetMessage>,
+    max_packet_size: usize,
 }
 
 impl UdpState {
@@ -27,12 +28,20 @@ impl UdpState {
         logger: KompactLogger,
         network_config: &NetworkConfig,
     ) -> Self {
+        // If chunk_size is smaller than MAX_PACKET_SIZE we will use that size as the limit instead.
+        let chunk_size = network_config.get_buffer_config().chunk_size;
+        let max_packet_size = if chunk_size < MAX_PACKET_SIZE {
+            chunk_size
+        } else {
+            MAX_PACKET_SIZE
+        };
         UdpState {
             logger,
             socket,
             outbound_queue: VecDeque::new(),
             input_buffer: DecodeBuffer::new(buffer_chunk, network_config.get_buffer_config()),
             incoming_messages: VecDeque::new(),
+            max_packet_size,
         }
     }
 
@@ -44,30 +53,40 @@ impl UdpState {
         let mut sent_bytes: usize = 0;
         let mut interrupts = 0;
         while let Some((addr, mut frame)) = self.outbound_queue.pop_front() {
-            frame.make_contiguous();
-            match self.socket.send_to(frame.bytes(), addr) {
-                Ok(n) => {
-                    // This really shouldn't happen, and can lead to inconsistent network messages
-                    assert_eq!(n, frame.len(), "A UDP frame was written incompletely!");
-                    sent_bytes += n;
-                }
-                Err(ref err) if would_block(err) => {
-                    // re-insert the data at the front of the buffer and return
-                    self.outbound_queue.push_front((addr, frame));
-                    return Ok(sent_bytes);
-                }
-                Err(err) if interrupted(&err) => {
-                    // re-insert the data at the front of the buffer
-                    self.outbound_queue.push_front((addr, frame));
-                    interrupts += 1;
-                    if interrupts >= MAX_INTERRUPTS {
+            if frame.len() > self.max_packet_size {
+                warn!(
+                    self.logger,
+                    "A UDP package to {} was too large and has been dropped: {} > {}",
+                    addr,
+                    frame.len(),
+                    self.max_packet_size
+                );
+            } else {
+                frame.make_contiguous();
+                match self.socket.send_to(frame.bytes(), addr) {
+                    Ok(n) => {
+                        // This really shouldn't happen, and can lead to inconsistent network messages
+                        assert_eq!(n, frame.len(), "A UDP frame was written incompletely!");
+                        sent_bytes += n;
+                    }
+                    Err(ref err) if would_block(err) => {
+                        // re-insert the data at the front of the buffer and return
+                        self.outbound_queue.push_front((addr, frame));
+                        return Ok(sent_bytes);
+                    }
+                    Err(err) if interrupted(&err) => {
+                        // re-insert the data at the front of the buffer
+                        self.outbound_queue.push_front((addr, frame));
+                        interrupts += 1;
+                        if interrupts >= MAX_INTERRUPTS {
+                            return Err(err);
+                        }
+                    }
+                    // Other errors we'll consider fatal.
+                    Err(err) => {
+                        self.outbound_queue.push_front((addr, frame));
                         return Err(err);
                     }
-                }
-                // Other errors we'll consider fatal.
-                Err(err) => {
-                    self.outbound_queue.push_front((addr, frame));
-                    return Err(err);
                 }
             }
         }
@@ -79,7 +98,7 @@ impl UdpState {
         let mut interrupts = 0;
         loop {
             if let Some(mut buf) = self.input_buffer.get_writeable() {
-                if buf.len() < MAX_PACKET_SIZE {
+                if buf.len() < self.max_packet_size {
                     debug!(
                         self.logger,
                         "Swapping UDP buffer as only {} bytes remain.",
@@ -152,10 +171,6 @@ impl UdpState {
     }
 
     pub(super) fn swap_buffer(&mut self, new_buffer: &mut BufferChunk) -> () {
-        // Panic here with descriptive message of the problem
-        if new_buffer.len() < MAX_PACKET_SIZE {
-            panic!("Invalid Buffer Config, chunk_size < UDP MAX_PACKET_SIZE")
-        };
         self.input_buffer.swap_buffer(new_buffer);
     }
 }

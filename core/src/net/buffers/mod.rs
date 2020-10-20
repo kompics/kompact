@@ -11,10 +11,11 @@ use std::{
 
 pub(crate) mod buffer_pool;
 pub mod chunk_lease;
+pub mod chunk_ref;
 pub(crate) mod decode_buffer;
 pub(crate) mod encode_buffer;
 
-pub use self::{buffer_pool::*, chunk_lease::*, decode_buffer::*, encode_buffer::*};
+pub use self::{buffer_pool::*, chunk_lease::*, chunk_ref::*, decode_buffer::*, encode_buffer::*};
 
 /// The configuration for the network buffers
 #[derive(Debug, PartialEq, Eq, Clone)]

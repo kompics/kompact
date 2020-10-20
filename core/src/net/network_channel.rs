@@ -40,6 +40,7 @@ pub(crate) struct TcpChannel {
     pub state: ChannelState,
     pub messages: u32,
     own_addr: SocketAddr,
+    nodelay: bool,
 }
 
 impl TcpChannel {
@@ -60,6 +61,7 @@ impl TcpChannel {
             state,
             messages: 0,
             own_addr,
+            nodelay: network_config.get_tcp_nodelay(),
         }
     }
 
@@ -125,6 +127,9 @@ impl TcpChannel {
         if let ChannelState::Initialising = self.state {
             // Method called because we received Start and want to send Ack.
             let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
+            self.stream
+                .set_nodelay(self.nodelay)
+                .expect("set nodelay failed");
             self.send_frame(ack);
             self.state = ChannelState::Connected(*addr, id);
         }
@@ -134,6 +139,9 @@ impl TcpChannel {
     pub fn handle_ack(&mut self) -> bool {
         if let ChannelState::Initialised(addr, id) = self.state {
             // An Ack was received. Transition the channel.
+            self.stream
+                .set_nodelay(self.nodelay)
+                .expect("set nodelay failed");
             self.state = ChannelState::Connected(addr, id);
             true
         } else {
