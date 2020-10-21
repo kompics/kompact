@@ -1,5 +1,8 @@
 use super::*;
-use crate::messaging::{DispatchData, DispatchEnvelope, MsgEnvelope};
+use crate::{
+    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope},
+    net::buffers::ChunkRef,
+};
 use std::{
     convert::TryFrom,
     error::Error,
@@ -360,17 +363,60 @@ impl ActorPath {
         } else {
             dispatch.ctx().with_buffer(|buffer| {
                 let mut buf = buffer.get_buffer_encoder();
-                let chunk_lease =
+                let msg =
                     crate::serialisation::ser_helpers::serialise_msg(&from, &self, &m, &mut buf)?;
                 let env = DispatchEnvelope::Msg {
                     src: from,
                     dst: self.clone(),
-                    msg: DispatchData::Serialised((chunk_lease, m.ser_id())),
+                    msg: DispatchData::SerialisedLease(msg),
                 };
                 dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
                 Ok(())
             })
         }
+    }
+
+    /// Send prepared message `content` to the actor designated by this path
+    ///
+    /// This function has the same effect as [tell_serialised](ActorPath::tell_serialised), but
+    /// requires the content to be pre-serialised into a [ChunkRef](net::buffers::ChunkRef).
+    ///
+    /// Use [self.ctx.preserialise(m)](component::ComponentContext#preserialise)
+    /// to preserialise data into a `ChunkRef`
+    pub fn tell_preserialised<CD>(&self, content: ChunkRef, from: &CD) -> Result<(), SerError>
+    where
+        CD: ComponentTraits + ComponentLifecycle,
+    {
+        let mut src = from.actor_path();
+        src.set_protocol(self.protocol());
+        self.tell_preserialised_with_sender(content, from, src)
+    }
+
+    /// Send preserialised message `content` to the actor designated by this path with specified `from`
+    ///
+    /// This function has the same effect as [tell_serialised](ActorPath::tell_serialised), but
+    /// requires the content to be pre-serialised into a [ChunkRef](net::buffers::ChunkRef).
+    ///
+    /// Use [self.ctx.preserialise(m)](component::ComponentContext#preserialise) to preserialise data into a `ChunkRef`
+    pub fn tell_preserialised_with_sender<CD: ComponentTraits + ComponentLifecycle>(
+        &self,
+        content: ChunkRef,
+        dispatch: &CD,
+        from: ActorPath,
+    ) -> Result<(), SerError> {
+        dispatch.ctx().with_buffer(|buffer| {
+            let mut buf = buffer.get_buffer_encoder();
+            let msg = crate::serialisation::ser_helpers::serialise_msg_with_preserialised(
+                &from, &self, content, &mut buf,
+            )?;
+            let env = DispatchEnvelope::Msg {
+                src: from,
+                dst: self.clone(),
+                msg: DispatchData::SerialisedRef(msg),
+            };
+            dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
+            Ok(())
+        })
     }
 
     /// Forwards the still serialised message to this path without changing the sender

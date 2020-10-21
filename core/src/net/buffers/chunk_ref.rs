@@ -1,8 +1,8 @@
 use crate::prelude::Buf;
 use std::sync::Arc;
 
-/// A ChunkRef is a Byte-buffer which locks the BufferChunk which the ChunkRef is a lease from.
-/// It's a cloneable read-only equivalent of ChunkLease.
+/// A `ChunkRef` is created from a `ChunkLease`, or from a `ChunkRef` and a `ChunkLease`.
+/// It is immutable and may be cloned and shared and chained with many other `ChunkRefs`.
 #[derive(Debug, Clone)]
 pub struct ChunkRef {
     content: &'static [u8],
@@ -33,13 +33,13 @@ impl ChunkRef {
         }
     }
 
-    /// The full length of the underlying bytes without read/write-pointers
-    /// Use `remaining()`/`remaining_mut()` for readable/writable lengths
+    /// The full length of the underlying bytes without read-pointers
+    /// Use [remaining()](ChunkRef::remaining) for the remaining readable length.
     pub fn capacity(&self) -> usize {
         self.chain_len
     }
 
-    /// Appends `new_tail` to the end of the ChunkRef chain
+    /// Appends `new_tail` to the end of the `ChunkRef` chain
     /// Use Public ChunkLease methods into_chunk_ref_as_tail or into_chunk_ref_with_tail
     pub(super) fn chain(&mut self, new_tail: ChunkRef) {
         self.chain_len += new_tail.chain_len;
@@ -90,13 +90,13 @@ mod tests {
     use crate::net::buffers::{BufferConfig, EncodeBuffer};
     use bytes::{BufMut, Bytes};
 
-    /// Use different data sizes and buffer sizes to test different kinds of chains/splits.
-    /// We want to test Chaining, Creation functions from chunk_lease.rs and reading/using Buf impl
-    /// Variants:
-    ///     ChunkRef without chain -> 1 ChunkLease needed with reference Bytes
-    ///     ChunkRef with chain from Chained ChunkLease -> 2 ChunkLease needed with reference Bytes
-    ///     A Chained ChunkRef prepended to Chained ChunkLease -> 4 ChunkLeases
-    ///     A Chained ChunkRef appended to Chained ChunkLease -> 4 ChunkLeases
+    // Use different data sizes and buffer sizes to test different kinds of chains/splits.
+    // We want to test Chaining, Creation functions from chunk_lease.rs and reading/using Buf impl
+    // Variants:
+    //     ChunkRef without chain -> 1 ChunkLease needed with reference Bytes
+    //     ChunkRef with chain from Chained ChunkLease -> 2 ChunkLease needed with reference Bytes
+    //     A Chained ChunkRef prepended to Chained ChunkLease -> 4 ChunkLeases
+    //     A Chained ChunkRef appended to Chained ChunkLease -> 4 ChunkLeases
     fn generate_bytes(data_len: usize, count: usize) -> Vec<Bytes> {
         let mut vec = Vec::with_capacity(count);
         for i in 0..count {

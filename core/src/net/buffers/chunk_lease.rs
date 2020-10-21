@@ -1,8 +1,10 @@
 use super::*;
 use std::cmp::Ordering;
 
-/// A ChunkLease is a Byte-buffer which locks the BufferChunk which the ChunkLease is a lease from.
-/// Can be used both as Buf of BufMut depending on what is needed.
+/// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
+/// [BufMut](bytes::BufMut) interfaces. They are created with one or many distinct slices of
+/// [BufferChunks](BufferChunk) and holds a lock preventing the data in the byte-slice(s) from being
+/// modified until the `ChunkLease` is dropped.
 #[derive(Debug)]
 pub struct ChunkLease {
     content: &'static mut [u8],
@@ -16,7 +18,7 @@ pub struct ChunkLease {
 }
 
 impl ChunkLease {
-    /// Creates a new ChunkLease from a static byte-slice with already written bytes and a `lock`.
+    /// Creates a new `ChunkLease` from a static byte-slice with already written bytes and a `lock`.
     pub fn new(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
         let capacity = content.len();
         let write_pointer = content.len();
@@ -38,7 +40,8 @@ impl ChunkLease {
     }
 
     /// This inserts a FrameHead at the head of the Chunklease, the ChunkLease should be padded manually
-    /// before this method is invoked, i.e. it does not create space for the head on its own
+    /// before this method is invoked, i.e. it does not create space for the head on its own.
+    ///
     /// Proper framing thus requires 1. pad(), 2 serialise into DecodeBuffer, 3. get_chunk_lease, 4. insert_head
     pub(crate) fn insert_head(&mut self, mut head: FrameHead) {
         // Store the write pointer
@@ -51,7 +54,7 @@ impl ChunkLease {
         self.write_pointer = written;
     }
 
-    /// Appends `new_tail` to the end of the ChunkLease chain
+    /// Appends `new_tail` to the end of the `ChunkLease` chain
     pub(crate) fn chain(&mut self, new_tail: ChunkLease) {
         self.chain_len += new_tail.chain_len;
         if let Some(tail) = &mut self.chain {
@@ -63,7 +66,7 @@ impl ChunkLease {
         }
     }
 
-    /// Splits self into two ChunkLeases such that the self has the length of `position`
+    /// Splits self into two `ChunkLeases`  such that `self` has the length of `position`
     /// This operation does not account for read and write pointers.
     pub(crate) fn split_at(&mut self, position: usize) -> ChunkLease {
         // Recursion by decrementing position in each recursive step
@@ -141,7 +144,7 @@ impl ChunkLease {
         }
     }
 
-    /// Transforms this ChunkLease into an ChunkRef immutable and cloneable smart-pointer
+    /// Transforms this `ChunkLease` into a [ChunkRef](ChunkRef), an immutable and cloneable smart-pointer
     pub fn into_chunk_ref(self) -> ChunkRef {
         let chain = {
             if let Some(chain) = self.chain {
@@ -160,16 +163,14 @@ impl ChunkLease {
         )
     }
 
-    /// Transforms this ChunkLease into an ChunkRef immutable and cloneable smart-pointer
-    /// Appends `tail` to the end of the new ChunkRef returned by the function.
+    /// Creates a chained [ChunkRef](ChunkRef) with `tail` at the end of the new `ChunkRef`.
     pub fn into_chunk_ref_with_tail(self, tail: ChunkRef) -> ChunkRef {
         let mut chunk_ref = self.into_chunk_ref();
         chunk_ref.chain(tail);
         chunk_ref
     }
 
-    /// Transforms this ChunkLease into an ChunkRef immutable and cloneable smart-pointer
-    /// Appends `self` to the end of `head`
+    /// Creates a chained [ChunkRef](ChunkRef) with `head` at the front of the new `ChunkRef`.
     pub fn into_chunk_ref_with_head(self, mut head: ChunkRef) -> ChunkRef {
         let chunk_ref = self.into_chunk_ref();
         head.chain(chunk_ref);
@@ -182,7 +183,6 @@ impl Buf for ChunkLease {
         self.chain_len - self.read_pointer
     }
 
-    // Returns a slice starting from the read-pointer up to (possibly) the
     fn bytes(&self) -> &[u8] {
         self.get_bytes_at(self.read_pointer)
     }
@@ -269,11 +269,11 @@ mod tests {
         (encode_buffer, first_half, second_half)
     }
 
-    /// Three test cases for the chain and split:
-    /// 1st with chains before and after split
-    /// 2nd without no chains
-    /// 3rd with chaining before split but not after (split at chain boundary)
-    /// Assertions on byte-contents, lengths done in test function
+    // Three test cases for the chain and split:
+    // 1st with chains before and after split
+    // 2nd without no chains
+    // 3rd with chaining before split but not after (split at chain boundary)
+    // Assertions on byte-contents, lengths done in test function
     #[test]
     fn chunk_lease_chain_and_split_with_chains() {
         let (mut encode_buffer, first, second) = chain_and_split_test(128, 300);

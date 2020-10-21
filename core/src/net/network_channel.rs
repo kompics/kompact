@@ -258,7 +258,13 @@ impl TcpChannel {
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
-                        SerialisedFrame::Chunk(chunk) => {
+                        SerialisedFrame::ChunkLease(chunk) => {
+                            if n < chunk.remaining() {
+                                chunk.advance(n);
+                                self.outbound_queue.push_front(serialized_frame);
+                            }
+                        }
+                        SerialisedFrame::ChunkRef(chunk) => {
                             if n < chunk.remaining() {
                                 chunk.advance(n);
                                 self.outbound_queue.push_front(serialized_frame);
@@ -295,8 +301,9 @@ impl TcpChannel {
     /// No direct writing allowed, Must use other interface.
     fn write_serialized(&mut self, serialized: &SerialisedFrame) -> io::Result<usize> {
         match serialized {
-            SerialisedFrame::Chunk(chunk) => self.stream.write(chunk.bytes()),
+            SerialisedFrame::ChunkLease(chunk) => self.stream.write(chunk.bytes()),
             SerialisedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
+            SerialisedFrame::ChunkRef(chunkref) => self.stream.write(chunkref.bytes()),
         }
     }
 }

@@ -15,7 +15,8 @@ pub mod chunk_ref;
 pub(crate) mod decode_buffer;
 pub(crate) mod encode_buffer;
 
-pub use self::{buffer_pool::*, chunk_lease::*, chunk_ref::*, decode_buffer::*, encode_buffer::*};
+pub(crate) use self::buffer_pool::*;
+pub use self::{chunk_lease::*, chunk_ref::*, decode_buffer::*, encode_buffer::*};
 
 /// The configuration for the network buffers
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -31,7 +32,7 @@ pub struct BufferConfig {
 }
 
 impl BufferConfig {
-    /// Create a new BufferConfig with default values which may be overwritten
+    /// Create a new `BufferConfig` with default values which may be overwritten
     /// `chunk_size` default value is 128,000.
     /// `initial_chunk_count` default value is 2.
     /// `max_chunk_count` default value is 1000.
@@ -45,32 +46,32 @@ impl BufferConfig {
         }
     }
 
-    /// Sets the BufferConfigs `chunk_size` to the given number of bytes.
+    /// Sets the `BufferConfigs` `chunk_size` to the given number of bytes.
     /// Must be greater than 127 AND greater than `encode_buf_min_free_space`
     pub fn chunk_size(&mut self, size: usize) -> () {
         self.chunk_size = size;
     }
 
-    /// Sets the BufferConfigs `initial_chunk_count` to the given number.
+    /// Sets the `BufferConfigs` `initial_chunk_count` to the given number.
     /// Must be <= `max_chunk_count`.
     pub fn initial_chunk_count(&mut self, count: usize) -> () {
         self.initial_chunk_count = count;
     }
 
-    /// Sets the BufferConfigs `max_chunk_count` to the given number.
+    /// Sets the `BufferConfigs` `max_chunk_count` to the given number.
     /// Must be >= `initial_chunk_count`.
     pub fn max_chunk_count(&mut self, count: usize) -> () {
         self.max_chunk_count = count;
     }
 
-    /// Sets the BufferConfigs `encode_buf_min_free_space` to the given number of bytes.
+    /// Sets the `BufferConfigs` `encode_buf_min_free_space` to the given number of bytes.
     /// Must be < `chunk_size`.
     pub fn encode_buf_min_free_space(&mut self, size: usize) -> () {
         self.encode_buf_min_free_space = size;
     }
 
-    /// Tries to deserialize a BufferConfig from the specified in the given `config`.
-    /// Returns a default BufferConfig if it fails to read from the config.
+    /// Tries to deserialize a `BufferConfig` from the specified in the given `config`.
+    /// Returns a default `BufferConfig` if it fails to read from the config.
     pub fn from_config(config: &Hocon) -> BufferConfig {
         let mut buffer_config = BufferConfig::default();
         if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
@@ -90,7 +91,7 @@ impl BufferConfig {
         buffer_config
     }
 
-    /// Performs basic sanity checks on the config parameters and causes a Panic if it is invalid.
+    /// Performs basic sanity checks on the config parameters and causes a `Panic` if it is invalid.
     /// Is called automatically by the `BufferPool` on creation.
     pub fn validate(&self) {
         if self.initial_chunk_count > self.max_chunk_count {
@@ -111,7 +112,7 @@ impl BufferConfig {
     }
 }
 
-/// Required methods for a Chunk
+/// The `Chunk` trait is used by [BufferChunk] and allows creation of special [ChunkAllocator]'s
 pub trait Chunk {
     /// Returns a mutable pointer to the underlying buffer
     fn as_mut_ptr(&mut self) -> *mut u8;
@@ -250,6 +251,37 @@ impl BufferChunk {
     /// Locks the BufferChunk, it will not be writable nor will any leases be created before it has been unlocked.
     pub fn lock(&mut self) -> () {
         self.locked = true;
+    }
+}
+
+/// Methods required by a ChunkAllocator
+pub trait ChunkAllocator: Send + Sync + Debug + 'static {
+    /// ChunkAllocators deliver Chunk by raw pointers
+    fn get_chunk(&self) -> *mut dyn Chunk;
+    /// This method tells the allocator that the [Chunk](Chunk) may be deallocated
+    ///
+    /// # Safety
+    ///
+    /// The caller *must* guarantee that the memory pointed to by `ptr`
+    /// has *not* been deallocated, yet!
+    unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
+}
+
+/// A default allocator for Kompact
+///
+/// Heap allocates chunks through the normal Rust system allocator
+#[derive(Default, Debug)]
+pub(crate) struct DefaultAllocator {
+    chunk_size: usize,
+}
+
+impl ChunkAllocator for DefaultAllocator {
+    fn get_chunk(&self) -> *mut dyn Chunk {
+        Box::into_raw(Box::new(DefaultChunk::new(self.chunk_size)))
+    }
+
+    unsafe fn release(&self, ptr: *mut dyn Chunk) -> () {
+        Box::from_raw(ptr);
     }
 }
 
