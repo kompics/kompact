@@ -260,6 +260,8 @@ pub mod prelude {
             promise,
             Ask,
             Fulfillable,
+            FutureCollection,
+            FutureResultCollection,
             IterExtras,
             KFuture,
             KPromise,

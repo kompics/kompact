@@ -130,15 +130,8 @@ impl RoundRobinRouting {
 
     /// Get and return the current index and increment it for the next invocation
     pub fn get_and_increment_index(&self, length: usize) -> usize {
-        let offset = self.offset.fetch_add(1, Ordering::Relaxed);
-        if offset >= length {
-            // it doesn't really matter if this fails, as it just means some other thread already reset to 0 (or will do so in the future)
-            self.offset
-                .compare_and_swap(offset.wrapping_add(1), 0, Ordering::Relaxed);
-            0
-        } else {
-            offset
-        }
+        // fetch_add wraps around automatically
+        self.offset.fetch_add(1, Ordering::Relaxed) % length
     }
 }
 impl Default for RoundRobinRouting {

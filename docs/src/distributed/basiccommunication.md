@@ -111,4 +111,4 @@ At this point the system is running just fine and we give it some time to settle
 > ```bash
 > cargo run --release --bin leader_election 3
 > ```
-> Not that running in debug mode will produce a lot of output now as it will trace all the network messages.
+> Note that running in debug mode will produce a lot of output now as it will trace all the network messages.

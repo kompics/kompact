@@ -5,6 +5,7 @@ use std::{
     error,
     fmt,
     future::Future,
+    iter::FromIterator,
     pin::Pin,
     sync::TryLockError,
     task::{Context, Poll},
@@ -270,6 +271,121 @@ impl<T: Send + Sized> Fulfillable<T> for KPromise<T> {
             .map_err(|_| PromiseErr::ChannelBroken)
     }
 }
+
+/// Convenience methods for collections containing futures
+pub trait FutureCollection<T> {
+    /// Wait for all futures to complete successfully but ignore the result
+    ///
+    /// Panics if any future fails to complete in time.
+    /// Panics use the provided `error_msg`.
+    ///
+    /// Timeout values are per future, not overall.
+    fn expect_completion(self, timeout: Duration, error_msg: &'static str) -> ();
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Returns an `Err` variant if any future fails to complete before `timeout` expires.
+    ///
+    /// Timeout values are per future, not overall.
+    fn collect_with_timeout<B>(self, timeout: Duration) -> Result<B, WaitErr<()>>
+    where
+        B: FromIterator<T>;
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Panics if any future fails to complete.
+    fn collect_results<B>(self) -> B
+    where
+        B: FromIterator<T>;
+}
+/// Convenience methods for collections containing future results
+pub trait FutureResultCollection<T, E>: FutureCollection<Result<T, E>> {
+    /// Wait for all futures to complete successfully but ignore the result
+    ///
+    /// Panics if any future fails to complete in time or the result is `Err`.
+    /// Panics use the provided `error_msg`.
+    ///
+    /// Timeout values are per future, not overall.
+    fn expect_ok(self, timeout: Duration, error_msg: &'static str) -> ();
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Panics if any future fails to complete or the result is `Err`.
+    fn collect_ok<B>(self) -> B
+    where
+        B: FromIterator<T>;
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Panics if any future fails to complete in time or the result is `Err`.
+    /// Panics use the provided `error_msg`.
+    ///
+    /// Timeout values are per future, not overall.
+    fn collect_ok_with_timeout<B>(self, timeout: Duration, error_msg: &'static str) -> B
+    where
+        B: FromIterator<T>;
+}
+
+impl<I, T: Send + Sized> FutureCollection<T> for I
+where
+    I: IntoIterator<Item = KFuture<T>>,
+{
+    fn expect_completion(self, timeout: Duration, error_msg: &'static str) -> () {
+        for f in self {
+            let _ = f.wait_timeout(timeout).expect(error_msg);
+        }
+    }
+
+    fn collect_with_timeout<B>(self, timeout: Duration) -> Result<B, WaitErr<()>>
+    where
+        B: FromIterator<T>,
+    {
+        let mut temp: Vec<T> = Vec::new();
+        for f in self {
+            let v = f.wait_timeout(timeout).map_err(|_| WaitErr::Timeout(()))?;
+            temp.push(v);
+        }
+        Ok(temp.into_iter().collect())
+    }
+
+    fn collect_results<B>(self) -> B
+    where
+        B: FromIterator<T>,
+    {
+        self.into_iter().map(|f| f.wait()).collect()
+    }
+}
+
+impl<I, T, E> FutureResultCollection<T, E> for I
+where
+    T: Send + Sized + fmt::Debug,
+    E: Send + Sized + fmt::Debug,
+    I: IntoIterator<Item = KFuture<Result<T, E>>>,
+{
+    fn expect_ok(self, timeout: Duration, error_msg: &'static str) -> () {
+        for f in self {
+            let _ = f.wait_expect(timeout, error_msg);
+        }
+    }
+
+    fn collect_ok<B>(self) -> B
+    where
+        B: FromIterator<T>,
+    {
+        self.into_iter().map(|f| f.wait().unwrap()).collect()
+    }
+
+    fn collect_ok_with_timeout<B>(self, timeout: Duration, error_msg: &'static str) -> B
+    where
+        B: FromIterator<T>,
+    {
+        self.into_iter()
+            .map(|f| f.wait_expect(timeout, error_msg))
+            .collect()
+    }
+}
+
+//Vec<KFuture<RegistrationResult>>
 
 /// A message type for request-response messages.
 ///
