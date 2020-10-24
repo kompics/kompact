@@ -156,7 +156,10 @@ impl DynActorRef {
     }
 
     /// Attempts to upgrade the contained component, returning `true` if possible.
-    pub(crate) fn can_upgrade_component(&self) -> bool {
+    ///
+    /// This a somewhat weaker equivalent to an `is_alive` function, in that
+    /// it doesn't check the lifecycle status of the target component.
+    pub fn can_upgrade_component(&self) -> bool {
         self.component.upgrade().is_some()
     }
 

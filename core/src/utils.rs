@@ -5,6 +5,7 @@ use std::{
     error,
     fmt,
     future::Future,
+    iter::FromIterator,
     pin::Pin,
     sync::TryLockError,
     task::{Context, Poll},
@@ -227,8 +228,8 @@ impl<T: Send + Sized + fmt::Debug, E: Send + Sized + fmt::Debug> KFuture<Result<
     /// this method will panic with an appropriate error message.
     pub fn wait_expect(self, timeout: Duration, error_msg: &'static str) -> T {
         self.wait_timeout(timeout)
-            .unwrap_or_else(|_| panic!("{} (caused by timeout)", error_msg))
-            .unwrap_or_else(|_| panic!("{} (caused by result)", error_msg))
+            .unwrap_or_else(|e| panic!("{}\n    Error was caused by timeout: {:?}", error_msg, e))
+            .unwrap_or_else(|e| panic!("{}\n    Error was caused by result: {:?}", error_msg, e))
     }
 }
 
@@ -270,6 +271,121 @@ impl<T: Send + Sized> Fulfillable<T> for KPromise<T> {
             .map_err(|_| PromiseErr::ChannelBroken)
     }
 }
+
+/// Convenience methods for collections containing futures
+pub trait FutureCollection<T> {
+    /// Wait for all futures to complete successfully but ignore the result
+    ///
+    /// Panics if any future fails to complete in time.
+    /// Panics use the provided `error_msg`.
+    ///
+    /// Timeout values are per future, not overall.
+    fn expect_completion(self, timeout: Duration, error_msg: &'static str) -> ();
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Returns an `Err` variant if any future fails to complete before `timeout` expires.
+    ///
+    /// Timeout values are per future, not overall.
+    fn collect_with_timeout<B>(self, timeout: Duration) -> Result<B, WaitErr<()>>
+    where
+        B: FromIterator<T>;
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Panics if any future fails to complete.
+    fn collect_results<B>(self) -> B
+    where
+        B: FromIterator<T>;
+}
+/// Convenience methods for collections containing future results
+pub trait FutureResultCollection<T, E>: FutureCollection<Result<T, E>> {
+    /// Wait for all futures to complete successfully but ignore the result
+    ///
+    /// Panics if any future fails to complete in time or the result is `Err`.
+    /// Panics use the provided `error_msg`.
+    ///
+    /// Timeout values are per future, not overall.
+    fn expect_ok(self, timeout: Duration, error_msg: &'static str) -> ();
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Panics if any future fails to complete or the result is `Err`.
+    fn collect_ok<B>(self) -> B
+    where
+        B: FromIterator<T>;
+
+    /// Collect all the future results into a collection of type `B`
+    ///
+    /// Panics if any future fails to complete in time or the result is `Err`.
+    /// Panics use the provided `error_msg`.
+    ///
+    /// Timeout values are per future, not overall.
+    fn collect_ok_with_timeout<B>(self, timeout: Duration, error_msg: &'static str) -> B
+    where
+        B: FromIterator<T>;
+}
+
+impl<I, T: Send + Sized> FutureCollection<T> for I
+where
+    I: IntoIterator<Item = KFuture<T>>,
+{
+    fn expect_completion(self, timeout: Duration, error_msg: &'static str) -> () {
+        for f in self {
+            let _ = f.wait_timeout(timeout).expect(error_msg);
+        }
+    }
+
+    fn collect_with_timeout<B>(self, timeout: Duration) -> Result<B, WaitErr<()>>
+    where
+        B: FromIterator<T>,
+    {
+        let mut temp: Vec<T> = Vec::new();
+        for f in self {
+            let v = f.wait_timeout(timeout).map_err(|_| WaitErr::Timeout(()))?;
+            temp.push(v);
+        }
+        Ok(temp.into_iter().collect())
+    }
+
+    fn collect_results<B>(self) -> B
+    where
+        B: FromIterator<T>,
+    {
+        self.into_iter().map(|f| f.wait()).collect()
+    }
+}
+
+impl<I, T, E> FutureResultCollection<T, E> for I
+where
+    T: Send + Sized + fmt::Debug,
+    E: Send + Sized + fmt::Debug,
+    I: IntoIterator<Item = KFuture<Result<T, E>>>,
+{
+    fn expect_ok(self, timeout: Duration, error_msg: &'static str) -> () {
+        for f in self {
+            let _ = f.wait_expect(timeout, error_msg);
+        }
+    }
+
+    fn collect_ok<B>(self) -> B
+    where
+        B: FromIterator<T>,
+    {
+        self.into_iter().map(|f| f.wait().unwrap()).collect()
+    }
+
+    fn collect_ok_with_timeout<B>(self, timeout: Duration, error_msg: &'static str) -> B
+    where
+        B: FromIterator<T>,
+    {
+        self.into_iter()
+            .map(|f| f.wait_expect(timeout, error_msg))
+            .collect()
+    }
+}
+
+//Vec<KFuture<RegistrationResult>>
 
 /// A message type for request-response messages.
 ///
@@ -332,6 +448,22 @@ where
         let response = f(self.content);
         self.promise.fulfil(response)
     }
+}
+
+/// A macro that provides a shorthand for an irrefutable let binding,
+/// that the compiler cannot determine on its own
+///
+/// This is equivalent to the following code:
+/// `let name = if let Pattern(name) = expression { name } else { unreachable!(); };`
+#[macro_export]
+macro_rules! let_irrefutable {
+    ($name:ident, $pattern:pat = $expression:expr) => {
+        let $name = if let $pattern = $expression {
+            $name
+        } else {
+            unreachable!("Pattern is irrefutable!");
+        };
+    };
 }
 
 /// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
@@ -413,6 +545,8 @@ macro_rules! ignore_indications {
 
 #[cfg(not(nightly))]
 mod iter_extras {
+    use crate::serialisation::{SerError, TryClone};
+
     /// Additional iterator functions
     pub trait IterExtras: Iterator + Sized {
         /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
@@ -438,6 +572,34 @@ mod iter_extras {
                 f(item, t)
             }
         }
+
+        /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
+        /// if such a clone can be created
+        ///
+        /// Behaves like `iterator.for_each(|item| f(item, t.try_clone()))`, except that it avoids cloning
+        /// in the case where the iterator contains a single item or for the last item in a larger iterator.
+        /// It also shortcircuits on cloning errors.
+        ///
+        /// Use this when trying to clone `T` is relatively expensive compared to `f`.
+        fn for_each_try_with<T, F>(mut self, t: T, mut f: F) -> Result<(), SerError>
+        where
+            T: TryClone,
+            F: FnMut(Self::Item, T),
+        {
+            let mut current: Option<Self::Item> = self.next();
+            let mut next: Option<Self::Item> = self.next();
+            while next.is_some() {
+                let item = current.take().unwrap();
+                let cloned = t.try_clone()?;
+                f(item, cloned);
+                current = next;
+                next = self.next();
+            }
+            if let Some(item) = current.take() {
+                f(item, t)
+            }
+            Ok(())
+        }
     }
 
     impl<T: Sized> IterExtras for T where T: Iterator {}
@@ -446,11 +608,10 @@ mod iter_extras {
 // this variant requires #![feature(unsized_locals)]
 #[cfg(nightly)]
 mod iter_extras {
+    use crate::serialisation::{SerError, TryClone};
+
     /// Additional iterator functions
     pub trait IterExtras: Iterator {
-        // this variant requires #![feature(unsized_locals)]
-        //pub trait IterExtras: Iterator {
-
         /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
         ///
         /// Behaves like `iterator.for_each(|item| f(item, t.clone()))`, except that it avoids cloning
@@ -473,6 +634,34 @@ mod iter_extras {
             if let Some(item) = current.take() {
                 f(item, t)
             }
+        }
+
+        /// Iterate over each item in the iterator and apply a function to it and a clone of the given value `t`
+        /// if such a clone can be created
+        ///
+        /// Behaves like `iterator.for_each(|item| f(item, t.try_clone()))`, except that it avoids cloning
+        /// in the case where the iterator contains a single item or for the last item in a larger iterator.
+        /// It also shortcircuits on cloning errors.
+        ///
+        /// Use this when trying to clone `T` is relatively expensive compared to `f`.
+        fn for_each_try_with<T, F>(mut self, t: T, mut f: F) -> Result<(), SerError>
+        where
+            T: TryClone,
+            F: FnMut(Self::Item, T),
+        {
+            let mut current: Option<Self::Item> = self.next();
+            let mut next: Option<Self::Item> = self.next();
+            while next.is_some() {
+                let item = current.take().unwrap();
+                let cloned = t.try_clone()?;
+                f(item, cloned);
+                current = next;
+                next = self.next();
+            }
+            if let Some(item) = current.take() {
+                f(item, t)
+            }
+            Ok(())
         }
     }
 

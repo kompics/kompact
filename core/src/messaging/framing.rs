@@ -540,7 +540,7 @@ mod serialisation_tests {
             match deser_path {
                 ActorPath::Unique(_) => panic!("expected Named path, got Unique path"),
                 ActorPath::Named(ref np) => {
-                    assert_eq!(np.path_ref(), &name);
+                    assert_eq!(np.path_ref(), name.as_slice());
                 }
             }
         }

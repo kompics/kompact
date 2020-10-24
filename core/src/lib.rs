@@ -31,6 +31,38 @@
 //! system.start(&component);
 //! system.await_termination();
 //! ```
+//!
+//! # Crate Feature Flags
+//!
+//! The following crate feature flags are available. They are configured in your Cargo.toml.
+//!
+//! - `silent_logging`
+//!     - Reduces logging to INFO in debug builds and ERROR in release builds
+//!     - Must be used with `--no-default-features`
+//! - `low_latency`
+//!     - Prevents thread pool threads from going to sleep when using the default pool.
+//!     - This can improve reaction time to incoming network events, at the cost of much higher CPU utilisation.
+//! - `ser_id_64` (default), `ser_id_32`, `ser_id_16`, `ser_id_8`
+//!     - Selects the bit-width of serialisation identifiers.
+//!     - Trying to use a serialisation id that is too large for the selected width will result in a compile-time error.
+//!     - All values are mutually exclusive and all but the default of `ser_id_64` must be used with `--no-default-features`.
+//! - `thread_pinning`
+//!     - Enables support for pinning pool threads to CPU cores (or rather processing units).
+//!     - This flag has no effect if the runtime OS does not support thread pinning.
+//!     - Enabling this will cause as many threads as there are PUs to be pinned by default.
+//!     - Assignments can be customised by providing a custom scheduler with the desired settings.
+//!     - See [executors crate](https://docs.rs/executors/0.8.0/executors/crossbeam_workstealing_pool/struct.ThreadPool.html?search=#method.with_affinity) for more details.
+//! - `serde_support` (default)
+//!     - Build with support for [Serde](https://github.com/serde-rs/serde) serialisers.
+//! - `type_erasure` (nightly-only)
+//!     - Build with an experimental API for `dyn` type-erased components.
+//! - `use_local_executor` (default)
+//!     - Use thread-local executors to avoid cloning the handle to the system scheduler for every component scheduling.
+//!     - Not all scheduler implementations support this feature, so you might have to disable it via `--no-default-features` if you are using a custom scheduler.
+//! - `implicit_routes` (default)
+//!     - Allow default broadcast and select actor paths on any node in the tree, not just where explicitly set via [set_routing_policy](KompactSystem::set_routing_policy).
+//!     - While this feature is convenient, it may open up your system to DoS attacks via broadcast on high-level nodes (e.g. `tcp://1.2.3.4:8000/*`).
+//!     - If you are concered about this security risk, you can disable this feature by using `--no-default-features`.
 
 #![deny(missing_docs)]
 #![allow(clippy::unused_unit)]
@@ -81,6 +113,8 @@ pub mod messaging;
 /// Default networking implementation
 pub mod net;
 mod ports;
+/// Facilities for routing messages
+pub mod routing;
 /// Kompact system runtime facilities, such as configuration and schedulers
 pub mod runtime;
 mod serialisation;
@@ -88,6 +122,8 @@ mod supervision;
 /// Reusable timer facility internals
 pub mod timer;
 mod utils;
+
+pub use dispatch::lookup;
 
 /// A more readable placeholder for a stable Never (`!`) type.
 ///
@@ -111,6 +147,14 @@ pub type Never = std::convert::Infallible;
 /// This API currently does not support cancellation,
 /// but that feature may be added in a future API if needed.
 pub type JoinHandle<R> = futures::channel::oneshot::Receiver<R>;
+
+/// A simple type alias Kompact's slog `Logger` type signature.
+pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
+
+/// Useful Kompact constants are re-exported in this module
+pub mod constants {
+    pub use crate::actors::{BROADCAST_MARKER, PATH_SEP, SELECT_MARKER, UNIQUE_PATH_SEP};
+}
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
@@ -148,9 +192,11 @@ pub mod prelude {
             DispatcherRef,
             Dispatching,
             DispatchingPath,
+            DynActorRef,
             MessageBounds,
             NamedPath,
             NetworkActor,
+            PathParseError,
             Receiver,
             Recipient,
             Request,
@@ -183,6 +229,7 @@ pub mod prelude {
         net::buffers::ChunkLease,
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
+        supervision::{FaultContext, RecoveryHandler},
         Never,
     };
 
@@ -213,6 +260,8 @@ pub mod prelude {
             promise,
             Ask,
             Fulfillable,
+            FutureCollection,
+            FutureResultCollection,
             IterExtras,
             KFuture,
             KPromise,
@@ -220,6 +269,8 @@ pub mod prelude {
             TryDualLockError,
         },
     };
+
+    pub use crate::routing::groups::StorePolicy;
 
     #[cfg(all(nightly, feature = "type_erasure"))]
     pub use crate::utils::erased::CreateErased;
@@ -230,6 +281,11 @@ pub mod prelude {
 /// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
     pub use crate::serialisation::ser_test_helpers;
+}
+
+/// A module containing helper functions for benchmarking
+pub mod prelude_bench {
+    pub use crate::actors::{parse_path, validate_insert_path, validate_lookup_path};
 }
 
 /// Helper structs and functions for doctests.
@@ -296,9 +352,6 @@ pub mod doctest_helpers {
         }
     }
 }
-
-/// A simple type alias Kompact's slog `Logger` type signature.
-pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 
 #[cfg(test)]
 mod test_helpers {

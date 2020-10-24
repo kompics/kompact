@@ -144,7 +144,7 @@ impl DeadletterBox {
     /// Creates a new deadletter box
     ///
     /// The `notify_ready` promise will be fulfilled, when the component
-    /// received a [Start](ControlEvent::Start) event.
+    /// received a `Start` event.
     pub fn new(notify_ready: KPromise<()>) -> DeadletterBox {
         DeadletterBox {
             ctx: ComponentContext::uninitialised(),
@@ -195,7 +195,7 @@ impl LocalDispatcher {
     /// Creates a new local dispatcher
     ///
     /// The `notify_ready` promise will be fulfilled, when the component
-    /// received a [Start](ControlEvent::Start) event.
+    /// received a `Start` event.
     pub fn new(notify_ready: KPromise<()>) -> LocalDispatcher {
         LocalDispatcher {
             ctx: ComponentContext::uninitialised(),
@@ -208,11 +208,22 @@ impl Actor for LocalDispatcher {
     type Message = DispatchEnvelope;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        use crate::messaging::{RegistrationEnvelope, RegistrationError, RegistrationPromise};
         warn!(
             self.ctx.log(),
             "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
             msg,
         );
+        if let DispatchEnvelope::Registration(RegistrationEnvelope { promise, .. }) = msg {
+            if let RegistrationPromise::Fulfil(p) = promise {
+                p.fulfil(Err(RegistrationError::Unsupported))
+                    .unwrap_or_else(|e| {
+                        error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                    });
+            }
+        } else {
+            error!(self.ctx.log(), "Ignoring message {:?}.", msg);
+        }
         Handled::Ok
     }
 

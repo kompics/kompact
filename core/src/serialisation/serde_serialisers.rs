@@ -18,6 +18,7 @@ use std::convert::TryInto;
 /// Serialiser type for Serde enabled types
 ///
 /// Must be specified explictly, to avoid ambiguity with types serialised in other ways
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub struct Serde;
 
 impl<T> Serialiser<T> for Serde
