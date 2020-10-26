@@ -54,9 +54,10 @@ impl Actor for TestActor {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PingSer;
 
-pub const PING_SER: PingSer = PingSer {};
+pub const PING_SER: PingSer = PingSer;
 
 impl Serialiser<Ping> for PingSer {
     fn ser_id(&self) -> SerId {

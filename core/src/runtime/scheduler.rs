@@ -95,7 +95,8 @@ impl<E: FuturesExecutor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
     }
 
     fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> () {
-        let _handle = self.exec.spawn(future);
+        let handle = self.exec.spawn(future);
+        handle.detach();
     }
 }
 

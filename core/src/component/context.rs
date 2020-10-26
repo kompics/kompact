@@ -420,7 +420,7 @@ where
 
     /// Set the recovery function for this component
     ///
-    /// See [RecoveryHandler](RecoveryHandler) for more information.
+    /// See [RecoveryHandler](crate::prelude::RecoveryHandler) for more information.
     ///
     /// You can perform action repeatedly in order to store state
     /// to use while recovering from a failure.

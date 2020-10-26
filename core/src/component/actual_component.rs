@@ -245,7 +245,7 @@ impl<CD: ComponentTraits> Component<CD> {
 
     /// Set the recovery function for this component
     ///
-    /// See [RecoveryHandler](RecoveryHandler) for more information.
+    /// See [RecoveryHandler](crate::prelude::RecoveryHandler) for more information.
     pub fn set_recovery_function<F>(&self, f: F) -> ()
     where
         F: FnOnce(FaultContext) -> RecoveryHandler + Send + 'static,

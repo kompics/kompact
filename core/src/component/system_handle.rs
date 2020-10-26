@@ -1,6 +1,10 @@
 use super::*;
 
-use crate::{messaging::RegistrationResult, timer::timer_manager::CanCancelTimers};
+use crate::{
+    messaging::RegistrationResult,
+    routing::groups::StorePolicy,
+    timer::timer_manager::CanCancelTimers,
+};
 
 /// The [SystemHandle](SystemHandle) provided by a [ComponentContext](ComponentContext)
 pub struct ContextSystemHandle {
@@ -62,6 +66,20 @@ impl SystemHandle for ContextSystemHandle {
         A: Into<String>,
     {
         self.component.system().update_alias_registration(c, alias)
+    }
+
+    fn set_routing_policy<P>(
+        &self,
+        policy: P,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult>
+    where
+        P: Into<StorePolicy>,
+    {
+        self.component
+            .system()
+            .set_routing_policy(policy, path, update)
     }
 
     fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {

@@ -395,6 +395,7 @@ pub mod net_test_helpers {
         i: u64,
     }
 
+    #[derive(Debug, Clone)]
     struct PingPongSer;
 
     impl PingPongSer {

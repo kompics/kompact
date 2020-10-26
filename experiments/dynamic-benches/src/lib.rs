@@ -4,6 +4,7 @@
 #[cfg(nightly)]
 extern crate test;
 
+pub mod actor_store;
 pub mod actorrefs;
 pub mod do_with;
 pub mod hashes;

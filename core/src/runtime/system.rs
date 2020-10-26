@@ -8,8 +8,10 @@ use crate::{
         MsgEnvelope,
         PathResolvable,
         RegistrationEnvelope,
+        RegistrationError,
         RegistrationResult,
     },
+    routing::groups::StorePolicy,
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
     timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
@@ -567,6 +569,57 @@ impl KompactSystem {
     {
         self.inner.assert_active();
         self.inner.register_by_alias(c.as_ref(), true, alias.into())
+    }
+
+    /// Attempts to set the routing policy at `path`
+    ///
+    /// Setting a routing policy at a path "a" will include
+    /// all actors paths registered under paths of the form "a/..."
+    /// to be included as members of the routing group that the policy applies to.
+    ///
+    /// Having an explicit routing policy at a path will cause routing over group
+    /// members, even if no routing marker (e.g., "a/*" or "a/?" is given).
+    ///
+    /// Overriding an existing actor or policy at the given path will fail,
+    /// unless `update` is set to `true`.
+    ///
+    /// Provided routing policies can be found in the [routing::groups](crate::routing::groups) module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use kompact::routing::groups::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let policy_registration_future = system.set_routing_policy(BroadcastRouting::default(), "broadcast-me", false);
+    /// let broadcast_path = policy_registration_future.wait_expect(Duration::from_millis(1000), "Failed to set broadcast policy");
+    /// let c1 = system.create(TestComponent1::new);
+    /// let c2 = system.create(TestComponent1::new);
+    /// let alias_registration_future1 = system.register_by_alias(&c1, "broadcast-me/test1");
+    /// let alias_registration_future2 = system.register_by_alias(&c2, "broadcast-me/something/test2");
+    /// alias_registration_future1.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
+    /// alias_registration_future2.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent2 by alias");
+    /// // sending to broadcast_path now will send to c1 and c2
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    pub fn set_routing_policy<P>(
+        &self,
+        policy: P,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult>
+    where
+        P: Into<StorePolicy>,
+    {
+        self.inner.assert_active();
+        self.inner.set_routing_policy(policy.into(), path, update)
     }
 
     /// Start a component
@@ -1181,6 +1234,53 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     where
         A: Into<String>;
 
+    /// Attempts to set the routing policy at `path`
+    ///
+    /// Setting a routing policy at a path "a" will include
+    /// all actors paths registered under paths of the form "a/..."
+    /// to be included as members of the routing group that the policy applies to.
+    ///
+    /// Having an explicit routing policy at a path will cause routing over group
+    /// members, even if no routing marker (e.g., "a/*" or "a/?" is given).
+    ///
+    /// Overriding an existing actor or policy at the given path will fail,
+    /// unless `update` is set to `true`.
+    ///
+    /// Provided routing policies can be found in the [routing::groups](crate::routing::groups) module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use kompact::routing::groups::*;
+    /// # use kompact::doctest_helpers::*;
+    /// use std::time::Duration;
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let policy_registration_future = system.set_routing_policy(BroadcastRouting::default(), "broadcast-me", false);
+    /// let broadcast_path = policy_registration_future.wait_expect(Duration::from_millis(1000), "Failed to set broadcast policy");
+    /// let c1 = system.create(TestComponent1::new);
+    /// let c2 = system.create(TestComponent1::new);
+    /// let alias_registration_future1 = system.register_by_alias(&c1, "broadcast-me/test1");
+    /// let alias_registration_future2 = system.register_by_alias(&c2, "broadcast-me/something/test2");
+    /// alias_registration_future1.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
+    /// alias_registration_future2.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent2 by alias");
+    /// // sending to broadcast_path now will send to c1 and c2
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    fn set_routing_policy<P>(
+        &self,
+        policy: P,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult>
+    where
+        P: Into<StorePolicy>;
+
     /// Start a component
     ///
     /// A component only handles events/messages once it is started.
@@ -1580,7 +1680,7 @@ impl KompactRuntime {
         let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
         let envelope = MsgEnvelope::Typed(DispatchEnvelope::Registration(
-            RegistrationEnvelope::with_promise(actor_ref, path, update, promise),
+            RegistrationEnvelope::actor_with_promise(actor_ref, path, update, promise),
         ));
         dispatcher.enqueue(envelope);
         future
@@ -1602,6 +1702,35 @@ impl KompactRuntime {
         );
         let path = PathResolvable::Alias(alias);
         self.register_by_path(actor_ref, update, path)
+    }
+
+    fn set_routing_policy(
+        &self,
+        policy: StorePolicy,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult> {
+        debug!(
+            self.logger(),
+            "Requesting policy registration at {:?}", path
+        );
+        let (promise, future) = utils::promise();
+        let parsed_path = crate::actors::parse_path(&path);
+        match crate::actors::validate_insert_path(&parsed_path) {
+            Ok(_) => {
+                let dispatcher = self.dispatcher_ref();
+                let envelope =
+                    RegistrationEnvelope::policy_with_promise(policy, parsed_path, update, promise);
+                let msg = MsgEnvelope::Typed(DispatchEnvelope::Registration(envelope));
+                dispatcher.enqueue(msg);
+            }
+            Err(e) => {
+                promise
+                    .fulfil(Err(RegistrationError::InvalidPath(e)))
+                    .expect("should fulfil promise");
+            }
+        }
+        future
     }
 
     fn deadletter_ref(&self) -> ActorRef<Never> {
