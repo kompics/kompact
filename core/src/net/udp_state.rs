@@ -125,9 +125,9 @@ impl UdpState {
     fn decode_message(&mut self, source: SocketAddr) {
         match self.input_buffer.get_frame() {
             Ok(Frame::Data(frame)) => {
-                use serialisation::ser_helpers::deserialise_msg;
+                use serialisation::ser_helpers::deserialise_chunk_lease;
                 let buf = frame.payload();
-                match deserialise_msg(buf) {
+                match deserialise_chunk_lease(buf) {
                     Ok(envelope) => self.incoming_messages.push_back(envelope),
                     Err(e) => {
                         warn!(

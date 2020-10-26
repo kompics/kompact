@@ -11,7 +11,7 @@ use crate::{
     },
     serialisation::*,
 };
-use bytes::{buf::BufMut, Buf, BytesMut};
+use bytes::{buf::BufMut, BytesMut};
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -196,8 +196,11 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
         HeapOrSer::Serialised(bytes) => {
             buf.put(bytes);
         }
-        HeapOrSer::Pooled(lease) => {
-            buf.put(lease);
+        HeapOrSer::ChunkLease(chunk_lease) => {
+            buf.put(chunk_lease);
+        }
+        HeapOrSer::ChunkRef(chunk_ref) => {
+            buf.put(chunk_ref);
         }
     }
     match buf.get_chunk_lease() {
@@ -218,7 +221,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
 /// Extracts a [NetMessage](NetMessage) from the provided buffer
 ///
 /// This expects the format from [serialise_msg](serialise_msg).
-pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
+pub fn deserialise_chunk_lease(mut buffer: ChunkLease) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
     //     return Err(SerError::InvalidData("Not enough bytes available".into()));
     // }
@@ -227,9 +230,26 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
     let src = ActorPath::deserialise(&mut buffer)?;
     let dst = ActorPath::deserialise(&mut buffer)?;
     let ser_id = buffer.get_ser_id();
-    let data = buffer.to_bytes();
 
-    let envelope = NetMessage::with_bytes(ser_id, src, dst, data);
+    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer.into_chunk_ref());
+
+    Ok(envelope)
+}
+
+/// Extracts a [NetMessage](NetMessage) from the provided buffer
+///
+/// This expects the format from [serialise_msg](serialise_msg).
+pub fn deserialise_chunk_ref(mut buffer: ChunkRef) -> Result<NetMessage, SerError> {
+    // if buffer.remaining() < 1 {
+    //     return Err(SerError::InvalidData("Not enough bytes available".into()));
+    // }
+    // gonna fail below anyway
+
+    let src = ActorPath::deserialise(&mut buffer)?;
+    let dst = ActorPath::deserialise(&mut buffer)?;
+    let ser_id = buffer.get_ser_id();
+
+    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer);
 
     Ok(envelope)
 }

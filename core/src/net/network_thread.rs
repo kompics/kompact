@@ -529,12 +529,12 @@ impl NetworkThread {
                     }
                     Ok(Frame::Data(fr)) => {
                         use dispatch::lookup::{ActorLookup, LookupResult};
-                        use serialisation::ser_helpers::deserialise_msg;
+                        use serialisation::ser_helpers::deserialise_chunk_lease;
 
                         // Forward the data frame to the correct actor
                         let lease_lookup = self.lookup.load();
                         let buf = fr.payload();
-                        let envelope = deserialise_msg(buf).expect("s11n errors");
+                        let envelope = deserialise_chunk_lease(buf).expect("s11n errors");
                         match lease_lookup.get_by_actor_path(&envelope.receiver) {
                             LookupResult::Ref(actor) => {
                                 actor.enqueue(envelope);

@@ -26,13 +26,13 @@ impl DispatchData {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
                 chunk.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(deserialise_msg(chunk).expect("s11n errors"))
+                Ok(deserialise_chunk_lease(chunk).expect("s11n errors"))
             }
             DispatchData::SerialisedRef(mut chunk) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
                 chunk.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(deserialise_msg(chunk).expect("s11n errors"))
+                Ok(deserialise_chunk_ref(chunk).expect("s11n errors"))
             }
         }
     }

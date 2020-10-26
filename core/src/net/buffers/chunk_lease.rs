@@ -1,4 +1,5 @@
 use super::*;
+use bytes::Bytes;
 use std::cmp::Ordering;
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
@@ -155,7 +156,7 @@ impl ChunkLease {
         };
         ChunkRef::new(
             self.content,
-            0,
+            self.read_pointer,
             self.chain_head_len,
             self.lock,
             chain,
@@ -175,6 +176,19 @@ impl ChunkLease {
         let chunk_ref = self.into_chunk_ref();
         head.chain(chunk_ref);
         head
+    }
+
+    /// Creates a byte-clone of the contents of the *remaining* bytes within the ChunkLease.
+    /// This is a costly operation and should be avoided.
+    pub fn create_byte_clone(&self) -> Bytes {
+        let mut buf: Vec<u8> = Vec::with_capacity(self.remaining());
+        let mut read_pointer = self.read_pointer;
+        while read_pointer < self.chain_len {
+            let read_bytes = self.get_bytes_at(read_pointer);
+            buf.extend_from_slice(read_bytes);
+            read_pointer += read_bytes.len();
+        }
+        Bytes::from(buf)
     }
 }
 
@@ -260,6 +274,11 @@ mod tests {
 
         let test_bytes = Bytes::copy_from_slice(test_string.as_bytes());
         let test_bytes2 = Bytes::copy_from_slice(test_string2.as_bytes());
+
+        // Assert that create_byte_clone() works
+        assert_eq!(test_bytes, first_half.create_byte_clone());
+        assert_eq!(test_bytes2, second_half.create_byte_clone());
+
         // Assert the content is correct
         assert_eq!(test_bytes, first_half.to_bytes());
         assert_eq!(test_bytes2, second_half.to_bytes());
