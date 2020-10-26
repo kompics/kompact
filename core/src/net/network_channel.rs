@@ -40,6 +40,7 @@ pub(crate) struct TcpChannel {
     pub state: ChannelState,
     pub messages: u32,
     own_addr: SocketAddr,
+    nodelay: bool,
 }
 
 impl TcpChannel {
@@ -60,6 +61,7 @@ impl TcpChannel {
             state,
             messages: 0,
             own_addr,
+            nodelay: network_config.get_tcp_nodelay(),
         }
     }
 
@@ -125,6 +127,9 @@ impl TcpChannel {
         if let ChannelState::Initialising = self.state {
             // Method called because we received Start and want to send Ack.
             let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
+            self.stream
+                .set_nodelay(self.nodelay)
+                .expect("set nodelay failed");
             self.send_frame(ack);
             self.state = ChannelState::Connected(*addr, id);
         }
@@ -134,6 +139,9 @@ impl TcpChannel {
     pub fn handle_ack(&mut self) -> bool {
         if let ChannelState::Initialised(addr, id) = self.state {
             // An Ack was received. Transition the channel.
+            self.stream
+                .set_nodelay(self.nodelay)
+                .expect("set nodelay failed");
             self.state = ChannelState::Connected(addr, id);
             true
         } else {
@@ -250,7 +258,13 @@ impl TcpChannel {
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
-                        SerialisedFrame::Chunk(chunk) => {
+                        SerialisedFrame::ChunkLease(chunk) => {
+                            if n < chunk.remaining() {
+                                chunk.advance(n);
+                                self.outbound_queue.push_front(serialized_frame);
+                            }
+                        }
+                        SerialisedFrame::ChunkRef(chunk) => {
                             if n < chunk.remaining() {
                                 chunk.advance(n);
                                 self.outbound_queue.push_front(serialized_frame);
@@ -287,8 +301,9 @@ impl TcpChannel {
     /// No direct writing allowed, Must use other interface.
     fn write_serialized(&mut self, serialized: &SerialisedFrame) -> io::Result<usize> {
         match serialized {
-            SerialisedFrame::Chunk(chunk) => self.stream.write(chunk.bytes()),
+            SerialisedFrame::ChunkLease(chunk) => self.stream.write(chunk.bytes()),
             SerialisedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
+            SerialisedFrame::ChunkRef(chunkref) => self.stream.write(chunkref.bytes()),
         }
     }
 }

@@ -226,7 +226,7 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        net::buffers::ChunkLease,
+        net::buffers::{BufferConfig, ChunkLease, ChunkRef},
         ports::{Port, ProvidedPort, ProvidedRef, RequiredPort, RequiredRef},
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         supervision::{FaultContext, RecoveryHandler},
@@ -280,7 +280,7 @@ pub mod prelude {
 ///
 /// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
-    pub use crate::serialisation::ser_test_helpers;
+    pub use crate::{net::net_test_helpers, serialisation::ser_test_helpers};
 }
 
 /// A module containing helper functions for benchmarking

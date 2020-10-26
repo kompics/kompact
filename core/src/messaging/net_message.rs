@@ -63,7 +63,9 @@ pub enum HeapOrSer {
     /// Data is serialised and must be [deserialised](Deserialiser::deserialise)
     Serialised(bytes::Bytes),
     /// Data is serialised in a pooled buffer and must be [deserialised](Deserialiser::deserialise)
-    Pooled(ChunkLease),
+    ChunkLease(ChunkLease),
+    /// Data is serialised in a pooled buffer and must be [deserialised](Deserialiser::deserialise)
+    ChunkRef(ChunkRef),
 }
 
 impl NetMessage {
@@ -97,7 +99,7 @@ impl NetMessage {
 
     /// Create a network message with a ChunkLease, pooled buffers.
     /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[crate::net::frames].
-    pub fn with_chunk(
+    pub fn with_chunk_lease(
         ser_id: SerId,
         sender: ActorPath,
         receiver: ActorPath,
@@ -106,7 +108,22 @@ impl NetMessage {
         NetMessage {
             sender,
             receiver,
-            data: NetData::with(ser_id, HeapOrSer::Pooled(data)),
+            data: NetData::with(ser_id, HeapOrSer::ChunkLease(data)),
+        }
+    }
+
+    /// Create a network message with a ChunkLease, pooled buffers.
+    /// For outgoing network messages the data inside the `data` should be both serialised and (framed)[crate::net::frames].
+    pub fn with_chunk_ref(
+        ser_id: SerId,
+        sender: ActorPath,
+        receiver: ActorPath,
+        data: ChunkRef,
+    ) -> NetMessage {
+        NetMessage {
+            sender,
+            receiver,
+            data: NetData::with(ser_id, HeapOrSer::ChunkRef(data)),
         }
     }
 
@@ -430,7 +447,10 @@ impl NetData {
             HeapOrSer::Serialised(mut bytes) => {
                 D::deserialise(&mut bytes).map_err(UnpackError::DeserError)
             }
-            HeapOrSer::Pooled(mut chunk) => {
+            HeapOrSer::ChunkLease(mut chunk) => {
+                D::deserialise(&mut chunk).map_err(UnpackError::DeserError)
+            }
+            HeapOrSer::ChunkRef(mut chunk) => {
                 D::deserialise(&mut chunk).map_err(UnpackError::DeserError)
             }
         }
@@ -460,12 +480,8 @@ impl TryClone for HeapOrSer {
                 res.map(|_| HeapOrSer::Serialised(Bytes::from(buf)))
             }
             HeapOrSer::Serialised(bytes) => Ok(HeapOrSer::Serialised(bytes.clone())),
-            HeapOrSer::Pooled(chunk) => {
-                // TODO Change once #96 lands
-                let mut buf: Vec<u8> = Vec::with_capacity(chunk.remaining());
-                buf.extend_from_slice(chunk.bytes());
-                Ok(HeapOrSer::Serialised(Bytes::from(buf)))
-            }
+            HeapOrSer::ChunkLease(chunk) => Ok(HeapOrSer::Serialised(chunk.create_byte_clone())),
+            HeapOrSer::ChunkRef(chunk) => Ok(HeapOrSer::ChunkRef(chunk.clone())),
         }
     }
 }

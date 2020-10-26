@@ -6,12 +6,12 @@ use crate::{
     actors::ActorPath,
     messaging::{HeapOrSer, NetData, NetMessage, Serialised},
     net::{
-        buffers::{BufferEncoder, ChunkLease},
+        buffers::{BufferEncoder, ChunkLease, ChunkRef},
         frames::{FrameHead, FrameType, FRAME_HEAD_LEN},
     },
     serialisation::*,
 };
-use bytes::{buf::BufMut, Buf, BytesMut};
+use bytes::{buf::BufMut, BytesMut};
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -80,13 +80,14 @@ where
 
 /// Serialises the provided actor paths and message
 ///
-/// It allocates a new [BytesMut](bytes::BytesMut)
-/// according to the message's size hint.
-/// The message's serialised data is then stored in this buffer.
+/// It tries to reserve space for the full message in the [BufferEncoder](net::buffers::BufferEncoder)
+/// according to the message's size hint. Then serialises and [frames](net::frames) the full message
+/// with headers and extracts a [ChunkLease](net::buffers::ChunkLease)
 ///
 /// # Format
 ///
-/// The serialized format is:
+/// The serialized and framed format is:
+///     frame_head      9 bytes including indicating the type and length of the frame.
 ///     source          ActorPath
 ///         path_type   u8
 ///         path        `[u8; 16]` if [unique path](ActorPath::Unique), else a length-prefixed UTF-8 encoded string
@@ -138,6 +139,45 @@ where
     }
 }
 
+/// Serialises the msg into `buf` and returns a [ChunkRef](net::buffers::ChunkRef) of the serialised
+/// data to be used in [tell_preserialised()](actors::ActorPath#method.tell_preserialised)
+pub fn preserialise_msg<B>(msg: &B, buf: &mut BufferEncoder) -> Result<ChunkRef, SerError>
+where
+    B: Serialisable + ?Sized,
+{
+    if let Some(hint) = msg.size_hint() {
+        buf.try_reserve(hint);
+    }
+    buf.put_ser_id(msg.ser_id()); // ser_id
+    Serialisable::serialise(msg, buf)?; // data
+    if let Some(chunk_lease) = buf.get_chunk_lease() {
+        Ok(chunk_lease.into_chunk_ref())
+    } else {
+        Err(SerError::BufferError("Could not get chunk".to_string()))
+    }
+}
+
+/// Serialises message- and frame-headers and appends the `content`
+/// [ChunkRef](net::buffers::ChunkRef) returning a complete network-message as a `ChunkRef`.
+pub fn serialise_msg_with_preserialised(
+    src: &ActorPath,
+    dst: &ActorPath,
+    content: ChunkRef,
+    buf: &mut BufferEncoder,
+) -> Result<ChunkRef, SerError> {
+    // Reserve space for the header:
+    buf.pad(FRAME_HEAD_LEN as usize);
+    src.serialise(buf)?; // src
+    dst.serialise(buf)?; // dst
+    if let Some(mut header) = buf.get_chunk_lease() {
+        let len = header.capacity() + content.capacity() - FRAME_HEAD_LEN as usize;
+        header.insert_head(FrameHead::new(FrameType::Data, len));
+        Ok(header.into_chunk_ref_with_tail(content))
+    } else {
+        Err(SerError::BufferError("Could not get chunk".to_string()))
+    }
+}
+
 /// Serialise a forwarded message
 ///
 /// Uses the same format as [serialise_msg](serialise_msg).
@@ -156,8 +196,11 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
         HeapOrSer::Serialised(bytes) => {
             buf.put(bytes);
         }
-        HeapOrSer::Pooled(lease) => {
-            buf.put(lease);
+        HeapOrSer::ChunkLease(chunk_lease) => {
+            buf.put(chunk_lease);
+        }
+        HeapOrSer::ChunkRef(chunk_ref) => {
+            buf.put(chunk_ref);
         }
     }
     match buf.get_chunk_lease() {
@@ -178,7 +221,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
 /// Extracts a [NetMessage](NetMessage) from the provided buffer
 ///
 /// This expects the format from [serialise_msg](serialise_msg).
-pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
+pub fn deserialise_chunk_lease(mut buffer: ChunkLease) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
     //     return Err(SerError::InvalidData("Not enough bytes available".into()));
     // }
@@ -187,9 +230,26 @@ pub fn deserialise_msg<B: Buf>(mut buffer: B) -> Result<NetMessage, SerError> {
     let src = ActorPath::deserialise(&mut buffer)?;
     let dst = ActorPath::deserialise(&mut buffer)?;
     let ser_id = buffer.get_ser_id();
-    let data = buffer.to_bytes();
 
-    let envelope = NetMessage::with_bytes(ser_id, src, dst, data);
+    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer.into_chunk_ref());
+
+    Ok(envelope)
+}
+
+/// Extracts a [NetMessage](NetMessage) from the provided buffer
+///
+/// This expects the format from [serialise_msg](serialise_msg).
+pub fn deserialise_chunk_ref(mut buffer: ChunkRef) -> Result<NetMessage, SerError> {
+    // if buffer.remaining() < 1 {
+    //     return Err(SerError::InvalidData("Not enough bytes available".into()));
+    // }
+    // gonna fail below anyway
+
+    let src = ActorPath::deserialise(&mut buffer)?;
+    let dst = ActorPath::deserialise(&mut buffer)?;
+    let ser_id = buffer.get_ser_id();
+
+    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer);
 
     Ok(envelope)
 }

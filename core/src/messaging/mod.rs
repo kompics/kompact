@@ -3,12 +3,12 @@
 use crate::{
     actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds, PathParseError},
     net::{
-        buffers::{BufferChunk, BufferEncoder, ChunkLease},
+        buffers::{BufferChunk, BufferEncoder, ChunkLease, ChunkRef},
         events::NetworkEvent,
         frames::FRAME_HEAD_LEN,
     },
     serialisation::{
-        ser_helpers::deserialise_msg,
+        ser_helpers::{deserialise_chunk_lease, deserialise_chunk_ref},
         Deserialiser,
         SerError,
         SerId,
@@ -19,12 +19,8 @@ use crate::{
     utils,
 };
 use bytes::{Buf, Bytes};
-use std::any::Any;
+use std::{any::Any, convert::TryFrom, ops::Deref, str::FromStr};
 use uuid::Uuid;
-
-use std::{convert::TryFrom, ops::Deref, str::FromStr};
-
-pub mod framing;
 mod net_message;
 pub use net_message::*;
 mod registration;
@@ -35,6 +31,8 @@ mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
 pub use deser_macro::*;
+
+pub mod framing;
 
 /// An event from the network
 ///

@@ -1,51 +1,19 @@
-use crate::net::buffers::{BufferChunk, BufferConfig, Chunk, DefaultChunk};
+use crate::net::buffers::{BufferChunk, BufferConfig, ChunkAllocator, DefaultAllocator};
 use std::{
     collections::{vec_deque::Drain, VecDeque},
-    fmt::Debug,
     sync::Arc,
 };
 
-/// Methods required by a ChunkAllocator
-pub trait ChunkAllocator: Send + Sync + Debug + 'static {
-    /// ChunkAllocators deliver Chunk by raw pointers
-    fn get_chunk(&self) -> *mut dyn Chunk;
-    /// This method tells the allocator that the [Chunk](Chunk) may be deallocated
-    ///
-    /// # Safety
-    ///
-    /// The caller *must* guarantee that the memory pointed to by `ptr`
-    /// has *not* been deallocated, yet!
-    unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
-}
-
-/// A default allocator for Kompact
-///
-/// Heap allocates chunks through the normal Rust system allocator
-#[derive(Default, Debug)]
-pub(crate) struct DefaultAllocator {
-    chunk_size: usize,
-}
-
-impl ChunkAllocator for DefaultAllocator {
-    fn get_chunk(&self) -> *mut dyn Chunk {
-        Box::into_raw(Box::new(DefaultChunk::new(self.chunk_size)))
-    }
-
-    unsafe fn release(&self, ptr: *mut dyn Chunk) -> () {
-        Box::from_raw(ptr);
-    }
-}
-
 pub(crate) struct BufferPool {
     pool: VecDeque<BufferChunk>,
-    /// Counts the number of BufferChunks allocated by this pool
+    // Counts the number of BufferChunks allocated by this pool
     pool_size: usize,
     chunk_allocator: Arc<dyn ChunkAllocator>,
     max_pool_size: usize,
 }
 
 impl BufferPool {
-    /// Creates a BufferPool from a BufferConfig
+    /// Creates a `BufferPool` from a BufferConfig and an *optional* [ChunkAllocator]
     pub fn with_config(
         config: &BufferConfig,
         custom_allocator: &Option<Arc<dyn ChunkAllocator>>,

@@ -5,19 +5,13 @@ use super::*;
 pub enum DispatchData {
     /// Lazily serialised variant – must still be serialised by the dispatcher or networking system
     Lazy(Box<dyn Serialisable>),
-    /// Should be serialised and [framed](crate::net::frames).
-    Serialised((ChunkLease, SerId)),
+    /// Should be serialised and [framed](crate::net::frames::Frame).
+    SerialisedLease(ChunkLease),
+    /// Should be serialised and [framed](crate::net::frames::Frame).
+    SerialisedRef(ChunkRef),
 }
 
 impl DispatchData {
-    /// The serialisation id associated with the data
-    pub fn ser_id(&self) -> SerId {
-        match self {
-            DispatchData::Lazy(ser) => ser.ser_id(),
-            DispatchData::Serialised((_chunk, ser_id)) => *ser_id,
-        }
-    }
-
     /// Try to extract a network message from this data for local delivery
     ///
     /// This can fail, if the data can't be moved onto the heap, and serialisation
@@ -28,11 +22,17 @@ impl DispatchData {
                 let ser_id = ser.ser_id();
                 Ok(NetMessage::with_box(ser_id, src, dst, ser))
             }
-            DispatchData::Serialised((mut chunk, _ser_id)) => {
+            DispatchData::SerialisedLease(mut chunk) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
                 chunk.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(deserialise_msg(chunk).expect("s11n errors"))
+                Ok(deserialise_chunk_lease(chunk).expect("s11n errors"))
+            }
+            DispatchData::SerialisedRef(mut chunk) => {
+                // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
+                chunk.advance(FRAME_HEAD_LEN as usize);
+                //println!("to_local (from: {:?}; to: {:?})", src, dst);
+                Ok(deserialise_chunk_ref(chunk).expect("s11n errors"))
             }
         }
     }
@@ -45,10 +45,11 @@ impl DispatchData {
         buf: &mut BufferEncoder,
     ) -> Result<SerialisedFrame, SerError> {
         match self {
-            DispatchData::Lazy(ser) => Ok(SerialisedFrame::Chunk(
+            DispatchData::Lazy(ser) => Ok(SerialisedFrame::ChunkLease(
                 crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser.deref(), buf)?,
             )),
-            DispatchData::Serialised((chunk, _ser_id)) => Ok(SerialisedFrame::Chunk(chunk)),
+            DispatchData::SerialisedLease(chunk) => Ok(SerialisedFrame::ChunkLease(chunk)),
+            DispatchData::SerialisedRef(chunk) => Ok(SerialisedFrame::ChunkRef(chunk)),
         }
     }
 }

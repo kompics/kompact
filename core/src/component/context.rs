@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::net::buffers::{BufferConfig, ChunkAllocator};
+use crate::net::buffers::{BufferConfig, ChunkAllocator, ChunkRef};
 use std::task::Poll;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,19 +337,41 @@ where
         self.with_buffer(f)
     }
 
-    /// May be used for manual initialization of a components local `EncodeBuffer`.
-    /// If this method is never called explicitly the actor will implicitly call it when it tries
-    /// to serialise its first message.
+    /// Attempts to create a [ChunkRef](net::buffers::ChunkRef) of the data using the local
+    /// [EncodeBuffer](net::buffers::EncodeBuffer), to be used with
+    /// [tell_preserialised](actors::ActorPath#method.tell_preserialised)
+    pub fn preserialise<B>(&self, content: &B) -> Result<ChunkRef, SerError>
+    where
+        B: Serialisable + Sized,
+    {
+        {
+            // Scoping the borrow
+            if let Some(buffer) = self.buffer.borrow_mut().as_mut() {
+                return crate::ser_helpers::preserialise_msg(
+                    content,
+                    &mut buffer.get_buffer_encoder(),
+                );
+            }
+        }
+        self.init_buffers(None, None);
+        self.preserialise(content)
+    }
+
+    /// May be used for manual initialization of a components local
+    /// [EncodeBuffer](net::buffers:EncodeBuffer). If this method is never called explicitly
+    /// the actor will implicitly call it when it tries to serialise its first message.
+    ///
     /// If buffers have already been initialized, explicitly or implicitly, the method does nothing.
     ///
-    /// A custom `BufferConfig` may be specified, if `None` is given the actor will first try
-    /// to parse the configuration from the system wide Configuration,
-    /// If that fails, it will use the default config.
+    /// A custom [BufferConfig](net::buffers::BufferConfig) may be specified, if `None` is given the
+    /// actor will first try to parse the configuration from the system wide `Hocon`-Configuration,
+    /// if that fails, the default config will be used.
     ///
-    /// A custom `ChunkAllocator` may also be specified.
-    /// if `None` is given the actor will use the default allocator
+    /// A custom [ChunkAllocator](net::buffers::ChunkAllocator) may also be specified.
+    /// if `None` is given the actor will use the default allocator.
     ///
-    /// Note: The NetworkConfig never affects the Actors Buffers.
+    /// Note: The `BufferConfig` within the systems [NetworkConfig](dispatch::NetworkConfig) never
+    /// affects the Actors Buffers (i.e. this method).
     pub fn init_buffers(
         &self,
         buffer_config: Option<BufferConfig>,

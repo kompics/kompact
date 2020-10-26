@@ -58,7 +58,9 @@ pub enum SerialisedFrame {
     /// Variant for Bytes allocated anywhere
     Bytes(Bytes),
     /// Variant for the Pooled buffers
-    Chunk(ChunkLease),
+    ChunkLease(ChunkLease),
+    /// Variant for the Pooled buffers
+    ChunkRef(ChunkRef),
 }
 
 impl SerialisedFrame {
@@ -70,19 +72,17 @@ impl SerialisedFrame {
     /// Returns the number of bytes in this frame
     pub fn len(&self) -> usize {
         match self {
-            SerialisedFrame::Chunk(chunk) => chunk.remaining(),
+            SerialisedFrame::ChunkLease(chunk) => chunk.remaining(),
+            SerialisedFrame::ChunkRef(chunk) => chunk.remaining(),
             SerialisedFrame::Bytes(bytes) => bytes.remaining(),
         }
     }
 
-    /// Returns the data in this frame as a slice
-    ///
-    /// # Note
-    ///
-    /// In case of chaining only the front is returned!
+    /// Returns the data in this frame as a slice, in case of chaining only the front is returned!
     pub fn bytes(&self) -> &[u8] {
         match self {
-            SerialisedFrame::Chunk(chunk) => chunk.bytes(),
+            SerialisedFrame::ChunkLease(chunk) => chunk.bytes(),
+            SerialisedFrame::ChunkRef(chunk) => chunk.bytes(),
             SerialisedFrame::Bytes(bytes) => bytes.bytes(),
         }
     }
@@ -92,11 +92,15 @@ impl SerialisedFrame {
     pub fn make_contiguous(&mut self) {
         if self.len() > self.bytes().len() {
             match self {
-                SerialisedFrame::Chunk(chunk) => {
+                SerialisedFrame::ChunkLease(chunk) => {
+                    *self = SerialisedFrame::Bytes(chunk.to_bytes());
+                }
+                SerialisedFrame::ChunkRef(chunk) => {
                     *self = SerialisedFrame::Bytes(chunk.to_bytes());
                 }
                 _ => {
-                    unreachable!("Can't convert uncontiguous Bytes to contiguous");
+                    // Unreachable
+                    panic!("Impossible error, can't convert uncontiguous Bytes to contiguous");
                 }
             }
         }
