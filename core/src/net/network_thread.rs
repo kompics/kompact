@@ -848,15 +848,13 @@ mod tests {
     }
 
     #[allow(unused_must_use)]
-    fn setup_two_threads(
-        addr1: SocketAddr,
-        addr2: SocketAddr,
-    ) -> (
+    fn setup_two_threads() -> (
         NetworkThread,
         Sender<DispatchEvent>,
         NetworkThread,
         Sender<DispatchEvent>,
     ) {
+
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = cfg.build().expect("KompactSystem");
@@ -874,7 +872,7 @@ mod tests {
         // Set up the two network threads
         let (network_thread1, _) = NetworkThread::new(
             logger.clone(),
-            addr1,
+        "127.0.0.1:0".parse().expect("Address should work"),
             lookup.clone(),
             input_queue_1_receiver,
             dispatch_shutdown_sender1,
@@ -884,14 +882,13 @@ mod tests {
 
         let (network_thread2, _) = NetworkThread::new(
             logger,
-            addr2,
+        "127.0.0.1:0".parse().expect("Address should work"),
             lookup,
             input_queue_2_receiver,
             dispatch_shutdown_sender2,
             dispatcher_ref,
             NetworkConfig::default(),
         );
-
         (
             network_thread1,
             input_queue_1_sender,
@@ -903,55 +900,52 @@ mod tests {
     #[test]
     fn merge_connections_basic() -> () {
         // Sets up two NetworkThreads and does mutual connection request
-
-        let addr1 = "127.0.0.1:7778".parse().expect("Address should work");
-        let addr2 = "127.0.0.1:7780".parse().expect("Address should work");
-
-        let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
-            setup_two_threads(addr1, addr2);
-
+        let (mut thread1, input_queue_1_sender, mut thread2, input_queue_2_sender) =
+            setup_two_threads();
+        let addr1 = thread1.addr.clone();
+        let addr2 = thread2.addr.clone();
         // Tell both to connect to each-other before they start running:
         input_queue_1_sender.send(DispatchEvent::Connect(addr2));
         input_queue_2_sender.send(DispatchEvent::Connect(addr1));
 
         // Let both handle the connect event:
-        network_thread1.receive_dispatch();
-        network_thread2.receive_dispatch();
+        thread1.receive_dispatch();
+        thread2.receive_dispatch();
 
         // Wait for the connect requests to reach destination:
         thread::sleep(Duration::from_millis(100));
 
         // Accept requested streams
-        network_thread1.accept_stream();
-        network_thread2.accept_stream();
+        thread1.accept_stream();
+        thread2.accept_stream();
 
         // Wait for Hello to reach destination:
         thread::sleep(Duration::from_millis(100));
 
         // We need to make sure the TCP buffers are actually flushing the messages.
         // Handle events on both ends, say hello:
-        poll_and_handle(&mut network_thread1);
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread1);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
         // Cycle two Requested channels
-        poll_and_handle(&mut network_thread1);
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread1);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
         // Cycle three, merge and close
-        poll_and_handle(&mut network_thread1);
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread1);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
         // Cycle four, receive close and close
-        poll_and_handle(&mut network_thread1);
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread1);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
         // Now we can inspect the Network channels, both only have one channel:
-        assert_eq!(network_thread1.channel_map.len(), 1);
-        assert_eq!(network_thread2.channel_map.len(), 1);
+        assert_eq!(thread1.channel_map.len(), 1);
+        assert_eq!(thread2.channel_map.len(), 1);
 
         // Now assert that they've kept the same channel:
         assert_eq!(
-            network_thread1
+            thread1
                 .channel_map
                 .drain()
                 .next()
@@ -960,7 +954,7 @@ mod tests {
                 .stream()
                 .local_addr()
                 .unwrap(),
-            network_thread2
+            thread2
                 .channel_map
                 .drain()
                 .next()
@@ -976,56 +970,53 @@ mod tests {
     fn merge_connections_tricky() -> () {
         // Sets up two NetworkThreads and does mutual connection request
         // This test uses a different order of events than basic
-
-        let addr1 = "127.0.0.1:8778".parse().expect("Address should work");
-        let addr2 = "127.0.0.1:8780".parse().expect("Address should work");
-
-        let (mut network_thread1, input_queue_1_sender, mut network_thread2, input_queue_2_sender) =
-            setup_two_threads(addr1, addr2);
-
+        let (mut thread1, input_queue_1_sender, mut thread2, input_queue_2_sender) =
+            setup_two_threads();
+        let addr1 = thread1.addr.clone();
+        let addr2 = thread2.addr.clone();
         // 2 Requests connection to 1 and sends Hello
         input_queue_2_sender.send(DispatchEvent::Connect(addr1));
-        network_thread2.receive_dispatch();
+        thread2.receive_dispatch();
         thread::sleep(Duration::from_millis(100));
 
         // 1 accepts the connection and sends hello back
-        network_thread1.accept_stream();
+        thread1.accept_stream();
         thread::sleep(Duration::from_millis(100));
         // 2 receives the Hello
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
         // 1 Receives Hello
-        poll_and_handle(&mut network_thread1);
+        poll_and_handle(&mut thread1);
 
         // 1 Receives Request Connection Event, this is the tricky part
         // 1 Requests connection to 2 and sends Hello
         input_queue_1_sender.send(DispatchEvent::Connect(addr2));
-        network_thread1.receive_dispatch();
+        thread1.receive_dispatch();
         thread::sleep(Duration::from_millis(100));
 
         // 2 accepts the connection and replies with hello
-        network_thread2.accept_stream();
+        thread2.accept_stream();
         thread::sleep(Duration::from_millis(100));
 
         // 2 receives the Hello on the new channel and merges
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
 
         // 1 receives the Hello on the new channel and merges
-        poll_and_handle(&mut network_thread1);
+        poll_and_handle(&mut thread1);
         thread::sleep(Duration::from_millis(100));
 
         // 2 receives the Bye and the Ack.
-        poll_and_handle(&mut network_thread2);
+        poll_and_handle(&mut thread2);
         thread::sleep(Duration::from_millis(100));
 
         // Now we can inspect the Network channels, both only have one channel:
-        assert_eq!(network_thread1.channel_map.len(), 1);
-        assert_eq!(network_thread2.channel_map.len(), 1);
+        assert_eq!(thread1.channel_map.len(), 1);
+        assert_eq!(thread2.channel_map.len(), 1);
 
         // Now assert that they've kept the same channel:
         assert_eq!(
-            network_thread1
+            thread1
                 .channel_map
                 .drain()
                 .next()
@@ -1034,7 +1025,7 @@ mod tests {
                 .stream()
                 .local_addr()
                 .unwrap(),
-            network_thread2
+            thread2
                 .channel_map
                 .drain()
                 .next()
@@ -1048,7 +1039,7 @@ mod tests {
 
     #[test]
     fn network_thread_custom_buffer_config() -> () {
-        let addr = "127.0.0.1:9788".parse().expect("Address should work");
+        let addr = "127.0.0.1:0".parse().expect("Address should work");
         let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(128);
         buffer_config.max_chunk_count(14);

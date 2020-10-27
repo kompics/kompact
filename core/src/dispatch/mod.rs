@@ -1126,21 +1126,22 @@ mod tests {
             let mut cfg = KompactConfig::new();
             cfg.system_components(
                 DeadletterBox::new,
-                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9311)).build(),
+                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work")).build()
             );
             cfg.build().expect("KompactSystem")
         };
-        let system2 = || {
+        let system2 = |port| {
             let mut cfg = KompactConfig::new();
             cfg.system_components(
                 DeadletterBox::new,
-                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9312)).build(),
+                NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port)).build(),
             );
             cfg.build().expect("KompactSystem")
         };
 
         // Set-up system2a
-        let system2a = system2();
+        let system2a = system2(0);
+        let port = system2a.system_path().port();
         //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
         let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new_lazy);
         let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
@@ -1182,7 +1183,7 @@ mod tests {
 
         // Start up system2b
         println!("Setting up system2b");
-        let system2b = system2();
+        let system2b = system2(port);
         let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new_lazy);
         let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
         ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");

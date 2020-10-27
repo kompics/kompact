@@ -1,13 +1,17 @@
 use kompact::{prelude::*, prelude_test::net_test_helpers::*};
 use std::{net::SocketAddr, thread, time::Duration};
 
+fn system_from_network_config(network_config: NetworkConfig) -> KompactSystem {
+    let mut cfg = KompactConfig::new();
+    cfg.system_components(DeadletterBox::new, network_config.build());
+    cfg.build().expect("KompactSystem")
+}
+
 #[test]
 fn named_registration() {
     const ACTOR_NAME: &str = "ponger";
+    let system = system_from_network_config(NetworkConfig::default());
 
-    let mut cfg = KompactConfig::new();
-    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-    let system = cfg.build().expect("KompactSystem");
     let ponger = system.create(PongerAct::new_lazy);
     system.start(&ponger);
 
@@ -44,14 +48,8 @@ fn named_registration() {
 // messages.
 #[test]
 fn remote_delivery_to_registered_actors_eager() {
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(NetworkConfig::default());
+    let remote = system_from_network_config(NetworkConfig::default());
     let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
     let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -96,11 +94,9 @@ fn remote_delivery_to_registered_actors_eager() {
         .wait_timeout(Duration::from_millis(1000))
         .expect("Ponger never died!");
     pinger_unique.on_definition(|c| {
-        println!("pinger uniq count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
     pinger_named.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
 
@@ -117,14 +113,9 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
     buf_cfg.chunk_size(128);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg);
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(net_cfg.clone());
+    let remote = system_from_network_config(net_cfg);
+
     let (ponger_named, ponf) = remote.create_and_register(BigPongerAct::new_lazy);
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
     let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -168,14 +159,9 @@ fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
     buf_cfg.chunk_size(128);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(net_cfg.clone());
+    let remote = system_from_network_config(net_cfg);
+
     let (ponger_named, ponf) =
         remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -221,14 +207,9 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
     buf_cfg.chunk_size(128);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(net_cfg.clone());
+    let remote = system_from_network_config(net_cfg);
+
     let (ponger_named, ponf) =
         remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -274,14 +255,9 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
     buf_cfg.chunk_size(66000);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(net_cfg.clone());
+    let remote = system_from_network_config(net_cfg);
+
     let (ponger_named, ponf) = remote.create_and_register(BigPongerAct::new_lazy);
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
     let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -325,14 +301,9 @@ fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
     buf_cfg.chunk_size(66000);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(net_cfg.clone());
+    let remote = system_from_network_config(net_cfg);
+
     let (ponger_named, ponf) =
         remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -378,14 +349,9 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
     buf_cfg.chunk_size(66000);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, net_cfg.clone().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(net_cfg.clone());
+    let remote = system_from_network_config(net_cfg);
+
     let (ponger_named, ponf) =
         remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -429,14 +395,9 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_eager_mixed_udp() {
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(NetworkConfig::default());
+    let remote = system_from_network_config(NetworkConfig::default());
+
     let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
     let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -483,11 +444,9 @@ fn remote_delivery_to_registered_actors_eager_mixed_udp() {
         .wait_timeout(Duration::from_millis(1000))
         .expect("Ponger never died!");
     pinger_unique.on_definition(|c| {
-        println!("pinger uniq count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
     pinger_named.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
 
@@ -502,14 +461,9 @@ fn remote_delivery_to_registered_actors_eager_mixed_udp() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_lazy() {
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(NetworkConfig::default());
+    let remote = system_from_network_config(NetworkConfig::default());
+
     let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_lazy);
     let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_lazy);
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -561,11 +515,9 @@ fn remote_delivery_to_registered_actors_lazy() {
         .wait_timeout(Duration::from_millis(1000))
         .expect("Ponger never died!");
     pinger_unique.on_definition(|c| {
-        println!("pinger uniq count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
     pinger_named.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
 
@@ -580,14 +532,9 @@ fn remote_delivery_to_registered_actors_lazy() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
-    let (system, remote) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system = system_from_network_config(NetworkConfig::default());
+    let remote = system_from_network_config(NetworkConfig::default());
+
     let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_lazy);
     let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_lazy);
     let poaf = remote.register_by_alias(&ponger_named, "custom_name");
@@ -634,11 +581,9 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
         .wait_timeout(Duration::from_millis(1000))
         .expect("Ponger never died!");
     pinger_unique.on_definition(|c| {
-        println!("pinger uniq count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
     pinger_named.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
 
@@ -655,94 +600,79 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
 // transfers the enqueued messages.
 #[ignore]
 fn remote_lost_and_continued_connection() {
-    let system1 = || {
-        let mut cfg = KompactConfig::new();
-        cfg.system_components(
-            DeadletterBox::new,
-            NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9111)).build(),
-        );
-        cfg.build().expect("KompactSystem")
-    };
-    let system2 = || {
-        let mut cfg = KompactConfig::new();
-        cfg.system_components(
-            DeadletterBox::new,
-            NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9112)).build(),
-        );
-        cfg.build().expect("KompactSystem")
-    };
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_max_connection_retry_attempts(6);
+    net_cfg.set_connection_retry_interval(500);
+    let system = system_from_network_config(net_cfg);
+    let remote_a = system_from_network_config(NetworkConfig::default());
+    let remote_port = remote_a.system_path().port();
 
-    // Set-up system2a
-    let system2a = system2();
     //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
-    let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new_lazy);
-    let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+    let (ponger_named, ponf) = remote_a.create_and_register(PongerAct::new_lazy);
+    let poaf = remote_a.register_by_alias(&ponger_named, "custom_name");
     ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     let named_path = ActorPath::Named(NamedPath::with_system(
-        system2a.system_path(),
+        remote_a.system_path(),
         vec!["custom_name".into()],
     ));
     let named_path_clone = named_path.clone();
-    // Set-up system1
-    let system1 = system1();
+
     let (pinger_named, pinf) =
-        system1.create_and_register(move || PingerAct::new_lazy(named_path_clone));
+        system.create_and_register(move || PingerAct::new_lazy(named_path_clone));
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
-    system2a.start(&ponger_named);
-    system1.start(&pinger_named);
+    remote_a.start(&ponger_named);
+    system.start(&pinger_named);
 
     // Wait for the pingpong
     thread::sleep(Duration::from_millis(2000));
 
     // Assert that things are going as we expect
-    let pongfn = system2a.kill_notify(ponger_named);
+    let pongfn = remote_a.kill_notify(ponger_named);
     pongfn
         .wait_timeout(Duration::from_millis(1000))
         .expect("Ponger never died!");
     pinger_named.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
-    // We now kill system2
-    system2a.shutdown().ok();
-    // Start a new pinger on system1
+
+    // We now kill remote_a
+    remote_a.shutdown().ok();
+
+    // Start a new pinger on system
     let (pinger_named2, pinf2) =
-        system1.create_and_register(move || PingerAct::new_lazy(named_path));
+        system.create_and_register(move || PingerAct::new_lazy(named_path));
     pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    system1.start(&pinger_named2);
-    // Wait for it to send its pings, system1 should recognize the remote address
+    system.start(&pinger_named2);
+    // Wait for it to send its pings, system should recognize the remote address
     thread::sleep(Duration::from_millis(1000));
     // Assert that things are going as they should be, ping count has not increased
     pinger_named2.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, 0);
     });
-    // Start up system2b
-    println!("Setting up system2b");
-    let system2b = system2();
-    let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new_lazy);
-    let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+
+    // Start up remote_b
+    let mut addr: SocketAddr = "127.0.0.1:0".parse().expect("Address should work");
+    addr.set_port(remote_port);
+    let remote_b = system_from_network_config(NetworkConfig::new(addr));
+
+    let (ponger_named, ponf) = remote_b.create_and_register(PongerAct::new_lazy);
+    let poaf = remote_b.register_by_alias(&ponger_named, "custom_name");
     ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    println!("Starting actor on system2b");
-    system2b.start(&ponger_named);
+    remote_b.start(&ponger_named);
 
     // We give the connection plenty of time to re-establish and transfer it's old queue
-    println!("Final sleep");
     thread::sleep(Duration::from_millis(5000));
     // Final assertion, did our systems re-connect without lost messages?
-    println!("Asserting");
     pinger_named2.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
-    println!("Shutting down");
-    system1
+    system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system2b
+    remote_b
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -753,120 +683,100 @@ fn remote_lost_and_continued_connection() {
 // After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
 #[ignore]
 fn remote_lost_and_dropped_connection() {
-    let mut network_cfg_1 = NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9211));
-    let max_reattempts = 3;
-    network_cfg_1.set_max_connection_retry_attempts(max_reattempts);
-    let reattempt_interval = network_cfg_1.get_connection_retry_interval();
-    let system1 = || {
-        let mut cfg = KompactConfig::new();
-        cfg.system_components(DeadletterBox::new, network_cfg_1.build());
-        cfg.build().expect("KompactSystem")
-    };
-    let system2 = || {
-        let mut cfg = KompactConfig::new();
-        cfg.system_components(
-            DeadletterBox::new,
-            NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), 9212)).build(),
-        );
-        cfg.build().expect("KompactSystem")
-    };
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_max_connection_retry_attempts(2);
+    net_cfg.set_connection_retry_interval(500);
+    let system = system_from_network_config(net_cfg);
+    let remote_a = system_from_network_config(NetworkConfig::default());
+    let remote_port = remote_a.system_path().port();
 
-    // Set-up system2a
-    let system2a = system2();
-    //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
-    let (ponger_named, ponf) = system2a.create_and_register(PongerAct::new_lazy);
-    let poaf = system2a.register_by_alias(&ponger_named, "custom_name");
+    let (ponger_named, ponf) = remote_a.create_and_register(PongerAct::new_lazy);
+    let poaf = remote_a.register_by_alias(&ponger_named, "custom_name");
     ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     let named_path = ActorPath::Named(NamedPath::with_system(
-        system2a.system_path(),
+        remote_a.system_path(),
         vec!["custom_name".into()],
     ));
     let named_path_clone = named_path.clone();
     let named_path_clone2 = named_path.clone();
-    // Set-up system1
-    let system1 = system1();
+
     let (pinger_named, pinf) =
-        system1.create_and_register(move || PingerAct::new_lazy(named_path_clone));
+        system.create_and_register(move || PingerAct::new_lazy(named_path_clone));
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
-    system2a.start(&ponger_named);
-    system1.start(&pinger_named);
+    remote_a.start(&ponger_named);
+    system.start(&pinger_named);
 
     // Wait for the pingpong
     thread::sleep(Duration::from_millis(2000));
 
     // Assert that things are going as we expect
-    let pongfn = system2a.kill_notify(ponger_named);
+    let pongfn = remote_a.kill_notify(ponger_named);
     pongfn
         .wait_timeout(Duration::from_millis(1000))
         .expect("Ponger never died!");
     pinger_named.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
     // We now kill system2
-    system2a.shutdown().ok();
-    // Start a new pinger on system1
+    remote_a.shutdown().ok();
+    // Start a new pinger on system
     let (pinger_named2, pinf2) =
-        system1.create_and_register(move || PingerAct::new_lazy(named_path));
+        system.create_and_register(move || PingerAct::new_lazy(named_path));
     pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    system1.start(&pinger_named2);
-    // Wait for it to send its pings, system1 should recognize the remote address
+    system.start(&pinger_named2);
+    // Wait for it to send its pings, system should recognize the remote address
     thread::sleep(Duration::from_millis(1000));
     // Assert that things are going as they should be, ping count has not increased
     pinger_named2.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, 0);
     });
     // Sleep long-enough that the remote connection will be dropped with its queue
     thread::sleep(Duration::from_millis(
-        (max_reattempts + 2) as u64 * reattempt_interval,
+        3 * 500, // retry config from above
     ));
-    // Start up system2b
-    println!("Setting up system2b");
-    let system2b = system2();
-    let (ponger_named, ponf) = system2b.create_and_register(PongerAct::new_lazy);
-    let poaf = system2b.register_by_alias(&ponger_named, "custom_name");
+    // Start up remote_b
+    let mut addr: SocketAddr = "127.0.0.1:0".parse().expect("Address should work");
+    addr.set_port(remote_port);
+    let remote_b = system_from_network_config(NetworkConfig::new(addr));
+
+    let (ponger_named, ponf) = remote_b.create_and_register(PongerAct::new_lazy);
+    let poaf = remote_b.register_by_alias(&ponger_named, "custom_name");
     ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    println!("Starting actor on system2b");
-    system2b.start(&ponger_named);
+    remote_b.start(&ponger_named);
 
     // We give the connection plenty of time to re-establish and transfer it's old queue
     thread::sleep(Duration::from_millis(5000));
     // Final assertion, did our systems re-connect without lost messages?
     pinger_named2.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, 0);
     });
 
     // This one should now succeed
     let (pinger_named2, pinf2) =
-        system1.create_and_register(move || PingerAct::new_lazy(named_path_clone2));
+        system.create_and_register(move || PingerAct::new_lazy(named_path_clone2));
     pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    system1.start(&pinger_named2);
-    // Wait for it to send its pings, system1 should recognize the remote address
+    system.start(&pinger_named2);
+    // Wait for it to send its pings, system should recognize the remote address
     thread::sleep(Duration::from_millis(1000));
     // Assert that things are going as they should be
     pinger_named2.on_definition(|c| {
-        println!("pinger named count: {}", c.count);
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system1
+    system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system2b
+    remote_b
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
 fn local_delivery() {
-    let mut cfg = KompactConfig::new();
-    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-    let system = cfg.build().expect("KompactSystem");
+    let system = system_from_network_config(NetworkConfig::default());
 
     let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
@@ -902,9 +812,7 @@ fn local_delivery() {
 
 #[test]
 fn local_forwarding() {
-    let mut cfg = KompactConfig::new();
-    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-    let system = cfg.build().expect("KompactSystem");
+    let system = system_from_network_config(NetworkConfig::default());
 
     let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
@@ -950,9 +858,7 @@ fn local_forwarding() {
 
 #[test]
 fn local_forwarding_eager() {
-    let mut cfg = KompactConfig::new();
-    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-    let system = cfg.build().expect("KompactSystem");
+    let system = system_from_network_config(NetworkConfig::default());
 
     let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
@@ -998,14 +904,9 @@ fn local_forwarding_eager() {
 
 #[test]
 fn remote_forwarding_unique() {
-    let (system1, system2, system3) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system(), system())
-    };
+    let system1 = system_from_network_config(NetworkConfig::default());
+    let system2 = system_from_network_config(NetworkConfig::default());
+    let system3 = system_from_network_config(NetworkConfig::default());
 
     let (ponger, pof) = system1.create_and_register(PongerAct::new_lazy);
     let ponger_path = pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -1054,14 +955,8 @@ fn remote_forwarding_unique() {
 
 #[test]
 fn remote_forwarding_unique_two_systems() {
-    let (system1, system2) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system())
-    };
+    let system1 = system_from_network_config(NetworkConfig::default());
+    let system2 = system_from_network_config(NetworkConfig::default());
 
     let (ponger, pof) = system1.create_and_register(PongerAct::new_lazy);
     let ponger_path = pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -1107,14 +1002,9 @@ fn remote_forwarding_unique_two_systems() {
 
 #[test]
 fn remote_forwarding_named() {
-    let (system1, system2, system3) = {
-        let system = || {
-            let mut cfg = KompactConfig::new();
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
-        };
-        (system(), system(), system())
-    };
+    let system1 = system_from_network_config(NetworkConfig::default());
+    let system2 = system_from_network_config(NetworkConfig::default());
+    let system3 = system_from_network_config(NetworkConfig::default());
 
     let (ponger, _pof) = system1.create_and_register(PongerAct::new_lazy);
     let pnf = system1.register_by_alias(&ponger, "ponger");
