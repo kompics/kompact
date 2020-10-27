@@ -2,7 +2,7 @@ use super::*;
 use crate::messaging::DispatchEnvelope;
 use bytes::{Buf, BufMut};
 use core::{cmp, ptr};
-use hocon::Hocon;
+use hocon::{Hocon, HoconLoader};
 use std::{
     fmt::{Debug, Formatter},
     mem::MaybeUninit,
@@ -17,6 +17,7 @@ pub(crate) mod encode_buffer;
 
 pub(crate) use self::buffer_pool::*;
 pub use self::{chunk_lease::*, chunk_ref::*, decode_buffer::*, encode_buffer::*};
+use std::path::PathBuf;
 
 /// The configuration for the network buffers
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -89,6 +90,14 @@ impl BufferConfig {
         }
         buffer_config.validate();
         buffer_config
+    }
+
+    pub fn from_config_file<P>(path: P) -> BufferConfig
+        where P:Into<PathBuf>
+    {
+        let p: PathBuf = path.into();
+        let doc = HoconLoader::new().load_file(p).expect("Failed to load file").hocon().expect("Failed to load as HOCON");
+        Self::from_config(&doc)
     }
 
     /// Performs basic sanity checks on the config parameters and causes a `Panic` if it is invalid.
