@@ -78,7 +78,7 @@ impl DecodeBuffer {
     /// `get_frame()` should be called repeatedly until it returns `FramingError::NoData`
     /// before calling this method.
     pub fn swap_buffer(&mut self, other: &mut BufferChunk) -> () {
-        assert!(!other.locked, "Swapping with locked buffer");
+        assert!(other.free(), "Swapping with locked buffer");
         let overflow = self.get_overflow();
         self.buffer.swap_buffer(other);
         self.read_offset = 0;
