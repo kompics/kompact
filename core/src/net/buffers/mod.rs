@@ -80,8 +80,8 @@ impl BufferConfig {
         if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
             buffer_config.initial_chunk_count = initial_chunk_count as usize;
         }
-        if let Some(max_pool_count) = config["buffer_config"]["max_pool_count"].as_i64() {
-            buffer_config.max_chunk_count = max_pool_count as usize;
+        if let Some(max_chunk_count) = config["buffer_config"]["max_chunk_count"].as_i64() {
+            buffer_config.max_chunk_count = max_chunk_count as usize;
         }
         if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_i64()
         {
@@ -95,7 +95,7 @@ impl BufferConfig {
     /// Is called automatically by the `BufferPool` on creation.
     pub fn validate(&self) {
         if self.initial_chunk_count > self.max_chunk_count {
-            panic!("initial_chunk_count may not be greater than max_pool_count")
+            panic!("initial_chunk_count may not be greater than max_chunk_count")
         }
         if self.chunk_size <= self.encode_buf_min_free_space {
             panic!("chunk_size must be greater than encode_min_remaining")
@@ -295,7 +295,7 @@ mod tests {
     // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
     #[ignore]
-    #[should_panic(expected = "initial_chunk_count may not be greater than max_pool_count")]
+    #[should_panic(expected = "initial_chunk_count may not be greater than max_chunk_count")]
     fn invalid_pool_counts_config_validation() {
         let hocon = HoconLoader::new()
             .load_str(
@@ -303,7 +303,7 @@ mod tests {
             buffer_config {
                 chunk_size: 64,
                 initial_chunk_count: 3,
-                max_pool_count: 2,
+                max_chunk_count: 2,
                 encode_min_remaining: 2,
                 }
             }"#,
@@ -395,7 +395,7 @@ mod tests {
                 buffer_config {
                     chunk_size: 256,
                     initial_chunk_count: 3,
-                    max_pool_count: 4,
+                    max_chunk_count: 4,
                     encode_min_remaining: 20,
                     }
                 }"#,

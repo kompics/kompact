@@ -52,7 +52,7 @@ impl ComponentLifecycle for CustomBufferConfigActor {
         let mut buffer_config = BufferConfig::default();
         buffer_config.encode_buf_min_free_space(128);
         buffer_config.max_chunk_count(5);
-        buffer_config.initial_pool_count(4);
+        buffer_config.initial_chunk_count(4);
         buffer_config.chunk_size(256000);
         
         self.ctx.borrow().init_buffers(Some(buffer_config), None);
@@ -70,8 +70,8 @@ cfg.load_config_str(
     r#"{
         buffer_config {
             chunk_size: 256000,
-            initial_pool_count: 3,
-            max_pool_count: 4,
+            initial_chunk_count: 3,
+            max_chunk_count: 4,
             encode_min_remaining: 20,
             }
         }"#,
@@ -88,7 +88,7 @@ The `NetworkDispatcher` and `NetworkThread` are configured separately from the A
 let mut cfg = KompactConfig::new();
 let mut network_buffer_config = BufferConfig::default();
 network_buffer_config.chunk_size(512);
-network_buffer_config.initial_pool_count(2);
+network_buffer_config.initial_chunk_count(2);
 network_buffer_config.max_chunk_count(3);
 network_buffer_config.encode_buf_min_free_space(10);
 cfg.system_components(DeadletterBox::new, {
