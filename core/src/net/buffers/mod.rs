@@ -33,47 +33,11 @@ pub struct BufferConfig {
 }
 
 impl BufferConfig {
-    /// Create a new `BufferConfig` with default values which may be overwritten
-    /// `chunk_size` default value is 128,000.
-    /// `initial_chunk_count` default value is 2.
-    /// `max_chunk_count` default value is 1000.
-    /// `encode_buf_min_free_space` is 64.
-    pub fn default() -> Self {
-        BufferConfig {
-            chunk_size: 128 * 1000,        // 128KB chunks
-            initial_chunk_count: 2,        // 256KB initial/minimum BufferPools
-            max_chunk_count: 1000,         // 128MB maximum BufferPools
-            encode_buf_min_free_space: 64, // typical L1 cache line size
-        }
-    }
-
-    /// Sets the `BufferConfigs` `chunk_size` to the given number of bytes.
-    /// Must be greater than 127 AND greater than `encode_buf_min_free_space`
-    pub fn chunk_size(&mut self, size: usize) -> () {
-        self.chunk_size = size;
-    }
-
-    /// Sets the `BufferConfigs` `initial_chunk_count` to the given number.
-    /// Must be <= `max_chunk_count`.
-    pub fn initial_chunk_count(&mut self, count: usize) -> () {
-        self.initial_chunk_count = count;
-    }
-
-    /// Sets the `BufferConfigs` `max_chunk_count` to the given number.
-    /// Must be >= `initial_chunk_count`.
-    pub fn max_chunk_count(&mut self, count: usize) -> () {
-        self.max_chunk_count = count;
-    }
-
-    /// Sets the `BufferConfigs` `encode_buf_min_free_space` to the given number of bytes.
-    /// Must be < `chunk_size`.
-    pub fn encode_buf_min_free_space(&mut self, size: usize) -> () {
-        self.encode_buf_min_free_space = size;
-    }
-
-    /// Tries to deserialize a `BufferConfig` from the specified in the given `config`.
-    /// Returns a default `BufferConfig` if it fails to read from the config.
-    pub fn from_config(config: &Hocon) -> BufferConfig {
+    /// Tries to deserialise a configuration instance from the specified in the given `config`.
+    ///
+    /// Returns the same values as [BufferConfig::default](BufferConfig::default)
+    /// if it fails to read from the config.
+    pub fn from_config(config: &Hocon) -> Self {
         let mut buffer_config = BufferConfig::default();
         if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
             buffer_config.chunk_size = chunk_size as usize;
@@ -92,10 +56,14 @@ impl BufferConfig {
         buffer_config
     }
 
-    /// Tries to deserialize a `BufferConfig` from a HOCON file at `path`
-    /// Returns a default `BufferConfig` if it fails to read the specific keys for `BufferConfig` from the config.
+    /// Tries to deserialise a `BufferConfig` from a HOCON file at `path`
+    ///
+    /// Returns the same values as [BufferConfig::default](BufferConfig::default)
+    /// if it fails to read from the config.
+    ///
     /// # Panics
-    /// Panics if it fails to load the file or fails to load the file as HOCON
+    ///
+    /// Panics if it fails to load the file or fails to load the file as HOCON.
     pub fn from_config_file<P>(path: P) -> BufferConfig
     where
         P: Into<PathBuf>,
@@ -109,8 +77,50 @@ impl BufferConfig {
         Self::from_config(&doc)
     }
 
-    /// Performs basic sanity checks on the config parameters and causes a `Panic` if it is invalid.
-    /// Is called automatically by the `BufferPool` on creation.
+    /// Sets the `chunk_size` to the given number of bytes.
+    ///
+    /// Specifies the size in bytes of each [BufferChunk](BufferChunk)
+    /// instance produced by pools using this configuration.
+    ///
+    /// Must be at least 128 bytes, and must also be greater than [encode_buf_min_free_space](BufferConfig::encode_buf_min_free_space).
+    pub fn chunk_size(&mut self, size: usize) -> () {
+        self.chunk_size = size;
+    }
+
+    /// Sets the `initial_chunk_count` to the given number.
+    ///
+    /// Specifies the number of [BufferChunk](BufferChunk)
+    /// instances that pools using this configuration create
+    /// initially.
+    ///
+    /// May be at most the value of [max_chunk_count](BufferConfig::max_chunk_count).
+    pub fn initial_chunk_count(&mut self, count: usize) -> () {
+        self.initial_chunk_count = count;
+    }
+
+    /// Sets the `max_chunk_count` to the given number.
+    ///
+    /// Specifies the maximum number of [BufferChunk](BufferChunk)
+    /// instances that pools using this configuration may create.
+    ///
+    /// Must be at least the value of [initial_chunk_count](BufferConfig::initial_chunk_count).
+    pub fn max_chunk_count(&mut self, count: usize) -> () {
+        self.max_chunk_count = count;
+    }
+
+    /// Sets the `encode_buf_min_free_space` to the given number of bytes.
+    ///
+    /// This sets the minimum number of bytes an [EncodeBuffer](EncodeBuffer)
+    /// must have available before attempting any serialisation into it.
+    ///
+    /// Must be less than [chunk_size](BufferConfig::chunk_size).
+    pub fn encode_buf_min_free_space(&mut self, size: usize) -> () {
+        self.encode_buf_min_free_space = size;
+    }
+
+    /// Performs basic sanity checks on the config parameters and panics if it is invalid.
+    ///
+    /// This method is called automatically by any `BufferPool` on creation.
     pub fn validate(&self) {
         if self.initial_chunk_count > self.max_chunk_count {
             panic!("initial_chunk_count may not be greater than max_chunk_count")
@@ -126,6 +136,23 @@ impl BufferConfig {
         }
         if self.max_chunk_count < 2 {
             panic!("max_chunk_count must be greater than 2")
+        }
+    }
+}
+
+impl Default for BufferConfig {
+    /// Create a new configuration with default values which may then be overwritten
+    ///
+    /// - [chunk_size](BufferConfig::chunk_size) default value is `128 000`.
+    /// - [initial_chunk_count](BufferConfig::initial_chunk_count) default value is `2`.
+    /// - [max_chunk_count](BufferConfig::max_chunk_count) default value is `1 000`.
+    /// - [encode_buf_min_free_space](BufferConfig::encode_buf_min_free_space) is `64`.
+    fn default() -> Self {
+        BufferConfig {
+            chunk_size: 128 * 1000,        // 128KB chunks
+            initial_chunk_count: 2,        // 256KB initial/minimum BufferPools
+            max_chunk_count: 1000,         // 128MB maximum BufferPools
+            encode_buf_min_free_space: 64, // typical L1 cache line size
         }
     }
 }

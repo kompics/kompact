@@ -358,7 +358,7 @@ where
     }
 
     /// May be used for manual initialization of a components local
-    /// [EncodeBuffer](net::buffers:EncodeBuffer). If this method is never called explicitly
+    /// [EncodeBuffer](net::buffers::EncodeBuffer). If this method is never called explicitly
     /// the actor will implicitly call it when it tries to serialise its first message.
     ///
     /// If buffers have already been initialized, explicitly or implicitly, the method does nothing.
