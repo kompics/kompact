@@ -82,6 +82,8 @@ pub mod events {
         Stop,
         /// Tells the network adress to open up a channel to the SocketAddr
         Connect(SocketAddr),
+        /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
+        ClosedAck(SocketAddr),
     }
 
     /// Errors emitted byt the network `Bridge`
@@ -312,6 +314,14 @@ impl Bridge {
             }
             _other => Err(NetworkBridgeErr::Other("Bad Protocol".to_string())),
         }
+    }
+
+    /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
+    pub fn ack_closed(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::ClosedAck(addr))?;
+        self.waker.wake()?;
+        Ok(())
     }
 }
 

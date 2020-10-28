@@ -131,7 +131,8 @@ where
             assert_eq!(
                 chunk_lease.capacity(),
                 len + FRAME_HEAD_LEN as usize,
-                "Serialized frame sizing failed"
+                "Serialized frame length faulty {:#?}",
+                chunk_lease
             );
             Ok(chunk_lease)
         }

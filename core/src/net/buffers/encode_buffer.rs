@@ -29,7 +29,7 @@ impl EncodeBuffer {
                 min_remaining: config.encode_buf_min_free_space,
             }
         } else {
-            panic!("Couldn't initialize EncodeBuffer");
+            panic!("Couldn't initialize EncodeBuffer, No available chunks in the pool");
         }
     }
 
@@ -50,7 +50,7 @@ impl EncodeBuffer {
                 min_remaining: config.encode_buf_min_free_space,
             }
         } else {
-            panic!("Couldn't initialize EncodeBuffer");
+            panic!("Couldn't initialize EncodeBuffer, No available chunks in the pool");
         }
     }
 
