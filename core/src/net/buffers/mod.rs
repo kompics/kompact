@@ -92,11 +92,20 @@ impl BufferConfig {
         buffer_config
     }
 
+    /// Tries to deserialize a `BufferConfig` from a HOCON file at `path`
+    /// Returns a default `BufferConfig` if it fails to read the specific keys for `BufferConfig` from the config.
+    /// # Panics
+    /// Panics if it fails to load the file or fails to load the file as HOCON
     pub fn from_config_file<P>(path: P) -> BufferConfig
-        where P:Into<PathBuf>
+    where
+        P: Into<PathBuf>,
     {
         let p: PathBuf = path.into();
-        let doc = HoconLoader::new().load_file(p).expect("Failed to load file").hocon().expect("Failed to load as HOCON");
+        let doc = HoconLoader::new()
+            .load_file(p)
+            .expect("Failed to load file")
+            .hocon()
+            .expect("Failed to load as HOCON");
         Self::from_config(&doc)
     }
 
