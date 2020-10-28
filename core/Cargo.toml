@@ -59,8 +59,7 @@ hierarchical_hash_wheel_timer 	= "1.0"
 owning_ref 						= "0.4"
 futures 						= "0.3"
 async-std 						= "1.6"
-# TODO change this once 0.8 is released
-executors						= {version = "0.8", git = "https://github.com/Bathtor/rust-executors", branch = "master"}
+executors						= "0.8"
 
 # Optional
 protobuf 						= {version = "2", optional = true, features = ["with-bytes"]}
