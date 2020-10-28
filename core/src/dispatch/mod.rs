@@ -483,6 +483,10 @@ impl NetworkDispatcher {
                     warn!(self.ctx().log(), "connection closed for {:?}", addr);
                     self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
                 }
+                // Ack the close message
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.ack_closed(addr)?;
+                }
             }
             Error(ref err) => {
                 match err {
@@ -1126,7 +1130,7 @@ mod tests {
             let mut cfg = KompactConfig::new();
             cfg.system_components(
                 DeadletterBox::new,
-                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work")).build()
+                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work")).build(),
             );
             cfg.build().expect("KompactSystem")
         };

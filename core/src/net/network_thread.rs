@@ -357,14 +357,14 @@ impl NetworkThread {
     fn handle_start(&mut self, token: Token, remote_addr: SocketAddr, id: Uuid) -> () {
         if let Some(registered_addr) = self.token_map.remove(&token) {
             if remote_addr == registered_addr {
+                // The channel we received the start on was already registered with the appropriate address.
+                // There is no need to change anything, we can simply transition the channel.
                 debug!(
                     self.log,
                     "Got Start({}, ...) from {}, already registered with correct addr",
                     &remote_addr,
                     &registered_addr
                 );
-            // The channel we received the start on was already registered with the appropriate address.
-            // There is no need to change anything, we can simply transition the channel.
             } else {
                 // Make sure we only have one channel and that it's registered with the remote_addr
                 if let Some(mut channel) = self.channel_map.remove(&registered_addr) {
@@ -377,7 +377,8 @@ impl NetworkThread {
                         if let Some(other_id) = other_channel.get_id() {
                             // The other channel has a known id, if it doesn't there is no reason to keep it.
 
-                            if other_channel.connected() || other_id > id {
+                            if other_channel.connected() || other_id > id || other_channel.closed()
+                            {
                                 // The other channel should be kept and this one should be discarded.
                                 debug!(
                                     self.log,
@@ -611,21 +612,34 @@ impl NetworkThread {
         if let Some(channel) = self.channel_map.remove(&addr) {
             // We already have a connection set-up
             // the connection request must have been sent before the channel was initialized
-            if let ChannelState::Connected(_0, _1) = channel.state {
-                // log and inform Dispatcher to make sure it knows we're connected.
-                debug!(
-                    self.log,
-                    "Asked to request connection to already connected host {}", &addr
-                );
-                self.dispatcher_ref
-                    .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
-                    )));
-                self.channel_map.insert(addr, channel);
-                return Ok(());
-            } else {
-                // It was an old attempt, remove it and continue with the new request
-                drop(channel);
+            match channel.state {
+                ChannelState::Connected(_, _) => {
+                    // log and inform Dispatcher to make sure it knows we're connected.
+                    debug!(
+                        self.log,
+                        "Asked to request connection to already connected host {}", &addr
+                    );
+                    self.dispatcher_ref
+                        .tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                            NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
+                        )));
+                    self.channel_map.insert(addr, channel);
+                    return Ok(());
+                }
+                ChannelState::Closed(_, _) => {
+                    // We're waiting for the ClosedAck from the NetworkDispatcher
+                    // This shouldn't happen but the system will likely recover from it eventually
+                    debug!(
+                        self.log,
+                        "Requested connection to host before receiving ClosedAck {}", &addr
+                    );
+                    self.channel_map.insert(addr, channel);
+                    return Ok(());
+                }
+                _ => {
+                    // It was an old attempt, remove it and continue with the new request
+                    drop(channel);
+                }
             }
         }
         debug!(self.log, "Requesting connection to {}", &addr);
@@ -746,13 +760,19 @@ impl NetworkThread {
                     debug!(self.log, "Got DispatchEvent::Connect({})", addr);
                     self.request_stream(addr)?;
                 }
+                DispatchEvent::ClosedAck(addr) => {
+                    debug!(self.log, "Got DispatchEvent::ClosedAck({})", addr);
+                    self.handle_closed_ack(addr);
+                }
             }
         }
         Ok(())
     }
 
     fn close_channel(&mut self, addr: SocketAddr) -> () {
-        if let Some(mut channel) = self.channel_map.remove(&addr) {
+        // We will only drop the Channel once we get the CloseAck from the NetworkDispatcher
+        // Which ensures that the
+        if let Some(channel) = self.channel_map.get_mut(&addr) {
             self.dispatcher_ref
                 .tell(DispatchEnvelope::Event(EventEnvelope::Network(
                     NetworkEvent::Connection(addr, ConnectionState::Closed),
@@ -764,7 +784,21 @@ impl NetworkThread {
                     )));
             }
             channel.shutdown();
-            drop(channel);
+        }
+    }
+
+    fn handle_closed_ack(&mut self, addr: SocketAddr) -> () {
+        if let Some(channel) = self.channel_map.remove(&addr) {
+            match channel.state {
+                ChannelState::Connected(_, _) => {
+                    error!(self.log, "ClosedAck for connected Channel: {:#?}", channel);
+                    self.channel_map.insert(addr, channel);
+                }
+                _ => {
+                    let buffer = channel.destroy();
+                    self.buffer_pool.return_buffer(buffer);
+                }
+            }
         }
     }
 
@@ -854,7 +888,6 @@ mod tests {
         NetworkThread,
         Sender<DispatchEvent>,
     ) {
-
         let mut cfg = KompactConfig::new();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = cfg.build().expect("KompactSystem");
@@ -872,7 +905,7 @@ mod tests {
         // Set up the two network threads
         let (network_thread1, _) = NetworkThread::new(
             logger.clone(),
-        "127.0.0.1:0".parse().expect("Address should work"),
+            "127.0.0.1:0".parse().expect("Address should work"),
             lookup.clone(),
             input_queue_1_receiver,
             dispatch_shutdown_sender1,
@@ -882,7 +915,7 @@ mod tests {
 
         let (network_thread2, _) = NetworkThread::new(
             logger,
-        "127.0.0.1:0".parse().expect("Address should work"),
+            "127.0.0.1:0".parse().expect("Address should work"),
             lookup,
             input_queue_2_receiver,
             dispatch_shutdown_sender2,

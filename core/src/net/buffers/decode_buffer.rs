@@ -219,6 +219,11 @@ impl DecodeBuffer {
         }
         None
     }
+
+    /// Destroys the DecodeBuffer and returns the BufferChunk
+    pub(crate) fn destroy(self) -> BufferChunk {
+        self.buffer
+    }
 }
 
 #[cfg(test)]

@@ -30,6 +30,8 @@ pub(crate) enum ChannelState {
     Initialised(SocketAddr, Uuid),
     /// The channel is ready to be used. Ack must be sent before anything else is sent
     Connected(SocketAddr, Uuid),
+    /// The channel is closing, will be dropped once the local `NetworkDispatcher` Acks the closing.
+    Closed(SocketAddr, Uuid),
 }
 
 pub(crate) struct TcpChannel {
@@ -77,6 +79,10 @@ impl TcpChannel {
 
     pub fn connected(&self) -> bool {
         matches!(self.state, ChannelState::Connected(_, _))
+    }
+
+    pub fn closed(&self) -> bool {
+        matches!(self.state, ChannelState::Closed(_, _))
     }
 
     /// Internal helper function for special frames
@@ -221,8 +227,17 @@ impl TcpChannel {
         self.shutdown();
     }
 
-    pub fn shutdown(&mut self) -> () {
+    /// Returns `true` if this channel was not in [ChannelState::Connected](ChannelState::Connected)
+    /// `true` means that it can safely be dropped.
+    pub fn shutdown(&mut self) -> bool {
         let _ = self.stream.shutdown(Both); // Discard errors while closing channels for now...
+        match self.state {
+            ChannelState::Connected(addr, id) => {
+                self.state = ChannelState::Closed(addr, id);
+                false
+            }
+            _ => true,
+        }
     }
 
     /// Tries to decode a frame from the DecodeBuffer.
@@ -306,6 +321,11 @@ impl TcpChannel {
             SerialisedFrame::ChunkRef(chunkref) => self.stream.write(chunkref.bytes()),
         }
     }
+
+    /// Destroys the channel and returns the Buffer
+    pub(crate) fn destroy(self) -> BufferChunk {
+        self.input_buffer.destroy()
+    }
 }
 
 impl std::fmt::Debug for TcpChannel {
@@ -338,6 +358,12 @@ impl std::fmt::Debug for ChannelState {
                 .field("id", id)
                 .finish(),
             ChannelState::Connected(addr, id) => f
+                .debug_struct("ChannelState")
+                .field("State", &1)
+                .field("addr", addr)
+                .field("id", id)
+                .finish(),
+            ChannelState::Closed(addr, id) => f
                 .debug_struct("ChannelState")
                 .field("State", &1)
                 .field("addr", addr)
