@@ -71,7 +71,7 @@
 #![cfg_attr(nightly, feature(never_type))]
 #![cfg_attr(nightly, feature(option_expect_none))]
 #![cfg_attr(nightly, feature(async_closure))]
-#![cfg_attr(nightly, feature(unsized_locals))]
+#![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
