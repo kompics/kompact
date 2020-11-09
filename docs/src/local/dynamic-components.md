@@ -2,13 +2,15 @@
 
 Kompact is a very strictly and statically typed framework. Sometimes, however, it is beneficial to be a little more dynamic.
 There are many reasons you might want to introduce some dynamism into your component system: modularity, ease of modeling,
-or sometimes even performance (more static -> more monomorphisation -> code bloat -> cache misses).
+or sometimes even performance: static dispatch in Rust often involves monomorphising substantial amounts of generic code, 
+which leads to code bloat. The more instructions the CPU has to load the more likely it is that something won't fit in the
+cache, which can incur performance penalties.
 
 Because of this, we introduced a way to deal with components with a little bit of dynamic typing. Namely, you're able
 to create components from type-erased definitions with `{System,SystemHandle}::create_erased` (nightly only), and query 
 type-erased components for ports they may provide and/or require with `on_dyn_definition` and `get_{provided,required}_port`.
 
-> **Note:** while creating type-erased components from **type-erased definitions** _is_ nightly-only, you can create component
+> **Note:** While creating type-erased components from **type-erased definitions** _is_ nightly-only, you can create component
 > just normally and then cast it to a type-erased component on stable.
 
 Let's create a dynamic interactive system showcasing these features. We'll build a little REPL which the user can use
@@ -23,26 +25,26 @@ Our components perform simple arithmetic operations on the incoming message and 
 lifecycle). The internal state of the components can be set via `Set{Offset,Scale}` ports. So far we just have components
 with _either_ a scale _or_ an offset. Let's add something slightly more interesting, which uses both.
 
- ```rust,edition2018,no_run,noplaypen
- {{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:linear}}
- ```
+```rust,edition2018,no_run,noplaypen
+{{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:linear}}
+```
 
 Now let's write a manager component, which will take care of creating the components described above, killing them, 
 modifying their settings, and sending them data to process. In this case we have just three different types of worker
 components, but imagine we had tens (still sharing the same message type and some subsets of "settings"). In that case
 it would be **very** tedious to manage all these component types explicitly.
 
- ```rust,edition2018,no_run,noplaypen
- {{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:storage}}
- ```
+```rust,edition2018,no_run,noplaypen
+{{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:storage}}
+```
 
 Using `Arc<dyn AbstractComponent<Message=M>>` we can mix different components that take the same type of message in one
 collection. Now to fill that `Vec` with something useful. We'll define some messages for the manager and start creating 
 some components.
 
- ```rust,edition2018,no_run,noplaypen
- {{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:creation}}
- ```
+```rust,edition2018,no_run,noplaypen
+{{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:creation}}
+```
 
 As we don't want the manager type to know about the concrete component types _at all_, the `Spawn` message above contains a
 boxed, type-erased component definition, which we then turn into a component using `create_erased`.
@@ -53,9 +55,9 @@ or `Arc<Component<Linear>>`, which is not what we get here (`Arc<dyn AbstractCom
 `on_dyn_definition` together with the `Option`-returning `get_{provided,required}_port` to dynamically check if a given
 port exists on the abstract component and, if so, fetch it. 
 
- ```rust,edition2018,no_run,noplaypen
- {{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:ports}}
- ```
+```rust,edition2018,no_run,noplaypen
+{{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:ports}}
+```
 
 Now that we have the dynamic component part done, we can write a very simple repl. We'll start the Kompact system in the
 main thread, create the manager there, and await system termination. In a separate thread we'll continuously read `stdin`
@@ -65,7 +67,7 @@ and interpret the lines as commands to send to the manager.
  {{#rustdoc_include ../../examples/src/bin/dynamic_components.rs:repl}}
  ```
 
-When ran, it looks something like this:
+When run, it looks something like this:
 ```
 ❯ cargo run --features=type_erasure,silent_logging --bin dynamic_components
    Compiling kompact-examples v0.10.0 (/home/mrobakowski/projects/kompact/docs/examples)

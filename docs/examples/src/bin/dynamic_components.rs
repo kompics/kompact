@@ -8,28 +8,6 @@ use std::io::{stdin, BufRead};
 use std::error::Error;
 
 // ANCHOR: simple_components
-// like ignore_lifecycle!, but a tad louder
-macro_rules! info_lifecycle {
-    ($T:ty) => {
-        impl ComponentLifecycle for $T {
-            fn on_start(&mut self) -> Handled {
-                info!(self.log(), "Starting...");
-                Handled::Ok
-            }
-
-            fn on_stop(&mut self) -> Handled {
-                info!(self.log(), "Stopping...");
-                Handled::Ok
-            }
-
-            fn on_kill(&mut self) -> Handled {
-                info!(self.log(), "Killing...");
-                Handled::Ok
-            }
-        }
-    };
-}
-
 #[derive(ComponentDefinition)]
 struct Adder {
     ctx: ComponentContext<Self>,
