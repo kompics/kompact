@@ -176,6 +176,7 @@ pub mod prelude {
         ignore_indications,
         ignore_lifecycle,
         ignore_requests,
+        info_lifecycle,
         match_deser,
     };
 

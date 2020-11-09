@@ -20,6 +20,7 @@
 	- [Logging](local/logging.md)
 	- [Configuration](local/configuration.md)
 	- [Fault Recovery](local/faultrecovery.md)
+	- [Dynamic Components](local/dynamic-components.md)
 - [Distributed Kompact](distributed/index.md)
 	- [Basic Communication](distributed/basiccommunication.md)
 	- [Named Services](distributed/namedservices.md)

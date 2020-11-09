@@ -4,6 +4,10 @@ version = "0.10.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2018"
 
+[features]
+type_erasure = ["kompact/type_erasure"]
+silent_logging = ["kompact/silent_logging"]
+
 [dependencies]
 slog 				= "2"
 slog-async 			= "2"
@@ -21,4 +25,8 @@ path = "../../core/"
 default-features = true
 # features = ["silent_logging", "low_latency"]
 # features = ["silent_logging", "ser_id_8"]
+
+[[bin]]
+name = "dynamic_components"
+required-features = ["type_erasure"]
 

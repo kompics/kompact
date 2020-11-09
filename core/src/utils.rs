@@ -484,6 +484,37 @@ macro_rules! ignore_lifecycle {
     };
 }
 
+/// A macro that provides an implementation of [ComponentLifecycle](ComponentLifecycle) for the given component that logs
+/// the lifecycle stages at INFO log level.
+///
+/// Use this in components that do not require any special treatment of lifecycle events besides logging.
+///
+/// # Example
+///
+/// To log lifecycle events for a component `TestComponent`, write:
+/// `info_lifecycle!(TestComponent);`
+#[macro_export]
+macro_rules! info_lifecycle {
+    ($component:ty) => {
+        impl ComponentLifecycle for $component {
+            fn on_start(&mut self) -> Handled {
+                info!(self.log(), "Starting...");
+                Handled::Ok
+            }
+
+            fn on_stop(&mut self) -> Handled {
+                info!(self.log(), "Stopping...");
+                Handled::Ok
+            }
+
+            fn on_kill(&mut self) -> Handled {
+                info!(self.log(), "Killing...");
+                Handled::Ok
+            }
+        }
+    };
+}
+
 /// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
 ///
 /// Use this in components that do not require any special treatment of control events.
