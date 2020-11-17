@@ -408,25 +408,38 @@ impl<CD: ComponentTraits> Component<CD> {
 impl<CD: ComponentTraits> ActorRefFactory for Arc<Component<CD>> {
     type Message = CD::Message;
 
-    fn actor_ref(&self) -> ActorRef<CD::Message> {
+    fn actor_ref(&self) -> ActorRef<Self::Message> {
         let comp = Arc::downgrade(self);
         ActorRef::new(comp)
     }
 }
 
-impl<CD: ComponentTraits> ActorRefFactory for CD {
+impl<CD: ComponentDefinition> ActorRefFactory for CD {
     type Message = CD::Message;
 
-    fn actor_ref(&self) -> ActorRef<CD::Message> {
+    fn actor_ref(&self) -> ActorRef<Self::Message> {
         self.ctx().actor_ref()
     }
 }
 
-impl<CD: ComponentTraits> ActorRefFactory for Component<CD> {
-    type Message = CD::Message;
+impl<M: MessageBounds> ActorRefFactory for Arc<dyn AbstractComponent<Message = M>> {
+    type Message = M;
 
-    fn actor_ref(&self) -> ActorRef<CD::Message> {
-        self.on_definition(|c| c.ctx().actor_ref())
+    fn actor_ref(&self) -> ActorRef<Self::Message> {
+        let comp = self.clone().as_queue_container();
+        ActorRef::new(comp)
+    }
+}
+
+impl<CD: ComponentTraits> DynActorRefFactory for Arc<Component<CD>> {
+    fn dyn_ref(&self) -> DynActorRef {
+        self.actor_ref().dyn_ref()
+    }
+}
+
+impl<CD: ComponentTraits> UniqueRegistrable for Arc<Component<CD>> {
+    fn component_id(&self) -> Uuid {
+        self.id()
     }
 }
 

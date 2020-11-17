@@ -194,6 +194,7 @@ pub mod prelude {
             Dispatching,
             DispatchingPath,
             DynActorRef,
+            DynActorRefFactory,
             MessageBounds,
             NamedPath,
             NetworkActor,

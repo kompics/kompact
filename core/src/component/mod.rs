@@ -161,9 +161,21 @@ impl fmt::Debug for dyn CoreContainer {
     }
 }
 
-pub(crate) trait MsgQueueContainer: CoreContainer {
+/// A trait for component views that can be used for unique actor registration
+pub trait UniqueRegistrable: DynActorRefFactory {
+    /// Returns the unique id of a component
+    fn component_id(&self) -> Uuid;
+}
+
+/// Anything with this trait can be turned into an [ActorRef](ActorRef)
+/// as long as its behind an Arc or Weak
+pub trait MsgQueueContainer: CoreContainer {
+    /// The message type of the queue
     type Message: MessageBounds;
+    /// The actual underlying queue
     fn message_queue(&self) -> &TypedMsgQueue<Self::Message>;
+    /// A weak reference to the component that must be scheduled
+    /// when something is enqueued
     fn downgrade_dyn(self: Arc<Self>) -> Weak<dyn CoreContainer>;
 }
 

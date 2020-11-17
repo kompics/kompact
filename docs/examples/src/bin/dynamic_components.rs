@@ -1,11 +1,12 @@
 #![allow(clippy::unused_unit)]
 
-use kompact::prelude::*;
-use std::sync::Arc;
-use kompact::component::AbstractComponent;
-use std::fmt;
-use std::io::{stdin, BufRead};
-use std::error::Error;
+use kompact::{component::AbstractComponent, prelude::*};
+use std::{
+    error::Error,
+    fmt,
+    io::{stdin, BufRead},
+    sync::Arc,
+};
 
 // ANCHOR: simple_components
 #[derive(ComponentDefinition)]
@@ -157,7 +158,7 @@ impl Linear {
 #[derive(ComponentDefinition)]
 struct DynamicManager {
     ctx: ComponentContext<Self>,
-    arithmetic_units: Vec<Arc<dyn AbstractComponent<Message=f32>>>,
+    arithmetic_units: Vec<Arc<dyn AbstractComponent<Message = f32>>>,
     set_offsets: RequiredPort<SetOffset>,
     set_scales: RequiredPort<SetScale>,
 }
@@ -180,12 +181,24 @@ enum ManagerMessage {
 impl fmt::Debug for ManagerMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ManagerMessage::Spawn(_) => { write!(f, "Spawn(_)") }
-            ManagerMessage::Compute(val) => { write!(f, "Compute({})", *val) }
-            ManagerMessage::SetScales(scale) => { write!(f, "SetScales({})", *scale) }
-            ManagerMessage::SetOffsets(offset) => { write!(f, "SetOffsets({})", *offset) }
-            ManagerMessage::KillAll => { write!(f, "KillAll") }
-            ManagerMessage::Quit => { write!(f, "Quit") }
+            ManagerMessage::Spawn(_) => {
+                write!(f, "Spawn(_)")
+            }
+            ManagerMessage::Compute(val) => {
+                write!(f, "Compute({})", *val)
+            }
+            ManagerMessage::SetScales(scale) => {
+                write!(f, "SetScales({})", *scale)
+            }
+            ManagerMessage::SetOffsets(offset) => {
+                write!(f, "SetOffsets({})", *offset)
+            }
+            ManagerMessage::KillAll => {
+                write!(f, "KillAll")
+            }
+            ManagerMessage::Quit => {
+                write!(f, "Quit")
+            }
         }
     }
 }
@@ -217,8 +230,8 @@ impl Actor for DynamicManager {
                     unit.actor_ref().tell(val);
                 }
             }
-            ManagerMessage::SetScales(scale) => { self.set_scales.trigger(scale) }
-            ManagerMessage::SetOffsets(offset) => { self.set_offsets.trigger(offset) }
+            ManagerMessage::SetScales(scale) => self.set_scales.trigger(scale),
+            ManagerMessage::SetOffsets(offset) => self.set_offsets.trigger(offset),
             ManagerMessage::KillAll => {
                 self.kill_all();
             }
@@ -264,11 +277,11 @@ fn main() {
                 let line = line?;
 
                 let message = match line.trim() {
-                    "spawn adder" => { ManagerMessage::Spawn(Box::new(Adder::new())) }
-                    "spawn multiplier" => { ManagerMessage::Spawn(Box::new(Multiplier::new())) }
-                    "spawn linear" => { ManagerMessage::Spawn(Box::new(Linear::new())) }
-                    "kill all" => { ManagerMessage::KillAll }
-                    "quit" => { ManagerMessage::Quit }
+                    "spawn adder" => ManagerMessage::Spawn(Box::new(Adder::new())),
+                    "spawn multiplier" => ManagerMessage::Spawn(Box::new(Multiplier::new())),
+                    "spawn linear" => ManagerMessage::Spawn(Box::new(Linear::new())),
+                    "kill all" => ManagerMessage::KillAll,
+                    "quit" => ManagerMessage::Quit,
                     other => {
                         if let Some(offset) = other.strip_prefix("set offset ") {
                             ManagerMessage::SetOffsets(offset.parse()?)

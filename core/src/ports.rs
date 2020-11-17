@@ -308,8 +308,7 @@ impl<P: Port + 'static> ProvidedRef<P> {
                     system.schedule(c.clone());
                 }
             }
-            (_q, _c) =>
-            {
+            (_q, _c) => {
                 #[cfg(test)]
                 println!(
                     "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
@@ -350,8 +349,7 @@ impl<P: Port + 'static> RequiredRef<P> {
                     system.schedule(c.clone());
                 }
             }
-            (_q, _c) =>
-            {
+            (_q, _c) => {
                 #[cfg(test)]
                 println!(
                     "Dropping event as target (queue? {:?}, component? {:?}) is unavailable: {:?}",

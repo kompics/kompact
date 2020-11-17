@@ -27,3 +27,8 @@ echo "%%%%%% Testing low_latency %%%%%%"
 cargo clippy --features low_latency -- -D warnings
 cargo test --features low_latency,"$LOG_LEVEL" -- "$@"
 echo "%%%%%% Finished testing low_latency %%%%%%"
+
+echo "%%%%%% Testing type_erasure %%%%%%"
+cargo clippy --features type_erasure -- -D warnings
+cargo test --features type_erasure,"$LOG_LEVEL" -- "$@"
+echo "%%%%%% Finished testing type_erasure %%%%%%"

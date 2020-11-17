@@ -111,7 +111,7 @@ mod tests {
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(&c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
             .collect();
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()
@@ -166,7 +166,7 @@ mod tests {
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(&c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
             .collect();
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()
@@ -234,7 +234,7 @@ mod tests {
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(&c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
             .collect();
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()
@@ -298,7 +298,7 @@ mod tests {
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(&c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
             .collect();
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()
@@ -362,7 +362,7 @@ mod tests {
         let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(&c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
             .collect();
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()

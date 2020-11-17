@@ -232,7 +232,10 @@ impl std::error::Error for LockPoisoned {}
 /// Useful if you want to reduce code bloat by removing the generic parameter from `Component<CD>`.
 ///
 /// See also: [`ActorRefFactory`] and [`CoreContainer`], which this trait inherits.
-pub trait AbstractComponent: ActorRefFactory + CoreContainer + Any {
+pub trait AbstractComponent: MsgQueueContainer + CoreContainer + Any {
+    /// Message type of this component
+    //type Message: MessageBounds;
+
     /// Returns a mutable reference to the underlying component definition as a
     /// [`DynamicComponentDefinition`] trait object.
     ///
@@ -252,12 +255,20 @@ pub trait AbstractComponent: ActorRefFactory + CoreContainer + Any {
 
     /// Views self as [`Any`](std::any::Any). Can be used to downcast to a concrete [`Component`].
     fn as_any(&self) -> &dyn Any;
+
+    /// Upcast this
+    ///
+    /// Needed to implement [ActorRefFactory](ActorRefFactory) due to
+    /// https://github.com/rust-lang/rust/issues/18469
+    fn as_queue_container(self: Arc<Self>) -> Weak<dyn MsgQueueContainer<Message = Self::Message>>;
 }
 
 impl<C> AbstractComponent for Component<C>
 where
     C: ComponentTraits + ComponentLifecycle,
 {
+    //type Message = C::Message;
+
     fn dyn_definition_mut(
         &mut self,
     ) -> &mut dyn DynamicComponentDefinition<Message = Self::Message> {
@@ -279,6 +290,11 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn as_queue_container(self: Arc<Self>) -> Weak<dyn MsgQueueContainer<Message = Self::Message>> {
+        let res: Weak<Self> = Arc::downgrade(&self);
+        res as Weak<dyn MsgQueueContainer<Message = Self::Message>>
     }
 }
 

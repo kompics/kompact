@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub type DispatcherRef = ActorRefStrong<DispatchEnvelope>;
 
 #[derive(Debug)]
-pub(crate) struct TypedMsgQueue<M: MessageBounds> {
+pub struct TypedMsgQueue<M: MessageBounds> {
     inner: ConcurrentQueue<MsgEnvelope<M>>,
 }
 impl<M: MessageBounds> TypedMsgQueue<M> {
@@ -318,6 +318,11 @@ impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
         self.weak_ref()
     }
 }
+impl<M: MessageBounds> DynActorRefFactory for ActorRefStrong<M> {
+    fn dyn_ref(&self) -> DynActorRef {
+        self.actor_ref().dyn_ref()
+    }
+}
 
 impl<M: MessageBounds> fmt::Debug for ActorRefStrong<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -475,24 +480,6 @@ impl<M: MessageBounds> ActorRef<M> {
         future
     }
 
-    /// Returns a version of this actor ref that can only be used for [network messages](NetMessage),
-    /// but not for `M`
-    ///
-    /// This can fail if the component pointed to by this ref is already deallocated,
-    /// in which case `None` is returned.
-    pub fn dyn_ref(&self) -> DynActorRef {
-        match self.component.upgrade() {
-            Some(c) => {
-                let component: Weak<dyn CoreContainer> = c.downgrade_dyn();
-                DynActorRef { component }
-            }
-            None => {
-                let component: Weak<dyn CoreContainer> = Weak::<FakeCoreContainer>::new(); // since the component is already deallocated, this'll have the same behaviour, producing `None` on every upgrade
-                DynActorRef { component }
-            }
-        }
-    }
-
     /// Returns a version of this actor ref that can only be used to send `T`, which is then auto-wrapped into `M`
     ///
     /// Use this expose a narrower interface to another actor.
@@ -534,6 +521,21 @@ impl<M: MessageBounds> ActorRefFactory for ActorRef<M> {
 
     fn actor_ref(&self) -> ActorRef<M> {
         self.clone()
+    }
+}
+
+impl<M: MessageBounds> DynActorRefFactory for ActorRef<M> {
+    fn dyn_ref(&self) -> DynActorRef {
+        match self.component.upgrade() {
+            Some(c) => {
+                let component: Weak<dyn CoreContainer> = c.downgrade_dyn();
+                DynActorRef { component }
+            }
+            None => {
+                let component: Weak<dyn CoreContainer> = Weak::<FakeCoreContainer>::new(); // since the component is already deallocated, this'll have the same behaviour, producing `None` on every upgrade
+                DynActorRef { component }
+            }
+        }
     }
 }
 

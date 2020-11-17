@@ -13,7 +13,7 @@ mod refs;
 pub use paths::*;
 pub use refs::*;
 
-/// Just a trait alias hack to avoid connstantly writing `Debug+Send+'static`
+/// Just a trait alias hack to avoid constantly writing `Debug+Send+'static`
 pub trait MessageBounds: fmt::Debug + Send + 'static
 where
     Self: std::marker::Sized,
@@ -157,7 +157,6 @@ where
 {
     type Message = M;
 
-    #[inline(always)]
     fn receive(&mut self, env: MsgEnvelope<M>) -> Handled {
         match env {
             MsgEnvelope::Typed(m) => self.receive_local(m),
@@ -177,17 +176,9 @@ pub trait ActorRefFactory {
 
 /// A trait for things that can deal with [network messages](NetMessage)
 pub trait DynActorRefFactory {
-    /// Returns the associated dynamic actor reference
+    /// Returns a version of an actor ref that can only be used for [network messages](NetMessage),
+    /// but not for typed messages
     fn dyn_ref(&self) -> DynActorRef;
-}
-
-impl<F> DynActorRefFactory for F
-where
-    F: ActorRefFactory + ?Sized,
-{
-    fn dyn_ref(&self) -> DynActorRef {
-        self.actor_ref().dyn_ref()
-    }
 }
 
 /// A trait for accessing [dispatcher references](DispatcherRef)
