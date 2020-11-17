@@ -34,7 +34,7 @@ impl SystemHandle for ContextSystemHandle {
         self.component.system().create_erased(a)
     }
 
-    fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<RegistrationResult> {
+    fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
         self.component.system().register(c)
     }
 
@@ -48,7 +48,7 @@ impl SystemHandle for ContextSystemHandle {
 
     fn register_by_alias<A>(
         &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
+        c: &dyn DynActorRefFactory,
         alias: A,
     ) -> KFuture<RegistrationResult>
     where
@@ -59,7 +59,7 @@ impl SystemHandle for ContextSystemHandle {
 
     fn update_alias_registration<A>(
         &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
+        c: &dyn DynActorRefFactory,
         alias: A,
     ) -> KFuture<RegistrationResult>
     where

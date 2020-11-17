@@ -730,6 +730,7 @@ impl NetworkDispatcher {
         if res.is_ok() && !self.reaper.is_scheduled() {
             self.schedule_reaper();
         }
+        debug!(self.log(), "Completed actor registration with {:?}", res);
         match promise {
             RegistrationPromise::Fulfil(promise) => {
                 promise.fulfil(res).unwrap_or_else(|e| {
@@ -780,6 +781,7 @@ impl NetworkDispatcher {
                     result.map(|_| ap).map_err(RegistrationError::InvalidPath)
                 }
             });
+        debug!(self.log(), "Completed policy registration with {:?}", res);
         match promise {
             RegistrationPromise::Fulfil(promise) => {
                 promise.fulfil(res).unwrap_or_else(|e| {
@@ -808,6 +810,7 @@ impl Actor for NetworkDispatcher {
                 };
             }
             DispatchEnvelope::Registration(reg) => {
+                trace!(self.log(), "Got registration request: {:?}", reg);
                 let RegistrationEnvelope {
                     event,
                     update,

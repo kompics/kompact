@@ -87,15 +87,8 @@ pub struct RegistrationEnvelope {
 
 impl RegistrationEnvelope {
     /// Create an actor registration envelope without a promise for feedback
-    pub fn actor(
-        actor: &(impl DynActorRefFactory + ?Sized),
-        path: PathResolvable,
-        update: bool,
-    ) -> Self {
-        let event = ActorRegistration {
-            actor: actor.dyn_ref(),
-            path,
-        };
+    pub fn actor(actor: DynActorRef, path: PathResolvable, update: bool) -> Self {
+        let event = ActorRegistration { actor, path };
         RegistrationEnvelope {
             event: event.into(),
             update,
@@ -105,15 +98,12 @@ impl RegistrationEnvelope {
 
     /// Create an actor registration envelope using a promise for feedback
     pub fn actor_with_promise(
-        actor: &(impl DynActorRefFactory + ?Sized),
+        actor: DynActorRef,
         path: PathResolvable,
         update: bool,
         promise: utils::KPromise<RegistrationResult>,
     ) -> Self {
-        let event = ActorRegistration {
-            actor: actor.dyn_ref(),
-            path,
-        };
+        let event = ActorRegistration { actor, path };
         RegistrationEnvelope {
             event: event.into(),
             update,

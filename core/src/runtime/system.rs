@@ -432,14 +432,11 @@ impl KompactSystem {
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn register(
-        &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
-    ) -> KFuture<RegistrationResult> {
+    pub fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
         self.inner.assert_active();
-        let id = *c.core().id();
+        let id = c.component_id();
         let id_path = PathResolvable::ActorId(id);
-        self.inner.register_by_path(c.as_ref(), false, id_path) // never update unique registrations
+        self.inner.register_by_path(c.dyn_ref(), false, id_path) // never update unique registrations
     }
 
     /// Creates a new component and registers it with the dispatcher
@@ -514,7 +511,7 @@ impl KompactSystem {
     /// ```
     pub fn register_by_alias<A>(
         &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
+        c: &dyn DynActorRefFactory,
         alias: A,
     ) -> KFuture<RegistrationResult>
     where
@@ -522,7 +519,7 @@ impl KompactSystem {
     {
         self.inner.assert_active();
         self.inner
-            .register_by_alias(c.as_ref(), false, alias.into())
+            .register_by_alias(c.dyn_ref(), false, alias.into())
     }
 
     /// Attempts to register the provided component with a human-readable alias.
@@ -561,14 +558,15 @@ impl KompactSystem {
     /// ```
     pub fn update_alias_registration<A>(
         &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
+        c: &dyn DynActorRefFactory,
         alias: A,
     ) -> KFuture<RegistrationResult>
     where
         A: Into<String>,
     {
         self.inner.assert_active();
-        self.inner.register_by_alias(c.as_ref(), true, alias.into())
+        self.inner
+            .register_by_alias(c.dyn_ref(), true, alias.into())
     }
 
     /// Attempts to set the routing policy at `path`
@@ -1122,7 +1120,7 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
-    fn register(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<RegistrationResult>;
+    fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult>;
 
     /// Creates a new component and registers it with the dispatcher
     ///
@@ -1186,7 +1184,7 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// ```
     fn register_by_alias<A>(
         &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
+        c: &dyn DynActorRefFactory,
         alias: A,
     ) -> KFuture<RegistrationResult>
     where
@@ -1228,7 +1226,7 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// ```
     fn update_alias_registration<A>(
         &self,
-        c: &Arc<impl AbstractComponent + ?Sized>,
+        c: &dyn DynActorRefFactory,
         alias: A,
     ) -> KFuture<RegistrationResult>
     where
@@ -1667,15 +1665,12 @@ impl KompactRuntime {
     }
 
     /// Registers an actor with a path at the dispatcher
-    fn register_by_path<D>(
+    fn register_by_path(
         &self,
-        actor_ref: &D,
+        actor_ref: DynActorRef,
         update: bool,
         path: PathResolvable,
-    ) -> KFuture<RegistrationResult>
-    where
-        D: DynActorRefFactory + ?Sized,
-    {
+    ) -> KFuture<RegistrationResult> {
         debug!(self.logger(), "Requesting actor registration at {:?}", path);
         let (promise, future) = utils::promise();
         let dispatcher = self.dispatcher_ref();
@@ -1687,15 +1682,12 @@ impl KompactRuntime {
     }
 
     /// Registers an actor with an alias at the dispatcher
-    fn register_by_alias<D>(
+    fn register_by_alias(
         &self,
-        actor_ref: &D,
+        actor_ref: DynActorRef,
         update: bool,
         alias: String,
-    ) -> KFuture<RegistrationResult>
-    where
-        D: DynActorRefFactory + ?Sized,
-    {
+    ) -> KFuture<RegistrationResult> {
         debug!(
             self.logger(),
             "Requesting actor alias registration for {:?}", alias

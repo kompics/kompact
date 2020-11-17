@@ -1,7 +1,7 @@
 //! Messaging types for sending and receiving messages between remote actors.
 
 use crate::{
-    actors::{ActorPath, DynActorRef, DynActorRefFactory, MessageBounds, PathParseError},
+    actors::{ActorPath, DynActorRef, MessageBounds, PathParseError},
     net::{
         buffers::{BufferChunk, BufferEncoder, ChunkLease, ChunkRef},
         events::NetworkEvent,

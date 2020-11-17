@@ -255,7 +255,7 @@ pub fn main() {
         .iter()
         .enumerate()
         .map(|(index, server)| {
-            system.register_by_alias(&server, format!("{}/server-{}", BALANCER_PATH, index))
+            system.register_by_alias(server, format!("{}/server-{}", BALANCER_PATH, index))
         })
         .collect();
     // We don't actually need the paths,
@@ -275,7 +275,7 @@ pub fn main() {
         .iter()
         .enumerate()
         .map(|(index, client)| {
-            system.register_by_alias(&client, format!("{}/client-{}", CLIENT_PATH, index))
+            system.register_by_alias(client, format!("{}/client-{}", CLIENT_PATH, index))
         })
         .collect();
     // We don't actually need the paths,

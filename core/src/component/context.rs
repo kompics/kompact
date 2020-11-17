@@ -174,13 +174,6 @@ where
         &mut self.inner_mut().timer_manager
     }
 
-    pub(crate) fn typed_component(&self) -> Arc<Component<CD>> {
-        match self.inner_ref().component.upgrade() {
-            Some(ac) => ac,
-            None => panic!("Component already deallocated!"),
-        }
-    }
-
     pub(super) fn set_blocking_with_state(
         &mut self,
         future: BlockingFuture,
@@ -262,7 +255,7 @@ where
                     StateTransition::Passive => component.set_passive(),
                     StateTransition::Destroyed => component.set_destroyed(),
                 }
-                SchedulingDecision::NoWork
+                SchedulingDecision::Resume
             }
         }
     }
@@ -288,8 +281,19 @@ where
 
     /// Returns the component instance wrapping this component definition
     ///
+    /// This is mostly meant to be passed along for scheduling or registrations.
+    /// Don't try to lock anything on the thread already executing the component!
+    pub fn typed_component(&self) -> Arc<Component<CD>> {
+        match self.inner_ref().component.upgrade() {
+            Some(ac) => ac,
+            None => panic!("Component already deallocated!"),
+        }
+    }
+
+    /// Returns the component instance wrapping this component definition
+    ///
     /// This is mostly meant to be passed along for scheduling and the like.
-    /// Don't try to lock anything on the already thread executing the component!
+    /// Don't try to lock anything on the thread already executing the component!
     pub fn component(&self) -> Arc<dyn CoreContainer> {
         self.typed_component()
     }
