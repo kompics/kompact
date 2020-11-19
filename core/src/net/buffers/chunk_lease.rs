@@ -1,7 +1,6 @@
 use super::*;
-use bytes::Bytes;
+use bytes::{buf::UninitSlice, Bytes};
 use std::cmp::Ordering;
-use bytes::buf::UninitSlice;
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
 /// [BufMut](bytes::BufMut) interfaces. They are created with one or many distinct slices of
@@ -139,11 +138,8 @@ impl ChunkLease {
             }
         } else {
             unsafe {
-                let offset_ptr = self.content.as_mut_ptr().offset(pos as isize);
-                UninitSlice::from_raw_parts_mut(
-                    offset_ptr,
-                    self.chain_head_len - pos
-                )
+                let offset_ptr = self.content.as_mut_ptr().add(pos);
+                UninitSlice::from_raw_parts_mut(offset_ptr, self.chain_head_len - pos)
             }
         }
     }
@@ -284,7 +280,10 @@ mod tests {
 
         // Assert the content is correct
         assert_eq!(test_bytes, first_half.copy_to_bytes(first_half.remaining()));
-        assert_eq!(test_bytes2, second_half.copy_to_bytes(second_half.remaining()));
+        assert_eq!(
+            test_bytes2,
+            second_half.copy_to_bytes(second_half.remaining())
+        );
 
         encode_buffer.swap_buffer(); // ensure that the last chunk is swapped
 

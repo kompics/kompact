@@ -235,7 +235,8 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
             let offset_ptr = ptr.add(self.encode_buffer.write_offset);
             UninitSlice::from_raw_parts_mut(
                 offset_ptr,
-                self.encode_buffer.buffer.len() - self.encode_buffer.write_offset)
+                self.encode_buffer.buffer.len() - self.encode_buffer.write_offset,
+            )
         }
     }
 
