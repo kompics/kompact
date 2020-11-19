@@ -1557,7 +1557,7 @@ dependencies = [
 name = "protobuf-test"
 version = "0.2.0"
 dependencies = [
- "bytes 0.5.6",
+ "bytes 0.6.0",
  "kompact",
  "protobuf",
  "protoc-rust",
