@@ -28,12 +28,11 @@ macro_rules! check_and_handle_blocking {
 macro_rules! run_blocking {
     ($self:ident, $guard:ident,$count:ident) => {
         trace!($self.logger, "Component has been blocked");
-        let original = $self.core.decrement_work($count);
-        return $guard
-            .definition
-            .ctx_mut()
-            .run_blocking_task()
-            .or_use(|| original);
+        let run_res = $guard.definition.ctx_mut().run_blocking_task();
+        // make sure this read comes after running the blocking task,
+        // to catch updates during the task (e.g. self messages).
+        let scheduling_decision = $self.core.decrement_work($count);
+        return run_res.or_use(scheduling_decision);
     };
 }
 
@@ -266,7 +265,7 @@ impl<CD: ComponentTraits> Component<CD> {
                         .definition
                         .ctx_mut()
                         .run_blocking_task()
-                        .or_use(|| self.core.get_scheduling_decision());
+                        .or_from(|| self.core.get_scheduling_decision());
                 }
 
                 let mut count: usize = 0;

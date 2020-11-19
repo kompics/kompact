@@ -255,7 +255,10 @@ where
                     StateTransition::Passive => component.set_passive(),
                     StateTransition::Destroyed => component.set_destroyed(),
                 }
-                SchedulingDecision::Resume
+                // Don't change this to resume!
+                // Merge it with a new read on the work count,
+                // to catch changes during running of the handler!
+                SchedulingDecision::NoWork
             }
         }
     }

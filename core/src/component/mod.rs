@@ -383,7 +383,28 @@ impl SchedulingDecision {
     /// In particular this is used to come out of blocking, where the combination
     /// of `NoWork` and anything that that indicates work (e.g., `AlreadyScheduled`)
     /// actually indicates that we want the component to `Resume` immediately.
-    pub fn or_use(self, other: impl Fn() -> SchedulingDecision) -> SchedulingDecision {
+    pub fn or_use(self, other: SchedulingDecision) -> SchedulingDecision {
+        match self {
+            SchedulingDecision::Schedule
+            | SchedulingDecision::AlreadyScheduled
+            | SchedulingDecision::Blocked
+            | SchedulingDecision::Resume => self,
+            SchedulingDecision::NoWork => match other {
+                SchedulingDecision::Schedule
+                | SchedulingDecision::Resume
+                | SchedulingDecision::AlreadyScheduled => SchedulingDecision::Resume,
+                x => x,
+            },
+        }
+    }
+
+    /// Use the current `SchedulingDecision` if it makes a strong decision
+    /// or the one returned by given function if the current one is `NoWork`.
+    ///
+    /// In particular this is used to come out of blocking, where the combination
+    /// of `NoWork` and anything that that indicates work (e.g., `AlreadyScheduled`)
+    /// actually indicates that we want the component to `Resume` immediately.
+    pub fn or_from(self, other: impl Fn() -> SchedulingDecision) -> SchedulingDecision {
         match self {
             SchedulingDecision::Schedule
             | SchedulingDecision::AlreadyScheduled
