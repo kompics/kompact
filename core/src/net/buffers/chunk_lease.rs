@@ -1,6 +1,7 @@
 use super::*;
 use bytes::Bytes;
 use std::cmp::Ordering;
+use bytes::buf::UninitSlice;
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
 /// [BufMut](bytes::BufMut) interfaces. They are created with one or many distinct slices of
@@ -56,11 +57,11 @@ impl ChunkLease {
     }
 
     /// Appends `new_tail` to the end of the `ChunkLease` chain
-    pub(crate) fn chain(&mut self, new_tail: ChunkLease) {
+    pub(crate) fn append_to_chain(&mut self, new_tail: ChunkLease) {
         self.chain_len += new_tail.chain_len;
         if let Some(tail) = &mut self.chain {
             // recursion
-            tail.chain(new_tail)
+            tail.append_to_chain(new_tail);
         } else {
             // recursion complete
             self.chain = Some(Box::new(new_tail))
@@ -101,7 +102,7 @@ impl ChunkLease {
                     self.chain_head_len = position;
                     let mut return_lease = ChunkLease::new(tail_bytes, self.lock.clone());
                     if let Some(tail_chain) = self.chain.take() {
-                        return_lease.chain(*tail_chain);
+                        return_lease.append_to_chain(*tail_chain);
                     }
                     return return_lease;
                 }
@@ -129,7 +130,7 @@ impl ChunkLease {
     }
 
     // Recursive method for the bytes_mut() impl
-    fn get_bytes_mut_at(&mut self, pos: usize) -> &mut [MaybeUninit<u8>] {
+    fn get_bytes_mut_at(&mut self, pos: usize) -> &mut UninitSlice {
         if pos >= self.chain_head_len {
             if let Some(chain) = &mut self.chain {
                 chain.get_bytes_mut_at(pos - self.chain_head_len)
@@ -138,9 +139,11 @@ impl ChunkLease {
             }
         } else {
             unsafe {
-                let slice: &mut [u8] = &mut *self.content;
-                &mut *(&mut slice[pos..self.chain_head_len] as *mut [u8]
-                    as *mut [std::mem::MaybeUninit<u8>])
+                let offset_ptr = self.content.as_mut_ptr().offset(pos as isize);
+                UninitSlice::from_raw_parts_mut(
+                    offset_ptr,
+                    self.chain_head_len - pos
+                )
             }
         }
     }
@@ -167,14 +170,14 @@ impl ChunkLease {
     /// Creates a chained [ChunkRef](ChunkRef) with `tail` at the end of the new `ChunkRef`.
     pub fn into_chunk_ref_with_tail(self, tail: ChunkRef) -> ChunkRef {
         let mut chunk_ref = self.into_chunk_ref();
-        chunk_ref.chain(tail);
+        chunk_ref.append_to_chain(tail);
         chunk_ref
     }
 
     /// Creates a chained [ChunkRef](ChunkRef) with `head` at the front of the new `ChunkRef`.
     pub fn into_chunk_ref_with_head(self, mut head: ChunkRef) -> ChunkRef {
         let chunk_ref = self.into_chunk_ref();
-        head.chain(chunk_ref);
+        head.append_to_chain(chunk_ref);
         head
     }
 
@@ -207,7 +210,7 @@ impl Buf for ChunkLease {
 }
 
 // BufMut currently only used for injecting a FrameHead at the front.
-impl BufMut for ChunkLease {
+unsafe impl BufMut for ChunkLease {
     fn remaining_mut(&self) -> usize {
         self.chain_len - self.write_pointer
     }
@@ -216,7 +219,7 @@ impl BufMut for ChunkLease {
         self.write_pointer += cnt;
     }
 
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         self.get_bytes_mut_at(self.write_pointer)
     }
 }
@@ -280,8 +283,8 @@ mod tests {
         assert_eq!(test_bytes2, second_half.create_byte_clone());
 
         // Assert the content is correct
-        assert_eq!(test_bytes, first_half.to_bytes());
-        assert_eq!(test_bytes2, second_half.to_bytes());
+        assert_eq!(test_bytes, first_half.copy_to_bytes(first_half.remaining()));
+        assert_eq!(test_bytes2, second_half.copy_to_bytes(second_half.remaining()));
 
         encode_buffer.swap_buffer(); // ensure that the last chunk is swapped
 

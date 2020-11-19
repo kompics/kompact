@@ -1,4 +1,5 @@
 use super::*;
+use bytes::buf::UninitSlice;
 
 /// Structure used by components to continuously extract leases from BufferChunks swapped with the internal/private BufferPool
 /// Using get_buffer_encoder() we get a BufferEncoder which implements BufMut interface for the underlying Chunks
@@ -177,7 +178,7 @@ impl<'a> BufferEncoder<'a> {
         if let Some(mut chain_head) = self.chain_head.take() {
             // Check if there's anything in the active buffer to append to the chain
             if let Some(tail) = self.encode_buffer.get_chunk_lease() {
-                chain_head.chain(tail);
+                chain_head.append_to_chain(tail);
             }
             // return the chain_head
             Some(chain_head)
@@ -193,7 +194,7 @@ impl<'a> BufferEncoder<'a> {
         if let Some(chunk_lease) = self.encode_buffer.get_chunk_lease() {
             if let Some(chain_head) = &mut self.chain_head {
                 // Append to the end of the chain
-                chain_head.chain(chunk_lease);
+                chain_head.append_to_chain(chunk_lease);
             } else {
                 // Make it the chain head
                 self.chain_head = Some(chunk_lease);
@@ -211,7 +212,7 @@ impl<'a> Drop for BufferEncoder<'a> {
     }
 }
 
-impl<'a> BufMut for BufferEncoder<'a> {
+unsafe impl<'a> BufMut for BufferEncoder<'a> {
     fn remaining_mut(&self) -> usize {
         self.encode_buffer.writeable_len()
     }
@@ -228,14 +229,13 @@ impl<'a> BufMut for BufferEncoder<'a> {
         }
     }
 
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         unsafe {
             let ptr = (&mut *self.encode_buffer.buffer.chunk).as_mut_ptr();
             let offset_ptr = ptr.add(self.encode_buffer.write_offset);
-            &mut *(std::slice::from_raw_parts_mut(
+            UninitSlice::from_raw_parts_mut(
                 offset_ptr,
-                self.encode_buffer.buffer.len() - self.encode_buffer.write_offset,
-            ) as *mut [u8] as *mut [std::mem::MaybeUninit<u8>])
+                self.encode_buffer.buffer.len() - self.encode_buffer.write_offset)
         }
     }
 
@@ -408,7 +408,7 @@ mod tests {
                 }
                 // to_bytes() makes the chain readable in full to a single continuous slice.
                 assert_eq!(
-                    chunk_lease.to_bytes(),
+                    chunk_lease.copy_to_bytes(chunk_lease.remaining()),
                     string_bytes,
                     "Incorrect Data in ChunkLease, ChunkLease number = {}",
                     chunk_lease_cnt

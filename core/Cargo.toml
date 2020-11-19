@@ -67,7 +67,7 @@ serde 							= {version = "1.0", optional = true}
 core_affinity 					= {version = "0.5", optional = true}
 
 # Network-specific
-bytes 							= "0.5"
+bytes 							= "0.6"
 bitfields 						= "0.2"
 mio 							= {version = "0.7.0", features = ["tcp", "os-poll", "udp"]}
 iovec 							= "0.1.1" # Match MIOs Version
