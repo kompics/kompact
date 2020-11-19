@@ -41,11 +41,11 @@ impl ChunkRef {
 
     /// Appends `new_tail` to the end of the `ChunkRef` chain
     /// Use Public ChunkLease methods into_chunk_ref_as_tail or into_chunk_ref_with_tail
-    pub(super) fn chain(&mut self, new_tail: ChunkRef) {
+    pub(super) fn append_to_chain(&mut self, new_tail: ChunkRef) {
         self.chain_len += new_tail.chain_len;
         if let Some(tail) = &mut self.chain {
             // recursion
-            tail.chain(new_tail)
+            tail.append_to_chain(new_tail)
         } else {
             // recursion complete
             self.chain = Some(Box::new(new_tail))
@@ -104,7 +104,8 @@ mod tests {
             for j in 0..data_len {
                 test_string.push(((j + i * data_len).to_string()).chars().next().unwrap());
             }
-            vec.push(test_string.as_bytes().to_bytes());
+            let len = test_string.as_bytes().len();
+            vec.push(test_string.as_bytes().copy_to_bytes(len));
         }
         vec
     }
@@ -135,7 +136,7 @@ mod tests {
             assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 1);
 
             // Assert that the bytes are correct
-            assert_eq!(chunk_ref.to_bytes(), byte_vec[0]);
+            assert_eq!(chunk_ref.copy_to_bytes(chunk_ref.remaining()), byte_vec[0]);
         }
         // Should be released as they are now out of scope
         assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);
@@ -159,7 +160,7 @@ mod tests {
             assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 2);
 
             // Assert that the bytes are correct
-            assert_eq!(chunk_ref.to_bytes(), byte_vec[0]);
+            assert_eq!(chunk_ref.copy_to_bytes(chunk_ref.remaining()), byte_vec[0]);
         }
         // Should be released as they are now out of scope
         assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);
@@ -192,7 +193,7 @@ mod tests {
             // Assert that the bytes are correct
             let comp_vec = generate_bytes(512, 1);
 
-            assert_eq!(chunk_ref.to_bytes(), comp_vec[0]);
+            assert_eq!(chunk_ref.copy_to_bytes(chunk_ref.remaining()), comp_vec[0]);
         }
         // Should be released as they are now out of scope
         assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);
@@ -225,7 +226,7 @@ mod tests {
             // Assert that the bytes are correct
             let comp_vec = generate_bytes(512, 1);
 
-            assert_eq!(chunk_ref.to_bytes(), comp_vec[0]);
+            assert_eq!(chunk_ref.copy_to_bytes(chunk_ref.remaining()), comp_vec[0]);
         }
         // Should be released as they are now out of scope
         assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 0);

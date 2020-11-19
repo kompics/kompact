@@ -5,7 +5,6 @@ use core::{cmp, ptr};
 use hocon::{Hocon, HoconLoader};
 use std::{
     fmt::{Debug, Formatter},
-    mem::MaybeUninit,
     sync::Arc,
 };
 

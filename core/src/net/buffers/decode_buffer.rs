@@ -96,7 +96,7 @@ impl DecodeBuffer {
             } else {
                 // Start a chain/Append to the chain
                 if let Some(chain_head) = &mut self.chain_head {
-                    chain_head.chain(overflow_chunk);
+                    chain_head.append_to_chain(overflow_chunk);
                 } else {
                     self.chain_head = Some(overflow_chunk);
                 }
@@ -129,7 +129,7 @@ impl DecodeBuffer {
                         .buffer
                         .get_lease(self.read_offset, self.read_offset + tail_length);
                     self.read_offset += tail_length;
-                    chain_head.chain(tail);
+                    chain_head.append_to_chain(tail);
                     chain_head
                 }
             }
@@ -242,7 +242,10 @@ mod tests {
         for i in 0..len - 9 {
             reference_bytes.put_u8(i as u8);
         }
-        (frame_bytes.to_vec(), reference_bytes.to_bytes())
+        (
+            frame_bytes.to_vec(),
+            reference_bytes.copy_to_bytes(reference_bytes.remaining()),
+        )
     }
 
     /// Creates a DecodeBuffer and a BufferPool, writes multiple Frames into the DecodeBuffer
@@ -307,7 +310,11 @@ mod tests {
         // Finally assert that the decoded chunk is equal to corresponding reference bytes
         match decoded_frame1 {
             Frame::Data(decoded_data_1) => {
-                assert_eq!(decoded_data_1.payload().to_bytes(), reference_bytes_1);
+                let len = decoded_data_1.encoded_len();
+                assert_eq!(
+                    decoded_data_1.payload().copy_to_bytes(len),
+                    reference_bytes_1
+                );
             }
             _ => {
                 panic!("Improper framing in test case");
@@ -315,7 +322,11 @@ mod tests {
         }
         match decoded_frame2 {
             Frame::Data(decoded_data_2) => {
-                assert_eq!(decoded_data_2.payload().to_bytes(), reference_bytes_2);
+                let len = decoded_data_2.encoded_len();
+                assert_eq!(
+                    decoded_data_2.payload().copy_to_bytes(len),
+                    reference_bytes_2
+                );
             }
             _ => {
                 panic!("Improper framing in test case");
@@ -323,7 +334,11 @@ mod tests {
         }
         match decoded_frame3 {
             Frame::Data(decoded_data_3) => {
-                assert_eq!(decoded_data_3.payload().to_bytes(), reference_bytes_3);
+                let len = decoded_data_3.encoded_len();
+                assert_eq!(
+                    decoded_data_3.payload().copy_to_bytes(len),
+                    reference_bytes_3
+                );
             }
             _ => {
                 panic!("Improper framing in test case");
@@ -331,7 +346,11 @@ mod tests {
         }
         match decoded_frame4 {
             Frame::Data(decoded_data_4) => {
-                assert_eq!(decoded_data_4.payload().to_bytes(), reference_bytes_4);
+                let len = decoded_data_4.encoded_len();
+                assert_eq!(
+                    decoded_data_4.payload().copy_to_bytes(len),
+                    reference_bytes_4
+                );
             }
             _ => {
                 panic!("Improper framing in test case");

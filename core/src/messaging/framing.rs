@@ -531,7 +531,7 @@ mod serialisation_tests {
                 .expect("Named ActorPath Serialisation should succeed");
 
             // Deserialise
-            let mut buf = buf.to_bytes();
+            let mut buf = buf.copy_to_bytes(buf.remaining());
             let deser_path = ActorPath::deserialise(&mut buf)
                 .expect("Named ActorPath Deserialisation should succeed");
             assert_eq!(buf.len(), 0);
