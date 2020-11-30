@@ -8,7 +8,7 @@ edition = "2018"
 description = "Kompact is a Rust implementation of the Kompics component model combined with the Actor model."
 
 # documentation = "..."
-homepage = "http://kompics.sics.se"
+homepage = "https://kompics.github.io/kompact/"
 repository = "https://github.com/kompics/kompact"
 readme = "../README.md"
 keywords = ["actor", "kompics", "component", "async"]
