@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 kompact = { path = "../../core/", features = ["protobuf"]}
 protobuf = "2"
-bytes = "0.5"
+bytes = "0.6"
 
 [build-dependencies]
 protoc-rust = "2.18"

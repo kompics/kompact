@@ -90,13 +90,14 @@ impl SerialisedFrame {
     /// Used by UDP sending which requires the frame to be a contiguous byte-sequence.
     /// Does nothing if it's already contiguous.
     pub fn make_contiguous(&mut self) {
-        if self.len() > self.bytes().len() {
+        let len = self.len();
+        if len > self.bytes().len() {
             match self {
                 SerialisedFrame::ChunkLease(chunk) => {
-                    *self = SerialisedFrame::Bytes(chunk.to_bytes());
+                    *self = SerialisedFrame::Bytes(chunk.copy_to_bytes(len));
                 }
                 SerialisedFrame::ChunkRef(chunk) => {
-                    *self = SerialisedFrame::Bytes(chunk.to_bytes());
+                    *self = SerialisedFrame::Bytes(chunk.copy_to_bytes(len));
                 }
                 _ => {
                     // Unreachable

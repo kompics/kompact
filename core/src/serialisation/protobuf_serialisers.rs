@@ -1,7 +1,5 @@
 //! Provides serialisation support for protocol buffers
 use super::*;
-
-use bytes::buf::BufMutExt;
 use protobuf::{Message, ProtobufError};
 
 /// Kompact serialisation marker for protobuf messages
@@ -57,7 +55,7 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
         } = self;
         let pr = {
             if b.bytes().len() < b.remaining() {
-                m.merge_from_bytes(b.to_bytes().bytes())
+                m.merge_from_bytes(b.copy_to_bytes(b.remaining()).bytes())
             } else {
                 m.merge_from_bytes(b.bytes())
             }
