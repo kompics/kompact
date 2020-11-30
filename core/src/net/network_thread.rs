@@ -667,6 +667,8 @@ impl NetworkThread {
         Ok(())
     }
 
+    // TODO @Adam: Signature is probably correct once the TODO at the end is fixed?
+    #[allow(clippy::unnecessary_wraps)]
     fn store_stream(
         &mut self,
         stream: TcpStream,

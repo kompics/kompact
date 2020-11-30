@@ -309,7 +309,7 @@ impl NetworkDispatcher {
         }
     }
 
-    fn start(&mut self) -> Result<(), net::NetworkBridgeErr> {
+    fn start(&mut self) -> () {
         debug!(self.ctx.log(), "Starting self and network bridge");
         let dispatcher = self
             .actor_ref()
@@ -337,7 +337,6 @@ impl NetworkDispatcher {
         bridge.set_dispatcher(dispatcher);
         self.schedule_retries();
         self.net_bridge = Some(bridge);
-        Ok(())
     }
 
     fn stop(&mut self) -> () {
@@ -511,7 +510,7 @@ impl NetworkDispatcher {
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
-    fn route_local<R>(&mut self, msg: R) -> Result<(), NetworkBridgeErr>
+    fn route_local<R>(&mut self, msg: R) -> ()
     where
         R: Routable,
     {
@@ -521,11 +520,9 @@ impl NetworkDispatcher {
             Ok(netmsg) => match lookup_result {
                 LookupResult::Ref(actor) => {
                     actor.enqueue(netmsg);
-                    Ok(())
                 }
                 LookupResult::Group(group) => {
                     group.route(netmsg, self.log());
-                    Ok(())
                 }
                 LookupResult::None => {
                     error!(
@@ -534,7 +531,6 @@ impl NetworkDispatcher {
                         netmsg.receiver,
                     );
                     self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
-                    Ok(())
                 }
                 LookupResult::Err(e) => {
                     error!(
@@ -544,12 +540,10 @@ impl NetworkDispatcher {
                         e
                     );
                     self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
-                    Ok(())
                 }
             },
             Err(e) => {
                 error!(self.log(), "Could not serialise msg: {:?}. Dropping...", e);
-                Ok(()) // consider this an ok:ish result
             }
         }
     }
@@ -676,11 +670,15 @@ impl NetworkDispatcher {
         R: Routable,
     {
         if self.system_path_ref() == msg.destination().system() {
-            self.route_local(msg)
+            self.route_local(msg);
+            Ok(())
         } else {
             let proto = msg.destination().system().protocol();
             match proto {
-                Transport::LOCAL => self.route_local(msg),
+                Transport::LOCAL => {
+                    self.route_local(msg);
+                    Ok(())
+                }
                 Transport::TCP => self.route_remote(msg),
                 Transport::UDP => self.route_remote(msg),
             }
@@ -856,20 +854,12 @@ impl Dispatcher for NetworkDispatcher {
 impl ComponentLifecycle for NetworkDispatcher {
     fn on_start(&mut self) -> Handled {
         info!(self.ctx.log(), "Starting network...");
-        let res = self.start(); //.expect("Could not create NetworkDispatcher!");
-        match res {
-            Ok(_) => {
-                info!(self.ctx.log(), "Started network just fine.");
-                if let Some(promise) = self.notify_ready.take() {
-                    promise.fulfil(()).unwrap_or_else(|e| {
-                        error!(self.ctx.log(), "Could not start network! {:?}", e)
-                    })
-                }
-            }
-            Err(e) => {
-                error!(self.ctx.log(), "Could not start network! {:?}", e);
-                panic!("Kill me now!");
-            }
+        self.start();
+        info!(self.ctx.log(), "Started network just fine.");
+        if let Some(promise) = self.notify_ready.take() {
+            promise
+                .fulfil(())
+                .unwrap_or_else(|e| error!(self.ctx.log(), "Could not start network! {:?}", e))
         }
         Handled::Ok
     }

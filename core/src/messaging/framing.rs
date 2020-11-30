@@ -253,7 +253,7 @@ impl Serialisable for SystemPath {
         let header = SystemPathHeader::from_system(self);
         header.put_into(buf);
 
-        system_path_put_into_buf(self, buf)?;
+        system_path_put_into_buf(self, buf);
 
         Ok(())
     }
@@ -264,14 +264,13 @@ impl Serialisable for SystemPath {
 }
 
 #[inline(always)]
-fn system_path_put_into_buf(path: &SystemPath, buf: &mut dyn BufMut) -> Result<(), SerError> {
+fn system_path_put_into_buf(path: &SystemPath, buf: &mut dyn BufMut) -> () {
     match *path.address() {
         IpAddr::V4(ref ip) => buf.put_slice(&ip.octets()),
         IpAddr::V6(ref ip) => buf.put_slice(&ip.octets()),
         // TODO support named Domain
     }
     buf.put_u16(path.port());
-    Ok(())
 }
 #[inline(always)]
 fn system_path_from_buf(buf: &mut dyn Buf) -> Result<(SystemPathHeader, SystemPath), SerError> {
@@ -356,7 +355,7 @@ impl Serialisable for ActorPath {
         // System Path
         let header = SystemPathHeader::from_path(&self);
         header.put_into(buf);
-        system_path_put_into_buf(self.system(), buf)?;
+        system_path_put_into_buf(self.system(), buf);
 
         // Actor Path
         match self {
