@@ -151,7 +151,10 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                                 self.#id.share()
                             }
                             fn connect_to_provided(&mut self, prov: ProvidedRef< #ty >) -> () {
-                                self.#id.connect(prov)
+                                self.#id.connect(prov);
+                            }
+                            fn disconnect(&mut self, prov: ProvidedRef< #ty >) -> () {
+                                self.#id.disconnect_port(prov);
                             }
                         }
                     },
@@ -161,7 +164,10 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                                 self.#id.share()
                             }
                             fn connect_to_required(&mut self, req: RequiredRef< #ty >) -> () {
-                                self.#id.connect(req)
+                                self.#id.connect(req);
+                            }
+                            fn disconnect(&mut self, req: RequiredRef< #ty >) -> () {
+                                self.#id.disconnect_port(req);
                             }
                         }
                     },
