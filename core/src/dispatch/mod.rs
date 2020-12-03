@@ -79,7 +79,7 @@ impl NetworkConfig {
             transport: Transport::TCP,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
-            tcp_nodelay: false,
+            tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
         }
@@ -94,7 +94,7 @@ impl NetworkConfig {
             transport: Transport::TCP,
             buffer_config,
             custom_allocator: None,
-            tcp_nodelay: false,
+            tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
         }
@@ -113,7 +113,7 @@ impl NetworkConfig {
             transport: Transport::TCP,
             buffer_config,
             custom_allocator: Some(custom_allocator),
-            tcp_nodelay: false,
+            tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
         }
@@ -196,7 +196,7 @@ impl Default for NetworkConfig {
             transport: Transport::TCP,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
-            tcp_nodelay: false,
+            tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
         }
