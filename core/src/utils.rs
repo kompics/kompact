@@ -82,18 +82,25 @@ where
 pub fn biconnect_components<P, C1, C2>(
     provider: &Arc<Component<C1>>,
     requirer: &Arc<Component<C2>>,
-) -> Result<(), TryDualLockError>
+) -> Result<TwoWayChannel<P, C1, C2>, TryDualLockError>
 where
     P: Port + 'static,
     C1: ComponentDefinition + Sized + 'static + Provide<P> + ProvideRef<P>,
     C2: ComponentDefinition + Sized + 'static + Require<P> + RequireRef<P>,
 {
-    on_dual_definition(provider, requirer, |prov, req| {
+    let (provided_ref, required_ref) = on_dual_definition(provider, requirer, |prov, req| {
         let prov_share: ProvidedRef<P> = prov.provided_ref();
         let req_share: RequiredRef<P> = req.required_ref();
-        ProvideRef::connect_to_required(prov, req_share);
-        RequireRef::connect_to_provided(req, prov_share);
-    })
+        ProvideRef::connect_to_required(prov, req_share.clone());
+        RequireRef::connect_to_provided(req, prov_share.clone());
+        (prov_share, req_share)
+    })?;
+    Ok(TwoWayChannel::new(
+        provider,
+        requirer,
+        provided_ref,
+        required_ref,
+    ))
 }
 
 /// Connect two port instances.

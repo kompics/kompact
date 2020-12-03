@@ -297,8 +297,12 @@ pub trait Require<P: Port + 'static> {
 pub trait ProvideRef<P: Port + 'static> {
     /// Returns a provided reference to this component's port instance of type `P`
     fn provided_ref(&mut self) -> ProvidedRef<P>;
+
     /// Connects this component's provided port instance of type `P` to `req`
     fn connect_to_required(&mut self, req: RequiredRef<P>) -> ();
+
+    /// Disconnects this component's provided port instance of type `P` from `req`
+    fn disconnect(&mut self, req: RequiredRef<P>) -> ();
 }
 
 /// A convenience abstraction over concrete port instance fields
@@ -307,31 +311,45 @@ pub trait ProvideRef<P: Port + 'static> {
 pub trait RequireRef<P: Port + 'static> {
     /// Returns a required reference to this component's port instance of type `P`
     fn required_ref(&mut self) -> RequiredRef<P>;
+
     /// Connects this component's required port instance of type `P` to `prov`
     fn connect_to_provided(&mut self, prov: ProvidedRef<P>) -> ();
+
+    /// Disconnects this component's required port instance of type `P` from `prov`
+    fn disconnect(&mut self, prov: ProvidedRef<P>) -> ();
 }
 
 /// Same as [ProvideRef](ProvideRef), but for instances that must be locked first
 ///
 /// This is used, for example, with an `Arc<Component<_>>`.
-pub trait LockingProvideRef<P: Port + 'static> {
+pub trait LockingProvideRef<P, C>
+where
+    P: Port + 'static,
+    C: ComponentDefinition + Sized + 'static + Provide<P> + ProvideRef<P>,
+{
     /// Returns a required reference to this component's port instance of type `P`
     fn provided_ref(&self) -> ProvidedRef<P>;
+
     /// Connects this component's required port instance of type `P` to `prov`
-    fn connect_to_required(&self, req: RequiredRef<P>) -> ();
+    fn connect_to_required(&self, req: RequiredRef<P>) -> ProviderChannel<P, C>;
 }
 
 /// Same as [RequireRef](RequireRef), but for instances that must be locked first
 ///
 /// This is used, for example, with an `Arc<Component<_>>`.
-pub trait LockingRequireRef<P: Port + 'static> {
+pub trait LockingRequireRef<P, C>
+where
+    P: Port + 'static,
+    C: ComponentDefinition + Sized + 'static + Require<P> + RequireRef<P>,
+{
     /// Returns a required reference to this component's port instance of type `P`
     fn required_ref(&self) -> RequiredRef<P>;
+
     /// Connects this component's required port instance of type `P` to `prov`
-    fn connect_to_provided(&self, prov: ProvidedRef<P>) -> ();
+    fn connect_to_provided(&self, prov: ProvidedRef<P>) -> RequirerChannel<P, C>;
 }
 
-impl<P, CD> LockingProvideRef<P> for Arc<Component<CD>>
+impl<P, CD> LockingProvideRef<P, CD> for Arc<Component<CD>>
 where
     P: Port + 'static,
     CD: ComponentTraits + ComponentLifecycle + Provide<P> + ProvideRef<P>,
@@ -340,12 +358,13 @@ where
         self.on_definition(|cd| ProvideRef::provided_ref(cd))
     }
 
-    fn connect_to_required(&self, req: RequiredRef<P>) -> () {
-        self.on_definition(|cd| ProvideRef::connect_to_required(cd, req))
+    fn connect_to_required(&self, req: RequiredRef<P>) -> ProviderChannel<P, CD> {
+        self.on_definition(|cd| ProvideRef::connect_to_required(cd, req.clone()));
+        ProviderChannel::new(self, req)
     }
 }
 
-impl<P, CD> LockingRequireRef<P> for Arc<Component<CD>>
+impl<P, CD> LockingRequireRef<P, CD> for Arc<Component<CD>>
 where
     P: Port + 'static,
     CD: ComponentTraits + ComponentLifecycle + Require<P> + RequireRef<P>,
@@ -354,8 +373,9 @@ where
         self.on_definition(|cd| RequireRef::required_ref(cd))
     }
 
-    fn connect_to_provided(&self, prov: ProvidedRef<P>) -> () {
-        self.on_definition(|cd| RequireRef::connect_to_provided(cd, prov))
+    fn connect_to_provided(&self, prov: ProvidedRef<P>) -> RequirerChannel<P, CD> {
+        self.on_definition(|cd| RequireRef::connect_to_provided(cd, prov.clone()));
+        RequirerChannel::new(self, prov)
     }
 }
 
@@ -427,6 +447,8 @@ mod tests {
     use std::{sync::Arc, thread, time::Duration};
 
     use std::ops::Deref;
+
+    const TIMEOUT: Duration = Duration::from_millis(1000);
 
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {
@@ -604,21 +626,19 @@ mod tests {
 
     #[test]
     fn child_unique_registration_test() -> () {
-        let wait_time = Duration::from_millis(1000);
-
         let mut conf = KompactConfig::default();
         conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = conf.build().expect("system");
         let parent = system.create(ParentComponent::unique);
         system.start(&parent);
-        thread::sleep(wait_time);
+        thread::sleep(TIMEOUT);
         let (p, f) = promise::<Arc<Component<ChildComponent>>>();
         parent.actor_ref().tell(ParentMessage::GetChild(p));
-        let child = f.wait_timeout(wait_time).expect("child");
+        let child = f.wait_timeout(TIMEOUT).expect("child");
         let stop_f = system.stop_notify(&child);
         system.stop(&parent);
 
-        stop_f.wait_timeout(wait_time).expect("child didn't stop");
+        stop_f.wait_timeout(TIMEOUT).expect("child didn't stop");
         child.on_definition(|cd| {
             assert!(cd.got_message, "child didn't get the message");
         });
@@ -629,21 +649,19 @@ mod tests {
 
     #[test]
     fn child_alias_registration_test() -> () {
-        let wait_time = Duration::from_millis(1000);
-
         let mut conf = KompactConfig::default();
         conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = conf.build().expect("system");
         let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
         system.start(&parent);
-        thread::sleep(wait_time);
+        thread::sleep(TIMEOUT);
         let (p, f) = promise::<Arc<Component<ChildComponent>>>();
         parent.actor_ref().tell(ParentMessage::GetChild(p));
-        let child = f.wait_timeout(wait_time).expect("child");
+        let child = f.wait_timeout(TIMEOUT).expect("child");
         let stop_f = system.stop_notify(&child);
         system.stop(&parent);
 
-        stop_f.wait_timeout(wait_time).expect("child didn't stop");
+        stop_f.wait_timeout(TIMEOUT).expect("child didn't stop");
         child.on_definition(|cd| {
             assert!(cd.got_message, "child didn't get the message");
         });
@@ -781,18 +799,17 @@ mod tests {
 
     #[test]
     fn test_immediate_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
         comp.actor_ref().tell(BlockMe::Now);
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
@@ -802,22 +819,21 @@ mod tests {
 
     #[test]
     fn test_channel_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
 
         let (sender, receiver) = oneshot::channel();
         comp.actor_ref().tell(BlockMe::OnChannel(receiver));
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         sender.send("gotcha".to_string()).expect("Should have sent");
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "gotcha");
@@ -827,23 +843,22 @@ mod tests {
 
     #[test]
     fn test_mixed_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
 
         let (sender, receiver) = oneshot::channel();
         comp.actor_ref().tell(BlockMe::OnChannel(receiver));
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         comp.actor_ref().tell(BlockMe::Now);
         sender.send("gotcha".to_string()).expect("Should have sent");
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
@@ -853,18 +868,17 @@ mod tests {
 
     #[test]
     fn test_shutdown_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
         comp.actor_ref().tell(BlockMe::OnShutdown);
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
@@ -874,19 +888,18 @@ mod tests {
 
     #[test]
     fn test_component_spawn_off() -> () {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
         comp.actor_ref()
             .tell(BlockMe::SpawnOff("gotcha".to_string()));
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "gotcha");
@@ -985,18 +998,17 @@ mod tests {
 
     #[test]
     fn test_immediate_non_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
         comp.actor_ref().tell(AsyncMe::Now);
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
@@ -1006,22 +1018,21 @@ mod tests {
 
     #[test]
     fn test_channel_non_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
 
         let (sender, receiver) = oneshot::channel();
         comp.actor_ref().tell(AsyncMe::OnChannel(receiver));
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         sender.send("gotcha".to_string()).expect("Should have sent");
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "gotcha");
@@ -1031,30 +1042,243 @@ mod tests {
 
     #[test]
     fn test_concurrent_non_blocking() {
-        let timeout = Duration::from_millis(1000);
         let system = KompactConfig::default().build().expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't start");
 
         let (sender, receiver) = oneshot::channel();
         comp.actor_ref().tell(AsyncMe::ConcurrentMessage(receiver));
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         let msg = "gotcha";
         comp.actor_ref()
             .tell(AsyncMe::JustAMessage(msg.to_string()));
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         sender.send(msg.to_string()).expect("Should have sent");
-        thread::sleep(timeout);
+        thread::sleep(TIMEOUT);
         system
             .kill_notify(comp.clone())
-            .wait_timeout(timeout)
+            .wait_timeout(TIMEOUT)
             .expect("Component didn't die");
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
         });
+        system.shutdown().expect("shutdown");
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    struct CountMe;
+    #[derive(Debug, Clone, Copy)]
+    struct Counted;
+    #[derive(Debug, Clone, Copy)]
+    struct SendCount;
+
+    struct CounterPort;
+    impl Port for CounterPort {
+        type Indication = CountMe;
+        type Request = Counted;
+    }
+
+    #[derive(ComponentDefinition)]
+    struct CountSender {
+        ctx: ComponentContext<Self>,
+        count_port: ProvidedPort<CounterPort>,
+        counted: usize,
+    }
+    impl Default for CountSender {
+        fn default() -> Self {
+            CountSender {
+                ctx: ComponentContext::uninitialised(),
+                count_port: ProvidedPort::uninitialised(),
+                counted: 0,
+            }
+        }
+    }
+    ignore_lifecycle!(CountSender);
+    impl Provide<CounterPort> for CountSender {
+        fn handle(&mut self, _event: Counted) -> Handled {
+            self.counted += 1;
+            Handled::Ok
+        }
+    }
+    impl Actor for CountSender {
+        type Message = SendCount;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            self.count_port.trigger(CountMe);
+            Handled::Ok
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!("No networking in this test");
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct Counter {
+        ctx: ComponentContext<Self>,
+        count_port: RequiredPort<CounterPort>,
+        count: usize,
+    }
+    impl Default for Counter {
+        fn default() -> Self {
+            Counter {
+                ctx: ComponentContext::uninitialised(),
+                count_port: RequiredPort::uninitialised(),
+                count: 0,
+            }
+        }
+    }
+    ignore_lifecycle!(Counter);
+    impl Require<CounterPort> for Counter {
+        fn handle(&mut self, _event: CountMe) -> Handled {
+            self.count += 1;
+            self.count_port.trigger(Counted);
+            Handled::Ok
+        }
+    }
+    impl Actor for Counter {
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            unreachable!("Never type is empty")
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!("No networking in this test");
+        }
+    }
+
+    #[test]
+    fn test_channel_disconnection() {
+        let system = KompactConfig::default().build().expect("System");
+        let sender = system.create(CountSender::default);
+
+        let counter1 = system.create(Counter::default);
+        let counter2 = system.create(Counter::default);
+
+        let channel1: Box<(dyn Channel + Send + 'static)> =
+            biconnect_components::<CounterPort, _, _>(&sender, &counter1)
+                .expect("connection")
+                .boxed();
+        let channel2 =
+            biconnect_components::<CounterPort, _, _>(&sender, &counter2).expect("connection");
+
+        let start_all = || {
+            let sender_start_f = system.start_notify(&sender);
+            let counter1_start_f = system.start_notify(&counter1);
+            let counter2_start_f = system.start_notify(&counter2);
+
+            sender_start_f
+                .wait_timeout(TIMEOUT)
+                .expect("sender started");
+            counter1_start_f
+                .wait_timeout(TIMEOUT)
+                .expect("counter1 started");
+            counter2_start_f
+                .wait_timeout(TIMEOUT)
+                .expect("counter2 started");
+        };
+        start_all();
+
+        sender.actor_ref().tell(SendCount);
+
+        thread::sleep(TIMEOUT);
+
+        let stop_all = || {
+            let sender_stop_f = system.stop_notify(&sender);
+            let counter1_stop_f = system.stop_notify(&counter1);
+            let counter2_stop_f = system.stop_notify(&counter2);
+
+            sender_stop_f.wait_timeout(TIMEOUT).expect("sender stopped");
+            counter1_stop_f
+                .wait_timeout(TIMEOUT)
+                .expect("counter1 stopped");
+            counter2_stop_f
+                .wait_timeout(TIMEOUT)
+                .expect("counter2 stopped");
+        };
+        stop_all();
+
+        let check_counts = |sender_expected, counter1_expected, counter2_expected| {
+            let sender_count = sender.on_definition(|cd| cd.counted);
+            assert_eq!(sender_expected, sender_count);
+            let counter1_count = counter1.on_definition(|cd| cd.count);
+            assert_eq!(counter1_expected, counter1_count);
+            let counter2_count = counter2.on_definition(|cd| cd.count);
+            assert_eq!(counter2_expected, counter2_count);
+        };
+        check_counts(2, 1, 1);
+
+        channel2.disconnect().expect("disconnect");
+
+        start_all();
+
+        sender.actor_ref().tell(SendCount);
+
+        thread::sleep(TIMEOUT);
+
+        stop_all();
+
+        check_counts(3, 2, 1);
+
+        channel1.disconnect().expect("disconnect");
+
+        start_all();
+
+        sender.actor_ref().tell(SendCount);
+
+        thread::sleep(TIMEOUT);
+
+        stop_all();
+
+        check_counts(3, 2, 1);
+
+        let sender_port: ProvidedRef<CounterPort> = sender.provided_ref();
+        let counter1_port: RequiredRef<CounterPort> = counter1.required_ref();
+        let channel1: Box<(dyn Channel + Send + 'static)> =
+            sender.connect_to_required(counter1_port).boxed();
+        let channel2 = counter2.connect_to_provided(sender_port);
+
+        start_all();
+
+        sender.actor_ref().tell(SendCount);
+
+        thread::sleep(TIMEOUT);
+
+        stop_all();
+
+        check_counts(3, 3, 1);
+
+        let counter2_port: RequiredRef<CounterPort> = counter2.required_ref();
+        let channel3 = sender.connect_to_required(counter2_port);
+
+        start_all();
+
+        sender.actor_ref().tell(SendCount);
+
+        thread::sleep(TIMEOUT);
+
+        stop_all();
+
+        check_counts(4, 4, 2);
+
+        channel1.disconnect().expect("disconnected");
+        channel2.disconnect().expect("disconnected");
+        channel3.disconnect().expect("disconnected");
+
+        start_all();
+
+        sender.actor_ref().tell(SendCount);
+
+        thread::sleep(TIMEOUT);
+
+        stop_all();
+
+        check_counts(4, 4, 2);
+
         system.shutdown().expect("shutdown");
     }
 }
