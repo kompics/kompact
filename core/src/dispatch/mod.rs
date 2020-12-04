@@ -1148,7 +1148,7 @@ mod tests {
             system2a.system_path(),
             vec!["custom_name".into()],
         ));
-        let named_path_clone = named_path.clone();
+        let named_path_clone = named_path;
         // Set-up system1
         let system1: KompactSystem = system1();
         let (pinger_named, pinf) =
@@ -1170,11 +1170,8 @@ mod tests {
         // Assertion 1: The Network_Dispatcher on system1 has >0 buffers to cleanup
         let mut garbage_len = 0;
         let sc: &dyn SystemComponents = system1.get_system_components();
-        match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
-            Some(cc) => {
-                garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
-            }
-            _ => {}
+        if let Some(cc) = sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
+            garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
         }
         assert_ne!(0, garbage_len);
 
@@ -1193,11 +1190,8 @@ mod tests {
         thread::sleep(Duration::from_millis(10000));
 
         // Assertion 2: The Network_Dispatcher on system1 now has 0 buffers to cleanup.
-        match sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
-            Some(cc) => {
-                garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
-            }
-            _ => {}
+        if let Some(cc) = sc.downcast::<CustomComponents<DeadletterBox, NetworkDispatcher>>() {
+            garbage_len = cc.dispatcher.on_definition(|nd| nd.garbage_buffers.len());
         }
         assert_eq!(0, garbage_len);
 

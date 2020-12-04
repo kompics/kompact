@@ -169,9 +169,8 @@ fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
     let ponger_named_path =
         poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
-    let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_eager(ponger_named_path, 120, buf_cfg.clone())
-    });
+    let (pinger_named, pinf) = system
+        .create_and_register(move || BigPingerAct::new_eager(ponger_named_path, 120, buf_cfg));
 
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
@@ -218,7 +217,7 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
         poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
     let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path, 120, buf_cfg.clone())
+        BigPingerAct::new_preserialised(ponger_named_path, 120, buf_cfg)
     });
 
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -254,7 +253,7 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(66000);
     let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_buffer_config(buf_cfg.clone());
+    net_cfg.set_buffer_config(buf_cfg);
     let system = system_from_network_config(net_cfg.clone());
     let remote = system_from_network_config(net_cfg);
 
@@ -312,7 +311,7 @@ fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
         poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     ponger_named_path.via_udp();
     let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_eager(ponger_named_path, 1500 * 3 / 4, buf_cfg.clone())
+        BigPingerAct::new_eager(ponger_named_path, 1500 * 3 / 4, buf_cfg)
     });
 
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
@@ -360,7 +359,7 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
         poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     ponger_named_path.via_udp();
     let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path, 1500 * 3 / 4, buf_cfg.clone())
+        BigPingerAct::new_preserialised(ponger_named_path, 1500 * 3 / 4, buf_cfg)
     });
 
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");

@@ -233,7 +233,7 @@ mod tests {
 
     fn test_frame_with_reference_bytes(len: usize) -> (Vec<u8>, Bytes) {
         let mut head = FrameHead::new(FrameType::Data, (len - 9) as usize);
-        let mut frame_bytes = BytesMut::with_capacity(len.into());
+        let mut frame_bytes = BytesMut::with_capacity(len);
         head.encode_into(&mut frame_bytes);
         for i in 0..len - 9 {
             frame_bytes.put_u8(i as u8);
