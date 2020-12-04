@@ -16,11 +16,16 @@ jobs:
       rust: nightly
       before_install:
         - ./travis_install_protobuf.sh
+      script:
+        - cargo build --verbose --all
+        - cargo test --verbose --all
+    - stage: test
+      name: "Check formatting: nightly"
+      rust: nightly-2020-09-10
+      before_install:
         - rustup component add rustfmt-preview
       script:
         - cargo fmt --all -- --check
-        - cargo build --verbose --all
-        - cargo test --verbose --all
     - stage: test-features
       rust: stable
       name: "Test feature matrix: stable"
