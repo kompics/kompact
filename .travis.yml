@@ -29,8 +29,8 @@ jobs:
     - stage: test-features
       rust: stable
       name: "Test feature matrix: stable"
-      env:
-        RUSTFLAGS: -D warnings
+      #env:
+      #  RUSTFLAGS: -D warnings
       before_install:
         - ./travis_install_protobuf.sh
         - rustup component add clippy
@@ -41,8 +41,8 @@ jobs:
     - stage: test-features
       rust: stable
       name: "Test ignored feature matrix: stable"
-      env:
-        RUSTFLAGS: -D warnings
+      #env:
+      #  RUSTFLAGS: -D warnings
       before_install:
         - ./travis_install_protobuf.sh
         - rustup component add clippy
@@ -52,6 +52,8 @@ jobs:
     - stage: test-features
       rust: nightly
       name: "Test feature matrix: nightly"
+      env:
+        RUSTFLAGS: -D warnings
       before_install:
         - ./travis_install_protobuf.sh
         - rustup component add clippy
@@ -62,6 +64,8 @@ jobs:
     - stage: test-features
       rust: nightly
       name: "Test ignored feature matrix: nightly"
+      env:
+        RUSTFLAGS: -D warnings
       before_install:
         - ./travis_install_protobuf.sh
         - rustup component add clippy
