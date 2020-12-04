@@ -213,9 +213,7 @@ impl Bridge {
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         self.network_input_queue.send(DispatchEvent::Stop)?;
-        self.waker
-            .wake()
-            .expect("Network Bridge Waking NetworkThread in stop()");
+        self.waker.wake()?;
         self.shutdown_future.wait(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())

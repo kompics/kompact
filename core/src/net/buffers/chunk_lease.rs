@@ -146,7 +146,7 @@ impl ChunkLease {
 
     /// Transforms this `ChunkLease` into a [ChunkRef](ChunkRef), an immutable and cloneable smart-pointer
     pub fn into_chunk_ref(self) -> ChunkRef {
-        let chain = { self.chain.map(|chain| Box::new(chain.into_chunk_ref())) };
+        let chain = self.chain.map(|chain| Box::new(chain.into_chunk_ref()));
         ChunkRef::new(
             self.content,
             self.read_pointer,

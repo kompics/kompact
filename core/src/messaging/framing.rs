@@ -190,7 +190,9 @@ impl TryFrom<u8> for SystemPathHeader {
         use bitfields::BitFieldExt;
 
         let storage = [value];
-        let path_type = storage.get_as::<PathType>().unwrap();
+        let path_type = storage
+            .get_as::<PathType>()
+            .map_err(|_| SerError::InvalidData("System Path could not be read.".to_owned()))?;
         let protocol = storage.get_as::<Transport>().unwrap();
         let address_type = storage.get_as::<AddressType>().unwrap();
 
