@@ -53,7 +53,7 @@ jobs:
       rust: nightly
       name: "Test feature matrix: nightly"
       env:
-        RUSTFLAGS: "-D warnings"
+        - RUSTFLAGS="-D warnings"
       before_install:
         - ./travis_install_protobuf.sh
         - rustup component add clippy
@@ -65,7 +65,7 @@ jobs:
       rust: nightly
       name: "Test ignored feature matrix: nightly"
       env:
-        RUSTFLAGS: "-D warnings"
+        - RUSTFLAGS="-D warnings"
       before_install:
         - ./travis_install_protobuf.sh
         - rustup component add clippy
