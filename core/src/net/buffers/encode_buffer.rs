@@ -353,7 +353,7 @@ mod tests {
             .hocon();
         let buffer_config = BufferConfig::from_config(&hocon.unwrap());
         // Ensure we successfully parsed the Config
-        assert_eq!(buffer_config.encode_buf_min_free_space, 2 as usize);
+        assert_eq!(buffer_config.encode_buf_min_free_space, 2usize);
         let data_len = buffer_config.chunk_size - buffer_config.encode_buf_min_free_space - 8;
         let encode_buffer = encode_chain_overload_reuse(&buffer_config, data_len);
         // Ensure that the
@@ -381,14 +381,14 @@ mod tests {
             // Means we test for some more correctness in buffers
             test_string.push((i.to_string()).chars().next().unwrap());
         }
-        let string_bytes = Bytes::copy_from_slice(test_string.clone().as_bytes());
+        let string_bytes = Bytes::copy_from_slice(test_string.as_bytes());
         // We will count how many times chaining happens to ensure that it does happen!
         let mut chain_cnt = 0;
         let mut chunk_lease_cnt = 0;
         // Make sure we churn through all the initial buffers.
-        for _ in 0..=&buffer_config.initial_chunk_count + 1 {
+        for _ in 0..=(buffer_config.initial_chunk_count + 1) {
             // Make sure we fill up a chunk per iteration:
-            for _ in 0..(&buffer_config.chunk_size / data_len) + 1 {
+            for _ in 0..(buffer_config.chunk_size / data_len) + 1 {
                 chunk_lease_cnt += 1; // counting chunk
                                       // Get a BufferEncoder interface
                 let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);

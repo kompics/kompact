@@ -1,8 +1,3 @@
-# make sure protobuf library is installed
-before_install:
-  - ./travis_install_protobuf.sh
-  - rustup component add clippy
-
 os: linux
 dist: xenial
 language: rust
@@ -11,36 +6,69 @@ jobs:
     - stage: test
       name: "Build and test root: stable"
       rust: stable
+      before_install:
+        - ./travis_install_protobuf.sh
       script:
         - cargo build --verbose --all
         - cargo test --verbose --all
     - stage: test
       name: "Build and test root: nightly"
       rust: nightly
+      before_install:
+        - ./travis_install_protobuf.sh
       script:
         - cargo build --verbose --all
         - cargo test --verbose --all
+    - stage: test
+      name: "Check formatting: nightly"
+      rust: nightly-2020-11-24
+      before_install:
+        - rustup component add rustfmt-preview
+      script:
+        - cargo fmt --all -- --check
     - stage: test-features
       rust: stable
       name: "Test feature matrix: stable"
+      env:
+        - RUSTFLAGS="-D warnings"
+      before_install:
+        - ./travis_install_protobuf.sh
+        - rustup component add clippy
       script:
+        - ./clippy-extra.sh
         - cd core
         - ./test-feature-matrix.sh
     - stage: test-features
       rust: stable
       name: "Test ignored feature matrix: stable"
+      env:
+        - RUSTFLAGS="-D warnings"
+      before_install:
+        - ./travis_install_protobuf.sh
+        - rustup component add clippy
       script:
         - cd core
         - ./test-feature-matrix.sh --ignored
     - stage: test-features
       rust: nightly
       name: "Test feature matrix: nightly"
+      env:
+        - RUSTFLAGS="-D warnings"
+      before_install:
+        - ./travis_install_protobuf.sh
+        - rustup component add clippy
       script:
+        - ./clippy-extra.sh
         - cd core
         - ./test-feature-matrix.sh
     - stage: test-features
       rust: nightly
       name: "Test ignored feature matrix: nightly"
+      env:
+        - RUSTFLAGS="-D warnings"
+      before_install:
+        - ./travis_install_protobuf.sh
+        - rustup component add clippy
       script:
         - cd core
         - ./test-feature-matrix.sh --ignored

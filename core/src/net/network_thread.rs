@@ -937,8 +937,8 @@ mod tests {
         // Sets up two NetworkThreads and does mutual connection request
         let (mut thread1, input_queue_1_sender, mut thread2, input_queue_2_sender) =
             setup_two_threads();
-        let addr1 = thread1.addr.clone();
-        let addr2 = thread2.addr.clone();
+        let addr1 = thread1.addr;
+        let addr2 = thread2.addr;
         // Tell both to connect to each-other before they start running:
         input_queue_1_sender.send(DispatchEvent::Connect(addr2));
         input_queue_2_sender.send(DispatchEvent::Connect(addr1));
@@ -1007,8 +1007,8 @@ mod tests {
         // This test uses a different order of events than basic
         let (mut thread1, input_queue_1_sender, mut thread2, input_queue_2_sender) =
             setup_two_threads();
-        let addr1 = thread1.addr.clone();
-        let addr2 = thread2.addr.clone();
+        let addr1 = thread1.addr;
+        let addr2 = thread2.addr;
         // 2 Requests connection to 1 and sends Hello
         input_queue_2_sender.send(DispatchEvent::Connect(addr1));
         thread2.receive_dispatch();
@@ -1096,12 +1096,12 @@ mod tests {
 
         // Set up the two network threads
         let (mut network_thread, _) = NetworkThread::new(
-            logger.clone(),
+            logger,
             addr,
-            lookup.clone(),
+            lookup,
             input_queue_1_receiver,
             dispatch_shutdown_sender1,
-            dispatcher_ref.clone(),
+            dispatcher_ref,
             network_config,
         );
         // Assert that the buffer_pool is created correctly

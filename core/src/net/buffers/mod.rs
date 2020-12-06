@@ -415,7 +415,7 @@ mod tests {
                 self.ctx.init_buffers(Some(buffer_config), None);
             }
             // Use the Buffer
-            let _ = self.ctx.actor_path().clone().tell_serialised(120, self);
+            let _ = self.ctx.actor_path().tell_serialised(120, self);
             Handled::Ok
         }
 
