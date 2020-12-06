@@ -5,7 +5,7 @@
 If you are trying to use Kompact and run into an issue; please file an
 issue. When filing an issue, do your best to be as specific as possible. Include
 the version of Rust you are using (`rustc --version`) and your operating
-system and version. The faster was can reproduce your issue, the faster we
+system and version. The faster we can reproduce your issue, the faster we
 can fix it for you!
 
 ## Submitting a PR
