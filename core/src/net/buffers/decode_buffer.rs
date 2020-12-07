@@ -152,39 +152,18 @@ impl DecodeBuffer {
                 match head.frame_type() {
                     // Frames with empty bodies should be handled in frame-head decoding below.
                     FrameType::Data => {
-                        if let Ok(data) = Data::decode_from(chunk_lease) {
-                            Ok(data)
-                        } else {
-                            Err(FramingError::InvalidFrame)
-                        }
+                        Data::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
                     }
-                    FrameType::StreamRequest => {
-                        if let Ok(data) = StreamRequest::decode_from(chunk_lease) {
-                            Ok(data)
-                        } else {
-                            Err(FramingError::InvalidFrame)
-                        }
-                    }
+                    FrameType::StreamRequest => StreamRequest::decode_from(chunk_lease)
+                        .map_err(|_| FramingError::InvalidFrame),
                     FrameType::Hello => {
-                        if let Ok(hello) = Hello::decode_from(chunk_lease) {
-                            Ok(hello)
-                        } else {
-                            Err(FramingError::InvalidFrame)
-                        }
+                        Hello::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
                     }
                     FrameType::Start => {
-                        if let Ok(start) = Start::decode_from(chunk_lease) {
-                            Ok(start)
-                        } else {
-                            Err(FramingError::InvalidFrame)
-                        }
+                        Start::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
                     }
                     FrameType::Ack => {
-                        if let Ok(ack) = Ack::decode_from(chunk_lease) {
-                            Ok(ack)
-                        } else {
-                            Err(FramingError::InvalidFrame)
-                        }
+                        Ack::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
                     }
                     _ => Err(FramingError::UnsupportedFrameType),
                 }

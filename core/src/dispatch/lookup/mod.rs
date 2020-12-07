@@ -301,8 +301,8 @@ impl ActorLookup for ActorStore {
                 .expect("Should not be empty")
             {
                 // this is validated above
-                BROADCAST_MARKER => (&path[0..last_index], Some(BROADCAST_MARKER)),
-                SELECT_MARKER => (&path[0..last_index], Some(SELECT_MARKER)),
+                BROADCAST_MARKER => (&path[..last_index], Some(BROADCAST_MARKER)),
+                SELECT_MARKER => (&path[..last_index], Some(SELECT_MARKER)),
                 _ => (path, None),
             };
             match self.name_map.get_node(lookup_path) {
