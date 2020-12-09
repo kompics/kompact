@@ -558,7 +558,7 @@ impl NetworkDispatcher {
         let protocol: Transport = dst.protocol();
         let addr = SocketAddr::new(*dst.address(), dst.port());
         let serialised = {
-            let buf = &mut self.encode_buffer.get_buffer_encoder();
+            let buf = &mut self.encode_buffer.get_buffer_encoder()?;
             msg.into_serialised(buf)?
         };
 

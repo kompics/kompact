@@ -248,7 +248,9 @@ mod tests {
         }
         // Create a ChunkLease with two identical messages from the data
         let mut both_strings = {
-            let mut buffer_encoder = encode_buffer.get_buffer_encoder();
+            let mut buffer_encoder = encode_buffer
+                .get_buffer_encoder()
+                .expect("Should not run out of buffers in test case");
             buffer_encoder.put_slice(test_string.as_bytes());
             buffer_encoder.put_slice(test_string2.as_bytes());
             buffer_encoder.get_chunk_lease().unwrap()
@@ -279,7 +281,9 @@ mod tests {
             second_half.copy_to_bytes(second_half.remaining())
         );
 
-        encode_buffer.swap_buffer(); // ensure that the last chunk is swapped
+        encode_buffer
+            .swap_buffer() // ensure that the last chunk is swapped
+            .expect("Should not run out of buffers in test case");
 
         (encode_buffer, first_half, second_half)
     }

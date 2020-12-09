@@ -1,7 +1,7 @@
 use super::*;
 use crate::messaging::DispatchEnvelope;
 use bytes::{Buf, BufMut};
-use core::{cmp, ptr};
+use core::{cmp, fmt, ptr};
 use hocon::{Hocon, HoconLoader};
 use std::{
     fmt::{Debug, Formatter},
@@ -326,6 +326,24 @@ impl ChunkAllocator for DefaultAllocator {
 
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> () {
         Box::from_raw(ptr);
+    }
+}
+
+/// Errors that can be thrown during serialisation or deserialisation
+#[derive(Debug)]
+pub enum BufferError {
+    NoAvailableBuffers(String),
+}
+
+impl std::error::Error for BufferError {}
+
+impl fmt::Display for BufferError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BufferError::NoAvailableBuffers(s) => {
+                write!(f, "A BufferPool ran out of Buffers \n {}", s)
+            }
+        }
     }
 }
 

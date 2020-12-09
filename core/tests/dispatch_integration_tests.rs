@@ -1051,3 +1051,107 @@ fn remote_forwarding_named() {
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
+
+#[test]
+// Sets up three KompactSystems: One with a BigPonger, one with a BigPinger with big pings
+// and one with a BigPinger with small pings. The big Pings are sent first and occupies
+// all buffers of the BigPonger system. The small pings are then sent but can not be received
+// until the Ponger system closes the Big Ping-channel due to too many retries.
+// A new batch up small-pings are then sent and replied to.
+fn remote_delivery_overflow_network_thread_buffers() {
+    let mut buf_cfg = BufferConfig::default();
+    buf_cfg.chunk_size(1280);
+    buf_cfg.max_chunk_count(10);
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_buffer_config(buf_cfg.clone());
+    // We will attempt to establish a connection for 5 seconds before giving up.
+    // This config is also used when giving up on running out of buffers.
+    // The big_pinger_system will occupy all buffers on the ponger_system for 5 seconds
+    // And then it will be freed.
+    net_cfg.set_connection_retry_interval(500);
+    net_cfg.set_max_connection_retry_attempts(10);
+
+    let big_pinger_system = system_from_network_config(net_cfg.clone());
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let small_pinger_system = system_from_network_config(net_cfg);
+
+    let (ponger_named, ponf) =
+        ponger_system.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
+    let poaf = ponger_system.register_by_alias(&ponger_named, "custom_name");
+    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let ponger_named_path =
+        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let ponger_named_path1 = ponger_named_path.clone();
+    let (big_pinger_named, pinf) = big_pinger_system.create_and_register(move || {
+        BigPingerAct::new_preserialised(ponger_named_path1, 12800, BufferConfig::default())
+    });
+    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    let ponger_named_path2 = ponger_named_path;
+    let (small_pinger1_named, pinf) = small_pinger_system.create_and_register(move || {
+        BigPingerAct::new_preserialised(ponger_named_path2, 10, BufferConfig::default())
+    });
+    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+    // Ponger_system blocked for 5 Seconds from this time.
+    ponger_system.start(&ponger_named);
+    big_pinger_system.start(&big_pinger_named);
+
+    // TODO maybe we could do this a bit more reliable?
+    thread::sleep(Duration::from_millis(4000));
+
+    // remote system should be unable to receive any messages as the BigPing is occupying all buffers
+    small_pinger_system.start(&small_pinger1_named);
+
+    // Give the sytem time to fail to establish connection
+    thread::sleep(Duration::from_millis(1500));
+
+    // Start the second Pinger and assert that small_pinger1 hasn't gotten the pong yet.
+    // small_pinger_system.start(&small_pinger2_named);
+    let pingfn = small_pinger_system.stop_notify(&small_pinger1_named);
+    pingfn
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Pinger never stopped!");
+    small_pinger1_named.on_definition(|c| {
+        assert_eq!(c.count, 0);
+    });
+    small_pinger_system.start(&small_pinger1_named);
+
+    // Shutdown big_pinger_system to make sure it won't continue blocking.
+    // Assert that the big_pinger never got anything as a sanity check.
+    let pingfn = big_pinger_system.stop_notify(&big_pinger_named);
+    pingfn
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Pinger never stopped!");
+    big_pinger_named.on_definition(|c| {
+        assert_eq!(c.count, 0);
+    });
+    big_pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+
+    // Wait for the big_pinger_system connection to time_out
+    // and let the small_pinger system establish its connection and succeed with its messages
+    thread::sleep(Duration::from_millis(4000));
+
+    // Assert that small_pinger2 has gotten the pongs.
+    let pingfn = small_pinger_system.stop_notify(&small_pinger1_named);
+    pingfn
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Pinger never stopped!");
+    small_pinger1_named.on_definition(|c| {
+        assert_eq!(c.count, 2 * PING_COUNT);
+    });
+
+    // Shut down the ponger
+    let pongfn = ponger_system.kill_notify(ponger_named);
+    pongfn
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Ponger never died!");
+
+    ponger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    small_pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+}

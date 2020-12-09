@@ -9,6 +9,11 @@ pub enum SerError {
     InvalidType(String),
     /// The Buffer we're serializing into failed
     BufferError(String),
+    /// No Buffer Available.
+    ///
+    /// Raised by actors attempting to send more messages than their Buffers allow
+    /// or what the Network is able to handle.
+    NoBuffersAvailable(String),
     /// Type can not be cloned
     NoClone,
     /// Any other kind of error
@@ -45,6 +50,11 @@ impl fmt::Display for SerError {
             SerError::NoClone => write!(
                 f,
                 "The provided type can not be cloned, but try_clone() was attempted"
+            ),
+            SerError::NoBuffersAvailable(s) => write!(
+                f,
+                "Serialising into a BufferPool with no available buffers: {}",
+                s
             ),
             SerError::Unknown(s) => write!(f, "A serialisation error occurred: {}", s),
         }

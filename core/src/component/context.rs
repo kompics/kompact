@@ -356,7 +356,7 @@ where
             if let Some(buffer) = self.buffer.borrow_mut().as_mut() {
                 return crate::ser_helpers::preserialise_msg(
                     content,
-                    &mut buffer.get_buffer_encoder(),
+                    &mut buffer.get_buffer_encoder()?,
                 );
             }
         }
