@@ -1,0 +1,2501 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Path Routing - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html" class="active"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#path-routing" id="path-routing">Path Routing</a></h1>
+<p>In the previous section on <a href="namedservices.html">Named Services</a> we have seen that we can register components to named paths, such as <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap</code>. These paths look very much like a <a href="https://en.wikipedia.org/wiki/URL">URL</a>, and indeed, just like in REST APIs, Kompact named paths form a tree-like hierarchy. For example <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap/server1</code> would be a sub-path of <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap</code>. This hierarchy is reflected in the way Kompact stores these actor aliases internally, which from a structure like a directory tree.</p>
+<p>This approach to named paths opens up the possibility of exploiting the hierarchy for implicit and explicit <em>routing</em> of messages over sub-trees (directories, in a sense), which we explore in this section.</p>
+<h2><a class="header" href="#routing-policies" id="routing-policies">Routing Policies</a></h2>
+<p>In general, a routing policy is something that takes a message and set of references and selects one or more references that the message will be sent to. In the concrete case of routing within the named path tree, the type of the message must be <code>NetMessage</code> and the references are <code>DynActorRef</code>. The  set of references we give to a policy is going to be the set of all registered nodes under a particular prefix in the named actor tree, which we will call the <em>routing path</em>. </p>
+<blockquote>
+<p><strong>Example:</strong> If <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap</code> is a routing path with some policy P, then whenever we send something to it, we will pass the set containing the actor ref registered at <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap/server1</code> to P. If there were another registration at <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap/servers/server1</code> we would add that to the set as well.</p>
+</blockquote>
+<h3><a class="header" href="#types-of-routing-paths" id="types-of-routing-paths">Types of Routing Paths</a></h3>
+<p>Kompact supports two different types of routing paths: <strong>explicit</strong> paths and <strong>implicit</strong> paths.</p>
+<p>In order to explain this in the following paragraphs, consider a system where the following three actors are registered:</p>
+<ol>
+<li><code>tcp::127.0.0.1:1234/parent/child1</code></li>
+<li><code>tcp::127.0.0.1:1234/parent/child2</code></li>
+<li><code>tcp::127.0.0.1:1234/parent/child1/grandchild</code></li>
+</ol>
+<h4><a class="header" href="#implicit-routing" id="implicit-routing">Implicit Routing</a></h4>
+<p>Routing in Kompact can be used without any (routing specific) setup at all. If we simply construct an <code>ActorPath</code> of the form <code>tcp::127.0.0.1:1234/parent/*</code> and send a message there, Kompact will automatically broadcast this message to all three nodes registered above, since all of them have <code>tcp::127.0.0.1:1234/parent</code> as their prefix. This kind of implicit routing path is called a <strong>broadcast path</strong>. The other type of implicit routing supported by Kompact is called a <strong>select path</strong> and takes the form <code>tcp::127.0.0.1:1234/parent/?</code>. Sending a message to this select path will cause the message to be sent to exactly one of the actors. Which node exactly is subject to the routing policy at <code>tcp::127.0.0.1:1234/parent</code>, which is not guaranteed to be stable by the runtime. The current default policy for select is based on hash buckets over the messages sender field.</p>
+<blockquote>
+<p><strong>Warning:</strong> In certain deployments allowing implicit routing can become a security risk with respect to <a href="https://en.wikipedia.org/wiki/Denial-of-service_attack">DoS attacks</a>, since an attacker can basically force the system to broadcast a message to every registered node, which can cause a lot unnecessary load.</p>
+<p>If this is a concern for your deployment scenario, you can compile Kompact without default features, which will remove implicit routing completely.</p>
+</blockquote>
+<h4><a class="header" href="#explicit-routing" id="explicit-routing">Explicit Routing</a></h4>
+<p>If implicit routing is not a good match for your use case, Kompact allows you explicitly set a policy at a particular point in the named tree via the <code>KompactSystem::set_routing_policy(...)</code> method. Not only does this allow you to customise the behaviour of routing for a particular sub-tree, it also enables you to hide the fact that a tree is routing at all, as with an explicit policy both <code>tcp::127.0.0.1:1234/parent</code> (where the routing policy is set) and one of <code>tcp::127.0.0.1:1234/parent/*</code> and <code>tcp::127.0.0.1:1234/parent/?</code> (depending on whether your police is of broadcast or select type) will exhibit the same behaviour.</p>
+<p>Explicit routing works even if implicit routing is disabled.</p>
+<h3><a class="header" href="#provided-policies" id="provided-policies">Provided Policies</a></h3>
+<p>Kompact comes with three routing policies built in:</p>
+<ol>
+<li><code>kompact::routing::groups::BroadcastRouting</code> is the default policy for broadcast paths. As the name implies, it will simply send a copy of each message to every member of the routing set. In order to improve the efficiency of broadcasting, you may want to override the default implementation of <code>Serialisable::cloned()</code> for the types you are broadcasting, at least when you know that local delivery can happen.</li>
+<li><code>kompact::routing::groups::SenderDefaultHashBucketRouting</code> is the default policy for select paths. It will use the hash of the messages sender field to determine a member to send the message to. Changing the member set in any way will thus also change the assignments. <code>SenderDefaultHashBucketRouting</code> is actually just a type alias for a more customisable hash-based routing policy called <code>kompact::routing::groups::FieldHashBucketRouting</code>, which lets you decide the field(s) to use for hashing and the actual hashing algorithm.</li>
+<li><code>kompact::routing::groups::RoundRobinRouting</code> uses a mutable index (an <code>AtomicUsize</code> to be exact) to select exactly one member in a round-robin manner.</li>
+</ol>
+<h3><a class="header" href="#custom-policies" id="custom-policies">Custom Policies</a></h3>
+<p>In addition to the already provided routing policies, users can easily implement their own by implementing <code>RoutingPolicy&lt;DynActorRef, NetMessage&gt;</code> for their custom type. It is important to note that policy lookups happen concurrently in the store and hence routing must be implemented with a <code>&amp;self</code> reference instead of <code>&amp;mut self</code>. Thus, routing protocols that must update manage state for each message must rely on atomics or—if really necessary—on mutexes or similar concurrent structures as appropriate for their access pattern.</p>
+<h2><a class="header" href="#example" id="example">Example</a></h2>
+<p>To show-case the path routing feature of Kompact, we will sketch a simple client-server application, where the server holds a “database” (just a large slice of strings in our case) and the client sends “queries” against this database. The queries are simply going to be shorter strings, which we will try to find as substrings in the database and return all matching strings. Since our database is actually immutable, we will share it among multiple server components and use <strong>select routing</strong> with the round-robin policy to spread out the load. Since the queries are expensive, we will also cache the results on the clients. To provide an example of broadcast routing we will cache the responses for <em>any</em> client at <em>every</em> client via broadcast. For simplicity, this example is going to be completely local within a single Kompact system, but the mechanisms involved are really designed for remote use primarily, with local paths only an optimisation normally.</p>
+<h3><a class="header" href="#messages" id="messages">Messages</a></h3>
+<p>We only have two messages, the <code>Query</code> with a unique request id and the actual pattern we want to match against, and the <code>QueryResponse</code> which has all the fields of the <code>Query</code> plus a vector of strings that matched the pattern. For convenience, we will use <code>Serde</code> as serialisation mechanism again.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span>#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Query {
+    id: Uuid,
+    pattern: String,
+}
+impl SerialisationId for Query {
+    const SER_ID: SerId = 4242;
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct QueryResponse {
+    id: Uuid,
+    pattern: String,
+    matches: Vec&lt;String&gt;,
+}
+impl SerialisationId for QueryResponse {
+    const SER_ID: SerId = 4243;
+}
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span><span class="boring">                self.server_path
+</span><span class="boring">                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const ENTRY_LENGTH: usize = 20;
+</span><span class="boring">const PATTERN_LENGTH: usize = 2;
+</span><span class="boring">
+</span><span class="boring">const BALANCER_PATH: &amp;str = &quot;server&quot;;
+</span><span class="boring">const CLIENT_PATH: &amp;str = &quot;client&quot;;
+</span><span class="boring">
+</span><span class="boring">const NUM_SERVERS: usize = 3;
+</span><span class="boring">const NUM_CLIENTS: usize = 12;
+</span><span class="boring">const DATABASE_SIZE: usize = 10000;
+</span><span class="boring">
+</span><span class="boring">const TIMEOUT: Duration = Duration::from_millis(100);
+</span><span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    // use implicit policy
+</span><span class="boring">    let broadcast_path: ActorPath = system
+</span><span class="boring">        .system_path()
+</span><span class="boring">        .into_named_with_string(&quot;client/*&quot;)
+</span><span class="boring">        .expect(&quot;path&quot;)
+</span><span class="boring">        .into();
+</span><span class="boring">
+</span><span class="boring">    // set explicit policy
+</span><span class="boring">    let balancer_path = system
+</span><span class="boring">        .set_routing_policy(
+</span><span class="boring">            kompact::routing::groups::RoundRobinRouting::default(),
+</span><span class="boring">            BALANCER_PATH,
+</span><span class="boring">            false,
+</span><span class="boring">        )
+</span><span class="boring">        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+</span><span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span><span class="boring">    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let db = database.clone();
+</span><span class="boring">            system.create(move || QueryServer::new(db))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, server)| {
+</span><span class="boring">            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+</span><span class="boring">
+</span><span class="boring">    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let server_path = balancer_path.clone();
+</span><span class="boring">            let client_path = broadcast_path.clone();
+</span><span class="boring">            system.create(move || Client::new(server_path, client_path))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, client)| {
+</span><span class="boring">            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Start everything
+</span><span class="boring">    servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
+</span><span class="boring">    clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Let them work for a while
+</span><span class="boring">    std::thread::sleep(Duration::from_secs(5));
+</span><span class="boring">
+</span><span class="boring">    // Shut down clients nicely.
+</span><span class="boring">    clients
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|c| system.kill_notify(c))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Shut down servers nicely.
+</span><span class="boring">    servers
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|s| system.kill_notify(s))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#state-and-behaviour" id="state-and-behaviour">State and Behaviour</a></h3>
+<p>As for this example the exact implementation of the servers and clients is not really crucial, we won’t describe it in detail here. The important things to note are that the <code>Client</code> uses the path <code>server_path</code> field to send requests, which we will initialise later with a select path of the form <code>tcp://127.0.0.1:&lt;port&gt;/server/?</code>. It also replaces its unique response path with a <code>broadcast_path</code>, which we will initialise later with a broadcast path of the form <code>tcp://127.0.0.1:&lt;port&gt;/client/*</code>.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct Query {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for Query {
+</span><span class="boring">    const SER_ID: SerId = 4242;
+</span><span class="boring">}
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct QueryResponse {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">    matches: Vec&lt;String&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for QueryResponse {
+</span><span class="boring">    const SER_ID: SerId = 4243;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span>                self.server_path
+                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+<span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const ENTRY_LENGTH: usize = 20;
+</span><span class="boring">const PATTERN_LENGTH: usize = 2;
+</span><span class="boring">
+</span><span class="boring">const BALANCER_PATH: &amp;str = &quot;server&quot;;
+</span><span class="boring">const CLIENT_PATH: &amp;str = &quot;client&quot;;
+</span><span class="boring">
+</span><span class="boring">const NUM_SERVERS: usize = 3;
+</span><span class="boring">const NUM_CLIENTS: usize = 12;
+</span><span class="boring">const DATABASE_SIZE: usize = 10000;
+</span><span class="boring">
+</span><span class="boring">const TIMEOUT: Duration = Duration::from_millis(100);
+</span><span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    // use implicit policy
+</span><span class="boring">    let broadcast_path: ActorPath = system
+</span><span class="boring">        .system_path()
+</span><span class="boring">        .into_named_with_string(&quot;client/*&quot;)
+</span><span class="boring">        .expect(&quot;path&quot;)
+</span><span class="boring">        .into();
+</span><span class="boring">
+</span><span class="boring">    // set explicit policy
+</span><span class="boring">    let balancer_path = system
+</span><span class="boring">        .set_routing_policy(
+</span><span class="boring">            kompact::routing::groups::RoundRobinRouting::default(),
+</span><span class="boring">            BALANCER_PATH,
+</span><span class="boring">            false,
+</span><span class="boring">        )
+</span><span class="boring">        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+</span><span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span><span class="boring">    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let db = database.clone();
+</span><span class="boring">            system.create(move || QueryServer::new(db))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, server)| {
+</span><span class="boring">            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+</span><span class="boring">
+</span><span class="boring">    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let server_path = balancer_path.clone();
+</span><span class="boring">            let client_path = broadcast_path.clone();
+</span><span class="boring">            system.create(move || Client::new(server_path, client_path))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, client)| {
+</span><span class="boring">            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Start everything
+</span><span class="boring">    servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
+</span><span class="boring">    clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Let them work for a while
+</span><span class="boring">    std::thread::sleep(Duration::from_secs(5));
+</span><span class="boring">
+</span><span class="boring">    // Shut down clients nicely.
+</span><span class="boring">    clients
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|c| system.kill_notify(c))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Shut down servers nicely.
+</span><span class="boring">    servers
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|s| system.kill_notify(s))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#system-setup" id="system-setup">System Setup</a></h3>
+<p>When setting up the Kompact system in the main, we will use the following constants, which essentially represent configuration of our scenario:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct Query {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for Query {
+</span><span class="boring">    const SER_ID: SerId = 4242;
+</span><span class="boring">}
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct QueryResponse {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">    matches: Vec&lt;String&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for QueryResponse {
+</span><span class="boring">    const SER_ID: SerId = 4243;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span><span class="boring">                self.server_path
+</span><span class="boring">                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>const ENTRY_LENGTH: usize = 20;
+const PATTERN_LENGTH: usize = 2;
+
+const BALANCER_PATH: &amp;str = &quot;server&quot;;
+const CLIENT_PATH: &amp;str = &quot;client&quot;;
+
+const NUM_SERVERS: usize = 3;
+const NUM_CLIENTS: usize = 12;
+const DATABASE_SIZE: usize = 10000;
+
+const TIMEOUT: Duration = Duration::from_millis(100);
+<span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    // use implicit policy
+</span><span class="boring">    let broadcast_path: ActorPath = system
+</span><span class="boring">        .system_path()
+</span><span class="boring">        .into_named_with_string(&quot;client/*&quot;)
+</span><span class="boring">        .expect(&quot;path&quot;)
+</span><span class="boring">        .into();
+</span><span class="boring">
+</span><span class="boring">    // set explicit policy
+</span><span class="boring">    let balancer_path = system
+</span><span class="boring">        .set_routing_policy(
+</span><span class="boring">            kompact::routing::groups::RoundRobinRouting::default(),
+</span><span class="boring">            BALANCER_PATH,
+</span><span class="boring">            false,
+</span><span class="boring">        )
+</span><span class="boring">        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+</span><span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span><span class="boring">    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let db = database.clone();
+</span><span class="boring">            system.create(move || QueryServer::new(db))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, server)| {
+</span><span class="boring">            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+</span><span class="boring">
+</span><span class="boring">    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let server_path = balancer_path.clone();
+</span><span class="boring">            let client_path = broadcast_path.clone();
+</span><span class="boring">            system.create(move || Client::new(server_path, client_path))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, client)| {
+</span><span class="boring">            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Start everything
+</span><span class="boring">    servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
+</span><span class="boring">    clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Let them work for a while
+</span><span class="boring">    std::thread::sleep(Duration::from_secs(5));
+</span><span class="boring">
+</span><span class="boring">    // Shut down clients nicely.
+</span><span class="boring">    clients
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|c| system.kill_notify(c))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Shut down servers nicely.
+</span><span class="boring">    servers
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|s| system.kill_notify(s))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>First of all we set up the routing policies and their associated paths. In order to show off both variants, we will use implicit routing for the client broadcast path and explicit routing for the server select path. As mentioned before, implicit routing does not really require any specific setup. We simply construct the appropriate path, which in this case is going to be our system path followed by <code>client/*</code>. For the server load-balancing, we want to use the round-robin policy, which we will register under the <code>server</code> alias using <code>KompactSystem::set_routing_policy(...)</code>. Like a normal actor registration, this call returns a future with the actual path for this policy. Since the policy is set explicitly, this path will actually be of the form <code>tcp://127.0.0.1:&lt;port&gt;/server</code>, but sending a message to <code>tcp://127.0.0.1:&lt;port&gt;/server/?</code> would behave in the same manner.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct Query {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for Query {
+</span><span class="boring">    const SER_ID: SerId = 4242;
+</span><span class="boring">}
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct QueryResponse {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">    matches: Vec&lt;String&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for QueryResponse {
+</span><span class="boring">    const SER_ID: SerId = 4243;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span><span class="boring">                self.server_path
+</span><span class="boring">                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const ENTRY_LENGTH: usize = 20;
+</span><span class="boring">const PATTERN_LENGTH: usize = 2;
+</span><span class="boring">
+</span><span class="boring">const BALANCER_PATH: &amp;str = &quot;server&quot;;
+</span><span class="boring">const CLIENT_PATH: &amp;str = &quot;client&quot;;
+</span><span class="boring">
+</span><span class="boring">const NUM_SERVERS: usize = 3;
+</span><span class="boring">const NUM_CLIENTS: usize = 12;
+</span><span class="boring">const DATABASE_SIZE: usize = 10000;
+</span><span class="boring">
+</span><span class="boring">const TIMEOUT: Duration = Duration::from_millis(100);
+</span><span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span>    // use implicit policy
+    let broadcast_path: ActorPath = system
+        .system_path()
+        .into_named_with_string(&quot;client/*&quot;)
+        .expect(&quot;path&quot;)
+        .into();
+
+    // set explicit policy
+    let balancer_path = system
+        .set_routing_policy(
+            kompact::routing::groups::RoundRobinRouting::default(),
+            BALANCER_PATH,
+            false,
+        )
+        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+<span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span><span class="boring">    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let db = database.clone();
+</span><span class="boring">            system.create(move || QueryServer::new(db))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, server)| {
+</span><span class="boring">            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+</span><span class="boring">
+</span><span class="boring">    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let server_path = balancer_path.clone();
+</span><span class="boring">            let client_path = broadcast_path.clone();
+</span><span class="boring">            system.create(move || Client::new(server_path, client_path))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, client)| {
+</span><span class="boring">            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Start everything
+</span><span class="boring">    servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
+</span><span class="boring">    clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Let them work for a while
+</span><span class="boring">    std::thread::sleep(Duration::from_secs(5));
+</span><span class="boring">
+</span><span class="boring">    // Shut down clients nicely.
+</span><span class="boring">    clients
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|c| system.kill_notify(c))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Shut down servers nicely.
+</span><span class="boring">    servers
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|s| system.kill_notify(s))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>We will then create and register both the servers and the clients, making sure to register either with a unique name (based on their index) under the correct path prefix.</p>
+<h4><a class="header" href="#servers" id="servers">Servers</a></h4>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct Query {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for Query {
+</span><span class="boring">    const SER_ID: SerId = 4242;
+</span><span class="boring">}
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct QueryResponse {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">    matches: Vec&lt;String&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for QueryResponse {
+</span><span class="boring">    const SER_ID: SerId = 4243;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span><span class="boring">                self.server_path
+</span><span class="boring">                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const ENTRY_LENGTH: usize = 20;
+</span><span class="boring">const PATTERN_LENGTH: usize = 2;
+</span><span class="boring">
+</span><span class="boring">const BALANCER_PATH: &amp;str = &quot;server&quot;;
+</span><span class="boring">const CLIENT_PATH: &amp;str = &quot;client&quot;;
+</span><span class="boring">
+</span><span class="boring">const NUM_SERVERS: usize = 3;
+</span><span class="boring">const NUM_CLIENTS: usize = 12;
+</span><span class="boring">const DATABASE_SIZE: usize = 10000;
+</span><span class="boring">
+</span><span class="boring">const TIMEOUT: Duration = Duration::from_millis(100);
+</span><span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    // use implicit policy
+</span><span class="boring">    let broadcast_path: ActorPath = system
+</span><span class="boring">        .system_path()
+</span><span class="boring">        .into_named_with_string(&quot;client/*&quot;)
+</span><span class="boring">        .expect(&quot;path&quot;)
+</span><span class="boring">        .into();
+</span><span class="boring">
+</span><span class="boring">    // set explicit policy
+</span><span class="boring">    let balancer_path = system
+</span><span class="boring">        .set_routing_policy(
+</span><span class="boring">            kompact::routing::groups::RoundRobinRouting::default(),
+</span><span class="boring">            BALANCER_PATH,
+</span><span class="boring">            false,
+</span><span class="boring">        )
+</span><span class="boring">        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+</span><span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span>    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+        .map(|_| {
+            let db = database.clone();
+            system.create(move || QueryServer::new(db))
+        })
+        .collect();
+
+    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+        .iter()
+        .enumerate()
+        .map(|(index, server)| {
+            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+        })
+        .collect();
+    // We don't actually need the paths,
+    // just need to be sure they finished registering
+    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+<span class="boring">
+</span><span class="boring">    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let server_path = balancer_path.clone();
+</span><span class="boring">            let client_path = broadcast_path.clone();
+</span><span class="boring">            system.create(move || Client::new(server_path, client_path))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, client)| {
+</span><span class="boring">            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Start everything
+</span><span class="boring">    servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
+</span><span class="boring">    clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Let them work for a while
+</span><span class="boring">    std::thread::sleep(Duration::from_secs(5));
+</span><span class="boring">
+</span><span class="boring">    // Shut down clients nicely.
+</span><span class="boring">    clients
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|c| system.kill_notify(c))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Shut down servers nicely.
+</span><span class="boring">    servers
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|s| system.kill_notify(s))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h4><a class="header" href="#clients" id="clients">Clients</a></h4>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct Query {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for Query {
+</span><span class="boring">    const SER_ID: SerId = 4242;
+</span><span class="boring">}
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct QueryResponse {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">    matches: Vec&lt;String&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for QueryResponse {
+</span><span class="boring">    const SER_ID: SerId = 4243;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span><span class="boring">                self.server_path
+</span><span class="boring">                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const ENTRY_LENGTH: usize = 20;
+</span><span class="boring">const PATTERN_LENGTH: usize = 2;
+</span><span class="boring">
+</span><span class="boring">const BALANCER_PATH: &amp;str = &quot;server&quot;;
+</span><span class="boring">const CLIENT_PATH: &amp;str = &quot;client&quot;;
+</span><span class="boring">
+</span><span class="boring">const NUM_SERVERS: usize = 3;
+</span><span class="boring">const NUM_CLIENTS: usize = 12;
+</span><span class="boring">const DATABASE_SIZE: usize = 10000;
+</span><span class="boring">
+</span><span class="boring">const TIMEOUT: Duration = Duration::from_millis(100);
+</span><span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    // use implicit policy
+</span><span class="boring">    let broadcast_path: ActorPath = system
+</span><span class="boring">        .system_path()
+</span><span class="boring">        .into_named_with_string(&quot;client/*&quot;)
+</span><span class="boring">        .expect(&quot;path&quot;)
+</span><span class="boring">        .into();
+</span><span class="boring">
+</span><span class="boring">    // set explicit policy
+</span><span class="boring">    let balancer_path = system
+</span><span class="boring">        .set_routing_policy(
+</span><span class="boring">            kompact::routing::groups::RoundRobinRouting::default(),
+</span><span class="boring">            BALANCER_PATH,
+</span><span class="boring">            false,
+</span><span class="boring">        )
+</span><span class="boring">        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+</span><span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span><span class="boring">    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let db = database.clone();
+</span><span class="boring">            system.create(move || QueryServer::new(db))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, server)| {
+</span><span class="boring">            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+</span><span class="boring">
+</span>    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+        .map(|_| {
+            let server_path = balancer_path.clone();
+            let client_path = broadcast_path.clone();
+            system.create(move || Client::new(server_path, client_path))
+        })
+        .collect();
+    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+        .iter()
+        .enumerate()
+        .map(|(index, client)| {
+            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+        })
+        .collect();
+    // We don't actually need the paths,
+    // just need to be sure they finished registering
+    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+<span class="boring">
+</span><span class="boring">    // Start everything
+</span><span class="boring">    servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
+</span><span class="boring">    clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Let them work for a while
+</span><span class="boring">    std::thread::sleep(Duration::from_secs(5));
+</span><span class="boring">
+</span><span class="boring">    // Shut down clients nicely.
+</span><span class="boring">    clients
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|c| system.kill_notify(c))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    // Shut down servers nicely.
+</span><span class="boring">    servers
+</span><span class="boring">        .into_iter()
+</span><span class="boring">        .map(|s| system.kill_notify(s))
+</span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
+</span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#running" id="running">Running</a></h3>
+<p>Finally, we simply start the servers and the clients, then run them for a few seconds, and shut them down again, before shutting down the system itself.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use lru::LruCache;
+</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">use std::{sync::Arc, time::Duration};
+</span><span class="boring">use uuid::Uuid;
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct Query {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for Query {
+</span><span class="boring">    const SER_ID: SerId = 4242;
+</span><span class="boring">}
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone)]
+</span><span class="boring">struct QueryResponse {
+</span><span class="boring">    id: Uuid,
+</span><span class="boring">    pattern: String,
+</span><span class="boring">    matches: Vec&lt;String&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl SerialisationId for QueryResponse {
+</span><span class="boring">    const SER_ID: SerId = 4243;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct QueryServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    database: Arc&lt;[String]&gt;,
+</span><span class="boring">    handled_requests: usize,
+</span><span class="boring">}
+</span><span class="boring">impl QueryServer {
+</span><span class="boring">    fn new(database: Arc&lt;[String]&gt;) -&gt; Self {
+</span><span class="boring">        QueryServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            database,
+</span><span class="boring">            handled_requests: 0,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn find_matches(&amp;self, pattern: &amp;str) -&gt; Vec&lt;String&gt; {
+</span><span class="boring">        self.database
+</span><span class="boring">            .iter()
+</span><span class="boring">            .filter(|e| e.contains(pattern))
+</span><span class="boring">            .cloned()
+</span><span class="boring">            .collect()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for QueryServer {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Server that handled {} requests&quot;, self.handled_requests
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for QueryServer {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            query: Query [Serde] =&gt; {
+</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                sender.tell((response, Serde), self);
+</span><span class="boring">                self.handled_requests += 1;
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Client {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    server_path: ActorPath,
+</span><span class="boring">    broadcast_path: ActorPath,
+</span><span class="boring">    request_count: usize,
+</span><span class="boring">    cache_hits: usize,
+</span><span class="boring">    cache: LruCache&lt;String, Vec&lt;String&gt;&gt;,
+</span><span class="boring">    current_query: Option&lt;Query&gt;,
+</span><span class="boring">    rng: SmallRng,
+</span><span class="boring">}
+</span><span class="boring">impl Client {
+</span><span class="boring">    fn new(server_path: ActorPath, broadcast_path: ActorPath) -&gt; Self {
+</span><span class="boring">        Client {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            server_path,
+</span><span class="boring">            broadcast_path,
+</span><span class="boring">            request_count: 0,
+</span><span class="boring">            cache_hits: 0,
+</span><span class="boring">            cache: LruCache::new(20),
+</span><span class="boring">            current_query: None,
+</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_request(&amp;mut self) -&gt; () {
+</span><span class="boring">        while self.current_query.is_none() {
+</span><span class="boring">            let pattern = generate_string(&amp;mut self.rng, PATTERN_LENGTH);
+</span><span class="boring">            self.request_count += 1;
+</span><span class="boring">            let res = self.cache.get(&amp;pattern).map(|result| result.len());
+</span><span class="boring">            if let Some(result) = res {
+</span><span class="boring">                self.cache_hits += 1;
+</span><span class="boring">                debug!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Answered query #{} ({}) with {} matches from cache.&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    result
+</span><span class="boring">                );
+</span><span class="boring">            } else {
+</span><span class="boring">                let id = Uuid::new_v4();
+</span><span class="boring">                trace!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
+</span><span class="boring">                    self.request_count,
+</span><span class="boring">                    pattern,
+</span><span class="boring">                    id
+</span><span class="boring">                );
+</span><span class="boring">                let query = Query { id, pattern };
+</span><span class="boring">                self.current_query = Some(query.clone());
+</span><span class="boring">                self.server_path
+</span><span class="boring">                    .tell((query, Serde), &amp;self.broadcast_path.using_dispatcher(self));
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Client {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.send_request();
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Shutting down a Client that ran {} requests with {} cache hits ({}%)&quot;,
+</span><span class="boring">            self.request_count,
+</span><span class="boring">            self.cache_hits,
+</span><span class="boring">            hit_ratio
+</span><span class="boring">        );
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Client {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!(&quot;Can't instantiate Never type&quot;);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        match_deser!(msg; {
+</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
+</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                    if current_query.id == response.id {
+</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                        self.send_request();
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // wrong id, put it back
+</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">                // in any case, put it in the cache
+</span><span class="boring">                self.cache.put(response.pattern, response.matches);
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const ENTRY_LENGTH: usize = 20;
+</span><span class="boring">const PATTERN_LENGTH: usize = 2;
+</span><span class="boring">
+</span><span class="boring">const BALANCER_PATH: &amp;str = &quot;server&quot;;
+</span><span class="boring">const CLIENT_PATH: &amp;str = &quot;client&quot;;
+</span><span class="boring">
+</span><span class="boring">const NUM_SERVERS: usize = 3;
+</span><span class="boring">const NUM_CLIENTS: usize = 12;
+</span><span class="boring">const DATABASE_SIZE: usize = 10000;
+</span><span class="boring">
+</span><span class="boring">const TIMEOUT: Duration = Duration::from_millis(100);
+</span><span class="boring">
+</span><span class="boring">fn generate_string&lt;R: Rng&gt;(rng: &amp;mut R, length: usize) -&gt; String {
+</span><span class="boring">    std::iter::repeat(())
+</span><span class="boring">        .map(|_| rng.sample(Alphanumeric))
+</span><span class="boring">        .take(length)
+</span><span class="boring">        .collect()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
+</span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
+</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    for _i in 0..size {
+</span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
+</span><span class="boring">        data.push(entry);
+</span><span class="boring">    }
+</span><span class="boring">    data.into()
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    // use implicit policy
+</span><span class="boring">    let broadcast_path: ActorPath = system
+</span><span class="boring">        .system_path()
+</span><span class="boring">        .into_named_with_string(&quot;client/*&quot;)
+</span><span class="boring">        .expect(&quot;path&quot;)
+</span><span class="boring">        .into();
+</span><span class="boring">
+</span><span class="boring">    // set explicit policy
+</span><span class="boring">    let balancer_path = system
+</span><span class="boring">        .set_routing_policy(
+</span><span class="boring">            kompact::routing::groups::RoundRobinRouting::default(),
+</span><span class="boring">            BALANCER_PATH,
+</span><span class="boring">            false,
+</span><span class="boring">        )
+</span><span class="boring">        .wait_expect(TIMEOUT, &quot;balancing policy&quot;);
+</span><span class="boring">
+</span><span class="boring">    let database = generate_database(DATABASE_SIZE);
+</span><span class="boring">
+</span><span class="boring">    let servers: Vec&lt;Arc&lt;Component&lt;QueryServer&gt;&gt;&gt; = (0..NUM_SERVERS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let db = database.clone();
+</span><span class="boring">            system.create(move || QueryServer::new(db))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = servers
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, server)| {
+</span><span class="boring">            system.register_by_alias(server, format!(&quot;{}/server-{}&quot;, BALANCER_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;server path&quot;);
+</span><span class="boring">
+</span><span class="boring">    let clients: Vec&lt;Arc&lt;Component&lt;Client&gt;&gt;&gt; = (0..NUM_CLIENTS)
+</span><span class="boring">        .map(|_| {
+</span><span class="boring">            let server_path = balancer_path.clone();
+</span><span class="boring">            let client_path = broadcast_path.clone();
+</span><span class="boring">            system.create(move || Client::new(server_path, client_path))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    let registration_futures: Vec&lt;KFuture&lt;RegistrationResult&gt;&gt; = clients
+</span><span class="boring">        .iter()
+</span><span class="boring">        .enumerate()
+</span><span class="boring">        .map(|(index, client)| {
+</span><span class="boring">            system.register_by_alias(client, format!(&quot;{}/client-{}&quot;, CLIENT_PATH, index))
+</span><span class="boring">        })
+</span><span class="boring">        .collect();
+</span><span class="boring">    // We don't actually need the paths,
+</span><span class="boring">    // just need to be sure they finished registering
+</span><span class="boring">    registration_futures.expect_ok(TIMEOUT, &quot;client path&quot;);
+</span><span class="boring">
+</span>    // Start everything
+    servers
+        .iter()
+        .map(|s| system.start_notify(&amp;s))
+        .expect_completion(TIMEOUT, &quot;server start&quot;);
+    clients
+        .iter()
+        .map(|c| system.start_notify(&amp;c))
+        .expect_completion(TIMEOUT, &quot;client start&quot;);
+
+    // Let them work for a while
+    std::thread::sleep(Duration::from_secs(5));
+
+    // Shut down clients nicely.
+    clients
+        .into_iter()
+        .map(|c| system.kill_notify(c))
+        .collect::&lt;Vec&lt;_&gt;&gt;()
+        .expect_completion(TIMEOUT, &quot;client kill&quot;);
+
+    // Shut down servers nicely.
+    servers
+        .into_iter()
+        .map(|s| system.kill_notify(s))
+        .collect::&lt;Vec&lt;_&gt;&gt;()
+        .expect_completion(TIMEOUT, &quot;server kill&quot;);
+
+    system.shutdown().expect(&quot;shutdown&quot;);
+<span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>If we inspect the output in release mode, we can see that both clients and servers print some final statistics about their run. In particular the results of the servers show that the requests were very well balanced, thanks to our round-robin policy:</p>
+<pre><code>Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1060 requests with 6 cache hits (0.005660377358490566%), ctype: Client, cid: 07739284-1171-43c7-b547-198f9adf31e2, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1055 requests with 7 cache hits (0.006635071090047393%), ctype: Client, cid: 7a33e17c-042f-4271-95ea-a725ee471dae, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1052 requests with 4 cache hits (0.0038022813688212928%), ctype: Client, cid: 9b3c3c57-8246-4456-a7b8-0d200086df8d, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1050 requests with 3 cache hits (0.002857142857142857%), ctype: Client, cid: 1ecdef68-43af-46b4-8a40-a8ad4147b811, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1051 requests with 5 cache hits (0.004757373929590866%), ctype: Client, cid: 034f5dcc-a0ba-4bc2-aca0-6f1ab12be139, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1047 requests with 2 cache hits (0.0019102196752626551%), ctype: Client, cid: 59679577-6e9a-44ef-9739-08ca1b32b03f, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1048 requests with 3 cache hits (0.0028625954198473282%), ctype: Client, cid: ef76ddd0-e240-4ad6-8a10-b98da9ba41ff, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1044 requests with 0 cache hits (0%), ctype: Client, cid: ddf7d77a-4987-4411-81a5-bc4841200c32, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1051 requests with 7 cache hits (0.006660323501427212%), ctype: Client, cid: 12b65a83-c443-4853-8337-47ba5c45f60d, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.871 INFO Shutting down a Client that ran 1046 requests with 3 cache hits (0.0028680688336520078%), ctype: Client, cid: c7978b3f-9cf2-44d2-b93f-fc32ad90c941, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1049 requests with 6 cache hits (0.005719733079122974%), ctype: Client, cid: af389f4d-bc93-4f37-8f50-a70e054651e0, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1047 requests with 4 cache hits (0.0038204393505253103%), ctype: Client, cid: ad20509a-dbab-4dd3-a497-99a8488101b3, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: 35309404-a989-4b18-848f-5cc719b19a76, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4184 requests, ctype: QueryServer, cid: 2a2ed2cb-36bb-4df0-ac0e-0204e12417bd, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: a3d6d94a-ff9c-4749-9b6a-db2bfa2ac3e2, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
+<pre><code class="language-bash">cargo run --release --bin load_balancer
+</code></pre>
+<p>Note that running in debug mode will produce a lot of output as it will trace all the network messages.</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../distributed/namedservices.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../distributed/serialisation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../distributed/namedservices.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../distributed/serialisation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

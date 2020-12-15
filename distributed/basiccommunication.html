@@ -1,0 +1,1787 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Basic Communication - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html" class="active"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#basic-communication" id="basic-communication">Basic Communication</a></h1>
+<p>In order to use remote communication with Kompact we need to replace the default <code>Dispatcher</code> implementation, with the provided <code>NetworkDispatcher</code>. Custom dispatchers in general are set with the <code>KompactConfig::system_components(...)</code> function, which also allows replacement of the system’s deadletter box, that is the component that handles messages where no recipient could be resolved. An instance of the <code>NetworkDispatcher</code> should be created via its configuration struct using <code>NetworkConfig::build()</code>. This type also allows to specify the listening socket for the system via <code>KompactConfig::with_socket(...)</code>. The default implementation will bind to <code>127.0.0.1</code> on a random free port. Attempting to bind on an occupied port, or without appropriate rights on a reserved port such as 80 will cause the creation of the <code>KompactSystem</code> instance to fail.</p>
+<p>Once a Kompact system with a network dispatcher is created, we need to acquire actor paths for each component we want to be addressable. Kompact requires components to be explicitly registered with a dispatcher and returns an appropriate actor path as the result of a successful registration. The easiest way to acquire a registered component and a unique actor path for it, is to call <code>KompactSystem::create_and_register(...)</code> instead of <code>KompactSystem::create(...)</code> when creating it. This will return both the component and a future with the actor path, which completes once registration was successful. It is typically recommended not to start a component before registration is complete, as messages it sends with its unique path as source might not be answerable until registration is completed.</p>
+<p>Sending messages is achieved by calling <code>ActorPath::tell(...)</code> with something that is serialisable (i.e. implements the <code>Serialisable</code> trait) and something that can produce a source address as well as a reference to the <code>Dispatcher</code>, typically just <code>self</code> from within a component.</p>
+<p>In order to receive messages, a component must implement (some variant of) the <code>Actor</code> trait, and in particular its <code>receive_network(...)</code> function. Deserialisation happens lazily in Kompact, that means components are passed serialised data and a serialisation identifier in the form of a <code>NetworkMessage</code> message. They must then decide based on the identifier if they want to try and deserialise the content into a message. This can be done using the <code>NetworkMessage::try_deserialise::&lt;TargetType, Deserialiser&gt;()</code> function, or more conveniently for multiple messages via the <code>match_deser!</code> macro. We will get back to serialisation in more detail <a href="serialisation.html">later</a>.</p>
+<h2><a class="header" href="#example" id="example">Example</a></h2>
+<p>In this section we will go through a concrete example of a distributed service in Kompact. In particular, we are going to develop a distributed leader election abstraction, which internally uses heartbeats to establish a “candidate set” of live nodes, and then deterministically picks one node from the set to be the “leader”.</p>
+<h3><a class="header" href="#local-abstraction" id="local-abstraction">Local Abstraction</a></h3>
+<p>Locally we want to expose a port abstraction called <code>EventualLeaderDetection</code>, which has no requests and only a single indication: The <code>Trust</code> event indicates the selection of a new leader.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+</span><span class="boring">pub struct Heartbeat;
+</span><span class="boring">impl SerialisationId for Heartbeat {
+</span><span class="boring">    const SER_ID: SerId = 1234;
+</span><span class="boring">}
+</span><span class="boring">
+</span>#[derive(Clone, Debug)]
+pub struct Trust(pub ActorPath);
+
+pub struct EventualLeaderDetection;
+impl Port for EventualLeaderDetection {
+    type Indication = Trust;
+    type Request = Never;
+}
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">pub struct TrustPrinter {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: RequiredPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl TrustPrinter {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        TrustPrinter {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: RequiredPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(TrustPrinter);
+</span><span class="boring">
+</span><span class="boring">impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
+</span><span class="boring">    fn handle(&amp;mut self, event: Trust) -&gt; Handled {
+</span><span class="boring">        info!(self.log(), &quot;Got leader: {}.&quot;, event.0);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>In order to see some results later when we run it, we will also add a quick printer component for these <code>Trust</code> events:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use serde::{Deserialize, Serialize};
+</span><span class="boring">
+</span><span class="boring">#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+</span><span class="boring">pub struct Heartbeat;
+</span><span class="boring">impl SerialisationId for Heartbeat {
+</span><span class="boring">    const SER_ID: SerId = 1234;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Clone, Debug)]
+</span><span class="boring">pub struct Trust(pub ActorPath);
+</span><span class="boring">
+</span><span class="boring">pub struct EventualLeaderDetection;
+</span><span class="boring">impl Port for EventualLeaderDetection {
+</span><span class="boring">    type Indication = Trust;
+</span><span class="boring">    type Request = Never;
+</span><span class="boring">}
+</span><span class="boring">
+</span>#[derive(ComponentDefinition, Actor)]
+pub struct TrustPrinter {
+    ctx: ComponentContext&lt;Self&gt;,
+    omega_port: RequiredPort&lt;EventualLeaderDetection&gt;,
+}
+impl TrustPrinter {
+    pub fn new() -&gt; Self {
+        TrustPrinter {
+            ctx: ComponentContext::uninitialised(),
+            omega_port: RequiredPort::uninitialised(),
+        }
+    }
+}
+
+ignore_lifecycle!(TrustPrinter);
+
+impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
+    fn handle(&amp;mut self, event: Trust) -&gt; Handled {
+        info!(self.log(), &quot;Got leader: {}.&quot;, event.0);
+        Handled::Ok
+    }
+}
+</code></pre>
+<h3><a class="header" href="#messages" id="messages">Messages</a></h3>
+<p>We have two ways to interact with our leader election implementation: Different instances will send <code>Heartbeat</code> message over the network among themselves. For simplicity we will use <a href="https://crates.io/crates/serde">Serde</a> as a serialisation mechanism for now. For Serde serialisation to work correctly with Kompact we have assign a serialisation id to <code>Heartbeat</code>, that is a unique number that can be used to identify it during deserialisation. It’s very similar to a <code>TypeId</code>, except that it’s guaranteed to be same in any binary generated with the code included since the constant is hardcoded. For the example, we’ll simply use <code>1234</code> since that isn’t taken, yet. In a larger project, however, it’s important to keep track of these ids to prevent duplicates.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">use kompact::prelude::*;
+</span>use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct Heartbeat;
+impl SerialisationId for Heartbeat {
+    const SER_ID: SerId = 1234;
+}
+<span class="boring">
+</span><span class="boring">#[derive(Clone, Debug)]
+</span><span class="boring">pub struct Trust(pub ActorPath);
+</span><span class="boring">
+</span><span class="boring">pub struct EventualLeaderDetection;
+</span><span class="boring">impl Port for EventualLeaderDetection {
+</span><span class="boring">    type Indication = Trust;
+</span><span class="boring">    type Request = Never;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">pub struct TrustPrinter {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: RequiredPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl TrustPrinter {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        TrustPrinter {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: RequiredPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(TrustPrinter);
+</span><span class="boring">
+</span><span class="boring">impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
+</span><span class="boring">    fn handle(&amp;mut self, event: Trust) -&gt; Handled {
+</span><span class="boring">        info!(self.log(), &quot;Got leader: {}.&quot;, event.0);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>Additionally, we want be able to change the set of involved processes at runtime. This is primarily due to the fact that we will use unique paths for now and we simply don’t know the full set of unique paths at creation time of the actors that they refer to.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span>#[derive(Debug)]
+struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    processes: Arc&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer =
+</span><span class="boring">                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats();
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; () {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = UpdateProcesses;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">            msg.0.len()
+</span><span class="boring">        );
+</span><span class="boring">        let UpdateProcesses(processes) = msg;
+</span><span class="boring">        self.processes = processes;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+</span><span class="boring">            Ok(_heartbeat) =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            }
+</span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        2,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of systems.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_systems(num_systems);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_systems(num_systems: usize) {
+</span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
+</span><span class="boring">        let system = || {
+</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">        };
+</span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
+</span><span class="boring">        for _i in 0..num_systems {
+</span><span class="boring">            let sys = system();
+</span><span class="boring">            data.push(sys);
+</span><span class="boring">        }
+</span><span class="boring">        data
+</span><span class="boring">    };
+</span><span class="boring">
+</span><span class="boring">    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|sys| {
+</span><span class="boring">            let printer = sys.create(TrustPrinter::new);
+</span><span class="boring">            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+</span><span class="boring">            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+</span><span class="boring">                .expect(&quot;connection&quot;);
+</span><span class="boring">            let path =
+</span><span class="boring">                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+</span><span class="boring">            sys.start(&amp;printer);
+</span><span class="boring">            sys.start(&amp;detector);
+</span><span class="boring">            (path, detector.actor_ref())
+</span><span class="boring">        })
+</span><span class="boring">        .unzip();
+</span><span class="boring">
+</span><span class="boring">    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+</span><span class="boring">
+</span><span class="boring">    actors.iter().for_each(|actor| {
+</span><span class="boring">        let update = UpdateProcesses(shared_processes.clone());
+</span><span class="boring">        actor.tell(update);
+</span><span class="boring">    });
+</span><span class="boring">    // let them settle
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">    // shut down systems one by one
+</span><span class="boring">    for sys in systems.drain(..) {
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#state" id="state">State</a></h3>
+<p>There is a bit of state we need to keep track of in our <code>EventualLeaderElector</code> component:</p>
+<ul>
+<li>First me must provide the <code>EventualLeaderDetection</code> port, of course. </li>
+<li>We also need to track the current process set, which we will handle as a boxed slice shared behind an <code>Arc</code>, since all components should have the same set anyway. Of course, if we were running this in real distribution, and not just with multiple systems in a single process, we would probably only run a single instance per process and a simple boxed slice (or just a normal vector) would probably be more sensible. </li>
+<li>Further we must track the current candidate set, for which we will use a standard <code>HashSet</code> to avoid adding duplicates. </li>
+<li>We also need to know how often to check the candidate set and update our leader. Since this time needs to be able to dynamically adjust to network conditions, we keep two values for this in our state: The current <code>period</code> and a <code>delta</code> value, which we use when we need to adjust the period. The <code>delta</code> is technically immutable and could be a constant, but we want to make both values <a href="../local/configuration.html">configurable</a>, so we need to store the loaded values somewhere.</li>
+<li>Finally, we to keep track of the current <a href="../local/timers.html">timer handle</a> and the current leader, if any.</li>
+</ul>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+</span><span class="boring">
+</span>#[derive(ComponentDefinition)]
+struct EventualLeaderElector {
+    ctx: ComponentContext&lt;Self&gt;,
+    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+    processes: Arc&lt;[ActorPath]&gt;,
+    candidates: HashSet&lt;ActorPath&gt;,
+    period: Duration,
+    delta: Duration,
+    timer_handle: Option&lt;ScheduledTimer&gt;,
+    leader: Option&lt;ActorPath&gt;,
+}
+<span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer =
+</span><span class="boring">                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats();
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; () {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = UpdateProcesses;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">            msg.0.len()
+</span><span class="boring">        );
+</span><span class="boring">        let UpdateProcesses(processes) = msg;
+</span><span class="boring">        self.processes = processes;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+</span><span class="boring">            Ok(_heartbeat) =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            }
+</span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        2,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of systems.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_systems(num_systems);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_systems(num_systems: usize) {
+</span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
+</span><span class="boring">        let system = || {
+</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">        };
+</span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
+</span><span class="boring">        for _i in 0..num_systems {
+</span><span class="boring">            let sys = system();
+</span><span class="boring">            data.push(sys);
+</span><span class="boring">        }
+</span><span class="boring">        data
+</span><span class="boring">    };
+</span><span class="boring">
+</span><span class="boring">    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|sys| {
+</span><span class="boring">            let printer = sys.create(TrustPrinter::new);
+</span><span class="boring">            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+</span><span class="boring">            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+</span><span class="boring">                .expect(&quot;connection&quot;);
+</span><span class="boring">            let path =
+</span><span class="boring">                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+</span><span class="boring">            sys.start(&amp;printer);
+</span><span class="boring">            sys.start(&amp;detector);
+</span><span class="boring">            (path, detector.actor_ref())
+</span><span class="boring">        })
+</span><span class="boring">        .unzip();
+</span><span class="boring">
+</span><span class="boring">    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+</span><span class="boring">
+</span><span class="boring">    actors.iter().for_each(|actor| {
+</span><span class="boring">        let update = UpdateProcesses(shared_processes.clone());
+</span><span class="boring">        actor.tell(update);
+</span><span class="boring">    });
+</span><span class="boring">    // let them settle
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">    // shut down systems one by one
+</span><span class="boring">    for sys in systems.drain(..) {
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>In order to load our configuration values from a file, we need to put something like the following into an <code>application.conf</code> file in the current working directory:</p>
+<pre><code class="language-hocon">omega {
+	initial-period = 10 ms
+	delta = 1 ms
+}
+</code></pre>
+<p>And the we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    processes: Arc&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer =
+</span><span class="boring">                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats();
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; () {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>impl ComponentLifecycle for EventualLeaderElector {
+    fn on_start(&amp;mut self) -&gt; Handled {
+        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+            .as_duration()
+            .expect(&quot;initial period&quot;);
+        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+            .as_duration()
+            .expect(&quot;delta&quot;);
+        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+        self.timer_handle = Some(timeout);
+        Handled::Ok
+    }
+
+    fn on_stop(&amp;mut self) -&gt; Handled {
+        if let Some(timeout) = self.timer_handle.take() {
+            self.cancel_timer(timeout);
+        }
+        Handled::Ok
+    }
+
+    fn on_kill(&amp;mut self) -&gt; Handled {
+        self.on_stop()
+    }
+}
+<span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = UpdateProcesses;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">            msg.0.len()
+</span><span class="boring">        );
+</span><span class="boring">        let UpdateProcesses(processes) = msg;
+</span><span class="boring">        self.processes = processes;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+</span><span class="boring">            Ok(_heartbeat) =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            }
+</span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        2,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of systems.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_systems(num_systems);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_systems(num_systems: usize) {
+</span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
+</span><span class="boring">        let system = || {
+</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">        };
+</span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
+</span><span class="boring">        for _i in 0..num_systems {
+</span><span class="boring">            let sys = system();
+</span><span class="boring">            data.push(sys);
+</span><span class="boring">        }
+</span><span class="boring">        data
+</span><span class="boring">    };
+</span><span class="boring">
+</span><span class="boring">    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|sys| {
+</span><span class="boring">            let printer = sys.create(TrustPrinter::new);
+</span><span class="boring">            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+</span><span class="boring">            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+</span><span class="boring">                .expect(&quot;connection&quot;);
+</span><span class="boring">            let path =
+</span><span class="boring">                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+</span><span class="boring">            sys.start(&amp;printer);
+</span><span class="boring">            sys.start(&amp;detector);
+</span><span class="boring">            (path, detector.actor_ref())
+</span><span class="boring">        })
+</span><span class="boring">        .unzip();
+</span><span class="boring">
+</span><span class="boring">    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+</span><span class="boring">
+</span><span class="boring">    actors.iter().for_each(|actor| {
+</span><span class="boring">        let update = UpdateProcesses(shared_processes.clone());
+</span><span class="boring">        actor.tell(update);
+</span><span class="boring">    });
+</span><span class="boring">    // let them settle
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">    // shut down systems one by one
+</span><span class="boring">    for sys in systems.drain(..) {
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#leader-election-algorithm" id="leader-election-algorithm">Leader Election Algorithm</a></h3>
+<p>This part isn’t very specific to networking, but basically the election algorithm works as follows: Every time the timeout fires we clear out the current candidate set into a temporary vector. We then sort the vector and take the last element, if any, as the potential new leader. If that new leader is not the same as the current one then either our current leader has failed, or the timeout is wrong. For simplicity we will assume both is true and replace the leader and update the scheduled timeout by adding the <code>delta</code> to the current <code>period</code>. We then announce our new leader choice via a trigger on the <code>EventualLeaderDetection</code> port. Whether or not we replaced the leader, we always send heartbeats to everyone in the process set.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    processes: Arc&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span>    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+        candidates.sort_unstable();
+        candidates.reverse(); // pick smallest instead of largest
+        candidates.pop()
+    }
+
+    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+        match self.timer_handle.take() {
+            Some(timeout) if timeout == timeout_id =&gt; {
+                let new_leader = self.select_leader();
+                if new_leader != self.leader {
+                    self.period += self.delta;
+                    self.leader = new_leader;
+                    if let Some(ref leader) = self.leader {
+                        self.omega_port.trigger(Trust(leader.clone()));
+                    }
+                    self.cancel_timer(timeout);
+                    let new_timer =
+                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+                    self.timer_handle = Some(new_timer);
+                } else {
+                    // just put it back
+                    self.timer_handle = Some(timeout);
+                }
+                self.send_heartbeats();
+                Handled::Ok
+            }
+            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+            None =&gt; {
+                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+                Handled::Ok
+            } // can happen during restart or teardown
+        }
+    }
+
+<span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; () {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = UpdateProcesses;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">            msg.0.len()
+</span><span class="boring">        );
+</span><span class="boring">        let UpdateProcesses(processes) = msg;
+</span><span class="boring">        self.processes = processes;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+</span><span class="boring">            Ok(_heartbeat) =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            }
+</span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        2,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of systems.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_systems(num_systems);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_systems(num_systems: usize) {
+</span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
+</span><span class="boring">        let system = || {
+</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">        };
+</span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
+</span><span class="boring">        for _i in 0..num_systems {
+</span><span class="boring">            let sys = system();
+</span><span class="boring">            data.push(sys);
+</span><span class="boring">        }
+</span><span class="boring">        data
+</span><span class="boring">    };
+</span><span class="boring">
+</span><span class="boring">    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|sys| {
+</span><span class="boring">            let printer = sys.create(TrustPrinter::new);
+</span><span class="boring">            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+</span><span class="boring">            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+</span><span class="boring">                .expect(&quot;connection&quot;);
+</span><span class="boring">            let path =
+</span><span class="boring">                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+</span><span class="boring">            sys.start(&amp;printer);
+</span><span class="boring">            sys.start(&amp;detector);
+</span><span class="boring">            (path, detector.actor_ref())
+</span><span class="boring">        })
+</span><span class="boring">        .unzip();
+</span><span class="boring">
+</span><span class="boring">    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+</span><span class="boring">
+</span><span class="boring">    actors.iter().for_each(|actor| {
+</span><span class="boring">        let update = UpdateProcesses(shared_processes.clone());
+</span><span class="boring">        actor.tell(update);
+</span><span class="boring">    });
+</span><span class="boring">    // let them settle
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">    // shut down systems one by one
+</span><span class="boring">    for sys in systems.drain(..) {
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#sending-network-messages" id="sending-network-messages">Sending Network Messages</a></h3>
+<p>The only place in this example where we are sending remote messages is when we are sending heartbeats:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    processes: Arc&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer =
+</span><span class="boring">                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats();
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span>    fn send_heartbeats(&amp;self) -&gt; () {
+        self.processes.iter().for_each(|process| {
+            process.tell((Heartbeat, Serde), self);
+        });
+    }
+<span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = UpdateProcesses;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">            msg.0.len()
+</span><span class="boring">        );
+</span><span class="boring">        let UpdateProcesses(processes) = msg;
+</span><span class="boring">        self.processes = processes;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+</span><span class="boring">            Ok(_heartbeat) =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            }
+</span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        2,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of systems.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_systems(num_systems);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_systems(num_systems: usize) {
+</span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
+</span><span class="boring">        let system = || {
+</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">        };
+</span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
+</span><span class="boring">        for _i in 0..num_systems {
+</span><span class="boring">            let sys = system();
+</span><span class="boring">            data.push(sys);
+</span><span class="boring">        }
+</span><span class="boring">        data
+</span><span class="boring">    };
+</span><span class="boring">
+</span><span class="boring">    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|sys| {
+</span><span class="boring">            let printer = sys.create(TrustPrinter::new);
+</span><span class="boring">            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+</span><span class="boring">            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+</span><span class="boring">                .expect(&quot;connection&quot;);
+</span><span class="boring">            let path =
+</span><span class="boring">                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+</span><span class="boring">            sys.start(&amp;printer);
+</span><span class="boring">            sys.start(&amp;detector);
+</span><span class="boring">            (path, detector.actor_ref())
+</span><span class="boring">        })
+</span><span class="boring">        .unzip();
+</span><span class="boring">
+</span><span class="boring">    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+</span><span class="boring">
+</span><span class="boring">    actors.iter().for_each(|actor| {
+</span><span class="boring">        let update = UpdateProcesses(shared_processes.clone());
+</span><span class="boring">        actor.tell(update);
+</span><span class="boring">    });
+</span><span class="boring">    // let them settle
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">    // shut down systems one by one
+</span><span class="boring">    for sys in systems.drain(..) {
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>We invoke the <code>ActorPath::tell(...)</code> method with a tuple of the actual <code>Heartbeat</code> together with the serialiser with want to use, which is <code>kompact::serde_serialisers::Serde</code>. We also pass a reference to <code>self</code> which will automatically insert our unique actor path into the message as the source and send everything to our system’s dispatcher, which will take care of serialisation, as well as network channel creation and selection for us.</p>
+<h3><a class="header" href="#handling-network-messages" id="handling-network-messages">Handling Network Messages</a></h3>
+<p>In order to handle (network) messages we must implement the Actor trait as described <a href="../local/communication/messagesandevents.html">previously</a>. The local message type we are handling is <code>UpdateProcesses</code> and whenever we get it, we simply replace our current <code>processes</code> with the new value.</p>
+<p>For network messages, on the other hand, we don’t know what are being given, generally, so we get <code>NetworkMessage</code>. This is basically a wrapper around a sender <code>ActorPath</code>, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to <code>Heartbeat</code>. We also know we need to use <code>Serde</code> as a deserialiser, since that’s what we used for serialisation in the first place. Thus, we use <code>NetMessage::try_deserialise::&lt;Heartbeat, Serde&gt;()</code> to attempt to deserialise a <code>Heartbeat</code> from the buffer using the <code>Serde</code> deserialiser. This call will automatically check if the serialisation id matches <code>Heartbeat::SER_ID</code> and if yes, attempt to deserialise it using <code>Serde</code>. If it doesn’t work, we’ll get a <code>Result::Err</code> instead. If it does work, however, we don’t actually care about the Hearbeat itself, but we insert the sender from the <code>NetMessage</code> into <code>self.candidates</code>.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    processes: Arc&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer =
+</span><span class="boring">                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats();
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; () {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span>impl Actor for EventualLeaderElector {
+    type Message = UpdateProcesses;
+
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+        info!(
+            self.log(),
+            &quot;Received new process set with {} processes&quot;,
+            msg.0.len()
+        );
+        let UpdateProcesses(processes) = msg;
+        self.processes = processes;
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+        let sender = msg.sender;
+        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+            Ok(_heartbeat) =&gt; {
+                self.candidates.insert(sender);
+            }
+            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+        }
+        Handled::Ok
+    }
+}
+<span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        2,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of systems.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_systems(num_systems);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_systems(num_systems: usize) {
+</span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
+</span><span class="boring">        let system = || {
+</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">        };
+</span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
+</span><span class="boring">        for _i in 0..num_systems {
+</span><span class="boring">            let sys = system();
+</span><span class="boring">            data.push(sys);
+</span><span class="boring">        }
+</span><span class="boring">        data
+</span><span class="boring">    };
+</span><span class="boring">
+</span><span class="boring">    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+</span><span class="boring">        .iter()
+</span><span class="boring">        .map(|sys| {
+</span><span class="boring">            let printer = sys.create(TrustPrinter::new);
+</span><span class="boring">            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+</span><span class="boring">            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+</span><span class="boring">                .expect(&quot;connection&quot;);
+</span><span class="boring">            let path =
+</span><span class="boring">                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+</span><span class="boring">            sys.start(&amp;printer);
+</span><span class="boring">            sys.start(&amp;detector);
+</span><span class="boring">            (path, detector.actor_ref())
+</span><span class="boring">        })
+</span><span class="boring">        .unzip();
+</span><span class="boring">
+</span><span class="boring">    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+</span><span class="boring">
+</span><span class="boring">    actors.iter().for_each(|actor| {
+</span><span class="boring">        let update = UpdateProcesses(shared_processes.clone());
+</span><span class="boring">        actor.tell(update);
+</span><span class="boring">    });
+</span><span class="boring">    // let them settle
+</span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">    // shut down systems one by one
+</span><span class="boring">    for sys in systems.drain(..) {
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#system-setup" id="system-setup">System Setup</a></h3>
+<p>In this example we need to set up multiple systems in the same process for the first time, since we want them to communicate via the network instead of directly, as a preparation for actually running distributed. We are going to take the number of systems (and thus leader election components) as a command line argument. We start each system with the same configuration file and give them each a <code>NetworkDispatcher</code> with default settings. This way we don’t have to manually pick a bunch of ports and hope they happen to be free. On the other hand that means, of course, that we can’t predict what system addresses are going to look like. So in order to give everyone a set of processes to talk to, we need to wait until all systems are set up and all the leader elector components started and registered, collect all the registrations into a vector and then send an update to every component with the complete set.</p>
+<p>At this point the system is running just fine and we give it some time to settle on timeouts and elect a leader. We will see the result in the logging messages eventually. Now to see the leader election responding to actual changes, we are going to kill one system at a time and always give it a second to settle. This way we can watch the elector on the remaining systems updating the trust values one by one.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    processes: Arc&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            processes: Vec::new().into_boxed_slice().into(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer =
+</span><span class="boring">                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats();
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; () {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = UpdateProcesses;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        info!(
+</span><span class="boring">            self.log(),
+</span><span class="boring">            &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">            msg.0.len()
+</span><span class="boring">        );
+</span><span class="boring">        let UpdateProcesses(processes) = msg;
+</span><span class="boring">        self.processes = processes;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
+</span><span class="boring">            Ok(_heartbeat) =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            }
+</span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>pub fn main() {
+    let args: Vec&lt;String&gt; = std::env::args().collect();
+    assert_eq!(
+        2,
+        args.len(),
+        &quot;Invalid arguments! Must give number of systems.&quot;
+    );
+    let num_systems: usize = args[1].parse().expect(&quot;number&quot;);
+    run_systems(num_systems);
+}
+
+pub fn run_systems(num_systems: usize) {
+    let mut systems: Vec&lt;KompactSystem&gt; = {
+        let system = || {
+            let mut cfg = KompactConfig::new();
+            cfg.load_config_file(&quot;./application.conf&quot;);
+            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+            cfg.build().expect(&quot;KompactSystem&quot;)
+        };
+        let mut data = Vec::with_capacity(num_systems);
+        for _i in 0..num_systems {
+            let sys = system();
+            data.push(sys);
+        }
+        data
+    };
+
+    let (processes, actors): (Vec&lt;ActorPath&gt;, Vec&lt;ActorRef&lt;UpdateProcesses&gt;&gt;) = systems
+        .iter()
+        .map(|sys| {
+            let printer = sys.create(TrustPrinter::new);
+            let (detector, registration) = sys.create_and_register(EventualLeaderElector::new);
+            biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer)
+                .expect(&quot;connection&quot;);
+            let path =
+                registration.wait_expect(Duration::from_millis(1000), &quot;actor never registered&quot;);
+            sys.start(&amp;printer);
+            sys.start(&amp;detector);
+            (path, detector.actor_ref())
+        })
+        .unzip();
+
+    let shared_processes: Arc&lt;[ActorPath]&gt; = processes.into_boxed_slice().into();
+
+    actors.iter().for_each(|actor| {
+        let update = UpdateProcesses(shared_processes.clone());
+        actor.tell(update);
+    });
+    // let them settle
+    std::thread::sleep(Duration::from_millis(1000));
+    // shut down systems one by one
+    for sys in systems.drain(..) {
+        std::thread::sleep(Duration::from_millis(1000));
+        sys.shutdown().expect(&quot;shutdown&quot;);
+    }
+}
+<span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_omega() {
+</span><span class="boring">        run_systems(3);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<blockquote>
+<p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
+<pre><code class="language-bash">cargo run --release --bin leader_election 3
+</code></pre>
+<p>Note that running in debug mode will produce a lot of output now as it will trace all the network messages.</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../distributed/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../distributed/namedservices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../distributed/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../distributed/namedservices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

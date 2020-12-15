@@ -1,0 +1,852 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Async/Await Interaction - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html" class="active"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#asyncawait-interaction" id="asyncawait-interaction">Async/Await Interaction</a></h1>
+<p>In addition to providing its own asynchronous APIs as described in the previous sections, Kompact also allows components to interact with Rust’s async/await features in a variety of manners.
+In particular, Kompact provides three different semantics for this interaction:</p>
+<ol>
+<li>A component can “block” on a future, suspending all other processing until the result of the future is available.</li>
+<li>A component can run a number of futures concurrently with other messages and events, allowing each future safe mutable access to its internal state whenever it is polled.</li>
+<li>A component or Kompact system can spawn futures to run on its executor pool.</li>
+</ol>
+<p>The third variant is unremarkable and works like any other futures executor. It is invoked via <code>KompactSystem::spawn(...)</code> or via <code>ComponentDefinition::spawn_off(...)</code>. Variants 1 and 2, however, provide novel interactions between an asychronous API and an actor/component system, and so we will describe in more detail using an example below.</p>
+<h2><a class="header" href="#example" id="example">Example</a></h2>
+<p>In order to show off interaction between Kompact components and asynchronous calls, we use the asynchronous DNS resolution API provided by the <a href="https://crates.io/crates/async-std-resolver">async-std-resolver</a> crate to build a DNS lookup component. In order to tell the component what to look up, we will read domain names from stdin, send them via <code>ask(...)</code> to the component and wait for the result to come in, which we then print out. In fact, we will allow multiple concurrent queries to be specified as comma-separated list, to show off concurrent future interaction in Kompact components.</p>
+<h3><a class="header" href="#messages" id="messages">Messages</a></h3>
+<p>The messages we need a very simple, we simply pass a <code>String</code> representing a single domain name as a request, and we return an already preformatted string with the resolved IPs as a response.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+</span><span class="boring">use dialoguer::Input;
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
+</span><span class="boring">
+</span>#[derive(Debug)]
+struct DNSRequest(String);
+#[derive(Debug)]
+struct DNSResponse(String);
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DNSComponent {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl DNSComponent {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        DNSComponent {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            resolver: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
+</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">            let resolver = resolver(
+</span><span class="boring">                config::ResolverConfig::default(),
+</span><span class="boring">                config::ResolverOpts::default(),
+</span><span class="boring">            )
+</span><span class="boring">            .await
+</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            async_self.resolver = Some(resolver);
+</span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">        })
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        drop(self.resolver.take());
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DNSComponent {
+</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
+</span><span class="boring">        if let Some(ref resolver) = self.resolver {
+</span><span class="boring">            let query_result_future = resolver.lookup(
+</span><span class="boring">                msg.request().0.clone(),
+</span><span class="boring">                RecordType::A,
+</span><span class="boring">                DnsRequestOptions::default(),
+</span><span class="boring">            );
+</span><span class="boring">            self.spawn_local(move |async_self| async move {
+</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(
+</span><span class="boring">                    async_self.log(),
+</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
+</span><span class="boring">                    msg.request().0
+</span><span class="boring">                );
+</span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
+</span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
+</span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
+</span><span class="boring">                }
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            });
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        } else {
+</span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
+</span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
+</span><span class="boring">    loop {
+</span><span class="boring">        let command = Input::&lt;String&gt;::new().with_prompt(&quot;&gt;&quot;).interact();
+</span><span class="boring">        match command {
+</span><span class="boring">            Ok(s) =&gt; match s.as_ref() {
+</span><span class="boring">                &quot;stop&quot; =&gt; break,
+</span><span class="boring">                _ =&gt; {
+</span><span class="boring">                    let mut outstanding = Vec::new();
+</span><span class="boring">                    for domain in s.split(',') {
+</span><span class="boring">                        let domain = domain.trim();
+</span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        outstanding.push(query_f);
+</span><span class="boring">                    }
+</span><span class="boring">                    for query_f in outstanding {
+</span><span class="boring">                        let result = query_f.wait();
+</span><span class="boring">                        info!(system.logger(), &quot;Got:\n    {}\n&quot;, result.0);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">            },
+</span><span class="boring">            Err(e) =&gt; error!(system.logger(), &quot;Error with input: {}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">    system.kill_notify(dns_comp).wait();
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#state" id="state">State</a></h3>
+<p>The component’s state is almost as simple, we simply require the usual component context and an instance of the asynchronous dns resolver. Since creation of that instance is performed asynchronously by the async-std-resolver library, we won’t have the instance we need available during component creation, and thus use an option indicating whether our component has already been properly initialised or not.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+</span><span class="boring">use dialoguer::Input;
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">
+</span>#[derive(ComponentDefinition)]
+struct DNSComponent {
+    ctx: ComponentContext&lt;Self&gt;,
+    resolver: Option&lt;AsyncStdResolver&gt;,
+}
+impl DNSComponent {
+    pub fn new() -&gt; Self {
+        DNSComponent {
+            ctx: ComponentContext::uninitialised(),
+            resolver: None,
+        }
+    }
+}
+<span class="boring">
+</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
+</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">            let resolver = resolver(
+</span><span class="boring">                config::ResolverConfig::default(),
+</span><span class="boring">                config::ResolverOpts::default(),
+</span><span class="boring">            )
+</span><span class="boring">            .await
+</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            async_self.resolver = Some(resolver);
+</span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">        })
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        drop(self.resolver.take());
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DNSComponent {
+</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
+</span><span class="boring">        if let Some(ref resolver) = self.resolver {
+</span><span class="boring">            let query_result_future = resolver.lookup(
+</span><span class="boring">                msg.request().0.clone(),
+</span><span class="boring">                RecordType::A,
+</span><span class="boring">                DnsRequestOptions::default(),
+</span><span class="boring">            );
+</span><span class="boring">            self.spawn_local(move |async_self| async move {
+</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(
+</span><span class="boring">                    async_self.log(),
+</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
+</span><span class="boring">                    msg.request().0
+</span><span class="boring">                );
+</span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
+</span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
+</span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
+</span><span class="boring">                }
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            });
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        } else {
+</span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
+</span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
+</span><span class="boring">    loop {
+</span><span class="boring">        let command = Input::&lt;String&gt;::new().with_prompt(&quot;&gt;&quot;).interact();
+</span><span class="boring">        match command {
+</span><span class="boring">            Ok(s) =&gt; match s.as_ref() {
+</span><span class="boring">                &quot;stop&quot; =&gt; break,
+</span><span class="boring">                _ =&gt; {
+</span><span class="boring">                    let mut outstanding = Vec::new();
+</span><span class="boring">                    for domain in s.split(',') {
+</span><span class="boring">                        let domain = domain.trim();
+</span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        outstanding.push(query_f);
+</span><span class="boring">                    }
+</span><span class="boring">                    for query_f in outstanding {
+</span><span class="boring">                        let result = query_f.wait();
+</span><span class="boring">                        info!(system.logger(), &quot;Got:\n    {}\n&quot;, result.0);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">            },
+</span><span class="boring">            Err(e) =&gt; error!(system.logger(), &quot;Error with input: {}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">    system.kill_notify(dns_comp).wait();
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#setup" id="setup">Setup</a></h3>
+<p>When we create a resolver instance via <code>async_std_resolver::resolver</code>, we actually get a future back that we need to wait for. But our DNS component can’t perform any lookups until this future completed. Normally, we would have to manually queue up all requests received during that period until the future completed and then replay them. Instead, we can “block” on the provided future, causing the component itself to enter into a <code>blocked</code> lifecycle state, during which it handles no messages or events. Only when the future’s result is available will the component enter the <code>active</code> state and process other events and messages as normal again.</p>
+<p>In order to enter the <code>blocked</code> state, we must return a a special variant of the <code>Handled</code> enum, which is obtained from the <code>Handled::block_on(...)</code> method. This method takes the <code>self</code> reference to the component and an asynchronous closure, that is a closure that produces a future when invoked. This closure is given a single parameter by the Kompact API, which is an access guard object to a mutable component reference. In order words, a special owned struct that can be mutably dereferenced to the current component definition type. This guard object ensures safe mutable access to the current component instance, whenever the resulting future is polled, but prevents holding on to actual references over <code>await</code> calls (which are illegal). It is very important that this guard object is <strong>never</strong> sent to another thread from within the future. The async closure can not directly close over the component’s <code>self</code> reference, as the correct lifetime for it can not be guaranteed. Only the references obtained from the special guard object are safe in between <code>await</code> calls.</p>
+<p>Having said all that, in our case the async closure very simply <code>await</code>s the result of the resolver creation and then stores it locally, after which the component unblocks.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+</span><span class="boring">use dialoguer::Input;
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DNSComponent {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl DNSComponent {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        DNSComponent {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            resolver: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>impl ComponentLifecycle for DNSComponent {
+    fn on_start(&amp;mut self) -&gt; Handled {
+        debug!(self.log(), &quot;Starting...&quot;);
+        Handled::block_on(self, move |mut async_self| async move {
+            let resolver = resolver(
+                config::ResolverConfig::default(),
+                config::ResolverOpts::default(),
+            )
+            .await
+            .expect(&quot;failed to connect resolver&quot;);
+            async_self.resolver = Some(resolver);
+            debug!(async_self.log(), &quot;Started!&quot;);
+        })
+    }
+
+    fn on_stop(&amp;mut self) -&gt; Handled {
+        drop(self.resolver.take());
+        Handled::Ok
+    }
+
+    fn on_kill(&amp;mut self) -&gt; Handled {
+        self.on_stop()
+    }
+}
+<span class="boring">
+</span><span class="boring">impl Actor for DNSComponent {
+</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
+</span><span class="boring">        if let Some(ref resolver) = self.resolver {
+</span><span class="boring">            let query_result_future = resolver.lookup(
+</span><span class="boring">                msg.request().0.clone(),
+</span><span class="boring">                RecordType::A,
+</span><span class="boring">                DnsRequestOptions::default(),
+</span><span class="boring">            );
+</span><span class="boring">            self.spawn_local(move |async_self| async move {
+</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(
+</span><span class="boring">                    async_self.log(),
+</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
+</span><span class="boring">                    msg.request().0
+</span><span class="boring">                );
+</span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
+</span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
+</span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
+</span><span class="boring">                }
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            });
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        } else {
+</span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
+</span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
+</span><span class="boring">    loop {
+</span><span class="boring">        let command = Input::&lt;String&gt;::new().with_prompt(&quot;&gt;&quot;).interact();
+</span><span class="boring">        match command {
+</span><span class="boring">            Ok(s) =&gt; match s.as_ref() {
+</span><span class="boring">                &quot;stop&quot; =&gt; break,
+</span><span class="boring">                _ =&gt; {
+</span><span class="boring">                    let mut outstanding = Vec::new();
+</span><span class="boring">                    for domain in s.split(',') {
+</span><span class="boring">                        let domain = domain.trim();
+</span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        outstanding.push(query_f);
+</span><span class="boring">                    }
+</span><span class="boring">                    for query_f in outstanding {
+</span><span class="boring">                        let result = query_f.wait();
+</span><span class="boring">                        info!(system.logger(), &quot;Got:\n    {}\n&quot;, result.0);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">            },
+</span><span class="boring">            Err(e) =&gt; error!(system.logger(), &quot;Error with input: {}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">    system.kill_notify(dns_comp).wait();
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span></code></pre>
+<blockquote>
+<p><strong>Note:</strong> The complicated looking <code>move |async_self| async move {...}</code> syntax is currently only necessary on stable Rust. On nightly, the much easier <code>async move |async_self| {...}</code> syntax is already available.</p>
+</blockquote>
+<h3><a class="header" href="#queries" id="queries">Queries</a></h3>
+<p>To handle queries we must call <code>lookup(...)</code> on the resolver, which returns a future of a dns lookup result, which we must await before replying to the actual request. As we want to handle multiple such outstanding lookups in parallel, we can’t simply block on this future as we did before. Instead we want to spawn the future, to run locally on the component whenever it is polled, via <code>ComponentDefinition::spawn_local(...)</code>. In this way, we have the same advantages as during blocking, but we can handle mutliple outstanding requests in parallel. Technically, except for some logging, we do not really need access to the component’s state in this particular case, but we will use it anyway to showcase the API.</p>
+<p>Since the result of a DNS query can consist of multiple IP addresses, we construct a single string by formatting them together with the domain into an enumerated list. We then return that string a reply to the original request.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+</span><span class="boring">use dialoguer::Input;
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DNSComponent {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl DNSComponent {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        DNSComponent {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            resolver: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
+</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">            let resolver = resolver(
+</span><span class="boring">                config::ResolverConfig::default(),
+</span><span class="boring">                config::ResolverOpts::default(),
+</span><span class="boring">            )
+</span><span class="boring">            .await
+</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            async_self.resolver = Some(resolver);
+</span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">        })
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        drop(self.resolver.take());
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>impl Actor for DNSComponent {
+    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
+        if let Some(ref resolver) = self.resolver {
+            let query_result_future = resolver.lookup(
+                msg.request().0.clone(),
+                RecordType::A,
+                DnsRequestOptions::default(),
+            );
+            self.spawn_local(move |async_self| async move {
+                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
+                debug!(
+                    async_self.log(),
+                    &quot;Got reply for domain: {}&quot;,
+                    msg.request().0
+                );
+                let mut results: Vec&lt;String&gt; = Vec::new();
+                for (index, ip) in query_result.iter().enumerate() {
+                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
+                }
+                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+                Handled::Ok
+            });
+            Handled::Ok
+        } else {
+            panic!(&quot;Component should have been initialised first!&quot;)
+        }
+    }
+
+    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+        unimplemented!(&quot;ignore networking&quot;);
+    }
+}
+<span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
+</span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
+</span><span class="boring">    loop {
+</span><span class="boring">        let command = Input::&lt;String&gt;::new().with_prompt(&quot;&gt;&quot;).interact();
+</span><span class="boring">        match command {
+</span><span class="boring">            Ok(s) =&gt; match s.as_ref() {
+</span><span class="boring">                &quot;stop&quot; =&gt; break,
+</span><span class="boring">                _ =&gt; {
+</span><span class="boring">                    let mut outstanding = Vec::new();
+</span><span class="boring">                    for domain in s.split(',') {
+</span><span class="boring">                        let domain = domain.trim();
+</span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        outstanding.push(query_f);
+</span><span class="boring">                    }
+</span><span class="boring">                    for query_f in outstanding {
+</span><span class="boring">                        let result = query_f.wait();
+</span><span class="boring">                        info!(system.logger(), &quot;Got:\n    {}\n&quot;, result.0);
+</span><span class="boring">                    }
+</span><span class="boring">                }
+</span><span class="boring">            },
+</span><span class="boring">            Err(e) =&gt; error!(system.logger(), &quot;Error with input: {}&quot;, e),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">    system.kill_notify(dns_comp).wait();
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#running" id="running">Running</a></h3>
+<p>In our <code>main</code> function we want to set up the component, and then read from the command line over and over until the user enters <code>&quot;stop&quot;</code> to end the loop. For each line we read that is not <code>&quot;stop&quot;</code>, we will simply assume that it a comma-separated list of domain names. We split them apart, remove unnecessary spaces and then send them one by one to the <code>DNSComponent</code> via <code>ask(...)</code>. Instead of waiting for each future immediately, we store the response futures until all requests have been sent, and only <em>then</em> do we wait for each of them in order. We could also have waited for them in the order they are replied to, instead, it doesn’t really matter in this case. Only when the last of them has been completed, do we read input again.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+</span><span class="boring">use dialoguer::Input;
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DNSComponent {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl DNSComponent {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        DNSComponent {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            resolver: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
+</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">            let resolver = resolver(
+</span><span class="boring">                config::ResolverConfig::default(),
+</span><span class="boring">                config::ResolverOpts::default(),
+</span><span class="boring">            )
+</span><span class="boring">            .await
+</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            async_self.resolver = Some(resolver);
+</span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">        })
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        drop(self.resolver.take());
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DNSComponent {
+</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
+</span><span class="boring">        if let Some(ref resolver) = self.resolver {
+</span><span class="boring">            let query_result_future = resolver.lookup(
+</span><span class="boring">                msg.request().0.clone(),
+</span><span class="boring">                RecordType::A,
+</span><span class="boring">                DnsRequestOptions::default(),
+</span><span class="boring">            );
+</span><span class="boring">            self.spawn_local(move |async_self| async move {
+</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(
+</span><span class="boring">                    async_self.log(),
+</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
+</span><span class="boring">                    msg.request().0
+</span><span class="boring">                );
+</span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
+</span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
+</span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
+</span><span class="boring">                }
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            });
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        } else {
+</span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>fn main() {
+    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let dns_comp = system.create(DNSComponent::new);
+    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
+    system.start_notify(&amp;dns_comp).wait();
+    println!(&quot;System is ready, enter your queries.&quot;);
+    loop {
+        let command = Input::&lt;String&gt;::new().with_prompt(&quot;&gt;&quot;).interact();
+        match command {
+            Ok(s) =&gt; match s.as_ref() {
+                &quot;stop&quot; =&gt; break,
+                _ =&gt; {
+                    let mut outstanding = Vec::new();
+                    for domain in s.split(',') {
+                        let domain = domain.trim();
+                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
+                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+                        outstanding.push(query_f);
+                    }
+                    for query_f in outstanding {
+                        let result = query_f.wait();
+                        info!(system.logger(), &quot;Got:\n    {}\n&quot;, result.0);
+                    }
+                }
+            },
+            Err(e) =&gt; error!(system.logger(), &quot;Error with input: {}&quot;, e),
+        }
+    }
+    system.kill_notify(dns_comp).wait();
+    system.shutdown().expect(&quot;shutdown&quot;);
+}
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> If you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> and are trying to run from there, you need to specify the concrete binary with:</p>
+<pre><code class="language-bash">cargo run --bin dns_resolver
+</code></pre>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../distributed/networkbuffers.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../project.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../distributed/networkbuffers.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../project.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

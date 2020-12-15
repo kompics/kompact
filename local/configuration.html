@@ -1,0 +1,927 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Configuration - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html" class="active"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#configuration" id="configuration">Configuration</a></h1>
+<p>Since it is often inconvenient to pass around a large number of parameters when setting up a component system, Kompact also offers a configuration system allowing parameters to be loaded from a file or provided as a large string at the top level, for example. This system is powered by the <a href="https://crates.io/crates/hocon">Hocon</a> crate and uses its APIs with very little additional support. </p>
+<p>Configuration options must be set on the <code>KompactConfig</code> instance before the system is started and the resulting configuration remains immutable for the lifetime of the system. A configuration can be loaded from a file by passing a path to the file to the <code>load_config_file(...)</code> function. Alternatively, configuration values can be loaded directly from a string using <code>load_config_str(...)</code>.</p>
+<p>Within each component the <a href="https://docs.rs/hocon/latest/hocon/enum.Hocon.html">Hocon</a> configuration instance can be accessed via the context and individual keys via bracket notation, e.g. <code>self.ctx.config()[&quot;my-key&quot;]</code>. The configuration can also be accessed outside a component via <code>KompactSystem::config()</code>.</p>
+<h2><a class="header" href="#example" id="example">Example</a></h2>
+<p>We are going to reuse the <code>Buncher</code> from the <a href="timers.html">timers</a> section and pass its two parameters, <code>batch_size</code> and <code>timeout</code>, via configuration instead of the constructor.</p>
+<p>We’ll start off by creating a configuration file <code>application.conf</code> in the working directory, so its easy to find later. Something like this:</p>
+<pre><code class="language-hocon">buncher {
+	batch-size = 100
+	timeout = 100 ms
+}
+omega {
+	initial-period = 10 ms
+	delta = 1 ms
+}
+</code></pre>
+<p>We can then add this file to the <code>KompicsConfig</code> instance using the <code>load_config_file(...)</code> function: </p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use std::time::Duration;
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">struct Buncher {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    batch_port: ProvidedPort&lt;Batching&gt;,
+</span><span class="boring">    batch_size: usize,
+</span><span class="boring">    timeout: Duration,
+</span><span class="boring">    current_batch: Vec&lt;Ping&gt;,
+</span><span class="boring">    outstanding_timeout: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Buncher {
+</span><span class="boring">    fn new() -&gt; Buncher {
+</span><span class="boring">        Buncher {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            batch_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            batch_size: 0,
+</span><span class="boring">            timeout: Duration::from_millis(1),
+</span><span class="boring">            current_batch: Vec::new(),
+</span><span class="boring">            outstanding_timeout: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn trigger_batch(&amp;mut self) -&gt; () {
+</span><span class="boring">        let mut new_batch = Vec::with_capacity(self.batch_size);
+</span><span class="boring">        std::mem::swap(&amp;mut new_batch, &amp;mut self.current_batch);
+</span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.outstanding_timeout {
+</span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
+</span><span class="boring">                self.trigger_batch();
+</span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
+</span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Buncher {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.batch_size = self.ctx.config()[&quot;buncher&quot;][&quot;batch-size&quot;]
+</span><span class="boring">            .as_i64()
+</span><span class="boring">            .expect(&quot;batch size&quot;) as usize;
+</span><span class="boring">        self.timeout = self.ctx.config()[&quot;buncher&quot;][&quot;timeout&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;timeout&quot;);
+</span><span class="boring">        self.current_batch.reserve(self.batch_size);
+</span><span class="boring">        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">        self.outstanding_timeout = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">        self.current_batch.push(event);
+</span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
+</span><span class="boring">            self.trigger_batch();
+</span><span class="boring">            if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">                self.cancel_timer(timeout);
+</span><span class="boring">            }
+</span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut conf = KompactConfig::default();
+</span>    conf.load_config_file(&quot;./application.conf&quot;)
+<span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
+</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let printer = system.create(BatchPrinter::new);
+</span><span class="boring">    let buncher = system.create(Buncher::new);
+</span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let batching = buncher.on_definition(|cd| cd.batch_port.share());
+</span><span class="boring">
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;buncher);
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to full batches
+</span><span class="boring">    let sleep_dur = Duration::from_millis(1);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to timeout
+</span><span class="boring">    let sleep_dur = Duration::from_millis(2);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>To show off how multiple configuration sources can be combined, we will override the <code>batch-size</code> value from the main function with a literal string, <em>after</em> the file has been loaded:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use std::time::Duration;
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">struct Buncher {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    batch_port: ProvidedPort&lt;Batching&gt;,
+</span><span class="boring">    batch_size: usize,
+</span><span class="boring">    timeout: Duration,
+</span><span class="boring">    current_batch: Vec&lt;Ping&gt;,
+</span><span class="boring">    outstanding_timeout: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Buncher {
+</span><span class="boring">    fn new() -&gt; Buncher {
+</span><span class="boring">        Buncher {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            batch_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            batch_size: 0,
+</span><span class="boring">            timeout: Duration::from_millis(1),
+</span><span class="boring">            current_batch: Vec::new(),
+</span><span class="boring">            outstanding_timeout: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn trigger_batch(&amp;mut self) -&gt; () {
+</span><span class="boring">        let mut new_batch = Vec::with_capacity(self.batch_size);
+</span><span class="boring">        std::mem::swap(&amp;mut new_batch, &amp;mut self.current_batch);
+</span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.outstanding_timeout {
+</span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
+</span><span class="boring">                self.trigger_batch();
+</span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
+</span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Buncher {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.batch_size = self.ctx.config()[&quot;buncher&quot;][&quot;batch-size&quot;]
+</span><span class="boring">            .as_i64()
+</span><span class="boring">            .expect(&quot;batch size&quot;) as usize;
+</span><span class="boring">        self.timeout = self.ctx.config()[&quot;buncher&quot;][&quot;timeout&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;timeout&quot;);
+</span><span class="boring">        self.current_batch.reserve(self.batch_size);
+</span><span class="boring">        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">        self.outstanding_timeout = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">        self.current_batch.push(event);
+</span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
+</span><span class="boring">            self.trigger_batch();
+</span><span class="boring">            if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">                self.cancel_timer(timeout);
+</span><span class="boring">            }
+</span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span>    let mut conf = KompactConfig::default();
+    conf.load_config_file(&quot;./application.conf&quot;)
+        .load_config_str(&quot;buncher.batch-size = 50&quot;);
+    let system = conf.build().expect(&quot;system&quot;);
+<span class="boring">    let printer = system.create(BatchPrinter::new);
+</span><span class="boring">    let buncher = system.create(Buncher::new);
+</span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let batching = buncher.on_definition(|cd| cd.batch_port.share());
+</span><span class="boring">
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;buncher);
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to full batches
+</span><span class="boring">    let sleep_dur = Duration::from_millis(1);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to timeout
+</span><span class="boring">    let sleep_dur = Duration::from_millis(2);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>Now we change the <code>Buncher</code> constructor to not take any arguments anymore. Since we still need to put some values into the struct fields, let’s put some default values, say batch size of 0 and a timeout of 1ms. We could also go with an <code>Option</code>, if it’s important to know whether the component was initialised properly nor not. We also don’t know the required capacity for the vector anymore, so we just create an empty one, and extend it later once we have read the batch size from the config file.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use std::time::Duration;
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">struct Buncher {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    batch_port: ProvidedPort&lt;Batching&gt;,
+</span><span class="boring">    batch_size: usize,
+</span><span class="boring">    timeout: Duration,
+</span><span class="boring">    current_batch: Vec&lt;Ping&gt;,
+</span><span class="boring">    outstanding_timeout: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Buncher {
+</span>    fn new() -&gt; Buncher {
+        Buncher {
+            ctx: ComponentContext::uninitialised(),
+            batch_port: ProvidedPort::uninitialised(),
+            batch_size: 0,
+            timeout: Duration::from_millis(1),
+            current_batch: Vec::new(),
+            outstanding_timeout: None,
+        }
+    }
+
+<span class="boring">
+</span><span class="boring">    fn trigger_batch(&amp;mut self) -&gt; () {
+</span><span class="boring">        let mut new_batch = Vec::with_capacity(self.batch_size);
+</span><span class="boring">        std::mem::swap(&amp;mut new_batch, &amp;mut self.current_batch);
+</span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.outstanding_timeout {
+</span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
+</span><span class="boring">                self.trigger_batch();
+</span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
+</span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Buncher {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.batch_size = self.ctx.config()[&quot;buncher&quot;][&quot;batch-size&quot;]
+</span><span class="boring">            .as_i64()
+</span><span class="boring">            .expect(&quot;batch size&quot;) as usize;
+</span><span class="boring">        self.timeout = self.ctx.config()[&quot;buncher&quot;][&quot;timeout&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;timeout&quot;);
+</span><span class="boring">        self.current_batch.reserve(self.batch_size);
+</span><span class="boring">        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">        self.outstanding_timeout = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">        self.current_batch.push(event);
+</span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
+</span><span class="boring">            self.trigger_batch();
+</span><span class="boring">            if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">                self.cancel_timer(timeout);
+</span><span class="boring">            }
+</span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut conf = KompactConfig::default();
+</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
+</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let printer = system.create(BatchPrinter::new);
+</span><span class="boring">    let buncher = system.create(Buncher::new);
+</span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let batching = buncher.on_definition(|cd| cd.batch_port.share());
+</span><span class="boring">
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;buncher);
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to full batches
+</span><span class="boring">    let sleep_dur = Duration::from_millis(1);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to timeout
+</span><span class="boring">    let sleep_dur = Duration::from_millis(2);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>And, of course, we must also update the matching <code>create(...)</code> call in the main function:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use std::time::Duration;
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">struct Buncher {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    batch_port: ProvidedPort&lt;Batching&gt;,
+</span><span class="boring">    batch_size: usize,
+</span><span class="boring">    timeout: Duration,
+</span><span class="boring">    current_batch: Vec&lt;Ping&gt;,
+</span><span class="boring">    outstanding_timeout: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Buncher {
+</span><span class="boring">    fn new() -&gt; Buncher {
+</span><span class="boring">        Buncher {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            batch_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            batch_size: 0,
+</span><span class="boring">            timeout: Duration::from_millis(1),
+</span><span class="boring">            current_batch: Vec::new(),
+</span><span class="boring">            outstanding_timeout: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn trigger_batch(&amp;mut self) -&gt; () {
+</span><span class="boring">        let mut new_batch = Vec::with_capacity(self.batch_size);
+</span><span class="boring">        std::mem::swap(&amp;mut new_batch, &amp;mut self.current_batch);
+</span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.outstanding_timeout {
+</span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
+</span><span class="boring">                self.trigger_batch();
+</span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
+</span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Buncher {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.batch_size = self.ctx.config()[&quot;buncher&quot;][&quot;batch-size&quot;]
+</span><span class="boring">            .as_i64()
+</span><span class="boring">            .expect(&quot;batch size&quot;) as usize;
+</span><span class="boring">        self.timeout = self.ctx.config()[&quot;buncher&quot;][&quot;timeout&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;timeout&quot;);
+</span><span class="boring">        self.current_batch.reserve(self.batch_size);
+</span><span class="boring">        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">        self.outstanding_timeout = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">        self.current_batch.push(event);
+</span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
+</span><span class="boring">            self.trigger_batch();
+</span><span class="boring">            if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">                self.cancel_timer(timeout);
+</span><span class="boring">            }
+</span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut conf = KompactConfig::default();
+</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
+</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let printer = system.create(BatchPrinter::new);
+</span>    let buncher = system.create(Buncher::new);
+<span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let batching = buncher.on_definition(|cd| cd.batch_port.share());
+</span><span class="boring">
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;buncher);
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to full batches
+</span><span class="boring">    let sleep_dur = Duration::from_millis(1);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to timeout
+</span><span class="boring">    let sleep_dur = Duration::from_millis(2);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>Finally, the actual config access happens in the <code>on_start</code>code. At this point the component is properly initialised and we have acceess to configuration values. The <a href="https://docs.rs/hocon/latest/hocon/enum.Hocon.html">Hocon</a> type has a bunch of very convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>100 ms</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use std::time::Duration;
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition, Actor)]
+</span><span class="boring">struct Buncher {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    batch_port: ProvidedPort&lt;Batching&gt;,
+</span><span class="boring">    batch_size: usize,
+</span><span class="boring">    timeout: Duration,
+</span><span class="boring">    current_batch: Vec&lt;Ping&gt;,
+</span><span class="boring">    outstanding_timeout: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Buncher {
+</span><span class="boring">    fn new() -&gt; Buncher {
+</span><span class="boring">        Buncher {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            batch_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            batch_size: 0,
+</span><span class="boring">            timeout: Duration::from_millis(1),
+</span><span class="boring">            current_batch: Vec::new(),
+</span><span class="boring">            outstanding_timeout: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">
+</span><span class="boring">    fn trigger_batch(&amp;mut self) -&gt; () {
+</span><span class="boring">        let mut new_batch = Vec::with_capacity(self.batch_size);
+</span><span class="boring">        std::mem::swap(&amp;mut new_batch, &amp;mut self.current_batch);
+</span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.outstanding_timeout {
+</span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
+</span><span class="boring">                self.trigger_batch();
+</span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
+</span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Buncher {
+</span>    fn on_start(&amp;mut self) -&gt; Handled {
+        self.batch_size = self.ctx.config()[&quot;buncher&quot;][&quot;batch-size&quot;]
+            .as_i64()
+            .expect(&quot;batch size&quot;) as usize;
+        self.timeout = self.ctx.config()[&quot;buncher&quot;][&quot;timeout&quot;]
+            .as_duration()
+            .expect(&quot;timeout&quot;);
+        self.current_batch.reserve(self.batch_size);
+        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+        self.outstanding_timeout = Some(timeout);
+        Handled::Ok
+    }
+
+<span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">        self.current_batch.push(event);
+</span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
+</span><span class="boring">            self.trigger_batch();
+</span><span class="boring">            if let Some(timeout) = self.outstanding_timeout.take() {
+</span><span class="boring">                self.cancel_timer(timeout);
+</span><span class="boring">            }
+</span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
+</span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let mut conf = KompactConfig::default();
+</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
+</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let printer = system.create(BatchPrinter::new);
+</span><span class="boring">    let buncher = system.create(Buncher::new);
+</span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let batching = buncher.on_definition(|cd| cd.batch_port.share());
+</span><span class="boring">
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;buncher);
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to full batches
+</span><span class="boring">    let sleep_dur = Duration::from_millis(1);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    // these should usually trigger due to timeout
+</span><span class="boring">    let sleep_dur = Duration::from_millis(2);
+</span><span class="boring">    for i in 0..500 {
+</span><span class="boring">        let ping = Ping(i);
+</span><span class="boring">        system.trigger_r(ping, &amp;batching);
+</span><span class="boring">        std::thread::sleep(sleep_dur);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        main();
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>At this point we can run the example, and we can see from the regular “50 event”-sized batches in the beginning that our overriding of the batch size worked just fine.</p>
+<blockquote>
+<p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
+<pre><code class="language-bash">cargo run --release --bin buncher_config
+</code></pre>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../local/logging.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../local/faultrecovery.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../local/logging.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../local/faultrecovery.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

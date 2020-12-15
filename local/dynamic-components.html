@@ -1,0 +1,2095 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Dynamic Components - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html" class="active"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#dynamic-components" id="dynamic-components">Dynamic Components</a></h1>
+<p>Kompact is a very strictly and statically typed framework. Sometimes, however, it is beneficial to be a little more dynamic.
+There are many reasons you might want to introduce some dynamism into your component system: modularity, ease of modeling,
+or sometimes even performance: static dispatch in Rust often involves monomorphising substantial amounts of generic code, 
+which leads to code bloat. The more instructions the CPU has to load the more likely it is that something won’t fit in the
+cache, which can incur performance penalties.</p>
+<p>Because of this, we introduced a way to deal with components with a little bit of dynamic typing. Namely, you’re able
+to create components from type-erased definitions with <code>{System,SystemHandle}::create_erased</code> (nightly only), and query 
+type-erased components for ports they may provide and/or require with <code>on_dyn_definition</code> and <code>get_{provided,required}_port</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> While creating type-erased components from <strong>type-erased definitions</strong> <em>is</em> nightly-only, you can create component
+just normally and then cast it to a type-erased component on stable.</p>
+</blockquote>
+<p>Let’s create a dynamic interactive system showcasing these features. We’ll build a little REPL which the user can use
+to spawn some components, set their settings, and send them some data to process.</p>
+<p>First some basic components:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">
+</span><span class="boring">use kompact::{component::AbstractComponent, prelude::*};
+</span><span class="boring">use std::{
+</span><span class="boring">    error::Error,
+</span><span class="boring">    fmt,
+</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    sync::Arc,
+</span><span class="boring">};
+</span><span class="boring">
+</span>#[derive(ComponentDefinition)]
+struct Adder {
+    ctx: ComponentContext&lt;Self&gt;,
+    offset: f32,
+    set_offset: ProvidedPort&lt;SetOffset&gt;,
+}
+info_lifecycle!(Adder);
+
+impl Actor for Adder {
+    type Message = f32;
+
+    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+        let res = a + self.offset;
+        info!(self.log(), &quot;Adder result = {}&quot;, res);
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+        unimplemented!()
+    }
+}
+
+struct SetOffset;
+
+impl Port for SetOffset {
+    type Indication = Never;
+    type Request = f32;
+}
+
+impl Provide&lt;SetOffset&gt; for Adder {
+    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+        self.offset = value;
+        Handled::Ok
+    }
+}
+
+impl Adder {
+    pub fn new() -&gt; Self {
+        Adder {
+            ctx: ComponentContext::uninitialised(),
+            offset: 0f32,
+            set_offset: ProvidedPort::uninitialised(),
+        }
+    }
+}
+
+#[derive(ComponentDefinition)]
+struct Multiplier {
+    ctx: ComponentContext&lt;Self&gt;,
+    scale: f32,
+    set_scale: ProvidedPort&lt;SetScale&gt;,
+}
+info_lifecycle!(Multiplier);
+
+impl Actor for Multiplier {
+    type Message = f32;
+
+    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+        let res = a * self.scale;
+        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+        unimplemented!()
+    }
+}
+
+struct SetScale;
+
+impl Port for SetScale {
+    type Indication = Never;
+    type Request = f32;
+}
+
+impl Provide&lt;SetScale&gt; for Multiplier {
+    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+        self.scale = value;
+        Handled::Ok
+    }
+}
+
+impl Multiplier {
+    fn new() -&gt; Multiplier {
+        Multiplier {
+            ctx: ComponentContext::uninitialised(),
+            scale: 1.0,
+            set_scale: ProvidedPort::uninitialised(),
+        }
+    }
+}
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Linear {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Linear);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Linear {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Linear {
+</span><span class="boring">    fn new() -&gt; Linear {
+</span><span class="boring">        Linear {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            offset: 0.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DynamicManager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    arithmetic_units: Vec&lt;Arc&lt;dyn AbstractComponent&lt;Message = f32&gt;&gt;&gt;,
+</span><span class="boring">    set_offsets: RequiredPort&lt;SetOffset&gt;,
+</span><span class="boring">    set_scales: RequiredPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_indications!(SetOffset, DynamicManager);
+</span><span class="boring">ignore_indications!(SetScale, DynamicManager);
+</span><span class="boring">ignore_lifecycle!(DynamicManager);
+</span><span class="boring">
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Spawn(Box&lt;dyn CreateErased&lt;f32&gt; + Send&gt;),
+</span><span class="boring">    Compute(f32),
+</span><span class="boring">    SetScales(f32),
+</span><span class="boring">    SetOffsets(f32),
+</span><span class="boring">    KillAll,
+</span><span class="boring">    Quit,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl fmt::Debug for ManagerMessage {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        match self {
+</span><span class="boring">            ManagerMessage::Spawn(_) =&gt; {
+</span><span class="boring">                write!(f, &quot;Spawn(_)&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                write!(f, &quot;Compute({})&quot;, *val)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetScales({})&quot;, *scale)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetOffsets({})&quot;, *offset)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                write!(f, &quot;KillAll&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                write!(f, &quot;Quit&quot;)
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DynamicManager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
+</span><span class="boring">                let system = self.ctx.system();
+</span><span class="boring">                let component = system.create_erased(definition);
+</span><span class="boring">                component.on_dyn_definition(|def| {
+</span><span class="boring">                    if let Some(set_scale) = def.get_provided_port::&lt;SetScale&gt;() {
+</span><span class="boring">                        biconnect_ports(set_scale, &amp;mut self.set_scales);
+</span><span class="boring">                    }
+</span><span class="boring">                    if let Some(set_offset) = def.get_provided_port::&lt;SetOffset&gt;() {
+</span><span class="boring">                        biconnect_ports(set_offset, &amp;mut self.set_offsets);
+</span><span class="boring">                    }
+</span><span class="boring">                });
+</span><span class="boring">                system.start(&amp;component);
+</span><span class="boring">
+</span><span class="boring">                self.arithmetic_units.push(component);
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                for unit in &amp;self.arithmetic_units {
+</span><span class="boring">                    unit.actor_ref().tell(val);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; self.set_scales.trigger(scale),
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; self.set_offsets.trigger(offset),
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">                self.ctx.system().shutdown_async();
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl DynamicManager {
+</span><span class="boring">    fn kill_all(&amp;mut self) {
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        for unit in self.arithmetic_units.drain(..) {
+</span><span class="boring">            system.kill(unit);
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
+</span><span class="boring">        ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        arithmetic_units: vec![],
+</span><span class="boring">        set_offsets: RequiredPort::uninitialised(),
+</span><span class="boring">        set_scales: RequiredPort::uninitialised(),
+</span><span class="boring">    });
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref();
+</span><span class="boring">
+</span><span class="boring">    std::thread::spawn(move || {
+</span><span class="boring">        for line in stdin().lock().lines() {
+</span><span class="boring">            let res = (|| -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span class="boring">                let line = line?;
+</span><span class="boring">
+</span><span class="boring">                let message = match line.trim() {
+</span><span class="boring">                    &quot;spawn adder&quot; =&gt; ManagerMessage::Spawn(Box::new(Adder::new())),
+</span><span class="boring">                    &quot;spawn multiplier&quot; =&gt; ManagerMessage::Spawn(Box::new(Multiplier::new())),
+</span><span class="boring">                    &quot;spawn linear&quot; =&gt; ManagerMessage::Spawn(Box::new(Linear::new())),
+</span><span class="boring">                    &quot;kill all&quot; =&gt; ManagerMessage::KillAll,
+</span><span class="boring">                    &quot;quit&quot; =&gt; ManagerMessage::Quit,
+</span><span class="boring">                    other =&gt; {
+</span><span class="boring">                        if let Some(offset) = other.strip_prefix(&quot;set offset &quot;) {
+</span><span class="boring">                            ManagerMessage::SetOffsets(offset.parse()?)
+</span><span class="boring">                        } else if let Some(scale) = other.strip_prefix(&quot;set scale &quot;) {
+</span><span class="boring">                            ManagerMessage::SetScales(scale.parse()?)
+</span><span class="boring">                        } else if let Some(val) = other.strip_prefix(&quot;compute &quot;) {
+</span><span class="boring">                            ManagerMessage::Compute(val.parse()?)
+</span><span class="boring">                        } else {
+</span><span class="boring">                            Err(&quot;unknown command!&quot;)?
+</span><span class="boring">                        }
+</span><span class="boring">                    }
+</span><span class="boring">                };
+</span><span class="boring">
+</span><span class="boring">                manager_ref.tell(message);
+</span><span class="boring">
+</span><span class="boring">                Ok(())
+</span><span class="boring">            })();
+</span><span class="boring">
+</span><span class="boring">            if let Err(e) = res {
+</span><span class="boring">                println!(&quot;{}&quot;, e);
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    });
+</span><span class="boring">
+</span><span class="boring">    system.await_termination();
+</span><span class="boring">}
+</span></code></pre>
+<p>Our components perform simple arithmetic operations on the incoming message and log the results (as well as their 
+lifecycle). The internal state of the components can be set via <code>Set{Offset,Scale}</code> ports. So far we just have components
+with <em>either</em> a scale <em>or</em> an offset. Let’s add something slightly more interesting, which uses both.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">
+</span><span class="boring">use kompact::{component::AbstractComponent, prelude::*};
+</span><span class="boring">use std::{
+</span><span class="boring">    error::Error,
+</span><span class="boring">    fmt,
+</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    sync::Arc,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Adder {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Adder);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Adder {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetOffset;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetOffset {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Adder {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        Adder {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            offset: 0f32,
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Multiplier {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Multiplier);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Multiplier {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale;
+</span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetScale;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetScale {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Multiplier {
+</span><span class="boring">    fn new() -&gt; Multiplier {
+</span><span class="boring">        Multiplier {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>#[derive(ComponentDefinition)]
+struct Linear {
+    ctx: ComponentContext&lt;Self&gt;,
+    scale: f32,
+    offset: f32,
+    set_scale: ProvidedPort&lt;SetScale&gt;,
+    set_offset: ProvidedPort&lt;SetOffset&gt;,
+}
+info_lifecycle!(Linear);
+
+impl Actor for Linear {
+    type Message = f32;
+
+    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+        let res = a * self.scale + self.offset;
+        info!(self.log(), &quot;Linear result = {}&quot;, res);
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+        unimplemented!()
+    }
+}
+
+impl Provide&lt;SetOffset&gt; for Linear {
+    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+        self.offset = value;
+        Handled::Ok
+    }
+}
+
+impl Provide&lt;SetScale&gt; for Linear {
+    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+        self.scale = value;
+        Handled::Ok
+    }
+}
+
+impl Linear {
+    fn new() -&gt; Linear {
+        Linear {
+            ctx: ComponentContext::uninitialised(),
+            scale: 1.0,
+            offset: 0.0,
+            set_scale: ProvidedPort::uninitialised(),
+            set_offset: ProvidedPort::uninitialised(),
+        }
+    }
+}
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DynamicManager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    arithmetic_units: Vec&lt;Arc&lt;dyn AbstractComponent&lt;Message = f32&gt;&gt;&gt;,
+</span><span class="boring">    set_offsets: RequiredPort&lt;SetOffset&gt;,
+</span><span class="boring">    set_scales: RequiredPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_indications!(SetOffset, DynamicManager);
+</span><span class="boring">ignore_indications!(SetScale, DynamicManager);
+</span><span class="boring">ignore_lifecycle!(DynamicManager);
+</span><span class="boring">
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Spawn(Box&lt;dyn CreateErased&lt;f32&gt; + Send&gt;),
+</span><span class="boring">    Compute(f32),
+</span><span class="boring">    SetScales(f32),
+</span><span class="boring">    SetOffsets(f32),
+</span><span class="boring">    KillAll,
+</span><span class="boring">    Quit,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl fmt::Debug for ManagerMessage {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        match self {
+</span><span class="boring">            ManagerMessage::Spawn(_) =&gt; {
+</span><span class="boring">                write!(f, &quot;Spawn(_)&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                write!(f, &quot;Compute({})&quot;, *val)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetScales({})&quot;, *scale)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetOffsets({})&quot;, *offset)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                write!(f, &quot;KillAll&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                write!(f, &quot;Quit&quot;)
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DynamicManager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
+</span><span class="boring">                let system = self.ctx.system();
+</span><span class="boring">                let component = system.create_erased(definition);
+</span><span class="boring">                component.on_dyn_definition(|def| {
+</span><span class="boring">                    if let Some(set_scale) = def.get_provided_port::&lt;SetScale&gt;() {
+</span><span class="boring">                        biconnect_ports(set_scale, &amp;mut self.set_scales);
+</span><span class="boring">                    }
+</span><span class="boring">                    if let Some(set_offset) = def.get_provided_port::&lt;SetOffset&gt;() {
+</span><span class="boring">                        biconnect_ports(set_offset, &amp;mut self.set_offsets);
+</span><span class="boring">                    }
+</span><span class="boring">                });
+</span><span class="boring">                system.start(&amp;component);
+</span><span class="boring">
+</span><span class="boring">                self.arithmetic_units.push(component);
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                for unit in &amp;self.arithmetic_units {
+</span><span class="boring">                    unit.actor_ref().tell(val);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; self.set_scales.trigger(scale),
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; self.set_offsets.trigger(offset),
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">                self.ctx.system().shutdown_async();
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl DynamicManager {
+</span><span class="boring">    fn kill_all(&amp;mut self) {
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        for unit in self.arithmetic_units.drain(..) {
+</span><span class="boring">            system.kill(unit);
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
+</span><span class="boring">        ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        arithmetic_units: vec![],
+</span><span class="boring">        set_offsets: RequiredPort::uninitialised(),
+</span><span class="boring">        set_scales: RequiredPort::uninitialised(),
+</span><span class="boring">    });
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref();
+</span><span class="boring">
+</span><span class="boring">    std::thread::spawn(move || {
+</span><span class="boring">        for line in stdin().lock().lines() {
+</span><span class="boring">            let res = (|| -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span class="boring">                let line = line?;
+</span><span class="boring">
+</span><span class="boring">                let message = match line.trim() {
+</span><span class="boring">                    &quot;spawn adder&quot; =&gt; ManagerMessage::Spawn(Box::new(Adder::new())),
+</span><span class="boring">                    &quot;spawn multiplier&quot; =&gt; ManagerMessage::Spawn(Box::new(Multiplier::new())),
+</span><span class="boring">                    &quot;spawn linear&quot; =&gt; ManagerMessage::Spawn(Box::new(Linear::new())),
+</span><span class="boring">                    &quot;kill all&quot; =&gt; ManagerMessage::KillAll,
+</span><span class="boring">                    &quot;quit&quot; =&gt; ManagerMessage::Quit,
+</span><span class="boring">                    other =&gt; {
+</span><span class="boring">                        if let Some(offset) = other.strip_prefix(&quot;set offset &quot;) {
+</span><span class="boring">                            ManagerMessage::SetOffsets(offset.parse()?)
+</span><span class="boring">                        } else if let Some(scale) = other.strip_prefix(&quot;set scale &quot;) {
+</span><span class="boring">                            ManagerMessage::SetScales(scale.parse()?)
+</span><span class="boring">                        } else if let Some(val) = other.strip_prefix(&quot;compute &quot;) {
+</span><span class="boring">                            ManagerMessage::Compute(val.parse()?)
+</span><span class="boring">                        } else {
+</span><span class="boring">                            Err(&quot;unknown command!&quot;)?
+</span><span class="boring">                        }
+</span><span class="boring">                    }
+</span><span class="boring">                };
+</span><span class="boring">
+</span><span class="boring">                manager_ref.tell(message);
+</span><span class="boring">
+</span><span class="boring">                Ok(())
+</span><span class="boring">            })();
+</span><span class="boring">
+</span><span class="boring">            if let Err(e) = res {
+</span><span class="boring">                println!(&quot;{}&quot;, e);
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    });
+</span><span class="boring">
+</span><span class="boring">    system.await_termination();
+</span><span class="boring">}
+</span></code></pre>
+<p>Now let’s write a manager component, which will take care of creating the components described above, killing them, 
+modifying their settings, and sending them data to process. In this case we have just three different types of worker
+components, but imagine we had tens (still sharing the same message type and some subsets of “settings”). In that case
+it would be <strong>very</strong> tedious to manage all these component types explicitly.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">
+</span><span class="boring">use kompact::{component::AbstractComponent, prelude::*};
+</span><span class="boring">use std::{
+</span><span class="boring">    error::Error,
+</span><span class="boring">    fmt,
+</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    sync::Arc,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Adder {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Adder);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Adder {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetOffset;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetOffset {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Adder {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        Adder {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            offset: 0f32,
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Multiplier {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Multiplier);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Multiplier {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale;
+</span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetScale;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetScale {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Multiplier {
+</span><span class="boring">    fn new() -&gt; Multiplier {
+</span><span class="boring">        Multiplier {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Linear {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Linear);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Linear {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Linear {
+</span><span class="boring">    fn new() -&gt; Linear {
+</span><span class="boring">        Linear {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            offset: 0.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>#[derive(ComponentDefinition)]
+struct DynamicManager {
+    ctx: ComponentContext&lt;Self&gt;,
+    arithmetic_units: Vec&lt;Arc&lt;dyn AbstractComponent&lt;Message = f32&gt;&gt;&gt;,
+    set_offsets: RequiredPort&lt;SetOffset&gt;,
+    set_scales: RequiredPort&lt;SetScale&gt;,
+}
+
+ignore_indications!(SetOffset, DynamicManager);
+ignore_indications!(SetScale, DynamicManager);
+ignore_lifecycle!(DynamicManager);
+<span class="boring">
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Spawn(Box&lt;dyn CreateErased&lt;f32&gt; + Send&gt;),
+</span><span class="boring">    Compute(f32),
+</span><span class="boring">    SetScales(f32),
+</span><span class="boring">    SetOffsets(f32),
+</span><span class="boring">    KillAll,
+</span><span class="boring">    Quit,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl fmt::Debug for ManagerMessage {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        match self {
+</span><span class="boring">            ManagerMessage::Spawn(_) =&gt; {
+</span><span class="boring">                write!(f, &quot;Spawn(_)&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                write!(f, &quot;Compute({})&quot;, *val)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetScales({})&quot;, *scale)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetOffsets({})&quot;, *offset)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                write!(f, &quot;KillAll&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                write!(f, &quot;Quit&quot;)
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DynamicManager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
+</span><span class="boring">                let system = self.ctx.system();
+</span><span class="boring">                let component = system.create_erased(definition);
+</span><span class="boring">                component.on_dyn_definition(|def| {
+</span><span class="boring">                    if let Some(set_scale) = def.get_provided_port::&lt;SetScale&gt;() {
+</span><span class="boring">                        biconnect_ports(set_scale, &amp;mut self.set_scales);
+</span><span class="boring">                    }
+</span><span class="boring">                    if let Some(set_offset) = def.get_provided_port::&lt;SetOffset&gt;() {
+</span><span class="boring">                        biconnect_ports(set_offset, &amp;mut self.set_offsets);
+</span><span class="boring">                    }
+</span><span class="boring">                });
+</span><span class="boring">                system.start(&amp;component);
+</span><span class="boring">
+</span><span class="boring">                self.arithmetic_units.push(component);
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                for unit in &amp;self.arithmetic_units {
+</span><span class="boring">                    unit.actor_ref().tell(val);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; self.set_scales.trigger(scale),
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; self.set_offsets.trigger(offset),
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">                self.ctx.system().shutdown_async();
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl DynamicManager {
+</span><span class="boring">    fn kill_all(&amp;mut self) {
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        for unit in self.arithmetic_units.drain(..) {
+</span><span class="boring">            system.kill(unit);
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
+</span><span class="boring">        ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        arithmetic_units: vec![],
+</span><span class="boring">        set_offsets: RequiredPort::uninitialised(),
+</span><span class="boring">        set_scales: RequiredPort::uninitialised(),
+</span><span class="boring">    });
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref();
+</span><span class="boring">
+</span><span class="boring">    std::thread::spawn(move || {
+</span><span class="boring">        for line in stdin().lock().lines() {
+</span><span class="boring">            let res = (|| -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span class="boring">                let line = line?;
+</span><span class="boring">
+</span><span class="boring">                let message = match line.trim() {
+</span><span class="boring">                    &quot;spawn adder&quot; =&gt; ManagerMessage::Spawn(Box::new(Adder::new())),
+</span><span class="boring">                    &quot;spawn multiplier&quot; =&gt; ManagerMessage::Spawn(Box::new(Multiplier::new())),
+</span><span class="boring">                    &quot;spawn linear&quot; =&gt; ManagerMessage::Spawn(Box::new(Linear::new())),
+</span><span class="boring">                    &quot;kill all&quot; =&gt; ManagerMessage::KillAll,
+</span><span class="boring">                    &quot;quit&quot; =&gt; ManagerMessage::Quit,
+</span><span class="boring">                    other =&gt; {
+</span><span class="boring">                        if let Some(offset) = other.strip_prefix(&quot;set offset &quot;) {
+</span><span class="boring">                            ManagerMessage::SetOffsets(offset.parse()?)
+</span><span class="boring">                        } else if let Some(scale) = other.strip_prefix(&quot;set scale &quot;) {
+</span><span class="boring">                            ManagerMessage::SetScales(scale.parse()?)
+</span><span class="boring">                        } else if let Some(val) = other.strip_prefix(&quot;compute &quot;) {
+</span><span class="boring">                            ManagerMessage::Compute(val.parse()?)
+</span><span class="boring">                        } else {
+</span><span class="boring">                            Err(&quot;unknown command!&quot;)?
+</span><span class="boring">                        }
+</span><span class="boring">                    }
+</span><span class="boring">                };
+</span><span class="boring">
+</span><span class="boring">                manager_ref.tell(message);
+</span><span class="boring">
+</span><span class="boring">                Ok(())
+</span><span class="boring">            })();
+</span><span class="boring">
+</span><span class="boring">            if let Err(e) = res {
+</span><span class="boring">                println!(&quot;{}&quot;, e);
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    });
+</span><span class="boring">
+</span><span class="boring">    system.await_termination();
+</span><span class="boring">}
+</span></code></pre>
+<p>Using <code>Arc&lt;dyn AbstractComponent&lt;Message=M&gt;&gt;</code> we can mix different components that take the same type of message in one
+collection. Now to fill that <code>Vec</code> with something useful. We’ll define some messages for the manager and start creating 
+some components.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">
+</span><span class="boring">use kompact::{component::AbstractComponent, prelude::*};
+</span><span class="boring">use std::{
+</span><span class="boring">    error::Error,
+</span><span class="boring">    fmt,
+</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    sync::Arc,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Adder {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Adder);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Adder {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetOffset;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetOffset {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Adder {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        Adder {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            offset: 0f32,
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Multiplier {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Multiplier);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Multiplier {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale;
+</span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetScale;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetScale {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Multiplier {
+</span><span class="boring">    fn new() -&gt; Multiplier {
+</span><span class="boring">        Multiplier {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Linear {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Linear);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Linear {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Linear {
+</span><span class="boring">    fn new() -&gt; Linear {
+</span><span class="boring">        Linear {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            offset: 0.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DynamicManager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    arithmetic_units: Vec&lt;Arc&lt;dyn AbstractComponent&lt;Message = f32&gt;&gt;&gt;,
+</span><span class="boring">    set_offsets: RequiredPort&lt;SetOffset&gt;,
+</span><span class="boring">    set_scales: RequiredPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_indications!(SetOffset, DynamicManager);
+</span><span class="boring">ignore_indications!(SetScale, DynamicManager);
+</span><span class="boring">ignore_lifecycle!(DynamicManager);
+</span><span class="boring">
+</span>enum ManagerMessage {
+    Spawn(Box&lt;dyn CreateErased&lt;f32&gt; + Send&gt;),
+    Compute(f32),
+    SetScales(f32),
+    SetOffsets(f32),
+    KillAll,
+    Quit,
+}
+
+impl fmt::Debug for ManagerMessage {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+        match self {
+            ManagerMessage::Spawn(_) =&gt; {
+                write!(f, &quot;Spawn(_)&quot;)
+            }
+            ManagerMessage::Compute(val) =&gt; {
+                write!(f, &quot;Compute({})&quot;, *val)
+            }
+            ManagerMessage::SetScales(scale) =&gt; {
+                write!(f, &quot;SetScales({})&quot;, *scale)
+            }
+            ManagerMessage::SetOffsets(offset) =&gt; {
+                write!(f, &quot;SetOffsets({})&quot;, *offset)
+            }
+            ManagerMessage::KillAll =&gt; {
+                write!(f, &quot;KillAll&quot;)
+            }
+            ManagerMessage::Quit =&gt; {
+                write!(f, &quot;Quit&quot;)
+            }
+        }
+    }
+}
+
+impl Actor for DynamicManager {
+    type Message = ManagerMessage;
+
+    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+        match msg {
+            ManagerMessage::Spawn(definition) =&gt; {
+                let system = self.ctx.system();
+                let component = system.create_erased(definition);
+<span class="boring">                component.on_dyn_definition(|def| {
+</span><span class="boring">                    if let Some(set_scale) = def.get_provided_port::&lt;SetScale&gt;() {
+</span><span class="boring">                        biconnect_ports(set_scale, &amp;mut self.set_scales);
+</span><span class="boring">                    }
+</span><span class="boring">                    if let Some(set_offset) = def.get_provided_port::&lt;SetOffset&gt;() {
+</span><span class="boring">                        biconnect_ports(set_offset, &amp;mut self.set_offsets);
+</span><span class="boring">                    }
+</span><span class="boring">                });
+</span><span class="boring">                system.start(&amp;component);
+</span><span class="boring">
+</span><span class="boring">                self.arithmetic_units.push(component);
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                for unit in &amp;self.arithmetic_units {
+</span><span class="boring">                    unit.actor_ref().tell(val);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; self.set_scales.trigger(scale),
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; self.set_offsets.trigger(offset),
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">                self.ctx.system().shutdown_async();
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl DynamicManager {
+</span><span class="boring">    fn kill_all(&amp;mut self) {
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        for unit in self.arithmetic_units.drain(..) {
+</span><span class="boring">            system.kill(unit);
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
+</span><span class="boring">        ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        arithmetic_units: vec![],
+</span><span class="boring">        set_offsets: RequiredPort::uninitialised(),
+</span><span class="boring">        set_scales: RequiredPort::uninitialised(),
+</span><span class="boring">    });
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref();
+</span><span class="boring">
+</span><span class="boring">    std::thread::spawn(move || {
+</span><span class="boring">        for line in stdin().lock().lines() {
+</span><span class="boring">            let res = (|| -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span class="boring">                let line = line?;
+</span><span class="boring">
+</span><span class="boring">                let message = match line.trim() {
+</span><span class="boring">                    &quot;spawn adder&quot; =&gt; ManagerMessage::Spawn(Box::new(Adder::new())),
+</span><span class="boring">                    &quot;spawn multiplier&quot; =&gt; ManagerMessage::Spawn(Box::new(Multiplier::new())),
+</span><span class="boring">                    &quot;spawn linear&quot; =&gt; ManagerMessage::Spawn(Box::new(Linear::new())),
+</span><span class="boring">                    &quot;kill all&quot; =&gt; ManagerMessage::KillAll,
+</span><span class="boring">                    &quot;quit&quot; =&gt; ManagerMessage::Quit,
+</span><span class="boring">                    other =&gt; {
+</span><span class="boring">                        if let Some(offset) = other.strip_prefix(&quot;set offset &quot;) {
+</span><span class="boring">                            ManagerMessage::SetOffsets(offset.parse()?)
+</span><span class="boring">                        } else if let Some(scale) = other.strip_prefix(&quot;set scale &quot;) {
+</span><span class="boring">                            ManagerMessage::SetScales(scale.parse()?)
+</span><span class="boring">                        } else if let Some(val) = other.strip_prefix(&quot;compute &quot;) {
+</span><span class="boring">                            ManagerMessage::Compute(val.parse()?)
+</span><span class="boring">                        } else {
+</span><span class="boring">                            Err(&quot;unknown command!&quot;)?
+</span><span class="boring">                        }
+</span><span class="boring">                    }
+</span><span class="boring">                };
+</span><span class="boring">
+</span><span class="boring">                manager_ref.tell(message);
+</span><span class="boring">
+</span><span class="boring">                Ok(())
+</span><span class="boring">            })();
+</span><span class="boring">
+</span><span class="boring">            if let Err(e) = res {
+</span><span class="boring">                println!(&quot;{}&quot;, e);
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    });
+</span><span class="boring">
+</span><span class="boring">    system.await_termination();
+</span><span class="boring">}
+</span></code></pre>
+<p>As we don’t want the manager type to know about the concrete component types <em>at all</em>, the <code>Spawn</code> message above contains a
+boxed, type-erased component definition, which we then turn into a component using <code>create_erased</code>.</p>
+<p>Normally, after creating the components we would connect the ports to each other using <code>connect_to_required</code>, or maybe
+<code>on_definition</code> and direct port access. However, all of those require concrete types, like <code>Arc&lt;Component&lt;Adder&gt;&gt;</code>
+or <code>Arc&lt;Component&lt;Linear&gt;&gt;</code>, which is not what we get here (<code>Arc&lt;dyn AbstractComponent&lt;Message=f32&gt;</code>). Instead we can use
+<code>on_dyn_definition</code> together with the <code>Option</code>-returning <code>get_{provided,required}_port</code> to dynamically check if a given
+port exists on the abstract component and, if so, fetch it. </p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">
+</span><span class="boring">use kompact::{component::AbstractComponent, prelude::*};
+</span><span class="boring">use std::{
+</span><span class="boring">    error::Error,
+</span><span class="boring">    fmt,
+</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    sync::Arc,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Adder {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Adder);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Adder {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetOffset;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetOffset {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Adder {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        Adder {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            offset: 0f32,
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Multiplier {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Multiplier);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Multiplier {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale;
+</span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetScale;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetScale {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Multiplier {
+</span><span class="boring">    fn new() -&gt; Multiplier {
+</span><span class="boring">        Multiplier {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Linear {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Linear);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Linear {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Linear {
+</span><span class="boring">    fn new() -&gt; Linear {
+</span><span class="boring">        Linear {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            offset: 0.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DynamicManager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    arithmetic_units: Vec&lt;Arc&lt;dyn AbstractComponent&lt;Message = f32&gt;&gt;&gt;,
+</span><span class="boring">    set_offsets: RequiredPort&lt;SetOffset&gt;,
+</span><span class="boring">    set_scales: RequiredPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_indications!(SetOffset, DynamicManager);
+</span><span class="boring">ignore_indications!(SetScale, DynamicManager);
+</span><span class="boring">ignore_lifecycle!(DynamicManager);
+</span><span class="boring">
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Spawn(Box&lt;dyn CreateErased&lt;f32&gt; + Send&gt;),
+</span><span class="boring">    Compute(f32),
+</span><span class="boring">    SetScales(f32),
+</span><span class="boring">    SetOffsets(f32),
+</span><span class="boring">    KillAll,
+</span><span class="boring">    Quit,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl fmt::Debug for ManagerMessage {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        match self {
+</span><span class="boring">            ManagerMessage::Spawn(_) =&gt; {
+</span><span class="boring">                write!(f, &quot;Spawn(_)&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                write!(f, &quot;Compute({})&quot;, *val)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetScales({})&quot;, *scale)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetOffsets({})&quot;, *offset)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                write!(f, &quot;KillAll&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                write!(f, &quot;Quit&quot;)
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DynamicManager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
+</span><span class="boring">                let system = self.ctx.system();
+</span><span class="boring">                let component = system.create_erased(definition);
+</span>                component.on_dyn_definition(|def| {
+                    if let Some(set_scale) = def.get_provided_port::&lt;SetScale&gt;() {
+                        biconnect_ports(set_scale, &amp;mut self.set_scales);
+                    }
+                    if let Some(set_offset) = def.get_provided_port::&lt;SetOffset&gt;() {
+                        biconnect_ports(set_offset, &amp;mut self.set_offsets);
+                    }
+                });
+                system.start(&amp;component);
+
+                self.arithmetic_units.push(component);
+            }
+            ManagerMessage::Compute(val) =&gt; {
+                for unit in &amp;self.arithmetic_units {
+                    unit.actor_ref().tell(val);
+                }
+            }
+            ManagerMessage::SetScales(scale) =&gt; self.set_scales.trigger(scale),
+            ManagerMessage::SetOffsets(offset) =&gt; self.set_offsets.trigger(offset),
+            ManagerMessage::KillAll =&gt; {
+                self.kill_all();
+            }
+            ManagerMessage::Quit =&gt; {
+                self.kill_all();
+                self.ctx.system().shutdown_async();
+            }
+        }
+
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
+        unimplemented!()
+    }
+}
+
+impl DynamicManager {
+    fn kill_all(&amp;mut self) {
+        let system = self.ctx.system();
+        for unit in self.arithmetic_units.drain(..) {
+            system.kill(unit);
+        }
+    }
+}
+<span class="boring">
+</span><span class="boring">fn main() {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
+</span><span class="boring">        ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        arithmetic_units: vec![],
+</span><span class="boring">        set_offsets: RequiredPort::uninitialised(),
+</span><span class="boring">        set_scales: RequiredPort::uninitialised(),
+</span><span class="boring">    });
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref();
+</span><span class="boring">
+</span><span class="boring">    std::thread::spawn(move || {
+</span><span class="boring">        for line in stdin().lock().lines() {
+</span><span class="boring">            let res = (|| -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span class="boring">                let line = line?;
+</span><span class="boring">
+</span><span class="boring">                let message = match line.trim() {
+</span><span class="boring">                    &quot;spawn adder&quot; =&gt; ManagerMessage::Spawn(Box::new(Adder::new())),
+</span><span class="boring">                    &quot;spawn multiplier&quot; =&gt; ManagerMessage::Spawn(Box::new(Multiplier::new())),
+</span><span class="boring">                    &quot;spawn linear&quot; =&gt; ManagerMessage::Spawn(Box::new(Linear::new())),
+</span><span class="boring">                    &quot;kill all&quot; =&gt; ManagerMessage::KillAll,
+</span><span class="boring">                    &quot;quit&quot; =&gt; ManagerMessage::Quit,
+</span><span class="boring">                    other =&gt; {
+</span><span class="boring">                        if let Some(offset) = other.strip_prefix(&quot;set offset &quot;) {
+</span><span class="boring">                            ManagerMessage::SetOffsets(offset.parse()?)
+</span><span class="boring">                        } else if let Some(scale) = other.strip_prefix(&quot;set scale &quot;) {
+</span><span class="boring">                            ManagerMessage::SetScales(scale.parse()?)
+</span><span class="boring">                        } else if let Some(val) = other.strip_prefix(&quot;compute &quot;) {
+</span><span class="boring">                            ManagerMessage::Compute(val.parse()?)
+</span><span class="boring">                        } else {
+</span><span class="boring">                            Err(&quot;unknown command!&quot;)?
+</span><span class="boring">                        }
+</span><span class="boring">                    }
+</span><span class="boring">                };
+</span><span class="boring">
+</span><span class="boring">                manager_ref.tell(message);
+</span><span class="boring">
+</span><span class="boring">                Ok(())
+</span><span class="boring">            })();
+</span><span class="boring">
+</span><span class="boring">            if let Err(e) = res {
+</span><span class="boring">                println!(&quot;{}&quot;, e);
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    });
+</span><span class="boring">
+</span><span class="boring">    system.await_termination();
+</span><span class="boring">}
+</span></code></pre>
+<p>Now that we have the dynamic component part done, we can write a very simple repl. We’ll start the Kompact system in the
+main thread, create the manager there, and await system termination. In a separate thread we’ll continuously read <code>stdin</code>
+and interpret the lines as commands to send to the manager.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">
+</span><span class="boring">use kompact::{component::AbstractComponent, prelude::*};
+</span><span class="boring">use std::{
+</span><span class="boring">    error::Error,
+</span><span class="boring">    fmt,
+</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    sync::Arc,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Adder {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Adder);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Adder {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetOffset;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetOffset {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Adder {
+</span><span class="boring">    pub fn new() -&gt; Self {
+</span><span class="boring">        Adder {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            offset: 0f32,
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Multiplier {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Multiplier);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Multiplier {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale;
+</span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct SetScale;
+</span><span class="boring">
+</span><span class="boring">impl Port for SetScale {
+</span><span class="boring">    type Indication = Never;
+</span><span class="boring">    type Request = f32;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Multiplier {
+</span><span class="boring">    fn new() -&gt; Multiplier {
+</span><span class="boring">        Multiplier {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Linear {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    scale: f32,
+</span><span class="boring">    offset: f32,
+</span><span class="boring">    set_scale: ProvidedPort&lt;SetScale&gt;,
+</span><span class="boring">    set_offset: ProvidedPort&lt;SetOffset&gt;,
+</span><span class="boring">}
+</span><span class="boring">info_lifecycle!(Linear);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Linear {
+</span><span class="boring">    type Message = f32;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">        let res = a * self.scale + self.offset;
+</span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.offset = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">        self.scale = value;
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Linear {
+</span><span class="boring">    fn new() -&gt; Linear {
+</span><span class="boring">        Linear {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            scale: 1.0,
+</span><span class="boring">            offset: 0.0,
+</span><span class="boring">            set_scale: ProvidedPort::uninitialised(),
+</span><span class="boring">            set_offset: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct DynamicManager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    arithmetic_units: Vec&lt;Arc&lt;dyn AbstractComponent&lt;Message = f32&gt;&gt;&gt;,
+</span><span class="boring">    set_offsets: RequiredPort&lt;SetOffset&gt;,
+</span><span class="boring">    set_scales: RequiredPort&lt;SetScale&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_indications!(SetOffset, DynamicManager);
+</span><span class="boring">ignore_indications!(SetScale, DynamicManager);
+</span><span class="boring">ignore_lifecycle!(DynamicManager);
+</span><span class="boring">
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Spawn(Box&lt;dyn CreateErased&lt;f32&gt; + Send&gt;),
+</span><span class="boring">    Compute(f32),
+</span><span class="boring">    SetScales(f32),
+</span><span class="boring">    SetOffsets(f32),
+</span><span class="boring">    KillAll,
+</span><span class="boring">    Quit,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl fmt::Debug for ManagerMessage {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        match self {
+</span><span class="boring">            ManagerMessage::Spawn(_) =&gt; {
+</span><span class="boring">                write!(f, &quot;Spawn(_)&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                write!(f, &quot;Compute({})&quot;, *val)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetScales({})&quot;, *scale)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; {
+</span><span class="boring">                write!(f, &quot;SetOffsets({})&quot;, *offset)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                write!(f, &quot;KillAll&quot;)
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                write!(f, &quot;Quit&quot;)
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for DynamicManager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
+</span><span class="boring">                let system = self.ctx.system();
+</span><span class="boring">                let component = system.create_erased(definition);
+</span><span class="boring">                component.on_dyn_definition(|def| {
+</span><span class="boring">                    if let Some(set_scale) = def.get_provided_port::&lt;SetScale&gt;() {
+</span><span class="boring">                        biconnect_ports(set_scale, &amp;mut self.set_scales);
+</span><span class="boring">                    }
+</span><span class="boring">                    if let Some(set_offset) = def.get_provided_port::&lt;SetOffset&gt;() {
+</span><span class="boring">                        biconnect_ports(set_offset, &amp;mut self.set_offsets);
+</span><span class="boring">                    }
+</span><span class="boring">                });
+</span><span class="boring">                system.start(&amp;component);
+</span><span class="boring">
+</span><span class="boring">                self.arithmetic_units.push(component);
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Compute(val) =&gt; {
+</span><span class="boring">                for unit in &amp;self.arithmetic_units {
+</span><span class="boring">                    unit.actor_ref().tell(val);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::SetScales(scale) =&gt; self.set_scales.trigger(scale),
+</span><span class="boring">            ManagerMessage::SetOffsets(offset) =&gt; self.set_offsets.trigger(offset),
+</span><span class="boring">            ManagerMessage::KillAll =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Quit =&gt; {
+</span><span class="boring">                self.kill_all();
+</span><span class="boring">                self.ctx.system().shutdown_async();
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl DynamicManager {
+</span><span class="boring">    fn kill_all(&amp;mut self) {
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        for unit in self.arithmetic_units.drain(..) {
+</span><span class="boring">            system.kill(unit);
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>fn main() {
+   let system = KompactConfig::default().build().expect(&quot;system&quot;);
+   let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
+       ctx: ComponentContext::uninitialised(),
+       arithmetic_units: vec![],
+       set_offsets: RequiredPort::uninitialised(),
+       set_scales: RequiredPort::uninitialised(),
+   });
+   system.start(&amp;manager);
+   let manager_ref = manager.actor_ref();
+
+   std::thread::spawn(move || {
+       for line in stdin().lock().lines() {
+           let res = (|| -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+               let line = line?;
+
+               let message = match line.trim() {
+                   &quot;spawn adder&quot; =&gt; ManagerMessage::Spawn(Box::new(Adder::new())),
+                   &quot;spawn multiplier&quot; =&gt; ManagerMessage::Spawn(Box::new(Multiplier::new())),
+                   &quot;spawn linear&quot; =&gt; ManagerMessage::Spawn(Box::new(Linear::new())),
+                   &quot;kill all&quot; =&gt; ManagerMessage::KillAll,
+                   &quot;quit&quot; =&gt; ManagerMessage::Quit,
+                   other =&gt; {
+                       if let Some(offset) = other.strip_prefix(&quot;set offset &quot;) {
+                           ManagerMessage::SetOffsets(offset.parse()?)
+                       } else if let Some(scale) = other.strip_prefix(&quot;set scale &quot;) {
+                           ManagerMessage::SetScales(scale.parse()?)
+                       } else if let Some(val) = other.strip_prefix(&quot;compute &quot;) {
+                           ManagerMessage::Compute(val.parse()?)
+                       } else {
+                           Err(&quot;unknown command!&quot;)?
+                       }
+                   }
+               };
+
+               manager_ref.tell(message);
+
+               Ok(())
+           })();
+
+           if let Err(e) = res {
+               println!(&quot;{}&quot;, e);
+           }
+       }
+   });
+
+   system.await_termination();
+}
+</code></pre>
+<p>When run, it looks something like this:</p>
+<pre><code>❯ cargo run --features=type_erasure,silent_logging --bin dynamic_components
+   Compiling kompact-examples v0.10.0 (/home/mrobakowski/projects/kompact/docs/examples)
+    Finished dev [unoptimized + debuginfo] target(s) in 2.56s
+     Running `/home/mrobakowski/projects/kompact/target/debug/dynamic_components`
+compute 1
+spawn adder
+Nov 09 00:55:59.917 INFO Starting..., ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+set offset 5
+compute 1
+Nov 09 00:56:43.465 INFO Adder result = 6, ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:46
+spawn multiplier
+Nov 09 00:56:55.518 INFO Starting..., ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:85
+set scale 2
+compute 2
+Nov 09 00:57:09.684 INFO Adder result = 7, ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:46
+Nov 09 00:57:09.684 INFO Multiplier result = 4, ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:92
+kill all
+Nov 09 00:57:17.769 INFO Killing..., ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+Nov 09 00:57:17.769 INFO Killing..., ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:85
+spawn linear
+Nov 09 00:57:24.840 INFO Starting..., ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:135
+spawn adder
+Nov 09 00:57:32.136 INFO Starting..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+set offset 2
+set scale 3
+compute 4
+Nov 09 00:57:41.558 INFO Linear result = 14, ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:142
+Nov 09 00:57:41.558 INFO Adder result = 6, ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:46
+quit
+Nov 09 00:57:51.351 INFO Killing..., ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:135
+Nov 09 00:57:51.352 INFO Killing..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../local/faultrecovery.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../distributed/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../local/faultrecovery.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../distributed/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

@@ -1,0 +1,2190 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Serialisation - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html" class="active"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#serialisation" id="serialisation">Serialisation</a></h1>
+<p>In this section we are going take a closer look at the various serialisation options offered by Kompact. In particular, we will look at how to write different kinds of custom serialiser implementations, as well how to handle messages that are all but guaranteed to actually go over the network more efficiently.</p>
+<h2><a class="header" href="#custom-serialisation" id="custom-serialisation">Custom Serialisation</a></h2>
+<p>At the centre of Kompact’s serialisation mechanisms are the <code>Serialisable</code> and <code>Deserialiser</code> traits, the signature of which looks roughtly like this:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen">pub trait Serialisable: Send + Debug {
+    /// The serialisation id for this serialisable
+    fn ser_id(&amp;self) -&gt; SerId;
+
+    /// An indicator how many bytes must be reserved in a buffer for a value to be
+    /// serialsed into it with this serialiser
+    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt;;
+
+    /// Serialises this object (`self`) into `buf`
+    fn serialise(&amp;self, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt;;
+
+    /// Try move this object onto the heap for reflection, instead of serialising
+    fn local(self: Box&lt;Self&gt;) -&gt; Result&lt;Box&lt;dyn Any + Send&gt;, Box&lt;dyn Serialisable&gt;&gt;;
+}
+</code></pre>
+<pre><code class="language-rust edition2018 no_run noplaypen">pub trait Deserialiser&lt;T&gt;: Send {
+    /// The serialisation id for which this deserialiser is to be invoked
+    const SER_ID: SerId;
+
+    /// Try to deserialise a `T` from the given `buf`
+    fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt;;
+}
+</code></pre>
+<h3><a class="header" href="#outgoing-path" id="outgoing-path">Outgoing Path</a></h3>
+<p>When <code>ActorPath::tell(...)</code> is invoked with a type that is <code>Serialisable</code>, it will create a boxed trait object from the given instance and send it to the network layer. Only when the network layer has the determind that the destination must be accessed via a network channel, will the runtime serialise the instance into the network channel’s buffer. If it turns out the destination is on the same actor system as the source, it will simply call <code>Serialisable::local(...)</code> to get a boxed instance of the <code>Any</code> trait and then send it directly to the target component, without ever serialising. This approach is called <strong>lazy serialisation</strong>. For the vast majority of <code>Serialisable</code> implementations, <code>Serialisable::local(...)</code> is implemented simply as <code>Ok(self)</code>. However, for some more advanced usages (e.g., serialisation proxies) the implementation may have to call some additional code.</p>
+<p>Once it is determined that an instance does indeed need to be serialised, the runtime will reserve some buffer memory for it to be serialised into. It does so by querying the <code>Serialisable::size_hint(...)</code> function for an estimate of how much space the type is likely going to take. For some types this is easy to know statically, but others it is not so clear. In any case, this is just an optimisation. Serialisation will proceed correctly even if the estimate is terribly wrong or no estimate is given at all.</p>
+<p>The first thing in the new serialisation buffer is typically the serialisation id obtained via <code>Serialisable::ser_id(...)</code>. Typically, Kompact will only require a single serialisation id for the message to be written into the buffer, even if the message uses other serialisers internally, as long as all the internal types are statically known. This top-level serialisation id must match the <code>Deserialiser::SER_ID</code> for the deserialiser to be used for this instance. For types that implement both <code>Serialisable</code> and <code>Deserialiser</code>, as most do, it is recommended to simply use is <code>Self::SER_ID</code> as the implementation for <code>Serialisable::ser_id(...)</code> to make sure the ids match later.</p>
+<p>The actual serialisation of the instance is handled by <code>Serialisable::serialise(...)</code>, which should use the functions provided by <a href="https://docs.rs/bytes/latest/bytes/trait.BufMut.html">BufMut</a> to serialise the individual parts of the instance into the buffer.</p>
+<h4><a class="header" href="#serialiser" id="serialiser">Serialiser</a></h4>
+<p>Instead of implementing <code>Serialisable</code> we can also implement the <code>Serialiser</code> trait:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen">pub trait Serialiser&lt;T&gt;: Send {
+    /// The serialisation id for this serialiser
+    fn ser_id(&amp;self) -&gt; SerId;
+
+    /// An indicator how many bytes must be reserved in a buffer for a value to be
+    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt;;
+
+    /// Serialise `v` into `buf`.
+    fn serialise(&amp;self, v: &amp;T, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt;;
+}
+</code></pre>
+<p>This behaves essentually the same, except that it doesn’t serialise itself, but an instance of another type <code>T</code>. In order to use an instance <code>t: T</code> with a <code>Serialiser&lt;T&gt;</code> we can simply pass a pair of the two to the <code>ActorPath::tell(...)</code> function, as we have already seen in the previous section, for example with <code>Serde</code>:</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{
+</span><span class="boring">    collections::HashSet,
+</span><span class="boring">    convert::TryInto,
+</span><span class="boring">    net::{IpAddr, Ipv4Addr, SocketAddr},
+</span><span class="boring">    time::Duration,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        T::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        Some(0)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, _v: &amp;T, _buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    const SER_ID: SerId = T::SER_ID;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(_buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt; {
+</span><span class="boring">        Ok(T::default())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone, Copy, Default)]
+</span><span class="boring">struct CheckIn;
+</span><span class="boring">
+</span><span class="boring">impl SerialisationId for CheckIn {
+</span><span class="boring">    const SER_ID: SerId = 2345;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone)]
+</span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
+</span><span class="boring">
+</span><span class="boring">impl Serialisable for UpdateProcesses {
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        Self::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+</span><span class="boring">        Some(8 + procs_size)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        let len = self.0.len() as u64;
+</span><span class="boring">        buf.put_u64(len);
+</span><span class="boring">        for path in self.0.iter() {
+</span><span class="boring">            path.serialise(buf)?;
+</span><span class="boring">        }
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn local(self: Box&lt;Self&gt;) -&gt; Result&lt;Box&lt;dyn Any + Send&gt;, Box&lt;dyn Serialisable&gt;&gt; {
+</span><span class="boring">        Ok(self)
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
+</span><span class="boring">    const SER_ID: SerId = 3456;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;UpdateProcesses, SerError&gt; {
+</span><span class="boring">        let len_u64 = buf.get_u64();
+</span><span class="boring">        let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
+</span><span class="boring">        let mut data: Vec&lt;ActorPath&gt; = Vec::with_capacity(len);
+</span><span class="boring">        for _i in 0..len {
+</span><span class="boring">            let path = ActorPath::deserialise(buf)?;
+</span><span class="boring">            data.push(path);
+</span><span class="boring">        }
+</span><span class="boring">        Ok(UpdateProcesses(data))
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct BootstrapServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    processes: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl BootstrapServer {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        BootstrapServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            processes: HashSet::new(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
+</span><span class="boring">        let msg = UpdateProcesses(procs);
+</span><span class="boring">
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process
+</span><span class="boring">                .tell_serialised(msg.clone(), self)
+</span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(BootstrapServer);
+</span><span class="boring">
+</span><span class="boring">impl NetworkActor for BootstrapServer {
+</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Message = CheckIn;
+</span><span class="boring">
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        if let Some(process) = source {
+</span><span class="boring">            if self.processes.insert(process) {
+</span><span class="boring">                self.broadcast_processess()
+</span><span class="boring">            } else {
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    bootstrap_server: ActorPath,
+</span><span class="boring">    processes: Box&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new(bootstrap_server: ActorPath) -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            bootstrap_server,
+</span><span class="boring">            processes: Vec::new().into_boxed_slice(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer = self.schedule_periodic(
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        EventualLeaderElector::handle_timeout,
+</span><span class="boring">                    );
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats()
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span>    fn send_heartbeats(&amp;self) -&gt; Handled {
+        self.processes.iter().for_each(|process| {
+            process.tell((Heartbeat, Serde), self);
+        });
+        Handled::Ok
+    }
+<span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
+</span><span class="boring">
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(
+</span><span class="boring">            self.period,
+</span><span class="boring">            self.period,
+</span><span class="boring">            EventualLeaderElector::handle_timeout,
+</span><span class="boring">        );
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!();
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            },
+</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
+</span><span class="boring">                let UpdateProcesses(processes) = update;
+</span><span class="boring">                info!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                    processes.len()
+</span><span class="boring">                );
+</span><span class="boring">                self.processes = processes.into_boxed_slice();
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    match args.len() {
+</span><span class="boring">        2 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let system = run_server(bootstrap_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        3 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let client_port: u16 = args[2].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let client_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), client_port);
+</span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
+</span><span class="boring">
+</span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
+</span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
+</span><span class="boring">
+</span><span class="boring">    let _bootstrap_unique = bootstrap_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    let bootstrap_service = bootstrap_service_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    system.start(&amp;bootstrap);
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(
+</span><span class="boring">        DeadletterBox::new,
+</span><span class="boring">        NetworkConfig::new(client_socket).build(),
+</span><span class="boring">    );
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
+</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        bootstrap_socket,
+</span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
+</span><span class="boring">    )
+</span><span class="boring">    .into();
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    const SERVER_SOCKET: &amp;str = &quot;127.0.0.1:12345&quot;;
+</span><span class="boring">    const CLIENT_SOCKET: &amp;str = &quot;127.0.0.1:0&quot;;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
+</span><span class="boring">        let server_system = run_server(server_socket);
+</span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
+</span><span class="boring">        let mut clients_systems: Vec&lt;KompactSystem&gt; = (0..3)
+</span><span class="boring">            .map(|_i| run_client(server_socket, client_socket))
+</span><span class="boring">            .collect();
+</span><span class="boring">        // let them settle
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        // shut down systems one by one
+</span><span class="boring">        for sys in clients_systems.drain(..) {
+</span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        }
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h3><a class="header" href="#incoming-path" id="incoming-path">Incoming Path</a></h3>
+<p>For any incoming network message the Kompact framework will buffer all data, and once it is complete, it will read out the serialisation id and create a <code>NetMessage</code> from it and the remaining buffer. It will then send the <code>NetMessage</code> directly to the destination component without any further processing. This approach is called <strong>lazy deserialisation</strong> and is quite different from most other actor/component frameworks, which tend to deserialise eagerly and then type match later at the destination component. However, in Rust the lazy approach is more efficient as it avoids unnecessary heap allocations for the deserialised instance.</p>
+<p>When the <code>NetMessage::try_deserialise</code> function is called on the destination component, the serialisation ids of the message and the given <code>Deserialiser</code> will be checked and if they match up the <code>Deserialiser::deserialise(...)</code> function is called with the message’s data. For custom deserialisers, this method must use the <a href="https://docs.rs/bytes/latest/bytes/trait.Buf.html">Buf</a> API to implement essentially the inverse path of what the serialisable did before.</p>
+<h3><a class="header" href="#example" id="example">Example</a></h3>
+<p>To show how custom serialisers can be implemented, we will show two examples re-using the bootstrapping leader election from the previous sections.</p>
+<h4><a class="header" href="#serialiser-1" id="serialiser-1">Serialiser</a></h4>
+<p>In our example, <code>CheckIn</code> is a <em>zero-sized type</em> (ZST), since we don’t really care about the message, only about the sender. Since ZSTs have no content, we can uniquely identify them by their serialisation id alone and all the serialisers for them are basically identical, in that their <code>serialise(...)</code> function consists simply of <code>Ok(())</code>. For this example, instead of using <code>Serde</code> for <code>CheckIn</code>, we will write our own <code>Serialiser</code> implementation for ZSTs and then use it for <code>CheckIn</code>. We could also use it for <code>Heartbeat</code>, but we won’t, so as to leave it as a reference for the other approach.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{
+</span><span class="boring">    collections::HashSet,
+</span><span class="boring">    convert::TryInto,
+</span><span class="boring">    net::{IpAddr, Ipv4Addr, SocketAddr},
+</span><span class="boring">    time::Duration,
+</span><span class="boring">};
+</span><span class="boring">
+</span>struct ZSTSerialiser&lt;T&gt;(T)
+where
+    T: Send + Sync + Default + Copy + SerialisationId;
+
+impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+where
+    T: Send + Sync + Default + Copy + SerialisationId,
+{
+    fn ser_id(&amp;self) -&gt; SerId {
+        T::SER_ID
+    }
+
+    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+        Some(0)
+    }
+
+    fn serialise(&amp;self, _v: &amp;T, _buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+        Ok(())
+    }
+}
+
+impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+where
+    T: Send + Sync + Default + Copy + SerialisationId,
+{
+    const SER_ID: SerId = T::SER_ID;
+
+    fn deserialise(_buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt; {
+        Ok(T::default())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct CheckIn;
+
+impl SerialisationId for CheckIn {
+    const SER_ID: SerId = 2345;
+}
+
+static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+<span class="boring">
+</span><span class="boring">#[derive(Debug, Clone)]
+</span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
+</span><span class="boring">
+</span><span class="boring">impl Serialisable for UpdateProcesses {
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        Self::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+</span><span class="boring">        Some(8 + procs_size)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        let len = self.0.len() as u64;
+</span><span class="boring">        buf.put_u64(len);
+</span><span class="boring">        for path in self.0.iter() {
+</span><span class="boring">            path.serialise(buf)?;
+</span><span class="boring">        }
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn local(self: Box&lt;Self&gt;) -&gt; Result&lt;Box&lt;dyn Any + Send&gt;, Box&lt;dyn Serialisable&gt;&gt; {
+</span><span class="boring">        Ok(self)
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
+</span><span class="boring">    const SER_ID: SerId = 3456;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;UpdateProcesses, SerError&gt; {
+</span><span class="boring">        let len_u64 = buf.get_u64();
+</span><span class="boring">        let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
+</span><span class="boring">        let mut data: Vec&lt;ActorPath&gt; = Vec::with_capacity(len);
+</span><span class="boring">        for _i in 0..len {
+</span><span class="boring">            let path = ActorPath::deserialise(buf)?;
+</span><span class="boring">            data.push(path);
+</span><span class="boring">        }
+</span><span class="boring">        Ok(UpdateProcesses(data))
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct BootstrapServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    processes: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl BootstrapServer {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        BootstrapServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            processes: HashSet::new(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
+</span><span class="boring">        let msg = UpdateProcesses(procs);
+</span><span class="boring">
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process
+</span><span class="boring">                .tell_serialised(msg.clone(), self)
+</span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(BootstrapServer);
+</span><span class="boring">
+</span><span class="boring">impl NetworkActor for BootstrapServer {
+</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Message = CheckIn;
+</span><span class="boring">
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        if let Some(process) = source {
+</span><span class="boring">            if self.processes.insert(process) {
+</span><span class="boring">                self.broadcast_processess()
+</span><span class="boring">            } else {
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    bootstrap_server: ActorPath,
+</span><span class="boring">    processes: Box&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new(bootstrap_server: ActorPath) -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            bootstrap_server,
+</span><span class="boring">            processes: Vec::new().into_boxed_slice(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer = self.schedule_periodic(
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        EventualLeaderElector::handle_timeout,
+</span><span class="boring">                    );
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats()
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
+</span><span class="boring">
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(
+</span><span class="boring">            self.period,
+</span><span class="boring">            self.period,
+</span><span class="boring">            EventualLeaderElector::handle_timeout,
+</span><span class="boring">        );
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!();
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            },
+</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
+</span><span class="boring">                let UpdateProcesses(processes) = update;
+</span><span class="boring">                info!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                    processes.len()
+</span><span class="boring">                );
+</span><span class="boring">                self.processes = processes.into_boxed_slice();
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    match args.len() {
+</span><span class="boring">        2 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let system = run_server(bootstrap_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        3 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let client_port: u16 = args[2].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let client_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), client_port);
+</span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
+</span><span class="boring">
+</span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
+</span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
+</span><span class="boring">
+</span><span class="boring">    let _bootstrap_unique = bootstrap_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    let bootstrap_service = bootstrap_service_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    system.start(&amp;bootstrap);
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(
+</span><span class="boring">        DeadletterBox::new,
+</span><span class="boring">        NetworkConfig::new(client_socket).build(),
+</span><span class="boring">    );
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
+</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        bootstrap_socket,
+</span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
+</span><span class="boring">    )
+</span><span class="boring">    .into();
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    const SERVER_SOCKET: &amp;str = &quot;127.0.0.1:12345&quot;;
+</span><span class="boring">    const CLIENT_SOCKET: &amp;str = &quot;127.0.0.1:0&quot;;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
+</span><span class="boring">        let server_system = run_server(server_socket);
+</span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
+</span><span class="boring">        let mut clients_systems: Vec&lt;KompactSystem&gt; = (0..3)
+</span><span class="boring">            .map(|_i| run_client(server_socket, client_socket))
+</span><span class="boring">            .collect();
+</span><span class="boring">        // let them settle
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        // shut down systems one by one
+</span><span class="boring">        for sys in clients_systems.drain(..) {
+</span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        }
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>We continue using the <code>SerialisationId</code> trait like we did for Serde, because we need to write id of the ZST not of the <code>ZSTSerialiser</code>, which can serialise and deserialise many different ZSTs.</p>
+<p>In order to create the correct type instance during deserialisation, we use the <code>Default</code> trait, which can be trivially derived for ZSTs.</p>
+<p>It is clear that this serialiser is basically trivial. We can use it by creating a pair of <code>Checkin</code> with a reference to our static instance <code>CHECK_IN_SER</code>, which simply specialises the <code>ZSTSerialiser</code> for <code>CheckIn</code>, as we did before: </p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{
+</span><span class="boring">    collections::HashSet,
+</span><span class="boring">    convert::TryInto,
+</span><span class="boring">    net::{IpAddr, Ipv4Addr, SocketAddr},
+</span><span class="boring">    time::Duration,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        T::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        Some(0)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, _v: &amp;T, _buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    const SER_ID: SerId = T::SER_ID;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(_buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt; {
+</span><span class="boring">        Ok(T::default())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone, Copy, Default)]
+</span><span class="boring">struct CheckIn;
+</span><span class="boring">
+</span><span class="boring">impl SerialisationId for CheckIn {
+</span><span class="boring">    const SER_ID: SerId = 2345;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone)]
+</span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
+</span><span class="boring">
+</span><span class="boring">impl Serialisable for UpdateProcesses {
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        Self::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+</span><span class="boring">        Some(8 + procs_size)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        let len = self.0.len() as u64;
+</span><span class="boring">        buf.put_u64(len);
+</span><span class="boring">        for path in self.0.iter() {
+</span><span class="boring">            path.serialise(buf)?;
+</span><span class="boring">        }
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn local(self: Box&lt;Self&gt;) -&gt; Result&lt;Box&lt;dyn Any + Send&gt;, Box&lt;dyn Serialisable&gt;&gt; {
+</span><span class="boring">        Ok(self)
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
+</span><span class="boring">    const SER_ID: SerId = 3456;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;UpdateProcesses, SerError&gt; {
+</span><span class="boring">        let len_u64 = buf.get_u64();
+</span><span class="boring">        let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
+</span><span class="boring">        let mut data: Vec&lt;ActorPath&gt; = Vec::with_capacity(len);
+</span><span class="boring">        for _i in 0..len {
+</span><span class="boring">            let path = ActorPath::deserialise(buf)?;
+</span><span class="boring">            data.push(path);
+</span><span class="boring">        }
+</span><span class="boring">        Ok(UpdateProcesses(data))
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct BootstrapServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    processes: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl BootstrapServer {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        BootstrapServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            processes: HashSet::new(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
+</span><span class="boring">        let msg = UpdateProcesses(procs);
+</span><span class="boring">
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process
+</span><span class="boring">                .tell_serialised(msg.clone(), self)
+</span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(BootstrapServer);
+</span><span class="boring">
+</span><span class="boring">impl NetworkActor for BootstrapServer {
+</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Message = CheckIn;
+</span><span class="boring">
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        if let Some(process) = source {
+</span><span class="boring">            if self.processes.insert(process) {
+</span><span class="boring">                self.broadcast_processess()
+</span><span class="boring">            } else {
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    bootstrap_server: ActorPath,
+</span><span class="boring">    processes: Box&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new(bootstrap_server: ActorPath) -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            bootstrap_server,
+</span><span class="boring">            processes: Vec::new().into_boxed_slice(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer = self.schedule_periodic(
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        EventualLeaderElector::handle_timeout,
+</span><span class="boring">                    );
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats()
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span>        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
+<span class="boring">
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(
+</span><span class="boring">            self.period,
+</span><span class="boring">            self.period,
+</span><span class="boring">            EventualLeaderElector::handle_timeout,
+</span><span class="boring">        );
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!();
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            },
+</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
+</span><span class="boring">                let UpdateProcesses(processes) = update;
+</span><span class="boring">                info!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                    processes.len()
+</span><span class="boring">                );
+</span><span class="boring">                self.processes = processes.into_boxed_slice();
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    match args.len() {
+</span><span class="boring">        2 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let system = run_server(bootstrap_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        3 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let client_port: u16 = args[2].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let client_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), client_port);
+</span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
+</span><span class="boring">
+</span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
+</span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
+</span><span class="boring">
+</span><span class="boring">    let _bootstrap_unique = bootstrap_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    let bootstrap_service = bootstrap_service_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    system.start(&amp;bootstrap);
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(
+</span><span class="boring">        DeadletterBox::new,
+</span><span class="boring">        NetworkConfig::new(client_socket).build(),
+</span><span class="boring">    );
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
+</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        bootstrap_socket,
+</span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
+</span><span class="boring">    )
+</span><span class="boring">    .into();
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    const SERVER_SOCKET: &amp;str = &quot;127.0.0.1:12345&quot;;
+</span><span class="boring">    const CLIENT_SOCKET: &amp;str = &quot;127.0.0.1:0&quot;;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
+</span><span class="boring">        let server_system = run_server(server_socket);
+</span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
+</span><span class="boring">        let mut clients_systems: Vec&lt;KompactSystem&gt; = (0..3)
+</span><span class="boring">            .map(|_i| run_client(server_socket, client_socket))
+</span><span class="boring">            .collect();
+</span><span class="boring">        // let them settle
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        // shut down systems one by one
+</span><span class="boring">        for sys in clients_systems.drain(..) {
+</span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        }
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<h4><a class="header" href="#serialisable" id="serialisable">Serialisable</a></h4>
+<p>Since the previous example was somewhat trivial, we will do a slightly trickier one for the <code>Serialisable</code> example. We will make the <code>UpdateProcesses</code> type both <code>Serialisable</code> and <code>Deserialiser&lt;UpdateProcesses&gt;</code>. This type contains a vector of <code>ActorPath</code> instances, which we must handle correctly. We will reuse the <code>Serialisable</code> and <code>Deserialiser&lt;ActorPath&gt;</code> implementations that are already provided for the <code>ActorPath</code> type.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{
+</span><span class="boring">    collections::HashSet,
+</span><span class="boring">    convert::TryInto,
+</span><span class="boring">    net::{IpAddr, Ipv4Addr, SocketAddr},
+</span><span class="boring">    time::Duration,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        T::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        Some(0)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, _v: &amp;T, _buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    const SER_ID: SerId = T::SER_ID;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(_buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt; {
+</span><span class="boring">        Ok(T::default())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone, Copy, Default)]
+</span><span class="boring">struct CheckIn;
+</span><span class="boring">
+</span><span class="boring">impl SerialisationId for CheckIn {
+</span><span class="boring">    const SER_ID: SerId = 2345;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">
+</span>#[derive(Debug, Clone)]
+struct UpdateProcesses(Vec&lt;ActorPath&gt;);
+
+impl Serialisable for UpdateProcesses {
+    fn ser_id(&amp;self) -&gt; SerId {
+        Self::SER_ID
+    }
+
+    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+        Some(8 + procs_size)
+    }
+
+    fn serialise(&amp;self, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+        let len = self.0.len() as u64;
+        buf.put_u64(len);
+        for path in self.0.iter() {
+            path.serialise(buf)?;
+        }
+        Ok(())
+    }
+
+    fn local(self: Box&lt;Self&gt;) -&gt; Result&lt;Box&lt;dyn Any + Send&gt;, Box&lt;dyn Serialisable&gt;&gt; {
+        Ok(self)
+    }
+}
+
+impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
+    const SER_ID: SerId = 3456;
+
+    fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;UpdateProcesses, SerError&gt; {
+        let len_u64 = buf.get_u64();
+        let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
+        let mut data: Vec&lt;ActorPath&gt; = Vec::with_capacity(len);
+        for _i in 0..len {
+            let path = ActorPath::deserialise(buf)?;
+            data.push(path);
+        }
+        Ok(UpdateProcesses(data))
+    }
+}
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct BootstrapServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    processes: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl BootstrapServer {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        BootstrapServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            processes: HashSet::new(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
+</span><span class="boring">        let msg = UpdateProcesses(procs);
+</span><span class="boring">
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process
+</span><span class="boring">                .tell_serialised(msg.clone(), self)
+</span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(BootstrapServer);
+</span><span class="boring">
+</span><span class="boring">impl NetworkActor for BootstrapServer {
+</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Message = CheckIn;
+</span><span class="boring">
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        if let Some(process) = source {
+</span><span class="boring">            if self.processes.insert(process) {
+</span><span class="boring">                self.broadcast_processess()
+</span><span class="boring">            } else {
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    bootstrap_server: ActorPath,
+</span><span class="boring">    processes: Box&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new(bootstrap_server: ActorPath) -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            bootstrap_server,
+</span><span class="boring">            processes: Vec::new().into_boxed_slice(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer = self.schedule_periodic(
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        EventualLeaderElector::handle_timeout,
+</span><span class="boring">                    );
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats()
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
+</span><span class="boring">
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(
+</span><span class="boring">            self.period,
+</span><span class="boring">            self.period,
+</span><span class="boring">            EventualLeaderElector::handle_timeout,
+</span><span class="boring">        );
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!();
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            },
+</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
+</span><span class="boring">                let UpdateProcesses(processes) = update;
+</span><span class="boring">                info!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                    processes.len()
+</span><span class="boring">                );
+</span><span class="boring">                self.processes = processes.into_boxed_slice();
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    match args.len() {
+</span><span class="boring">        2 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let system = run_server(bootstrap_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        3 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let client_port: u16 = args[2].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let client_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), client_port);
+</span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
+</span><span class="boring">
+</span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
+</span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
+</span><span class="boring">
+</span><span class="boring">    let _bootstrap_unique = bootstrap_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    let bootstrap_service = bootstrap_service_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    system.start(&amp;bootstrap);
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(
+</span><span class="boring">        DeadletterBox::new,
+</span><span class="boring">        NetworkConfig::new(client_socket).build(),
+</span><span class="boring">    );
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
+</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        bootstrap_socket,
+</span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
+</span><span class="boring">    )
+</span><span class="boring">    .into();
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    const SERVER_SOCKET: &amp;str = &quot;127.0.0.1:12345&quot;;
+</span><span class="boring">    const CLIENT_SOCKET: &amp;str = &quot;127.0.0.1:0&quot;;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
+</span><span class="boring">        let server_system = run_server(server_socket);
+</span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
+</span><span class="boring">        let mut clients_systems: Vec&lt;KompactSystem&gt; = (0..3)
+</span><span class="boring">            .map(|_i| run_client(server_socket, client_socket))
+</span><span class="boring">            .collect();
+</span><span class="boring">        // let them settle
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        // shut down systems one by one
+</span><span class="boring">        for sys in clients_systems.drain(..) {
+</span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        }
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>It would be easy to just iterate through the vector during serialisation and write one path at a time using its own <code>serialise(...)</code> implementation. But during deserialisation we need to know how many paths we have to take out of the buffer. We could simply try taking until the buffer refuses us, but this kind of approach often makes it difficult to detect bugs in one’s serialiser implementations. We will instead write the length of the vector before we serialise the actor paths, and during deserialisation we will read it first and allocate a vector of appropriate size. If we are concerned about the space the length wastes, we could try to use some better integer encoding like Protocol Buffers do, for example. But for now we don’t care so much and simply write a full <code>u64</code>. Those extra 8 bytes make little different compared to the sizes of a bunch of actor paths.</p>
+<p>We don’t really have a good idea for <code>size_hint(...)</code> here. It’s basically 8 plus the sum of the size hints for each actor path. In this case, we actually know we are pretty much just going to send unique actor paths in this set, so we can assume each one is 23 bytes long. If that assumption turns out to be wrong in practice, it will simply cause some additional allocations during serialisation. In general, as a developer we have to decide on a trade-off between how much time we want to spend calculating accurate size hints, and how much time we want to spend on potential reallocations. We could also simply return a large number such as 1024 and accept that we may may often waste much of that allocated space. Application requirements (read: benchmarking) will determine which is the best choice in a particular scenario.</p>
+<h2><a class="header" href="#eager-serialisation" id="eager-serialisation">Eager Serialisation</a></h2>
+<p>As mentioned above, using <code>ActorPath::tell(...)</code> may cause a stack-to-heap move of the data, as it is being converted into a boxed trait object for lazy serialisation. This approach optimises for avoiding expensive serialisations in the case where the <code>ActorPath</code> turns out to be local. However, this may not always be the appropriate approach, in particular if serialisation is quick compared to allocation, or most actor paths are not going to be local anyway. For these cases, Kompact also allows <strong>eager serialisation</strong>. To force an instance to be serialised eagerly, on the sending component’s thread, you can use <code>ActorPath::tell_serialised(...)</code>. It works essentially the same as <code>ActorPath::tell(...)</code> but uses a buffer pool local to the sending component to serialise the data into, before sending it off to the dispatcher. If then in the dispatcher it turns out that the actor path was actually local, the data simply has to be deserialised again, as if it had arrived remotely. If the target is remote, however, the data can be written directly into the appropriate channel.</p>
+<h3><a class="header" href="#example-1" id="example-1">Example</a></h3>
+<p>To show an easy usage for this approach, we use eager serialisation in the <code>BootstrapServer::broadcast_processess</code> function: </p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use std::{
+</span><span class="boring">    collections::HashSet,
+</span><span class="boring">    convert::TryInto,
+</span><span class="boring">    net::{IpAddr, Ipv4Addr, SocketAddr},
+</span><span class="boring">    time::Duration,
+</span><span class="boring">};
+</span><span class="boring">
+</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        T::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        Some(0)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, _v: &amp;T, _buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">where
+</span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
+</span><span class="boring">{
+</span><span class="boring">    const SER_ID: SerId = T::SER_ID;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(_buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt; {
+</span><span class="boring">        Ok(T::default())
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone, Copy, Default)]
+</span><span class="boring">struct CheckIn;
+</span><span class="boring">
+</span><span class="boring">impl SerialisationId for CheckIn {
+</span><span class="boring">    const SER_ID: SerId = 2345;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug, Clone)]
+</span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
+</span><span class="boring">
+</span><span class="boring">impl Serialisable for UpdateProcesses {
+</span><span class="boring">    fn ser_id(&amp;self) -&gt; SerId {
+</span><span class="boring">        Self::SER_ID
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn size_hint(&amp;self) -&gt; Option&lt;usize&gt; {
+</span><span class="boring">        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
+</span><span class="boring">        Some(8 + procs_size)
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn serialise(&amp;self, buf: &amp;mut dyn BufMut) -&gt; Result&lt;(), SerError&gt; {
+</span><span class="boring">        let len = self.0.len() as u64;
+</span><span class="boring">        buf.put_u64(len);
+</span><span class="boring">        for path in self.0.iter() {
+</span><span class="boring">            path.serialise(buf)?;
+</span><span class="boring">        }
+</span><span class="boring">        Ok(())
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn local(self: Box&lt;Self&gt;) -&gt; Result&lt;Box&lt;dyn Any + Send&gt;, Box&lt;dyn Serialisable&gt;&gt; {
+</span><span class="boring">        Ok(self)
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
+</span><span class="boring">    const SER_ID: SerId = 3456;
+</span><span class="boring">
+</span><span class="boring">    fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;UpdateProcesses, SerError&gt; {
+</span><span class="boring">        let len_u64 = buf.get_u64();
+</span><span class="boring">        let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
+</span><span class="boring">        let mut data: Vec&lt;ActorPath&gt; = Vec::with_capacity(len);
+</span><span class="boring">        for _i in 0..len {
+</span><span class="boring">            let path = ActorPath::deserialise(buf)?;
+</span><span class="boring">            data.push(path);
+</span><span class="boring">        }
+</span><span class="boring">        Ok(UpdateProcesses(data))
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct BootstrapServer {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    processes: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl BootstrapServer {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        BootstrapServer {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            processes: HashSet::new(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span>    fn broadcast_processess(&amp;self) -&gt; Handled {
+        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
+        let msg = UpdateProcesses(procs);
+
+        self.processes.iter().for_each(|process| {
+            process
+                .tell_serialised(msg.clone(), self)
+                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
+        });
+        Handled::Ok
+    }
+<span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(BootstrapServer);
+</span><span class="boring">
+</span><span class="boring">impl NetworkActor for BootstrapServer {
+</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Message = CheckIn;
+</span><span class="boring">
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        if let Some(process) = source {
+</span><span class="boring">            if self.processes.insert(process) {
+</span><span class="boring">                self.broadcast_processess()
+</span><span class="boring">            } else {
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            Handled::Ok
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct EventualLeaderElector {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    omega_port: ProvidedPort&lt;EventualLeaderDetection&gt;,
+</span><span class="boring">    bootstrap_server: ActorPath,
+</span><span class="boring">    processes: Box&lt;[ActorPath]&gt;,
+</span><span class="boring">    candidates: HashSet&lt;ActorPath&gt;,
+</span><span class="boring">    period: Duration,
+</span><span class="boring">    delta: Duration,
+</span><span class="boring">    timer_handle: Option&lt;ScheduledTimer&gt;,
+</span><span class="boring">    leader: Option&lt;ActorPath&gt;,
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl EventualLeaderElector {
+</span><span class="boring">    fn new(bootstrap_server: ActorPath) -&gt; Self {
+</span><span class="boring">        let minimal_period = Duration::from_millis(1);
+</span><span class="boring">        EventualLeaderElector {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            omega_port: ProvidedPort::uninitialised(),
+</span><span class="boring">            bootstrap_server,
+</span><span class="boring">            processes: Vec::new().into_boxed_slice(),
+</span><span class="boring">            candidates: HashSet::new(),
+</span><span class="boring">            period: minimal_period,
+</span><span class="boring">            delta: minimal_period,
+</span><span class="boring">            timer_handle: None,
+</span><span class="boring">            leader: None,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn select_leader(&amp;mut self) -&gt; Option&lt;ActorPath&gt; {
+</span><span class="boring">        let mut candidates: Vec&lt;ActorPath&gt; = self.candidates.drain().collect();
+</span><span class="boring">        candidates.sort_unstable();
+</span><span class="boring">        candidates.reverse(); // pick smallest instead of largest
+</span><span class="boring">        candidates.pop()
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">        match self.timer_handle.take() {
+</span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
+</span><span class="boring">                let new_leader = self.select_leader();
+</span><span class="boring">                if new_leader != self.leader {
+</span><span class="boring">                    self.period += self.delta;
+</span><span class="boring">                    self.leader = new_leader;
+</span><span class="boring">                    if let Some(ref leader) = self.leader {
+</span><span class="boring">                        self.omega_port.trigger(Trust(leader.clone()));
+</span><span class="boring">                    }
+</span><span class="boring">                    self.cancel_timer(timeout);
+</span><span class="boring">                    let new_timer = self.schedule_periodic(
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        self.period,
+</span><span class="boring">                        EventualLeaderElector::handle_timeout,
+</span><span class="boring">                    );
+</span><span class="boring">                    self.timer_handle = Some(new_timer);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // just put it back
+</span><span class="boring">                    self.timer_handle = Some(timeout);
+</span><span class="boring">                }
+</span><span class="boring">                self.send_heartbeats()
+</span><span class="boring">            }
+</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            None =&gt; {
+</span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
+</span><span class="boring">                Handled::Ok
+</span><span class="boring">            } // can happen during restart or teardown
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">        self.processes.iter().for_each(|process| {
+</span><span class="boring">            process.tell((Heartbeat, Serde), self);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
+</span><span class="boring">
+</span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;initial period&quot;);
+</span><span class="boring">        self.delta = self.ctx.config()[&quot;omega&quot;][&quot;delta&quot;]
+</span><span class="boring">            .as_duration()
+</span><span class="boring">            .expect(&quot;delta&quot;);
+</span><span class="boring">        let timeout = self.schedule_periodic(
+</span><span class="boring">            self.period,
+</span><span class="boring">            self.period,
+</span><span class="boring">            EventualLeaderElector::handle_timeout,
+</span><span class="boring">        );
+</span><span class="boring">        self.timer_handle = Some(timeout);
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
+</span><span class="boring">            self.cancel_timer(timeout);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">// Doesn't have any requests
+</span><span class="boring">ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
+</span><span class="boring">
+</span><span class="boring">impl Actor for EventualLeaderElector {
+</span><span class="boring">    type Message = Never;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        unreachable!();
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        let sender = msg.sender;
+</span><span class="boring">
+</span><span class="boring">        match_deser!(msg.data; {
+</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
+</span><span class="boring">                self.candidates.insert(sender);
+</span><span class="boring">            },
+</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
+</span><span class="boring">                let UpdateProcesses(processes) = update;
+</span><span class="boring">                info!(
+</span><span class="boring">                    self.log(),
+</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                    processes.len()
+</span><span class="boring">                );
+</span><span class="boring">                self.processes = processes.into_boxed_slice();
+</span><span class="boring">            },
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = std::env::args().collect();
+</span><span class="boring">    match args.len() {
+</span><span class="boring">        2 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let system = run_server(bootstrap_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        3 =&gt; {
+</span><span class="boring">            let bootstrap_port: u16 = args[1].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let bootstrap_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bootstrap_port);
+</span><span class="boring">            let client_port: u16 = args[2].parse().expect(&quot;port number&quot;);
+</span><span class="boring">            let client_socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), client_port);
+</span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
+</span><span class="boring">            system.await_termination(); // gotta quit it from command line
+</span><span class="boring">        }
+</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
+</span><span class="boring">
+</span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
+</span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
+</span><span class="boring">
+</span><span class="boring">    let _bootstrap_unique = bootstrap_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    let bootstrap_service = bootstrap_service_registration
+</span><span class="boring">        .wait_expect(Duration::from_millis(1000), &quot;bootstrap never registered&quot;);
+</span><span class="boring">    system.start(&amp;bootstrap);
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
+</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.system_components(
+</span><span class="boring">        DeadletterBox::new,
+</span><span class="boring">        NetworkConfig::new(client_socket).build(),
+</span><span class="boring">    );
+</span><span class="boring">
+</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">
+</span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
+</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        bootstrap_socket,
+</span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
+</span><span class="boring">    )
+</span><span class="boring">    .into();
+</span><span class="boring">
+</span><span class="boring">    let printer = system.create(TrustPrinter::new);
+</span><span class="boring">    let (detector, registration) =
+</span><span class="boring">        system.create_and_register(|| EventualLeaderElector::new(bootstrap_service));
+</span><span class="boring">    biconnect_components::&lt;EventualLeaderDetection, _, _&gt;(&amp;detector, &amp;printer).expect(&quot;connection&quot;);
+</span><span class="boring">    let _path = registration.wait_expect(Duration::from_millis(1000), &quot;detector never registered&quot;);
+</span><span class="boring">    system.start(&amp;printer);
+</span><span class="boring">    system.start(&amp;detector);
+</span><span class="boring">
+</span><span class="boring">    system
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    const SERVER_SOCKET: &amp;str = &quot;127.0.0.1:12345&quot;;
+</span><span class="boring">    const CLIENT_SOCKET: &amp;str = &quot;127.0.0.1:0&quot;;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
+</span><span class="boring">        let server_system = run_server(server_socket);
+</span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
+</span><span class="boring">        let mut clients_systems: Vec&lt;KompactSystem&gt; = (0..3)
+</span><span class="boring">            .map(|_i| run_client(server_socket, client_socket))
+</span><span class="boring">            .collect();
+</span><span class="boring">        // let them settle
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        // shut down systems one by one
+</span><span class="boring">        for sys in clients_systems.drain(..) {
+</span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        }
+</span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
+</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>As you can see above, another feature of eager serialisation is that you can (and must) deal with serialisaition errors, which you have no control over using lazy serialisation. In particular, your memory allocation may prevent your local buffer pool from allocating a buffer large enough to fit your data at the time of serialisation. In this case you will get a <code>SerError::BufferError</code> and must decide how to handle that. You could either retry at a later time, or switch to <em>lazy serialisation</em> and hope the network’s buffers still have capacity (assuming they likely have priority over component local buffer pools).</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../distributed/pathrouting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../distributed/networkbuffers.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../distributed/pathrouting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../distributed/networkbuffers.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

@@ -1,0 +1,1602 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Senders - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../../local/communication/senders.html" class="active"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#senders" id="senders">Senders</a></h1>
+<p>The one communication-related thing we haven’t touched, yet, is how to do request-response style communication among Actors. The <a href="ask.html">“ask”-pattern</a> gave us request-reponse between an Actor and some arbitrary (non-pool) thread, <a href="../../introduction/components.html">ports</a> basically give us some form request-response between <em>request</em> and <em>indication</em> events (with some broadcasting semantic caveats, of course). But for Actor to Actor communication, we have not seen anything of this sort, yet. In fact, you may have noticed that <code>receive_local(...)</code> does not actually give us any <em>sender</em> information, such as an <code>ActorRef</code>. Neither is this available via the component context as would be the case in Akka. </p>
+<p>In Kompact, for local messages at least, sender information must be passed explicitly. This is for two reasons:</p>
+<ol>
+<li>It avoids creating an <code>ActorRef</code> for every message when it’s not needed, since actor references are not trivially cheap to create.</li>
+<li>It allows the sender reference to be typed with the appropriate message type.</li>
+</ol>
+<p>This design gives us basically two variants to do request-reponse. If we know we are always going to response to the same component instance, the most efficient thing to do is to get a reference to it once and then just keep it around as part of our internal state. This avoids constantly creating actor references, and is pretty efficient. If, however, we must respond to multiple different actors, which is often the case, we must make the sender reference part of the request message. We can do that either by adding a field to our custom message type, or simply wrapping our custom message type into the Kompact provided <code>WithSender</code> struct. <code>WithSender</code> is really the same idea as <code>Ask</code>, replacing the <code>KPromise&lt;Response&gt;</code> with an <code>ActorRef&lt;Response&gt;</code> (yes, there is also <code>WithSenderStrong</code> using an <code>ActorRefStrong</code> instead).</p>
+<h2><a class="header" href="#workers-with-senders" id="workers-with-senders">Workers with Senders</a></h2>
+<p>To illustrate this mechanism we are going to rewrite the Workers example from the previous sections to use <code>WithSender</code> instead of the <code>WorkerPort</code> communication. We will use <code>WithSender</code> here, instead of a stored manager actor reference, to illustrate the point, but it should be clear that the latter will be more efficient as we <em>always</em> reply to the manager.</p>
+<p>First we remove all mentions of <code>WorkerPort</code>, of course. Then we change the worker’s <code>Message</code> type to <code>WithSender&lt;WorkPart, ManagerMessage&gt;</code>. Why <code>ManagerMessage</code> and not <code>WorkResult</code>? Well, since all communication with the manager now happens via messages, we need to differentiate between messages from the main-thread, which are of type <code>Ask&lt;Work, WorkResult&gt;</code> and messages from the worker, which are of type <code>WorkResult</code>. Since we can only have a single <code>Message</code> type, <code>ManagerMessage</code> is simply an enum of both options.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">
+</span>#[derive(Debug)]
+enum ManagerMessage {
+    Work(Ask&lt;Work, WorkResult&gt;),
+    Result(WorkResult),
+}
+<span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Manager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    num_workers: usize,
+</span><span class="boring">    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+</span><span class="boring">    worker_refs: Vec&lt;ActorRefStrong&lt;WithSender&lt;WorkPart, ManagerMessage&gt;&gt;&gt;,
+</span><span class="boring">    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+</span><span class="boring">    result_accumulator: Vec&lt;u64&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Manager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
+</span><span class="boring">                assert!(
+</span><span class="boring">                    self.outstanding_request.is_none(),
+</span><span class="boring">                    &quot;One request at a time, please!&quot;
+</span><span class="boring">                );
+</span><span class="boring">                let work: &amp;Work = msg.request();
+</span><span class="boring">                if self.num_workers == 0 {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+</span><span class="boring">                } else {
+</span><span class="boring">                    let len = work.data.len();
+</span><span class="boring">                    let stride = len / self.num_workers;
+</span><span class="boring">                    let mut start = 0usize;
+</span><span class="boring">                    let mut index = 0;
+</span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
+</span><span class="boring">                        let end = len.min(start + stride);
+</span><span class="boring">                        let range = start..end;
+</span><span class="boring">                        info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+</span><span class="boring">                        let msg = WorkPart::from(work, range);
+</span><span class="boring">                        let worker = &amp;self.worker_refs[index];
+</span><span class="boring">                        worker.tell(WithSender::from(msg, self));
+</span><span class="boring">                        start += stride;
+</span><span class="boring">                        index += 1;
+</span><span class="boring">                    }
+</span><span class="boring">                    if start &lt; len {
+</span><span class="boring">                        // manager just does the rest itself
+</span><span class="boring">                        let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.push(res);
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // just put a neutral element in there, so our count is right in the end
+</span><span class="boring">                        self.result_accumulator.push(work.neutral);
+</span><span class="boring">                    }
+</span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
+</span><span class="boring">                if self.outstanding_request.is_some() {
+</span><span class="boring">                    self.result_accumulator.push(msg.0);
+</span><span class="boring">                    if self.result_accumulator.len() == (self.num_workers + 1) {
+</span><span class="boring">                        let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+</span><span class="boring">                        let work: &amp;Work = ask.request();
+</span><span class="boring">                        let res = self
+</span><span class="boring">                            .result_accumulator
+</span><span class="boring">                            .iter()
+</span><span class="boring">                            .fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.clear();
+</span><span class="boring">                        let reply = WorkResult(res);
+</span><span class="boring">                        ask.reply(reply).expect(&quot;reply&quot;);
+</span><span class="boring">                    }
+</span><span class="boring">                } else {
+</span><span class="boring">                    error!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Got a response without an outstanding promise: {:?}&quot;, msg
+</span><span class="boring">                    );
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Worker {
+</span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
+</span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+</span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        3,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_task(num_workers, data_size);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">
+</span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+</span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
+</span><span class="boring">    println!(&quot;Sending request...&quot;);
+</span><span class="boring">    let res = manager_ref
+</span><span class="boring">        .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
+</span><span class="boring">        .wait();
+</span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+</span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
+</span><span class="boring">    (n * (n + 1u64)) / 2u64
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+</span><span class="boring">    lhs.overflowing_add(*rhs).0
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>Thus, when the worker wants to <code>reply(...)</code> with a <code>WorkResult</code> it actually needs to wrap it in a <code>ManagerMessage</code> instance or the compiler is going to reject it.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Work(Ask&lt;Work, WorkResult&gt;),
+</span><span class="boring">    Result(WorkResult),
+</span><span class="boring">}
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Manager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    num_workers: usize,
+</span><span class="boring">    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+</span><span class="boring">    worker_refs: Vec&lt;ActorRefStrong&lt;WithSender&lt;WorkPart, ManagerMessage&gt;&gt;&gt;,
+</span><span class="boring">    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+</span><span class="boring">    result_accumulator: Vec&lt;u64&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Manager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
+</span><span class="boring">                assert!(
+</span><span class="boring">                    self.outstanding_request.is_none(),
+</span><span class="boring">                    &quot;One request at a time, please!&quot;
+</span><span class="boring">                );
+</span><span class="boring">                let work: &amp;Work = msg.request();
+</span><span class="boring">                if self.num_workers == 0 {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+</span><span class="boring">                } else {
+</span><span class="boring">                    let len = work.data.len();
+</span><span class="boring">                    let stride = len / self.num_workers;
+</span><span class="boring">                    let mut start = 0usize;
+</span><span class="boring">                    let mut index = 0;
+</span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
+</span><span class="boring">                        let end = len.min(start + stride);
+</span><span class="boring">                        let range = start..end;
+</span><span class="boring">                        info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+</span><span class="boring">                        let msg = WorkPart::from(work, range);
+</span><span class="boring">                        let worker = &amp;self.worker_refs[index];
+</span><span class="boring">                        worker.tell(WithSender::from(msg, self));
+</span><span class="boring">                        start += stride;
+</span><span class="boring">                        index += 1;
+</span><span class="boring">                    }
+</span><span class="boring">                    if start &lt; len {
+</span><span class="boring">                        // manager just does the rest itself
+</span><span class="boring">                        let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.push(res);
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // just put a neutral element in there, so our count is right in the end
+</span><span class="boring">                        self.result_accumulator.push(work.neutral);
+</span><span class="boring">                    }
+</span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
+</span><span class="boring">                if self.outstanding_request.is_some() {
+</span><span class="boring">                    self.result_accumulator.push(msg.0);
+</span><span class="boring">                    if self.result_accumulator.len() == (self.num_workers + 1) {
+</span><span class="boring">                        let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+</span><span class="boring">                        let work: &amp;Work = ask.request();
+</span><span class="boring">                        let res = self
+</span><span class="boring">                            .result_accumulator
+</span><span class="boring">                            .iter()
+</span><span class="boring">                            .fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.clear();
+</span><span class="boring">                        let reply = WorkResult(res);
+</span><span class="boring">                        ask.reply(reply).expect(&quot;reply&quot;);
+</span><span class="boring">                    }
+</span><span class="boring">                } else {
+</span><span class="boring">                    error!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Got a response without an outstanding promise: {:?}&quot;, msg
+</span><span class="boring">                    );
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">
+</span>impl Actor for Worker {
+    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
+
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+        let my_slice = &amp;msg.data[msg.range.clone()];
+        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+        msg.reply(ManagerMessage::Result(WorkResult(res)));
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+    }
+}
+<span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        3,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_task(num_workers, data_size);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">
+</span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+</span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
+</span><span class="boring">    println!(&quot;Sending request...&quot;);
+</span><span class="boring">    let res = manager_ref
+</span><span class="boring">        .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
+</span><span class="boring">        .wait();
+</span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+</span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
+</span><span class="boring">    (n * (n + 1u64)) / 2u64
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+</span><span class="boring">    lhs.overflowing_add(*rhs).0
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>In the manager we must first update our state to reflect the new message (and thus reference) types.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Work(Ask&lt;Work, WorkResult&gt;),
+</span><span class="boring">    Result(WorkResult),
+</span><span class="boring">}
+</span>#[derive(ComponentDefinition)]
+struct Manager {
+    ctx: ComponentContext&lt;Self&gt;,
+    num_workers: usize,
+    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+    worker_refs: Vec&lt;ActorRefStrong&lt;WithSender&lt;WorkPart, ManagerMessage&gt;&gt;&gt;,
+    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+    result_accumulator: Vec&lt;u64&gt;,
+}
+<span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Manager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
+</span><span class="boring">                assert!(
+</span><span class="boring">                    self.outstanding_request.is_none(),
+</span><span class="boring">                    &quot;One request at a time, please!&quot;
+</span><span class="boring">                );
+</span><span class="boring">                let work: &amp;Work = msg.request();
+</span><span class="boring">                if self.num_workers == 0 {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+</span><span class="boring">                } else {
+</span><span class="boring">                    let len = work.data.len();
+</span><span class="boring">                    let stride = len / self.num_workers;
+</span><span class="boring">                    let mut start = 0usize;
+</span><span class="boring">                    let mut index = 0;
+</span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
+</span><span class="boring">                        let end = len.min(start + stride);
+</span><span class="boring">                        let range = start..end;
+</span><span class="boring">                        info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+</span><span class="boring">                        let msg = WorkPart::from(work, range);
+</span><span class="boring">                        let worker = &amp;self.worker_refs[index];
+</span><span class="boring">                        worker.tell(WithSender::from(msg, self));
+</span><span class="boring">                        start += stride;
+</span><span class="boring">                        index += 1;
+</span><span class="boring">                    }
+</span><span class="boring">                    if start &lt; len {
+</span><span class="boring">                        // manager just does the rest itself
+</span><span class="boring">                        let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.push(res);
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // just put a neutral element in there, so our count is right in the end
+</span><span class="boring">                        self.result_accumulator.push(work.neutral);
+</span><span class="boring">                    }
+</span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
+</span><span class="boring">                if self.outstanding_request.is_some() {
+</span><span class="boring">                    self.result_accumulator.push(msg.0);
+</span><span class="boring">                    if self.result_accumulator.len() == (self.num_workers + 1) {
+</span><span class="boring">                        let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+</span><span class="boring">                        let work: &amp;Work = ask.request();
+</span><span class="boring">                        let res = self
+</span><span class="boring">                            .result_accumulator
+</span><span class="boring">                            .iter()
+</span><span class="boring">                            .fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.clear();
+</span><span class="boring">                        let reply = WorkResult(res);
+</span><span class="boring">                        ask.reply(reply).expect(&quot;reply&quot;);
+</span><span class="boring">                    }
+</span><span class="boring">                } else {
+</span><span class="boring">                    error!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Got a response without an outstanding promise: {:?}&quot;, msg
+</span><span class="boring">                    );
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Worker {
+</span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
+</span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+</span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        3,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_task(num_workers, data_size);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">
+</span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+</span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
+</span><span class="boring">    println!(&quot;Sending request...&quot;);
+</span><span class="boring">    let res = manager_ref
+</span><span class="boring">        .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
+</span><span class="boring">        .wait();
+</span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+</span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
+</span><span class="boring">    (n * (n + 1u64)) / 2u64
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+</span><span class="boring">    lhs.overflowing_add(*rhs).0
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>We also remove the port connection logic from the <code>ComponentLifecycle</code> handler. Then we change the <code>Message</code> type of the manager to <code>ManagerMessage</code> and match on the <code>ManagerMessage</code> variant in the <code>receive_local(...)</code> function. For the <code>ManagerMessage::Work</code> variant, we basically do the same thing as in the old <code>receive_local(...)</code> function, except that we construct a <code>WithSender</code> instance from the <code>WorkPart</code> instead of sending it directly to the worker. We then simply copy the code from the old <code>WorkResult</code> handler into the branch for <code>ManagerMessage::Result</code>.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Work(Ask&lt;Work, WorkResult&gt;),
+</span><span class="boring">    Result(WorkResult),
+</span><span class="boring">}
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Manager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    num_workers: usize,
+</span><span class="boring">    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+</span><span class="boring">    worker_refs: Vec&lt;ActorRefStrong&lt;WithSender&lt;WorkPart, ManagerMessage&gt;&gt;&gt;,
+</span><span class="boring">    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+</span><span class="boring">    result_accumulator: Vec&lt;u64&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>impl Actor for Manager {
+    type Message = ManagerMessage;
+
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+        match msg {
+            ManagerMessage::Work(msg) =&gt; {
+                assert!(
+                    self.outstanding_request.is_none(),
+                    &quot;One request at a time, please!&quot;
+                );
+                let work: &amp;Work = msg.request();
+                if self.num_workers == 0 {
+                    // manager gotta work itself -&gt; very unhappy manager
+                    let res = work.data.iter().fold(work.neutral, work.merger);
+                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+                } else {
+                    let len = work.data.len();
+                    let stride = len / self.num_workers;
+                    let mut start = 0usize;
+                    let mut index = 0;
+                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
+                        let end = len.min(start + stride);
+                        let range = start..end;
+                        info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+                        let msg = WorkPart::from(work, range);
+                        let worker = &amp;self.worker_refs[index];
+                        worker.tell(WithSender::from(msg, self));
+                        start += stride;
+                        index += 1;
+                    }
+                    if start &lt; len {
+                        // manager just does the rest itself
+                        let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+                        self.result_accumulator.push(res);
+                    } else {
+                        // just put a neutral element in there, so our count is right in the end
+                        self.result_accumulator.push(work.neutral);
+                    }
+                    self.outstanding_request = Some(msg);
+                }
+            }
+            ManagerMessage::Result(msg) =&gt; {
+                if self.outstanding_request.is_some() {
+                    self.result_accumulator.push(msg.0);
+                    if self.result_accumulator.len() == (self.num_workers + 1) {
+                        let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+                        let work: &amp;Work = ask.request();
+                        let res = self
+                            .result_accumulator
+                            .iter()
+                            .fold(work.neutral, work.merger);
+                        self.result_accumulator.clear();
+                        let reply = WorkResult(res);
+                        ask.reply(reply).expect(&quot;reply&quot;);
+                    }
+                } else {
+                    error!(
+                        self.log(),
+                        &quot;Got a response without an outstanding promise: {:?}&quot;, msg
+                    );
+                }
+            }
+        }
+        Handled::Ok
+    }
+
+    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+    }
+}
+<span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Worker {
+</span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
+</span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+</span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        3,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_task(num_workers, data_size);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">
+</span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+</span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
+</span><span class="boring">    println!(&quot;Sending request...&quot;);
+</span><span class="boring">    let res = manager_ref
+</span><span class="boring">        .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
+</span><span class="boring">        .wait();
+</span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+</span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
+</span><span class="boring">    (n * (n + 1u64)) / 2u64
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+</span><span class="boring">    lhs.overflowing_add(*rhs).0
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>The <code>receive_local(...)</code> function is getting pretty long, so we should probably decompose it into smaller private functions if we actually wanted to maintain this code.</p>
+<p>Now finally, when we want to send the <code>Ask</code> from the main-thread, we also need to wrap it into <code>ManagerMessage::Work</code>. This prevents us from using <code>Ask::of</code>, as it only returns a direct <code>Ask</code>, but never a wrapped <code>Ask</code>. This gets us back to previously mentioned custom function from <code>KPromise</code> to the actual message type, which in this case is <code>ManagerMessage</code>.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">
+</span><span class="boring">#[derive(Debug)]
+</span><span class="boring">enum ManagerMessage {
+</span><span class="boring">    Work(Ask&lt;Work, WorkResult&gt;),
+</span><span class="boring">    Result(WorkResult),
+</span><span class="boring">}
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Manager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    num_workers: usize,
+</span><span class="boring">    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+</span><span class="boring">    worker_refs: Vec&lt;ActorRefStrong&lt;WithSender&lt;WorkPart, ManagerMessage&gt;&gt;&gt;,
+</span><span class="boring">    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+</span><span class="boring">    result_accumulator: Vec&lt;u64&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl Actor for Manager {
+</span><span class="boring">    type Message = ManagerMessage;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        match msg {
+</span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
+</span><span class="boring">                assert!(
+</span><span class="boring">                    self.outstanding_request.is_none(),
+</span><span class="boring">                    &quot;One request at a time, please!&quot;
+</span><span class="boring">                );
+</span><span class="boring">                let work: &amp;Work = msg.request();
+</span><span class="boring">                if self.num_workers == 0 {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+</span><span class="boring">                } else {
+</span><span class="boring">                    let len = work.data.len();
+</span><span class="boring">                    let stride = len / self.num_workers;
+</span><span class="boring">                    let mut start = 0usize;
+</span><span class="boring">                    let mut index = 0;
+</span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
+</span><span class="boring">                        let end = len.min(start + stride);
+</span><span class="boring">                        let range = start..end;
+</span><span class="boring">                        info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+</span><span class="boring">                        let msg = WorkPart::from(work, range);
+</span><span class="boring">                        let worker = &amp;self.worker_refs[index];
+</span><span class="boring">                        worker.tell(WithSender::from(msg, self));
+</span><span class="boring">                        start += stride;
+</span><span class="boring">                        index += 1;
+</span><span class="boring">                    }
+</span><span class="boring">                    if start &lt; len {
+</span><span class="boring">                        // manager just does the rest itself
+</span><span class="boring">                        let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.push(res);
+</span><span class="boring">                    } else {
+</span><span class="boring">                        // just put a neutral element in there, so our count is right in the end
+</span><span class="boring">                        self.result_accumulator.push(work.neutral);
+</span><span class="boring">                    }
+</span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
+</span><span class="boring">                if self.outstanding_request.is_some() {
+</span><span class="boring">                    self.result_accumulator.push(msg.0);
+</span><span class="boring">                    if self.result_accumulator.len() == (self.num_workers + 1) {
+</span><span class="boring">                        let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+</span><span class="boring">                        let work: &amp;Work = ask.request();
+</span><span class="boring">                        let res = self
+</span><span class="boring">                            .result_accumulator
+</span><span class="boring">                            .iter()
+</span><span class="boring">                            .fold(work.neutral, work.merger);
+</span><span class="boring">                        self.result_accumulator.clear();
+</span><span class="boring">                        let reply = WorkResult(res);
+</span><span class="boring">                        ask.reply(reply).expect(&quot;reply&quot;);
+</span><span class="boring">                    }
+</span><span class="boring">                } else {
+</span><span class="boring">                    error!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Got a response without an outstanding promise: {:?}&quot;, msg
+</span><span class="boring">                    );
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Worker {
+</span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
+</span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+</span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        3,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_task(num_workers, data_size);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">
+</span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+</span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
+</span><span class="boring">    println!(&quot;Sending request...&quot;);
+</span>    let res = manager_ref
+        .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
+        .wait();
+<span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+</span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
+</span><span class="boring">    (n * (n + 1u64)) / 2u64
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+</span><span class="boring">    lhs.overflowing_add(*rhs).0
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>At this point we should able to run the example again, and see the same behaviour as before.</p>
+<blockquote>
+<p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
+<pre><code class="language-bash">cargo run --release --bin workers_sender 4 100000
+</code></pre>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../../local/communication/system.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../../local/timers.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../../local/communication/system.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../../local/timers.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

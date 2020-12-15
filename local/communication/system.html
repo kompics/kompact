@@ -1,0 +1,789 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>System - The Kompact Book</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../../local/communication/system.html" class="active"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../../project.html">Project Info</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Kompact Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#system" id="system">System</a></h1>
+<p>In order to run any Kompact component, we need a <code>KompactSystem</code>. The system manages the runtime variables, the thread pool, logging, and many aspects of the Kompact. Such a system is created from a <code>KompactConfig</code> via the <code>build()</code> function. The config instance allows customisation of many parameters of the runtime, which we will discuss in upcoming sections. For now, the <code>default()</code> instance will do just fine.  It creates a thread pool with one thread for each CPU core, as reported by <a href="https://crates.io/crates/num_cpus">num_cpus</a>, schedules fairly between messags and events, and does some internal message/event batching to improve performance.</p>
+<blockquote>
+<p><strong>Note:</strong> As opposed to Kompics, in Kompact it is perfectly viable to have multiple systems running in the same process, for example with different configurations.</p>
+</blockquote>
+<p>When a Kompact system is not used anymore it should be shut down via the <code>shutdown()</code> function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use <code>self.ctx.system().shutdown_async()</code> and the main-thread can wait for this to complete with <code>await_termination()</code>. </p>
+<blockquote>
+<p><strong>Note:</strong> Neither <code>shutdown_async()</code> nor <code>await_termination()</code> has a particularly efficient implementation, as this should be a relatively rare thing to do in the lifetime of a Kompact system, and thus doesn’t warrant optimisation at this point. That also means, though, that <code>await_termination()</code> should definitely <strong>not</strong> be used as a timing marker in a benchmark, as <em>some</em> people have done with the equivalent Akka API.</p>
+</blockquote>
+<h2><a class="header" href="#tying-things-together" id="tying-things-together">Tying Things Together</a></h2>
+<p>For our worker pool example, we will simply use the default configuration, and start a <code>Manager</code> component with a configurable number of workers. We then create some data array of a configurable size and send a work request with it and an aggregation function to the manager instance. We’ll use simple addition with overflow as our aggregation function, which means our neutral element is <code>0u64</code>. The data array we’ll generate is simply the integers from <code>1</code> to <code>data_size</code>, which means our aggregate will actually calculate a <a href="https://en.wikipedia.org/wiki/Triangular_number">triangular number</a> (modulo overflows, for which we probably don’t have enough memory for the data array anyway). Since that particular number has a much simpler solution, i.e. \( \sum_{k=1}^n k = \frac{n\cdot(n+1)}{2} \), we will also use an assertion to verify we are actually producing the right result (again, this probably won’t work if we actually do overflow during aggregration, but oh well...details ;).</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Clone, Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">struct WorkerPort;
+</span><span class="boring">impl Port for WorkerPort {
+</span><span class="boring">    type Indication = WorkResult;
+</span><span class="boring">    type Request = Never;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Manager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    worker_port: RequiredPort&lt;WorkerPort&gt;,
+</span><span class="boring">    num_workers: usize,
+</span><span class="boring">    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+</span><span class="boring">    worker_refs: Vec&lt;ActorRefStrong&lt;WorkPart&gt;&gt;,
+</span><span class="boring">    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+</span><span class="boring">    result_accumulator: Vec&lt;u64&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            worker_port: RequiredPort::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            worker.connect_to_required(self.worker_port.share());
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Require&lt;WorkerPort&gt; for Manager {
+</span><span class="boring">    fn handle(&amp;mut self, event: WorkResult) -&gt; Handled {
+</span><span class="boring">        if self.outstanding_request.is_some() {
+</span><span class="boring">            self.result_accumulator.push(event.0);
+</span><span class="boring">            if self.result_accumulator.len() == (self.num_workers + 1) {
+</span><span class="boring">                let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+</span><span class="boring">                let work: &amp;Work = ask.request();
+</span><span class="boring">                let res = self
+</span><span class="boring">                    .result_accumulator
+</span><span class="boring">                    .iter()
+</span><span class="boring">                    .fold(work.neutral, work.merger);
+</span><span class="boring">                self.result_accumulator.clear();
+</span><span class="boring">                let reply = WorkResult(res);
+</span><span class="boring">                ask.reply(reply).expect(&quot;reply&quot;);
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            error!(
+</span><span class="boring">                self.log(),
+</span><span class="boring">                &quot;Got a response without an outstanding promise: {:?}&quot;, event
+</span><span class="boring">            );
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for Manager {
+</span><span class="boring">    type Message = Ask&lt;Work, WorkResult&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        assert!(
+</span><span class="boring">            self.outstanding_request.is_none(),
+</span><span class="boring">            &quot;One request at a time, please!&quot;
+</span><span class="boring">        );
+</span><span class="boring">        let work: &amp;Work = msg.request();
+</span><span class="boring">        if self.num_workers == 0 {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+</span><span class="boring">        } else {
+</span><span class="boring">            let len = work.data.len();
+</span><span class="boring">            let stride = len / self.num_workers;
+</span><span class="boring">            let mut start = 0usize;
+</span><span class="boring">            let mut index = 0;
+</span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
+</span><span class="boring">                let end = len.min(start + stride);
+</span><span class="boring">                let range = start..end;
+</span><span class="boring">                info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+</span><span class="boring">                let msg = WorkPart::from(work, range);
+</span><span class="boring">                let worker = &amp;self.worker_refs[index];
+</span><span class="boring">                worker.tell(msg);
+</span><span class="boring">                start += stride;
+</span><span class="boring">                index += 1;
+</span><span class="boring">            }
+</span><span class="boring">            if start &lt; len {
+</span><span class="boring">                // manager just does the rest itself
+</span><span class="boring">                let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+</span><span class="boring">                self.result_accumulator.push(res);
+</span><span class="boring">            } else {
+</span><span class="boring">                // just put a neutral element in there, so our count is right in the end
+</span><span class="boring">                self.result_accumulator.push(work.neutral);
+</span><span class="boring">            }
+</span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    worker_port: ProvidedPort&lt;WorkerPort&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            worker_port: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">ignore_requests!(WorkerPort, Worker);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Worker {
+</span><span class="boring">    type Message = WorkPart;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        let my_slice = &amp;msg.data[msg.range];
+</span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+</span><span class="boring">        self.worker_port.trigger(WorkResult(res));
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">pub fn main() {
+</span><span class="boring">    let args: Vec&lt;String&gt; = env::args().collect();
+</span><span class="boring">    assert_eq!(
+</span><span class="boring">        3,
+</span><span class="boring">        args.len(),
+</span><span class="boring">        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+</span><span class="boring">    );
+</span><span class="boring">    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+</span><span class="boring">    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+</span><span class="boring">    run_task(num_workers, data_size);
+</span><span class="boring">}
+</span>fn run_task(num_workers: usize, data_size: usize) {
+    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let manager = system.create(move || Manager::new(num_workers));
+    system.start(&amp;manager);
+    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+
+    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+    let work = Work::with(data, overflowing_sum, 0u64);
+    println!(&quot;Sending request...&quot;);
+    let res = manager_ref.ask(Ask::of(work)).wait();
+    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+    assert_eq!(triangular_number(data_size as u64), res.0);
+    system.shutdown().expect(&quot;shutdown&quot;);
+}
+
+fn triangular_number(n: u64) -&gt; u64 {
+    (n * (n + 1u64)) / 2u64
+}
+
+fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+    lhs.overflowing_add(*rhs).0
+}
+<span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>Now all we are missing are values for the two parameters; <code>num_workers</code> and <code>data_size</code>. We’ll read those from command-line so we can play around with them.</p>
+<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use kompact::prelude::*;
+</span><span class="boring">use std::{env, fmt, ops::Range, sync::Arc};
+</span><span class="boring">
+</span><span class="boring">struct Work {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl Work {
+</span><span class="boring">    fn with(data: Vec&lt;u64&gt;, merger: fn(u64, &amp;u64) -&gt; u64, neutral: u64) -&gt; Self {
+</span><span class="boring">        let moved_data: Arc&lt;[u64]&gt; = data.into_boxed_slice().into();
+</span><span class="boring">        Work {
+</span><span class="boring">            data: moved_data,
+</span><span class="boring">            merger,
+</span><span class="boring">            neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for Work {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;Work{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">struct WorkPart {
+</span><span class="boring">    data: Arc&lt;[u64]&gt;,
+</span><span class="boring">    range: Range&lt;usize&gt;,
+</span><span class="boring">    merger: fn(u64, &amp;u64) -&gt; u64,
+</span><span class="boring">    neutral: u64,
+</span><span class="boring">}
+</span><span class="boring">impl WorkPart {
+</span><span class="boring">    fn from(work: &amp;Work, range: Range&lt;usize&gt;) -&gt; Self {
+</span><span class="boring">        WorkPart {
+</span><span class="boring">            data: work.data.clone(),
+</span><span class="boring">            range,
+</span><span class="boring">            merger: work.merger,
+</span><span class="boring">            neutral: work.neutral,
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl fmt::Debug for WorkPart {
+</span><span class="boring">    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+</span><span class="boring">        write!(
+</span><span class="boring">            f,
+</span><span class="boring">            &quot;WorkPart{{
+</span><span class="boring">            data=&lt;data of length={}&gt;,
+</span><span class="boring">            range={:?},
+</span><span class="boring">            merger=&lt;function&gt;,
+</span><span class="boring">            neutral={}
+</span><span class="boring">        }}&quot;,
+</span><span class="boring">            self.data.len(),
+</span><span class="boring">            self.range,
+</span><span class="boring">            self.neutral
+</span><span class="boring">        )
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(Clone, Debug)]
+</span><span class="boring">struct WorkResult(u64);
+</span><span class="boring">struct WorkerPort;
+</span><span class="boring">impl Port for WorkerPort {
+</span><span class="boring">    type Indication = WorkResult;
+</span><span class="boring">    type Request = Never;
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Manager {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    worker_port: RequiredPort&lt;WorkerPort&gt;,
+</span><span class="boring">    num_workers: usize,
+</span><span class="boring">    workers: Vec&lt;Arc&lt;Component&lt;Worker&gt;&gt;&gt;,
+</span><span class="boring">    worker_refs: Vec&lt;ActorRefStrong&lt;WorkPart&gt;&gt;,
+</span><span class="boring">    outstanding_request: Option&lt;Ask&lt;Work, WorkResult&gt;&gt;,
+</span><span class="boring">    result_accumulator: Vec&lt;u64&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Manager {
+</span><span class="boring">    fn new(num_workers: usize) -&gt; Self {
+</span><span class="boring">        Manager {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            worker_port: RequiredPort::uninitialised(),
+</span><span class="boring">            num_workers,
+</span><span class="boring">            workers: Vec::with_capacity(num_workers),
+</span><span class="boring">            worker_refs: Vec::with_capacity(num_workers),
+</span><span class="boring">            outstanding_request: None,
+</span><span class="boring">            result_accumulator: Vec::with_capacity(num_workers + 1),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">impl ComponentLifecycle for Manager {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // set up our workers
+</span><span class="boring">        for _i in 0..self.num_workers {
+</span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
+</span><span class="boring">            worker.connect_to_required(self.worker_port.share());
+</span><span class="boring">            let worker_ref = worker.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">            self.ctx.system().start(&amp;worker);
+</span><span class="boring">            self.workers.push(worker);
+</span><span class="boring">            self.worker_refs.push(worker_ref);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        // clean up after ourselves
+</span><span class="boring">        self.worker_refs.clear();
+</span><span class="boring">        let system = self.ctx.system();
+</span><span class="boring">        self.workers.drain(..).for_each(|worker| {
+</span><span class="boring">            system.stop(&amp;worker);
+</span><span class="boring">        });
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">        self.on_stop()
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Require&lt;WorkerPort&gt; for Manager {
+</span><span class="boring">    fn handle(&amp;mut self, event: WorkResult) -&gt; Handled {
+</span><span class="boring">        if self.outstanding_request.is_some() {
+</span><span class="boring">            self.result_accumulator.push(event.0);
+</span><span class="boring">            if self.result_accumulator.len() == (self.num_workers + 1) {
+</span><span class="boring">                let ask = self.outstanding_request.take().expect(&quot;ask&quot;);
+</span><span class="boring">                let work: &amp;Work = ask.request();
+</span><span class="boring">                let res = self
+</span><span class="boring">                    .result_accumulator
+</span><span class="boring">                    .iter()
+</span><span class="boring">                    .fold(work.neutral, work.merger);
+</span><span class="boring">                self.result_accumulator.clear();
+</span><span class="boring">                let reply = WorkResult(res);
+</span><span class="boring">                ask.reply(reply).expect(&quot;reply&quot;);
+</span><span class="boring">            }
+</span><span class="boring">        } else {
+</span><span class="boring">            error!(
+</span><span class="boring">                self.log(),
+</span><span class="boring">                &quot;Got a response without an outstanding promise: {:?}&quot;, event
+</span><span class="boring">            );
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">impl Actor for Manager {
+</span><span class="boring">    type Message = Ask&lt;Work, WorkResult&gt;;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        assert!(
+</span><span class="boring">            self.outstanding_request.is_none(),
+</span><span class="boring">            &quot;One request at a time, please!&quot;
+</span><span class="boring">        );
+</span><span class="boring">        let work: &amp;Work = msg.request();
+</span><span class="boring">        if self.num_workers == 0 {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
+</span><span class="boring">        } else {
+</span><span class="boring">            let len = work.data.len();
+</span><span class="boring">            let stride = len / self.num_workers;
+</span><span class="boring">            let mut start = 0usize;
+</span><span class="boring">            let mut index = 0;
+</span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
+</span><span class="boring">                let end = len.min(start + stride);
+</span><span class="boring">                let range = start..end;
+</span><span class="boring">                info!(self.log(), &quot;Assigning {:?} to worker #{}&quot;, range, index);
+</span><span class="boring">                let msg = WorkPart::from(work, range);
+</span><span class="boring">                let worker = &amp;self.worker_refs[index];
+</span><span class="boring">                worker.tell(msg);
+</span><span class="boring">                start += stride;
+</span><span class="boring">                index += 1;
+</span><span class="boring">            }
+</span><span class="boring">            if start &lt; len {
+</span><span class="boring">                // manager just does the rest itself
+</span><span class="boring">                let res = work.data[start..len].iter().fold(work.neutral, work.merger);
+</span><span class="boring">                self.result_accumulator.push(res);
+</span><span class="boring">            } else {
+</span><span class="boring">                // just put a neutral element in there, so our count is right in the end
+</span><span class="boring">                self.result_accumulator.push(work.neutral);
+</span><span class="boring">            }
+</span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        }
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[derive(ComponentDefinition)]
+</span><span class="boring">struct Worker {
+</span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
+</span><span class="boring">    worker_port: ProvidedPort&lt;WorkerPort&gt;,
+</span><span class="boring">}
+</span><span class="boring">impl Worker {
+</span><span class="boring">    fn new() -&gt; Self {
+</span><span class="boring">        Worker {
+</span><span class="boring">            ctx: ComponentContext::uninitialised(),
+</span><span class="boring">            worker_port: ProvidedPort::uninitialised(),
+</span><span class="boring">        }
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">ignore_lifecycle!(Worker);
+</span><span class="boring">ignore_requests!(WorkerPort, Worker);
+</span><span class="boring">
+</span><span class="boring">impl Actor for Worker {
+</span><span class="boring">    type Message = WorkPart;
+</span><span class="boring">
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">        let my_slice = &amp;msg.data[msg.range];
+</span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
+</span><span class="boring">        self.worker_port.trigger(WorkResult(res));
+</span><span class="boring">        Handled::Ok
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
+</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span><span class="boring">
+</span>pub fn main() {
+    let args: Vec&lt;String&gt; = env::args().collect();
+    assert_eq!(
+        3,
+        args.len(),
+        &quot;Invalid arguments! Must give number of workers and size of the data array.&quot;
+    );
+    let num_workers: usize = args[1].parse().expect(&quot;number&quot;);
+    let data_size: usize = args[2].parse().expect(&quot;number&quot;);
+    run_task(num_workers, data_size);
+}
+<span class="boring">fn run_task(num_workers: usize, data_size: usize) {
+</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
+</span><span class="boring">    system.start(&amp;manager);
+</span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
+</span><span class="boring">
+</span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
+</span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
+</span><span class="boring">    println!(&quot;Sending request...&quot;);
+</span><span class="boring">    let res = manager_ref.ask(Ask::of(work)).wait();
+</span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
+</span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
+</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
+</span><span class="boring">    (n * (n + 1u64)) / 2u64
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
+</span><span class="boring">    lhs.overflowing_add(*rhs).0
+</span><span class="boring">}
+</span><span class="boring">
+</span><span class="boring">#[cfg(test)]
+</span><span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">
+</span><span class="boring">    #[test]
+</span><span class="boring">    fn test_workers() {
+</span><span class="boring">        run_task(3, 1000);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre>
+<p>Now we can run our example, by giving it some parameters, say <code>4 100000</code> to run 4 workers and calculate the 100000th triangular number. If you play with larger numbers you’ll see that a) it uses more and more memory and b) it will spend most of its time creating the original array, as our aggregration function is very simple and parallelisable, while data creation is done sequentially. Of course, in a real worker pool we’d probably read data from disk somewhere or from an already memory resident set, perhaps. But this is good enough for our little example.</p>
+<blockquote>
+<p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
+<pre><code class="language-bash">cargo run --release --bin workers 4 100000
+</code></pre>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../../local/communication/ask.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../../local/communication/senders.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../../local/communication/ask.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../../local/communication/senders.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
