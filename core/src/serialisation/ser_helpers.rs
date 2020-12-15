@@ -115,7 +115,7 @@ where
     if let Some(hint) = dst.size_hint() {
         reserve_size += hint;
     }
-    buf.try_reserve(reserve_size + FRAME_HEAD_LEN as usize);
+    buf.try_reserve(reserve_size + FRAME_HEAD_LEN as usize)?;
 
     // Make space for the header:
     buf.pad(FRAME_HEAD_LEN as usize);
@@ -124,20 +124,17 @@ where
     dst.serialise(buf)?; // dst
     buf.put_ser_id(msg.ser_id()); // ser_id
     Serialisable::serialise(msg, buf)?; // data
-    match buf.get_chunk_lease() {
-        Some(mut chunk_lease) => {
-            let len = chunk_lease.capacity() - FRAME_HEAD_LEN as usize; // The Data portion of the Full frame.
-            chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
-            assert_eq!(
-                chunk_lease.capacity(),
-                len + FRAME_HEAD_LEN as usize,
-                "Serialized frame length faulty {:#?}",
-                chunk_lease
-            );
-            Ok(chunk_lease)
-        }
-        None => Err(SerError::BufferError("Could not get chunk".to_string())),
-    }
+    buf.get_chunk_lease().map(|mut chunk_lease| {
+        let len = chunk_lease.capacity() - FRAME_HEAD_LEN as usize; // The Data portion of the Full frame.
+        chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
+        assert_eq!(
+            chunk_lease.capacity(),
+            len + FRAME_HEAD_LEN as usize,
+            "Serialized frame length faulty {:#?}",
+            chunk_lease
+        );
+        chunk_lease
+    })
 }
 
 /// Serialises the msg into `buf` and returns a [ChunkRef](net::buffers::ChunkRef) of the serialised
@@ -147,15 +144,12 @@ where
     B: Serialisable + ?Sized,
 {
     if let Some(hint) = msg.size_hint() {
-        buf.try_reserve(hint);
+        buf.try_reserve(hint)?;
     }
     buf.put_ser_id(msg.ser_id()); // ser_id
     Serialisable::serialise(msg, buf)?; // data
-    if let Some(chunk_lease) = buf.get_chunk_lease() {
-        Ok(chunk_lease.into_chunk_ref())
-    } else {
-        Err(SerError::BufferError("Could not get chunk".to_string()))
-    }
+    buf.get_chunk_lease()
+        .map(|chunk_lease| chunk_lease.into_chunk_ref())
 }
 
 /// Serialises message- and frame-headers and appends the `content`
@@ -170,13 +164,11 @@ pub fn serialise_msg_with_preserialised(
     buf.pad(FRAME_HEAD_LEN as usize);
     src.serialise(buf)?; // src
     dst.serialise(buf)?; // dst
-    if let Some(mut header) = buf.get_chunk_lease() {
+    buf.get_chunk_lease().map(|mut header| {
         let len = header.capacity() + content.capacity() - FRAME_HEAD_LEN as usize;
         header.insert_head(FrameHead::new(FrameType::Data, len));
-        Ok(header.into_chunk_ref_with_tail(content))
-    } else {
-        Err(SerError::BufferError("Could not get chunk".to_string()))
-    }
+        header.into_chunk_ref_with_tail(content)
+    })
 }
 
 /// Serialise a forwarded message
@@ -204,19 +196,16 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
             buf.put(chunk_ref);
         }
     }
-    match buf.get_chunk_lease() {
-        Some(mut chunk_lease) => {
-            let len = chunk_lease.capacity() - FRAME_HEAD_LEN as usize; // The Data portion of the Full frame.
-            chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
-            assert_eq!(
-                chunk_lease.capacity(),
-                len + FRAME_HEAD_LEN as usize,
-                "Serialized frame sizing failed"
-            );
-            Ok(chunk_lease)
-        }
-        None => Err(SerError::BufferError("Could not get chunk".to_string())),
-    }
+    buf.get_chunk_lease().map(|mut chunk_lease| {
+        let len = chunk_lease.capacity() - FRAME_HEAD_LEN as usize; // The Data portion of the Full frame.
+        chunk_lease.insert_head(FrameHead::new(FrameType::Data, len));
+        assert_eq!(
+            chunk_lease.capacity(),
+            len + FRAME_HEAD_LEN as usize,
+            "Serialized frame sizing failed"
+        );
+        chunk_lease
+    })
 }
 
 /// Extracts a [NetMessage](NetMessage) from the provided buffer

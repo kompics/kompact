@@ -1,6 +1,13 @@
-use crate::net::buffers::{BufferChunk, BufferConfig, ChunkAllocator, DefaultAllocator};
+use crate::net::buffers::{
+    BufferChunk,
+    BufferConfig,
+    BufferError,
+    ChunkAllocator,
+    DefaultAllocator,
+};
 use std::{
     collections::{vec_deque::Drain, VecDeque},
+    fmt::Formatter,
     sync::Arc,
 };
 
@@ -9,6 +16,7 @@ pub(crate) struct BufferPool {
     // Counts the number of BufferChunks allocated by this pool
     pool_size: usize,
     chunk_allocator: Arc<dyn ChunkAllocator>,
+    chunk_size: usize,
     max_pool_size: usize,
 }
 
@@ -37,6 +45,7 @@ impl BufferPool {
             pool_size: config.initial_chunk_count,
             chunk_allocator,
             max_pool_size: config.max_chunk_count,
+            chunk_size: config.chunk_size,
         }
     }
 
@@ -55,6 +64,41 @@ impl BufferPool {
 
     pub fn drain_returned(&mut self) -> Drain<BufferChunk> {
         self.pool.drain(0..)
+    }
+
+    /// Ensures that the pool will be able to fit `size` amount of bytes
+    pub(crate) fn try_reserve(&mut self, size: usize) -> Result<(), BufferError> {
+        let mut required_buffers = (size + self.chunk_size - 1) / self.chunk_size;
+        if required_buffers > self.max_pool_size {
+            return Err(BufferError::NoAvailableBuffers(format!(
+                "Message too big for the current BufferConfig {} bytes. \
+                    chunk_size: {}, max_pool_size: {}",
+                size, self.chunk_size, self.max_pool_size
+            )));
+        }
+        if required_buffers <= self.max_pool_size - self.pool_size {
+            return Ok(());
+        }
+        // Reclaim and/or allocate all the buffers we will need
+        let mut reserved = Vec::new();
+        while required_buffers > 0 {
+            // Try to reclaim the number of buffers we require
+            if let Some(reclaimed) = self.try_reclaim() {
+                reserved.push(reclaimed);
+                required_buffers -= 1;
+            } else {
+                return Err(BufferError::NoAvailableBuffers(format!(
+                    "try_reserve failed while reserving {} bytes. \
+                    chunk_size: {}, max_pool_size: {}, current pool_size {} ",
+                    size, self.chunk_size, self.max_pool_size, self.pool_size
+                )));
+            }
+        }
+        for buffer in reserved {
+            // Insert the reclaimed buffers in the front.
+            self.pool.push_front(buffer);
+        }
+        Ok(())
     }
 
     /// Iterates of returned buffers from oldest to newest trying to reclaim
@@ -100,9 +144,24 @@ impl BufferPool {
     }
 }
 
+impl std::fmt::Debug for BufferPool {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BufferPool")
+            .field("Current pool len", &self.pool.len())
+            .field(
+                "Current pool size (alive allocated chunks)",
+                &self.pool_size,
+            )
+            .field("Max Pool Size", &self.max_pool_size)
+            .field("Chunk Size", &self.chunk_size)
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::Buf;
 
     #[test]
     fn buffer_pool_limit_and_size() {
@@ -161,5 +220,57 @@ mod tests {
         let _buf8 = pool.get_buffer().unwrap();
         assert_eq!(pool.pool_size, 4);
         assert_eq!(pool.count_locked_chunks(), 0);
+    }
+
+    fn small_pool() -> BufferPool {
+        let mut cfg = BufferConfig::default();
+        cfg.initial_chunk_count(1);
+        cfg.max_chunk_count(4);
+        cfg.chunk_size(128);
+
+        BufferPool::with_config(&cfg, &None)
+    }
+
+    // Will be able to allocate
+    #[test]
+    fn buffer_pool_try_reserve_early_success() {
+        let mut pool = small_pool();
+        pool.try_reserve(256).expect("failed to reserve");
+    }
+
+    // Message too big for buffer
+    #[test]
+    fn buffer_pool_try_reserve_early_fail() {
+        let mut pool = small_pool();
+        pool.try_reserve(513).expect_err("should fail to reserve");
+    }
+
+    // Won't need to reclaim any
+    #[test]
+    fn buffer_pool_try_reserve_no_reclaim_success() {
+        let mut pool = small_pool();
+        pool.try_reserve(512).expect("should succeed in reserving");
+    }
+
+    // Will reclaim one buffer
+    #[test]
+    fn buffer_pool_try_reserve_reclaim_and_succeed() {
+        let mut pool = small_pool();
+        let mut buffer = pool.get_buffer().unwrap();
+        buffer.lock();
+        pool.return_buffer(buffer);
+        pool.try_reserve(512).expect("Should be able to reclaim");
+    }
+
+    // Will reclaim one buffer
+    #[test]
+    fn buffer_pool_try_reserve_fail_to_reclaim() {
+        let mut pool = small_pool();
+        let mut buffer = pool.get_buffer().unwrap();
+        let lease = buffer.get_lease(0, 10);
+        buffer.lock();
+        pool.return_buffer(buffer);
+        pool.try_reserve(512).expect_err("should fail to reclaim");
+        assert_eq!(lease.remaining(), 10);
     }
 }

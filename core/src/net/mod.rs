@@ -74,13 +74,13 @@ pub mod events {
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
-        /// Send the SerialisedFrame to receiver associated with the SocketAddr
+        /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
         SendTCP(SocketAddr, SerialisedFrame),
-        /// Send the SerialisedFrame to receiver associated with the SocketAddr
+        /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
         SendUDP(SocketAddr, SerialisedFrame),
         /// Tells the network thread to Stop
         Stop,
-        /// Tells the network adress to open up a channel to the SocketAddr
+        /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
         Connect(SocketAddr),
         /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
         ClosedAck(SocketAddr),
@@ -1038,19 +1038,20 @@ pub mod net_test_helpers {
                         self.data_size,
                         "Incorrect Pong data-length"
                     );
-                    assert_eq!(pong.i, self.count, "Incorrect index of pong!");
+                    assert_eq!(pong.i, self.count % PING_COUNT, "Incorrect index of pong!");
                     self.count += 1;
-                    if self.count < PING_COUNT {
-                        let ping = BigPingMsg::new(pong.i + 1, self.data_size);
+                    if self.count % PING_COUNT > 0 {
                         if self.eager {
                             if let Some(msgs) = &mut self.pre_serialised {
                                 self.target
                                     .tell_preserialised(msgs.pop_front().expect("popping"), self)
                                     .expect("telling");
                             } else {
+                                let ping = BigPingMsg::new(pong.i + 1, self.data_size);
                                 self.target.tell_serialised(ping, self).expect("serialise");
                             }
                         } else {
+                            let ping = BigPingMsg::new(pong.i + 1, self.data_size);
                             self.target.tell(ping, self);
                         }
                     }

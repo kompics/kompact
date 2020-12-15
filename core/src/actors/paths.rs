@@ -393,7 +393,7 @@ impl ActorPath {
             Ok(())
         } else {
             dispatch.ctx().with_buffer(|buffer| {
-                let mut buf = buffer.get_buffer_encoder();
+                let mut buf = buffer.get_buffer_encoder()?;
                 let msg =
                     crate::serialisation::ser_helpers::serialise_msg(&from, &self, &m, &mut buf)?;
                 let env = DispatchEnvelope::Msg {
@@ -436,7 +436,7 @@ impl ActorPath {
         from: ActorPath,
     ) -> Result<(), SerError> {
         dispatch.ctx().with_buffer(|buffer| {
-            let mut buf = buffer.get_buffer_encoder();
+            let mut buf = buffer.get_buffer_encoder()?;
             let msg = crate::serialisation::ser_helpers::serialise_msg_with_preserialised(
                 &from, &self, content, &mut buf,
             )?;

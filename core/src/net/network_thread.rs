@@ -3,7 +3,7 @@ use crate::{
     dispatch::NetworkConfig,
     messaging::{DispatchEnvelope, EventEnvelope},
     net::{
-        buffers::BufferPool,
+        buffers::{BufferChunk, BufferPool},
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
         ConnectionState,
@@ -11,14 +11,20 @@ use crate::{
 };
 use crossbeam_channel::Receiver as Recv;
 use mio::{
-    event::Event,
     net::{TcpListener, TcpStream, UdpSocket},
     Events,
     Poll,
     Token,
 };
 use rustc_hash::FxHashMap;
-use std::{io, net::SocketAddr, sync::Arc, time::Duration, usize};
+use std::{
+    collections::VecDeque,
+    io,
+    net::{Shutdown, SocketAddr},
+    sync::Arc,
+    time::Duration,
+    usize,
+};
 use uuid::Uuid;
 
 /*
@@ -65,6 +71,8 @@ pub struct NetworkThread {
     stopped: bool,
     shutdown_promise: Option<KPromise<()>>,
     network_config: NetworkConfig,
+    retry_queue: VecDeque<(Token, bool, bool, usize)>,
+    out_of_buffers: bool,
 }
 
 /// Return values for IO Operations on the [NetworkChannel](net::network_channel::NetworkChannel) abstraction
@@ -157,6 +165,8 @@ impl NetworkThread {
                         shutdown_promise: Some(shutdown_promise),
                         dispatcher_ref,
                         network_config,
+                        retry_queue: VecDeque::new(),
+                        out_of_buffers: false,
                     },
                     waker,
                 )
@@ -174,20 +184,36 @@ impl NetworkThread {
     pub fn run(&mut self) -> () {
         let mut events = Events::with_capacity(MAX_POLL_EVENTS);
         debug!(self.log, "Entering main EventLoop");
+        let mut retry_queue = VecDeque::<(Token, bool, bool, usize)>::new();
+        let mut timeout;
         loop {
+            // Retries happen for connection interrupts and buffer-swapping
+            // Performed in the main loop to avoid recursion
+            retry_queue.append(&mut self.retry_queue);
+            timeout = if self.out_of_buffers {
+                // Avoid looping retries when there are no Buffers
+                Some(Duration::from_millis(
+                    self.network_config.get_connection_retry_interval(),
+                ))
+            } else if retry_queue.is_empty() {
+                None
+            }
+            // No need to timeout if there are no retries
+            else {
+                Some(Duration::from_secs(0))
+            }; // Timeout immediately if retries are waiting
+
             self.poll
-                .poll(&mut events, None)
+                .poll(&mut events, timeout)
                 .expect("Error when calling Poll");
 
-            for event in events.iter() {
-                if let Err(e) = self.handle_event(event) {
-                    error!(
-                        self.log,
-                        "Error while handling event with token {:?}: {:?}",
-                        event.token(),
-                        e
-                    );
-                };
+            for (token, readable, writeable, retries) in events
+                .iter()
+                .map(|e| (e.token(), e.is_readable(), e.is_writable(), 0_usize))
+                .chain(retry_queue.drain(0..retry_queue.len()))
+            {
+                self.handle_event(token, readable, writeable, retries);
+
                 if self.stopped {
                     let promise = self.shutdown_promise.take().expect("shutdown promise");
                     if let Err(e) = promise.fulfil(()) {
@@ -200,8 +226,8 @@ impl NetworkThread {
         }
     }
 
-    fn handle_event(&mut self, event: &Event) -> io::Result<()> {
-        match event.token() {
+    fn handle_event(&mut self, token: Token, readable: bool, writeable: bool, retries: usize) {
+        match token {
             TCP_SERVER => {
                 // Received an event for the TCP server socket.Accept the connection.
                 if let Err(e) = self.accept_stream() {
@@ -210,7 +236,7 @@ impl NetworkThread {
             }
             UDP_SOCKET => {
                 if let Some(ref mut udp_state) = self.udp_state {
-                    if event.is_writable() {
+                    if writeable {
                         match udp_state.try_write() {
                             Ok(n) => {
                                 self.sent_bytes += n as u64;
@@ -220,7 +246,7 @@ impl NetworkThread {
                             }
                         }
                     }
-                    if event.is_readable() {
+                    if readable {
                         match udp_state.try_read() {
                             Ok((n, ioret)) => {
                                 if n > 0 {
@@ -231,11 +257,23 @@ impl NetworkThread {
                                         udp_state.swap_buffer(&mut new_buffer);
                                         self.buffer_pool.return_buffer(new_buffer);
                                         debug!(self.log, "Swapped UDP buffer");
-                                    // We handle the event again, must perform read again somehow!!!
+                                        self.out_of_buffers = false;
+                                        // We do not count successful swaps in the retries, stay at the same count
+                                        self.retry_queue
+                                            .push_back((token, readable, writeable, retries));
                                     } else {
-                                        error!(self.log, "Could not get UDP buffer",);
+                                        error!(
+                                            self.log,
+                                            "Could not get UDP buffer, retries: {}", retries
+                                        );
+                                        self.out_of_buffers = true;
+                                        self.retry_queue.push_back((
+                                            token,
+                                            readable,
+                                            writeable,
+                                            retries + 1,
+                                        ));
                                     }
-                                    return self.handle_event(event);
                                 }
                             }
                             Err(e) => {
@@ -270,12 +308,11 @@ impl NetworkThread {
                     }
                 } else {
                     debug!(self.log, "Poll triggered for removed UDP socket");
-                    return Ok(());
                 }
             }
             DISPATCHER => {
                 // Message available from Dispatcher, clear the poll readiness before receiving
-                self.receive_dispatch()?;
+                self.receive_dispatch();
             }
             token => {
                 // lookup its corresponding addr
@@ -287,18 +324,18 @@ impl NetworkThread {
                             self.log,
                             "Poll triggered for removed channel, Token({})", token.0
                         );
-                        return Ok(());
+                        return;
                     }
                 };
                 let mut swap_buffer = false;
                 let mut close_channel = false;
-                if event.is_writable() {
+                if writeable {
                     if let IOReturn::Close = self.try_write(&addr) {
                         // Remove and deregister
                         close_channel = true;
                     }
                 }
-                if event.is_readable() {
+                if readable {
                     match self.try_read(&addr) {
                         IOReturn::Close => {
                             // Remove and deregister
@@ -312,7 +349,7 @@ impl NetworkThread {
 
                     match self.decode(&addr) {
                         IOReturn::Start(remote_addr, id) => {
-                            self.handle_start(event.token(), remote_addr, id);
+                            self.handle_start(token, remote_addr, id);
                         }
                         IOReturn::Close => {
                             // Remove and deregister
@@ -320,30 +357,57 @@ impl NetworkThread {
                         }
                         _ => (),
                     }
-                    if close_channel {
-                        self.close_channel(addr);
-                        // Tell the dispatcher that we've closed the connection
-                        return Ok(());
-                    }
                     if swap_buffer {
                         // Buffer full, we swap it and register for poll again
                         if let Some(channel) = self.channel_map.get_mut(&addr) {
                             if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
+                                self.out_of_buffers = false;
                                 channel.swap_buffer(&mut new_buffer);
                                 self.buffer_pool.return_buffer(new_buffer);
-                                debug!(self.log, "Swapped buffer for {:?}", &channel);
-                            // We handle the event again, must perform read again somehow!!!
+                                debug!(
+                                    self.log,
+                                    "Swapped buffer for {:?}, \nbuffer_pool: {:?}",
+                                    &channel,
+                                    &self.buffer_pool
+                                );
+                                // We do not count successful swaps in the retries, stay at the same count
+                                self.retry_queue
+                                    .push_back((token, readable, writeable, retries));
+                            } else if retries
+                                <= self.network_config.get_max_connection_retry_attempts() as usize
+                            {
+                                error!(
+                                    self.log,
+                                    "Could not get buffer for channel {}, retries {}",
+                                    &addr,
+                                    retries
+                                );
+                                self.out_of_buffers = true;
+                                self.retry_queue.push_back((
+                                    token,
+                                    readable,
+                                    writeable,
+                                    retries + 1,
+                                ));
                             } else {
-                                error!(self.log, "Could not get buffer for channel {}", &addr);
+                                error!(
+                                    self.log,
+                                    "Giving up on reading channel {}, retries {},\
+                                waiting for buffers timed out",
+                                    &addr,
+                                    retries
+                                );
+                                close_channel = true;
                             }
                         }
                         // We retry the event such that the read is performed with the new buffer.
-                        return self.handle_event(event);
+                    }
+                    if close_channel {
+                        self.close_channel(addr);
                     }
                 }
             }
         }
-        Ok(())
     }
 
     /// During channel initialization the threeway handshake to establish connections culminates with this function
@@ -450,7 +514,10 @@ impl NetworkThread {
                     )));
             }
         } else {
-            panic!("No address registered for a token which yielded a hello msg");
+            panic!(
+                "No address registered for a token which yielded a hello msg, \
+            should not be possible"
+            );
         }
     }
 
@@ -606,7 +673,7 @@ impl NetworkThread {
         }
     }
 
-    fn request_stream(&mut self, addr: SocketAddr) -> io::Result<()> {
+    fn request_stream(&mut self, addr: SocketAddr) {
         // Make sure we never request request a stream to someone we already have a connection to
         // Async communication with the dispatcher can lead to this
         if let Some(channel) = self.channel_map.remove(&addr) {
@@ -624,7 +691,7 @@ impl NetworkThread {
                             NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
                         )));
                     self.channel_map.insert(addr, channel);
-                    return Ok(());
+                    return;
                 }
                 ChannelState::Closed(_, _) => {
                     // We're waiting for the ClosedAck from the NetworkDispatcher
@@ -634,7 +701,7 @@ impl NetworkThread {
                         "Requested connection to host before receiving ClosedAck {}", &addr
                     );
                     self.channel_map.insert(addr, channel);
-                    return Ok(());
+                    return;
                 }
                 _ => {
                     // It was an old attempt, remove it and continue with the new request
@@ -642,69 +709,79 @@ impl NetworkThread {
                 }
             }
         }
-        debug!(self.log, "Requesting connection to {}", &addr);
-        match TcpStream::connect(addr) {
-            Ok(stream) => {
-                self.store_stream(stream, &addr, ChannelState::Requested(addr, Uuid::new_v4()))?;
-                Ok(())
+        // Fetch a buffer before we make the request
+        if let Some(buffer) = self.buffer_pool.get_buffer() {
+            debug!(self.log, "Requesting connection to {}", &addr);
+            match TcpStream::connect(addr) {
+                Ok(stream) => {
+                    self.store_stream(
+                        stream,
+                        &addr,
+                        ChannelState::Requested(addr, Uuid::new_v4()),
+                        buffer,
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        self.log,
+                        "Failed to connect to remote host {}, error: {:?}", &addr, e
+                    );
+                }
             }
-            Err(e) => {
-                error!(
-                    self.log,
-                    "Failed to connect to remote host {}, error: {:?}", &addr, e
-                );
-                Ok(())
-            }
+        } else {
+            // No buffers available, we reject the connection
+            self.dispatcher_ref
+                .tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                    NetworkEvent::Connection(addr, ConnectionState::Closed),
+                )));
         }
     }
 
     #[allow(irrefutable_let_patterns)]
     fn accept_stream(&mut self) -> io::Result<()> {
         while let (stream, addr) = (self.tcp_listener.as_ref().unwrap()).accept()? {
-            debug!(self.log, "Accepting connection from {}", &addr);
-            self.store_stream(stream, &addr, ChannelState::Initialising)?;
+            if let Some(buffer) = self.buffer_pool.get_buffer() {
+                debug!(self.log, "Accepting connection from {}", &addr);
+                self.store_stream(stream, &addr, ChannelState::Initialising, buffer);
+            } else {
+                // If we can't get a buffer we reject the channel immediately
+                stream.shutdown(Shutdown::Both)?;
+            }
         }
         Ok(())
     }
 
-    // TODO @Adam: Signature is probably correct once the TODO at the end is fixed?
-    #[cfg_attr(nightly, allow(clippy::unnecessary_wraps))]
     fn store_stream(
         &mut self,
         stream: TcpStream,
         addr: &SocketAddr,
         state: ChannelState,
-    ) -> io::Result<()> {
-        if let Some(buffer) = self.buffer_pool.get_buffer() {
-            self.token_map.insert(self.token, *addr);
-            let mut channel = TcpChannel::new(
-                stream,
-                self.token,
-                buffer,
-                state,
-                self.addr,
-                &self.network_config,
-            );
-            debug!(self.log, "Saying Hello to {}", addr);
-            // Whatever error is thrown here will be re-triggered and handled later.
-            channel.initialise(&self.addr);
-            if let Err(e) = self.poll.registry().register(
-                channel.stream_mut(),
-                self.token,
-                Interest::READABLE | Interest::WRITABLE,
-            ) {
-                error!(self.log, "Failed to register polling for {}\n{:?}", addr, e);
-            }
-            self.channel_map.insert(*addr, channel);
-            self.next_token();
-            Ok(())
-        } else {
-            // TODO: Handle BufferPool running out much better.
-            panic!("Unable to store a stream, no buffers available!");
+        buffer: BufferChunk,
+    ) {
+        self.token_map.insert(self.token, *addr);
+        let mut channel = TcpChannel::new(
+            stream,
+            self.token,
+            buffer,
+            state,
+            self.addr,
+            &self.network_config,
+        );
+        debug!(self.log, "Saying Hello to {}", addr);
+        // Whatever error is thrown here will be re-triggered and handled later.
+        channel.initialise(&self.addr);
+        if let Err(e) = self.poll.registry().register(
+            channel.stream_mut(),
+            self.token,
+            Interest::READABLE | Interest::WRITABLE,
+        ) {
+            error!(self.log, "Failed to register polling for {}\n{:?}", addr, e);
         }
+        self.channel_map.insert(*addr, channel);
+        self.next_token();
     }
 
-    fn receive_dispatch(&mut self) -> io::Result<()> {
+    fn receive_dispatch(&mut self) {
         while let Ok(event) = self.input_queue.try_recv() {
             match event {
                 DispatchEvent::SendTCP(addr, frame) => {
@@ -760,7 +837,7 @@ impl NetworkThread {
                 }
                 DispatchEvent::Connect(addr) => {
                     debug!(self.log, "Got DispatchEvent::Connect({})", addr);
-                    self.request_stream(addr)?;
+                    self.request_stream(addr);
                 }
                 DispatchEvent::ClosedAck(addr) => {
                     debug!(self.log, "Got DispatchEvent::ClosedAck({})", addr);
@@ -768,7 +845,6 @@ impl NetworkThread {
                 }
             }
         }
-        Ok(())
     }
 
     fn close_channel(&mut self, addr: SocketAddr) -> () {
@@ -879,7 +955,7 @@ mod tests {
             .poll
             .poll(&mut events, Some(Duration::from_millis(100)));
         for event in events.iter() {
-            thread.handle_event(event);
+            thread.handle_event(event.token(), event.is_readable(), event.is_writable(), 0);
         }
     }
 

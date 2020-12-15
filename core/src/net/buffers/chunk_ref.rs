@@ -126,13 +126,17 @@ mod tests {
         {
             let mut chunk_ref = {
                 // Scoping the buffer encoder and chunk_lease to count locks properly...
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
+                let mut buffer_encoder = encode_buffer
+                    .get_buffer_encoder()
+                    .expect("Should not run out of buffers in test case");
                 buffer_encoder.put(byte_vec[0].clone());
                 buffer_encoder.get_chunk_lease().unwrap().into_chunk_ref()
             };
 
             // Swap the underlying buffer and make sure the returned buffer can't be unlocked
-            encode_buffer.swap_buffer();
+            encode_buffer
+                .swap_buffer()
+                .expect("Should not run out of buffers in test case");
             assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 1);
 
             // Assert that the bytes are correct
@@ -150,13 +154,17 @@ mod tests {
         {
             let mut chunk_ref = {
                 // Scoping the buffer encoder and chunk_lease to count locks properly...
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
+                let mut buffer_encoder = encode_buffer
+                    .get_buffer_encoder()
+                    .expect("Should not run out of buffers in test case");
                 buffer_encoder.put(byte_vec[0].clone());
                 buffer_encoder.get_chunk_lease().unwrap().into_chunk_ref()
             };
             assert!(chunk_ref.chain.is_some());
             // Swap the underlying buffer and make sure the returned buffer can't be unlocked
-            encode_buffer.swap_buffer();
+            encode_buffer
+                .swap_buffer()
+                .expect("Should not run out of buffers in test case");
             assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 2);
 
             // Assert that the bytes are correct
@@ -174,7 +182,9 @@ mod tests {
         {
             let mut chunk_ref = {
                 // Scoping the buffer encoder and chunk_lease to count locks properly...
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
+                let mut buffer_encoder = encode_buffer
+                    .get_buffer_encoder()
+                    .expect("Should not run out of buffers in test case");
                 // Create the head
                 buffer_encoder.put(byte_vec[0].clone());
                 let head = buffer_encoder.get_chunk_lease().unwrap().into_chunk_ref();
@@ -187,7 +197,9 @@ mod tests {
             };
             assert!(chunk_ref.chain.is_some());
             // Swap the underlying buffer and make sure the returned buffer can't be unlocked
-            encode_buffer.swap_buffer();
+            encode_buffer
+                .swap_buffer()
+                .expect("Should not run out of buffers in test case");
             assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 4);
 
             // Assert that the bytes are correct
@@ -207,7 +219,9 @@ mod tests {
         {
             let mut chunk_ref = {
                 // Scoping the buffer encoder and chunk_lease to count locks properly...
-                let mut buffer_encoder = encode_buffer.get_buffer_encoder();
+                let mut buffer_encoder = encode_buffer
+                    .get_buffer_encoder()
+                    .expect("Should not run out of buffers in test case");
                 // Create the head
                 buffer_encoder.put(byte_vec[1].clone());
                 let tail = buffer_encoder.get_chunk_lease().unwrap().into_chunk_ref();
@@ -220,7 +234,9 @@ mod tests {
             };
             assert!(chunk_ref.chain.is_some());
             // Swap the underlying buffer and make sure the returned buffer can't be unlocked
-            encode_buffer.swap_buffer();
+            encode_buffer
+                .swap_buffer()
+                .expect("Should not run out of buffers in test case");
             assert_eq!(encode_buffer.buffer_pool.count_locked_chunks(), 4);
 
             // Assert that the bytes are correct

@@ -30,7 +30,10 @@ impl EncodeBuffer {
                 min_remaining: config.encode_buf_min_free_space,
             }
         } else {
-            panic!("Couldn't initialize EncodeBuffer, No available chunks in the pool");
+            panic!(
+                "Couldn't initialize EncodeBuffer, bad config: {:?}",
+                &config
+            );
         }
     }
 
@@ -51,21 +54,24 @@ impl EncodeBuffer {
                 min_remaining: config.encode_buf_min_free_space,
             }
         } else {
-            panic!("Couldn't initialize EncodeBuffer, No available chunks in the pool");
+            panic!(
+                "Couldn't initialize EncodeBuffer, bad config: {:?}",
+                &config
+            );
         }
     }
 
     /// Returns a `BufferEncoder` which allows for encoding into the Buffer
-    pub fn get_buffer_encoder(&mut self) -> BufferEncoder {
+    pub fn get_buffer_encoder(&mut self) -> Result<BufferEncoder, SerError> {
         if (self.buffer.len() - self.write_offset) < self.min_remaining {
             // Eagerly swap to avoid unnecessary chaining
-            self.swap_buffer();
+            self.swap_buffer()?;
         }
-        BufferEncoder::new(self)
+        Ok(BufferEncoder::new(self))
     }
 
     /// Swap the current buffer with a fresh one from the private buffer_pool
-    pub fn swap_buffer(&mut self) {
+    pub fn swap_buffer(&mut self) -> Result<(), SerError> {
         if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
             self.buffer.swap_buffer(&mut new_buffer);
             self.read_offset = 0;
@@ -73,8 +79,11 @@ impl EncodeBuffer {
             // new_buffer has been swapped in-place, return it to the pool
             new_buffer.lock();
             self.buffer_pool.return_buffer(new_buffer);
+            Ok(())
         } else {
-            panic!("No free buffers found in the pool")
+            Err(SerError::NoBuffersAvailable(
+                "No Available Buffers in BufferPool".to_string(),
+            ))
         }
     }
 
@@ -85,7 +94,7 @@ impl EncodeBuffer {
 
     /// Extracts the bytes between the read-pointer and the write-pointer and advances the read-pointer
     /// Ensures there's a configurable-minimum left in the current buffer, minimizes overflow during swap
-    pub(crate) fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
+    fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
         let cnt = self.write_offset - self.read_offset;
         if cnt > 0 {
             self.read_offset += cnt;
@@ -117,13 +126,19 @@ impl Drop for EncodeBuffer {
     fn drop(&mut self) {
         // If the buffer was spawned with a dispatcher_ref all locked buffers are sent to the dispatcher for garbage collection
         if let Some(dispatcher_ref) = self.dispatcher_ref.take() {
-            // Make sure that the active_buffer is fresh and whatever was in there is locked and stored in the return queue
-            self.swap_buffer();
             // Drain the returned queue and send locked buffers to the dispatcher
             for mut trash in self.buffer_pool.drain_returned() {
                 if !trash.free() {
                     dispatcher_ref.tell(DispatchEnvelope::LockedChunk(trash));
                 }
+            }
+            // Make sure that the current buffer is cleaned up safely
+            self.buffer.lock();
+            if !self.buffer.free() {
+                // Create an empty dummy buff so we can swap self.buffer for garbage collection.
+                let mut dummy_buff = BufferChunk::new(1);
+                self.buffer.swap_buffer(&mut dummy_buff);
+                dispatcher_ref.tell(DispatchEnvelope::LockedChunk(dummy_buff));
             }
         }
     }
@@ -135,6 +150,7 @@ impl Drop for EncodeBuffer {
 pub struct BufferEncoder<'a> {
     encode_buffer: &'a mut EncodeBuffer,
     chain_head: Option<ChunkLease>,
+    ser_error: Option<SerError>,
 }
 
 impl<'a> BufferEncoder<'a> {
@@ -147,21 +163,32 @@ impl<'a> BufferEncoder<'a> {
         BufferEncoder {
             encode_buffer,
             chain_head: None,
+            ser_error: None,
         }
     }
 
-    /// This method may perform an eager-swap of the underlying buffer to avoid chaining ChunkLeases
-    pub(crate) fn try_reserve(&mut self, size: usize) {
+    /// This method may perform an eager-swap of the underlying buffer to avoid chaining ChunkLeases.
+    ///
+    /// Also ensures that there are available buffers to fit the entire message into.
+    /// Returns `SerError::NoBuffersAvailable` error if there are no available buffers to fit the
+    /// entire message into.
+    pub(crate) fn try_reserve(&mut self, size: usize) -> Result<(), SerError> {
         // Length of BufferChunks in this encode_buffer
         let buf_len = self.encode_buffer.len();
         // Remaining space in the current BufferChunk
         let remaining = buf_len - self.encode_buffer.get_write_offset();
-        // Eagerly swap if
-        if remaining < size &&  // Size can't fit in the active buffer
-            size < buf_len
-        {
-            // But it will fit entirely in the next buffer
-            self.chain_and_swap();
+
+        if remaining > size {
+            Ok(())
+        } else if size < buf_len {
+            // Do an eager swap and propagate the result
+            self.chain_and_swap()
+        } else {
+            // Reserve additional buffers in the pool but dont swap now.
+            self.encode_buffer
+                .buffer_pool
+                .try_reserve(size - remaining)
+                .map_err(|e| SerError::NoBuffersAvailable(e.to_string()))
         }
     }
 
@@ -173,7 +200,12 @@ impl<'a> BufferEncoder<'a> {
 
     /// Returns everything (if any) written into the BufferEncoder as a ChunkLease
     /// Used when serialisation is complete
-    pub fn get_chunk_lease(&mut self) -> Option<ChunkLease> {
+    pub fn get_chunk_lease(&mut self) -> Result<ChunkLease, SerError> {
+        // Check if an error occurred in the BufMut implementation while serialising:
+        if let Some(error) = self.ser_error.take() {
+            return Err(error);
+        };
+
         // Check if we've begun a chain
         if let Some(mut chain_head) = self.chain_head.take() {
             // Check if there's anything in the active buffer to append to the chain
@@ -181,15 +213,17 @@ impl<'a> BufferEncoder<'a> {
                 chain_head.append_to_chain(tail);
             }
             // return the chain_head
-            Some(chain_head)
+            Ok(chain_head)
         } else {
             // No chain just return what's written into the active buffers
-            self.encode_buffer.get_chunk_lease()
+            self.encode_buffer
+                .get_chunk_lease()
+                .ok_or_else(|| SerError::InvalidData("No data written".to_string()))
         }
     }
 
     /// Appends what has been written into the active buffer to the Chain and swaps the Buffer
-    fn chain_and_swap(&mut self) {
+    fn chain_and_swap(&mut self) -> Result<(), SerError> {
         // Get the written data as a chunk_lease, chain it, and swap the buffer
         if let Some(chunk_lease) = self.encode_buffer.get_chunk_lease() {
             if let Some(chain_head) = &mut self.chain_head {
@@ -201,7 +235,7 @@ impl<'a> BufferEncoder<'a> {
             }
         }
         // Swap the buffer
-        self.encode_buffer.swap_buffer();
+        self.encode_buffer.swap_buffer()
     }
 }
 
@@ -218,11 +252,17 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
+        if self.ser_error.is_some() {
+            return;
+        };
+
         let remaining = self.encode_buffer.writeable_len();
         if remaining < cnt {
             // We need to advance partially, swap, and then advance the rest!
             self.encode_buffer.write_offset += remaining;
-            self.chain_and_swap();
+            let _ = self.chain_and_swap().map_err(|err| {
+                self.ser_error = Some(err);
+            });
             self.encode_buffer.write_offset = cnt - remaining;
         } else {
             self.encode_buffer.write_offset += cnt;
@@ -245,6 +285,9 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
         Self: Sized,
     {
         while src.remaining() > 0 {
+            if self.ser_error.is_some() {
+                return;
+            };
             let len = src.bytes().len();
             self.put_slice(src.bytes());
             src.advance(len);
@@ -256,6 +299,9 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
         let mut off = 0;
 
         while off < src.len() {
+            if self.ser_error.is_some() {
+                return;
+            };
             unsafe {
                 let dst = self.bytes_mut();
                 let cnt = cmp::min(dst.len(), src.len() - off);
@@ -267,7 +313,10 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
             }
             // Check if we need to swap
             if self.remaining_mut() < (src.len() - off) {
-                self.chain_and_swap();
+                // The error will be returned later when get_chunk_lease is called.
+                let _ = self.chain_and_swap().map_err(|err| {
+                    self.ser_error = Some(err);
+                });
             }
         }
     }
@@ -356,7 +405,6 @@ mod tests {
         assert_eq!(buffer_config.encode_buf_min_free_space, 2usize);
         let data_len = buffer_config.chunk_size - buffer_config.encode_buf_min_free_space - 8;
         let encode_buffer = encode_chain_overload_reuse(&buffer_config, data_len);
-        // Ensure that the
         assert_eq!(encode_buffer.buffer.len(), 128);
         // Check the buffer pool sizes
         assert_eq!(
@@ -391,7 +439,8 @@ mod tests {
             for _ in 0..(buffer_config.chunk_size / data_len) + 1 {
                 chunk_lease_cnt += 1; // counting chunk
                                       // Get a BufferEncoder interface
-                let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
+                let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer)
+                    .expect("Should not run out of buffers in test case");
                 // Insert the test_string
                 buffer_encoder.put_slice(test_string.clone().as_bytes());
                 // Retrieve the inserted data as a ChunkLease
@@ -421,17 +470,15 @@ mod tests {
         encode_buffer
     }
 
-    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
-    #[ignore]
-    #[should_panic(expected = "No free buffers found in the pool")]
-    fn encode_buffer_panic() {
+    fn encode_buffer_no_buffer_error() {
         // Instantiate an encode buffer with default values
         let mut buffer_config = BufferConfig::default();
         buffer_config.max_chunk_count(2);
         buffer_config.initial_chunk_count(2); // Only 2 chunks
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
-        let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
+        let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer)
+            .expect("Should not run out of buffers in test case");
         use std::string::ToString;
         let mut test_string = "".to_string();
         for i in 0..=buffer_config.chunk_size * 3 {
@@ -439,6 +486,9 @@ mod tests {
             test_string.push((i.to_string()).chars().next().unwrap());
         }
         buffer_encoder.put(test_string.as_bytes());
+        buffer_encoder
+            .get_chunk_lease()
+            .expect_err("should return error");
     }
 
     #[test]
@@ -447,7 +497,8 @@ mod tests {
         let buffer_config = BufferConfig::default();
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         {
-            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
+            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer)
+                .expect("Should not run out of buffers in test case");
             buffer_encoder.put_i32(16);
         }
         // Check the read and write pointers are aligned despite no read call
@@ -463,7 +514,8 @@ mod tests {
         buffer_config.encode_buf_min_free_space(64);
         let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
         {
-            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
+            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer)
+                .expect("Should not run out of buffers in test case");
             for i in 0..65 {
                 buffer_encoder.put_u8(i);
             }
@@ -471,7 +523,8 @@ mod tests {
         assert_eq!(encode_buffer.write_offset, 65);
         {
             // Should have eagerly swapped the buffer!
-            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer);
+            let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer)
+                .expect("Should not run out of buffers in test case");
             assert_eq!(buffer_encoder.encode_buffer.write_offset, 0);
         }
     }
