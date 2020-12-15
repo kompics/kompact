@@ -11,7 +11,7 @@ use crate::{
     },
     serialisation::*,
 };
-use bytes::{buf::BufMut, BytesMut};
+use bytes::{buf::BufMut, Bytes, BytesMut};
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -174,7 +174,7 @@ pub fn serialise_msg_with_preserialised(
 /// Serialise a forwarded message
 ///
 /// Uses the same format as [serialise_msg](serialise_msg).
-pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease, SerError> {
+pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkRef, SerError> {
     // Reserve space for the header:
     buf.pad(FRAME_HEAD_LEN as usize);
 
@@ -190,10 +190,32 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
             buf.put(bytes);
         }
         HeapOrSer::ChunkLease(chunk_lease) => {
-            buf.put(chunk_lease);
+            return buf.get_chunk_lease().map(|mut header_lease| {
+                let frame_len =
+                    header_lease.capacity() - (FRAME_HEAD_LEN as usize) + chunk_lease.capacity();
+                header_lease.insert_head(FrameHead::new(FrameType::Data, frame_len));
+                let chunk_ref = header_lease.into_chunk_ref_with_tail(chunk_lease.into_chunk_ref());
+                assert_eq!(
+                    chunk_ref.capacity(),
+                    frame_len + FRAME_HEAD_LEN as usize,
+                    "Serialized frame sizing failed"
+                );
+                chunk_ref
+            })
         }
         HeapOrSer::ChunkRef(chunk_ref) => {
-            buf.put(chunk_ref);
+            return buf.get_chunk_lease().map(|mut header_lease| {
+                let frame_len =
+                    header_lease.capacity() - (FRAME_HEAD_LEN as usize) + chunk_ref.capacity();
+                header_lease.insert_head(FrameHead::new(FrameType::Data, frame_len));
+                let chunk_ref = header_lease.into_chunk_ref_with_tail(chunk_ref);
+                assert_eq!(
+                    chunk_ref.capacity(),
+                    frame_len + FRAME_HEAD_LEN as usize,
+                    "Serialized frame sizing failed"
+                );
+                chunk_ref
+            })
         }
     }
     buf.get_chunk_lease().map(|mut chunk_lease| {
@@ -204,7 +226,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkLease,
             len + FRAME_HEAD_LEN as usize,
             "Serialized frame sizing failed"
         );
-        chunk_lease
+        chunk_lease.into_chunk_ref()
     })
 }
 
@@ -240,6 +262,19 @@ pub fn deserialise_chunk_ref(mut buffer: ChunkRef) -> Result<NetMessage, SerErro
     let ser_id = buffer.get_ser_id();
 
     let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer);
+
+    Ok(envelope)
+}
+
+/// Extracts a [NetMessage](NetMessage) from the provided buffer
+///
+/// This expects the format from [serialise_msg](serialise_msg).
+pub fn deserialise_bytes(mut buffer: Bytes) -> Result<NetMessage, SerError> {
+    let src = ActorPath::deserialise(&mut buffer)?;
+    let dst = ActorPath::deserialise(&mut buffer)?;
+    let ser_id = buffer.get_ser_id();
+
+    let envelope = NetMessage::with_bytes(ser_id, src, dst, buffer);
 
     Ok(envelope)
 }

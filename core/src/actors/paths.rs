@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope},
+    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, SerialisedFrame},
     net::buffers::ChunkRef,
 };
 use std::{
@@ -352,9 +352,9 @@ impl ActorPath {
         let msg: Box<dyn Serialisable> = m.into();
         let dst = self.clone();
         let env = DispatchEnvelope::Msg {
-            src: from,
-            dst,
-            msg: DispatchData::Lazy(msg),
+            src: from.clone(),
+            dst: dst.clone(),
+            msg: DispatchData::Lazy(msg, from, dst),
         };
         dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env))
     }
@@ -399,7 +399,7 @@ impl ActorPath {
                 let env = DispatchEnvelope::Msg {
                     src: from,
                     dst: self.clone(),
-                    msg: DispatchData::SerialisedLease(msg),
+                    msg: DispatchData::Serialised(SerialisedFrame::ChunkLease(msg)),
                 };
                 dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
                 Ok(())
@@ -443,7 +443,7 @@ impl ActorPath {
             let env = DispatchEnvelope::Msg {
                 src: from,
                 dst: self.clone(),
-                msg: DispatchData::SerialisedRef(msg),
+                msg: DispatchData::Serialised(SerialisedFrame::ChunkRef(msg)),
             };
             dispatch.dispatcher_ref().enqueue(MsgEnvelope::Typed(env));
             Ok(())

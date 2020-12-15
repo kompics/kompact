@@ -208,7 +208,7 @@ impl DecodeBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
+    use bytes::{Bytes, BytesMut};
 
     fn test_frame_with_reference_bytes(len: usize) -> (Vec<u8>, Bytes) {
         let mut head = FrameHead::new(FrameType::Data, (len - 9) as usize);

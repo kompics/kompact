@@ -260,10 +260,6 @@ impl FrameHead {
     pub(crate) fn frame_type(&self) -> FrameType {
         self.frame_type
     }
-
-    pub(crate) fn encoded_len() -> usize {
-        FRAME_HEAD_LEN as usize
-    }
 }
 
 impl StreamRequest {

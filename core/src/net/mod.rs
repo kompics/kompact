@@ -7,11 +7,10 @@ use net::events::NetworkEvent;
 use std::{io, net::SocketAddr, sync::Arc, thread};
 
 use crate::{
-    messaging::SerialisedFrame,
+    messaging::DispatchData,
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
     prelude::NetworkConfig,
 };
-use bytes::{Buf, BufMut, BytesMut};
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
 
@@ -58,7 +57,7 @@ pub mod events {
     use crate::net::frames::*;
     use std::net::SocketAddr;
 
-    use crate::messaging::SerialisedFrame;
+    use crate::messaging::DispatchData;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
@@ -68,16 +67,16 @@ pub mod events {
         /// Data was received
         Data(Frame),
         /// The NetworkThread lost connection to the remote host and rejects the frame
-        RejectedFrame(SocketAddr, SerialisedFrame),
+        RejectedData(SocketAddr, DispatchData),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
-        SendTCP(SocketAddr, SerialisedFrame),
+        SendTCP(SocketAddr, DispatchData),
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
-        SendUDP(SocketAddr, SerialisedFrame),
+        SendUDP(SocketAddr, DispatchData),
         /// Tells the network thread to Stop
         Stop,
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
@@ -228,66 +227,20 @@ impl Bridge {
     pub(crate) fn route(
         &self,
         addr: SocketAddr,
-        serialized: SerialisedFrame,
+        data: DispatchData,
         protocol: Protocol,
     ) -> Result<(), NetworkBridgeErr> {
-        match serialized {
-            SerialisedFrame::Bytes(bytes) => {
-                let size = FrameHead::encoded_len() + bytes.len();
-                let mut buf = BytesMut::with_capacity(size);
-                let mut head = FrameHead::new(FrameType::Data, bytes.len());
-                head.encode_into(&mut buf);
-                // TODO: what is this used for?
-                buf.put_slice(bytes.bytes());
-                match protocol {
-                    Protocol::TCP => {
-                        self.network_input_queue
-                            .send(events::DispatchEvent::SendTCP(
-                                addr,
-                                SerialisedFrame::Bytes(buf.freeze()),
-                            ))?;
-                    }
-                    Protocol::UDP => {
-                        self.network_input_queue
-                            .send(events::DispatchEvent::SendUDP(
-                                addr,
-                                SerialisedFrame::Bytes(buf.freeze()),
-                            ))?;
-                    }
-                }
+        match protocol {
+            Protocol::TCP => {
+                let _ = self
+                    .network_input_queue
+                    .send(DispatchEvent::SendTCP(addr, data))?;
             }
-            SerialisedFrame::ChunkLease(chunk) => match protocol {
-                Protocol::TCP => {
-                    self.network_input_queue
-                        .send(events::DispatchEvent::SendTCP(
-                            addr,
-                            SerialisedFrame::ChunkLease(chunk),
-                        ))?;
-                }
-                Protocol::UDP => {
-                    self.network_input_queue
-                        .send(events::DispatchEvent::SendUDP(
-                            addr,
-                            SerialisedFrame::ChunkLease(chunk),
-                        ))?;
-                }
-            },
-            SerialisedFrame::ChunkRef(chunk) => match protocol {
-                Protocol::TCP => {
-                    self.network_input_queue
-                        .send(events::DispatchEvent::SendTCP(
-                            addr,
-                            SerialisedFrame::ChunkRef(chunk),
-                        ))?;
-                }
-                Protocol::UDP => {
-                    self.network_input_queue
-                        .send(events::DispatchEvent::SendUDP(
-                            addr,
-                            SerialisedFrame::ChunkRef(chunk),
-                        ))?;
-                }
-            },
+            Protocol::UDP => {
+                let _ = self
+                    .network_input_queue
+                    .send(DispatchEvent::SendUDP(addr, data))?;
+            }
         }
         self.waker.wake()?;
         Ok(())
