@@ -193,8 +193,12 @@ impl TryFrom<u8> for SystemPathHeader {
         let path_type = storage
             .get_as::<PathType>()
             .map_err(|_| SerError::InvalidData("System Path could not be read.".to_owned()))?;
-        let protocol = storage.get_as::<Transport>().unwrap();
-        let address_type = storage.get_as::<AddressType>().unwrap();
+        let protocol = storage.get_as::<Transport>().map_err(|_| {
+            SerError::InvalidData("System Path Transport could not be read.".to_owned())
+        })?;
+        let address_type = storage.get_as::<AddressType>().map_err(|_| {
+            SerError::InvalidData("System Path AddressType could not be read.".to_owned())
+        })?;
 
         let header = SystemPathHeader {
             storage,
