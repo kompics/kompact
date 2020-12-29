@@ -27,7 +27,7 @@ mod registration;
 pub use registration::*;
 mod serialised;
 pub use serialised::*;
-mod dispatch;
+pub(crate) mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
 pub use deser_macro::*;

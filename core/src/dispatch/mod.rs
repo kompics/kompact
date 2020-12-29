@@ -21,7 +21,6 @@ use crate::{
         RegistrationError,
         RegistrationEvent,
         RegistrationPromise,
-        SerialisedFrame,
     },
     net::{buffers::*, events::NetworkEvent, ConnectionState, NetworkBridgeErr},
     timer::timer_manager::Timer,
@@ -234,7 +233,6 @@ pub struct NetworkDispatcher {
     /// Reaper which cleans up deregistered actor references in the actor lookup table
     reaper: lookup::gc::ActorRefReaper,
     notify_ready: Option<KPromise<()>>,
-    encode_buffer: EncodeBuffer,
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
     retry_map: FxHashMap<SocketAddr, u8>,
     garbage_buffers: VecDeque<BufferChunk>,
@@ -269,10 +267,6 @@ impl NetworkDispatcher {
     pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         let reaper = lookup::gc::ActorRefReaper::default();
-        let encode_buffer = crate::net::buffers::EncodeBuffer::with_config(
-            &cfg.buffer_config,
-            &cfg.custom_allocator,
-        );
 
         NetworkDispatcher {
             ctx: ComponentContext::uninitialised(),
@@ -284,7 +278,6 @@ impl NetworkDispatcher {
             queue_manager: QueueManager::new(),
             reaper,
             notify_ready: Some(notify_ready),
-            encode_buffer,
             garbage_buffers: VecDeque::new(),
             retry_map: Default::default(),
         }
@@ -446,9 +439,9 @@ impl NetworkDispatcher {
                     // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
                     debug!(self.ctx().log(), "Received important data!");
                 }
-                NetworkEvent::RejectedFrame(addr, frame) => {
+                NetworkEvent::RejectedData(addr, data) => {
                     // These are messages which we routed to a network-thread before they lost the connection.
-                    self.queue_manager.enqueue_priority_frame(frame, addr);
+                    self.queue_manager.enqueue_priority_data(data, addr);
                 }
             },
         }
@@ -467,9 +460,9 @@ impl NetworkDispatcher {
                     "registering newly connected conn at {:?}", addr
                 );
                 let _ = self.retry_map.remove(&addr);
-                if self.queue_manager.has_frame(&addr) {
+                if self.queue_manager.has_data(&addr) {
                     // Drain as much as possible
-                    while let Some(frame) = self.queue_manager.pop_frame(&addr) {
+                    while let Some(frame) = self.queue_manager.pop_data(&addr) {
                         if let Some(bridge) = &self.net_bridge {
                             //println!("Sending queued frame to newly established connection");
                             bridge.route(addr, frame, net::Protocol::TCP)?;
@@ -510,12 +503,9 @@ impl NetworkDispatcher {
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
-    fn route_local<R>(&mut self, msg: R) -> ()
-    where
-        R: Routable,
-    {
+    fn route_local(&mut self, dst: ActorPath, msg: DispatchData) -> () {
         let lookup = self.lookup.load();
-        let lookup_result = lookup.get_by_actor_path(msg.destination());
+        let lookup_result = lookup.get_by_actor_path(&dst);
         match msg.into_local() {
             Ok(netmsg) => match lookup_result {
                 LookupResult::Ref(actor) => {
@@ -548,34 +538,13 @@ impl NetworkDispatcher {
         }
     }
 
-    /// Routes the provided message to the destination, or queues the message until the connection
-    /// is available.
-    fn route_remote<R>(&mut self, msg: R) -> Result<(), NetworkBridgeErr>
-    where
-        R: Routable,
-    {
-        let dst = msg.destination();
-        let protocol: Transport = dst.protocol();
-        let addr = SocketAddr::new(*dst.address(), dst.port());
-        let serialised = {
-            let buf = &mut self.encode_buffer.get_buffer_encoder()?;
-            msg.into_serialised(buf)?
-        };
-
-        match protocol {
-            Transport::TCP => self.route_remote_tcp(addr, serialised),
-            Transport::UDP => self.route_remote_udp(addr, serialised),
-            x => unimplemented!("Unsupported protocol: {}", x),
-        }
-    }
-
     fn route_remote_udp(
         &mut self,
         addr: SocketAddr,
-        serialised: SerialisedFrame,
+        data: DispatchData,
     ) -> Result<(), NetworkBridgeErr> {
         if let Some(bridge) = &self.net_bridge {
-            bridge.route(addr, serialised, net::Protocol::UDP)?;
+            bridge.route(addr, data, net::Protocol::UDP)?;
         } else {
             warn!(
                 self.ctx.log(),
@@ -588,7 +557,7 @@ impl NetworkDispatcher {
     fn route_remote_tcp(
         &mut self,
         addr: SocketAddr,
-        serialised: SerialisedFrame,
+        data: DispatchData,
     ) -> Result<(), NetworkBridgeErr> {
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
@@ -598,7 +567,7 @@ impl NetworkDispatcher {
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
                 );
-                self.queue_manager.enqueue_frame(serialised, addr);
+                self.queue_manager.enqueue_data(data, addr);
 
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
@@ -611,31 +580,31 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Connected(_) => {
-                if self.queue_manager.has_frame(&addr) {
-                    self.queue_manager.enqueue_frame(serialised, addr);
+                if self.queue_manager.has_data(&addr) {
+                    self.queue_manager.enqueue_data(data, addr);
 
                     if let Some(bridge) = &self.net_bridge {
-                        while let Some(frame) = self.queue_manager.pop_frame(&addr) {
-                            bridge.route(addr, frame, net::Protocol::TCP)?;
+                        while let Some(queued_data) = self.queue_manager.pop_data(&addr) {
+                            bridge.route(addr, queued_data, net::Protocol::TCP)?;
                         }
                     }
                     None
                 } else {
                     // Send frame
                     if let Some(bridge) = &self.net_bridge {
-                        bridge.route(addr, serialised, net::Protocol::TCP)?;
+                        bridge.route(addr, data, net::Protocol::TCP)?;
                     }
                     None
                 }
             }
             ConnectionState::Initializing => {
                 //debug!(self.ctx.log(), "Connection is initializing; queuing frame");
-                self.queue_manager.enqueue_frame(serialised, addr);
+                self.queue_manager.enqueue_data(data, addr);
                 None
             }
             ConnectionState::Closed => {
                 // Enqueue the Frame. The connection will sort itself out or drop the queue eventually
-                self.queue_manager.enqueue_frame(serialised, addr);
+                self.queue_manager.enqueue_data(data, addr);
                 None
             }
             _ => None,
@@ -665,22 +634,25 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route<R>(&mut self, msg: R) -> Result<(), NetworkBridgeErr>
-    where
-        R: Routable,
-    {
-        if self.system_path_ref() == msg.destination().system() {
-            self.route_local(msg);
+    fn route(&mut self, dst: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
+        if self.system_path_ref() == dst.system() {
+            self.route_local(dst, msg);
             Ok(())
         } else {
-            let proto = msg.destination().system().protocol();
+            let proto = dst.system().protocol();
             match proto {
                 Transport::LOCAL => {
-                    self.route_local(msg);
+                    self.route_local(dst, msg);
                     Ok(())
                 }
-                Transport::TCP => self.route_remote(msg),
-                Transport::UDP => self.route_remote(msg),
+                Transport::TCP => {
+                    let addr = SocketAddr::new(*dst.address(), dst.port());
+                    self.route_remote_tcp(addr, msg)
+                }
+                Transport::UDP => {
+                    let addr = SocketAddr::new(*dst.address(), dst.port());
+                    self.route_remote_udp(addr, msg)
+                }
             }
         }
     }
@@ -796,14 +768,14 @@ impl Actor for NetworkDispatcher {
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
-            DispatchEnvelope::Msg { src, dst, msg } => {
-                if let Err(e) = self.route((src, dst, msg)) {
+            DispatchEnvelope::Msg { src: _, dst, msg } => {
+                if let Err(e) = self.route(dst, msg) {
                     error!(self.ctx.log(), "Failed to route message: {:?}", e);
                 };
             }
             DispatchEnvelope::ForwardedMsg { msg } => {
                 // Look up destination (local or remote), then route or err
-                if let Err(e) = self.route(msg) {
+                if let Err(e) = self.route(msg.receiver.clone(), DispatchData::NetMessage(msg)) {
                     error!(self.ctx.log(), "Failed to route message: {:?}", e);
                 };
             }
@@ -920,48 +892,6 @@ impl futures::sink::Sink<NetMessage> for DynActorRef {
 
     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
-    }
-}
-
-trait Routable {
-    fn source(&self) -> &ActorPath;
-    fn destination(&self) -> &ActorPath;
-    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError>;
-    fn into_local(self) -> Result<NetMessage, SerError>;
-}
-
-impl Routable for NetMessage {
-    fn source(&self) -> &ActorPath {
-        &self.sender
-    }
-
-    fn destination(&self) -> &ActorPath {
-        &self.receiver
-    }
-
-    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
-        crate::ser_helpers::embed_msg(self, buf).map(SerialisedFrame::ChunkLease)
-    }
-
-    fn into_local(self) -> Result<NetMessage, SerError> {
-        Ok(self)
-    }
-}
-impl Routable for (ActorPath, ActorPath, DispatchData) {
-    fn source(&self) -> &ActorPath {
-        &self.0
-    }
-
-    fn destination(&self) -> &ActorPath {
-        &self.1
-    }
-
-    fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
-        self.2.into_serialised(self.0, self.1, buf)
-    }
-
-    fn into_local(self) -> Result<NetMessage, SerError> {
-        self.2.into_local(self.0, self.1)
     }
 }
 

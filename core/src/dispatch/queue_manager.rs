@@ -1,4 +1,4 @@
-use crate::messaging::SerialisedFrame;
+use crate::messaging::dispatch::DispatchData;
 use std::{
     collections::{HashMap, VecDeque},
     net::SocketAddr,
@@ -9,8 +9,8 @@ use std::{
 /// Used when waiting for connections to establish and drained when possible.
 /// `priority_queue` allows the NetworkDispatcher to maintain FIFO Order in the event of shaky connections
 pub struct QueueManager {
-    inner: HashMap<SocketAddr, VecDeque<SerialisedFrame>>,
-    priority_queue: HashMap<SocketAddr, VecDeque<SerialisedFrame>>,
+    inner: HashMap<SocketAddr, VecDeque<DispatchData>>,
+    priority_queue: HashMap<SocketAddr, VecDeque<DispatchData>>,
 }
 
 impl QueueManager {
@@ -28,25 +28,25 @@ impl QueueManager {
     }
     */
     /// Appends the given frame onto the SocketAddr's queue
-    pub fn enqueue_frame(&mut self, frame: SerialisedFrame, dst: SocketAddr) {
+    pub fn enqueue_data(&mut self, data: DispatchData, dst: SocketAddr) {
         self.inner
             .entry(dst)
             .or_insert_with(VecDeque::new)
-            .push_front(frame);
+            .push_front(data);
     }
 
     /// Appends the given frame onto the SocketAddr's queue
-    pub fn enqueue_priority_frame(&mut self, frame: SerialisedFrame, dst: SocketAddr) {
+    pub fn enqueue_priority_data(&mut self, data: DispatchData, dst: SocketAddr) {
         self.priority_queue
             .entry(dst)
             .or_insert_with(VecDeque::new)
-            .push_front(frame);
+            .push_front(data);
     }
 
     /// Extracts the next queue-up frame for the SocketAddr, if one exists
     ///
     /// If the SocketAddr exists but its queue is empty, the entry is removed.
-    pub fn pop_frame(&mut self, dst: &SocketAddr) -> Option<SerialisedFrame> {
+    pub fn pop_data(&mut self, dst: &SocketAddr) -> Option<DispatchData> {
         let mut res = self.priority_queue.get_mut(dst).and_then(|q| q.pop_back());
         if self.priority_queue.contains_key(dst) && res.is_none() {
             self.priority_queue.remove(dst);
@@ -94,7 +94,7 @@ impl QueueManager {
     */
     // }
 
-    pub fn has_frame(&self, dst: &SocketAddr) -> bool {
+    pub fn has_data(&self, dst: &SocketAddr) -> bool {
         if self
             .priority_queue
             .get(dst)

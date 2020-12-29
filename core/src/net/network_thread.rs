@@ -3,7 +3,7 @@ use crate::{
     dispatch::NetworkConfig,
     messaging::{DispatchEnvelope, EventEnvelope},
     net::{
-        buffers::{BufferChunk, BufferPool},
+        buffers::{BufferChunk, BufferPool, EncodeBuffer},
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
         ConnectionState,
@@ -73,6 +73,7 @@ pub struct NetworkThread {
     network_config: NetworkConfig,
     retry_queue: VecDeque<(Token, bool, bool, usize)>,
     out_of_buffers: bool,
+    encode_buffer: EncodeBuffer,
 }
 
 /// Return values for IO Operations on the [NetworkChannel](net::network_channel::NetworkChannel) abstraction
@@ -136,6 +137,11 @@ impl NetworkThread {
                     &network_config.get_custom_allocator(),
                 );
 
+                let encode_buffer = EncodeBuffer::with_config(
+                    &network_config.get_buffer_config(),
+                    &network_config.get_custom_allocator(),
+                );
+
                 let udp_buffer = buffer_pool
                     .get_buffer()
                     .expect("Could not get buffer for setting up UDP");
@@ -167,6 +173,7 @@ impl NetworkThread {
                         network_config,
                         retry_queue: VecDeque::new(),
                         out_of_buffers: false,
+                        encode_buffer,
                     },
                     waker,
                 )
@@ -784,17 +791,35 @@ impl NetworkThread {
     fn receive_dispatch(&mut self) {
         while let Ok(event) = self.input_queue.try_recv() {
             match event {
-                DispatchEvent::SendTCP(addr, frame) => {
+                DispatchEvent::SendTCP(addr, data) => {
                     self.sent_msgs += 1;
                     // Get the token corresponding to the connection
                     if let Some(channel) = self.channel_map.get_mut(&addr) {
                         // The stream is already set-up, buffer the package and wait for writable event
                         if channel.connected() {
-                            channel.enqueue_serialised(frame);
+                            match data {
+                                DispatchData::Serialised(frame) => {
+                                    channel.enqueue_serialised(frame);
+                                }
+                                _ => {
+                                    if let Err(e) = self
+                                        .encode_buffer
+                                        .get_buffer_encoder()
+                                        .and_then(|mut buf| {
+                                            channel.enqueue_serialised(
+                                                data.into_serialised(&mut buf)?,
+                                            );
+                                            Ok(())
+                                        })
+                                    {
+                                        warn!(self.log, "Error serialising message: {}", e);
+                                    }
+                                }
+                            }
                         } else {
                             debug!(self.log, "Dispatch trying to route to non connected channel {:?}, rejecting the message", channel);
                             self.dispatcher_ref.tell(DispatchEnvelope::Event(
-                                EventEnvelope::Network(NetworkEvent::RejectedFrame(addr, frame)),
+                                EventEnvelope::Network(NetworkEvent::RejectedData(addr, data)),
                             ));
                             break;
                         }
@@ -803,7 +828,7 @@ impl NetworkThread {
                         debug!(self.log, "Dispatch trying to route to unrecognized address {}, rejecting the message", addr);
                         self.dispatcher_ref
                             .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                                NetworkEvent::RejectedFrame(addr, frame),
+                                NetworkEvent::RejectedData(addr, data),
                             )));
                         break;
                     }
@@ -811,11 +836,28 @@ impl NetworkThread {
                         self.close_channel(addr);
                     }
                 }
-                DispatchEvent::SendUDP(addr, frame) => {
+                DispatchEvent::SendUDP(addr, data) => {
                     self.sent_msgs += 1;
                     // Get the token corresponding to the connection
                     if let Some(ref mut udp_state) = self.udp_state {
-                        udp_state.enqueue_serialised(addr, frame);
+                        match data {
+                            DispatchData::Serialised(frame) => {
+                                udp_state.enqueue_serialised(addr, frame);
+                            }
+                            _ => {
+                                if let Err(e) =
+                                    self.encode_buffer.get_buffer_encoder().and_then(|mut buf| {
+                                        udp_state.enqueue_serialised(
+                                            addr,
+                                            data.into_serialised(&mut buf)?,
+                                        );
+                                        Ok(())
+                                    })
+                                {
+                                    warn!(self.log, "Error serialising message: {}", e);
+                                }
+                            }
+                        }
                         match udp_state.try_write() {
                             Ok(n) => {
                                 self.sent_bytes += n as u64;
@@ -826,6 +868,10 @@ impl NetworkThread {
                             }
                         }
                     } else {
+                        self.dispatcher_ref
+                            .tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                                NetworkEvent::RejectedData(addr, data),
+                            )));
                         warn!(
                             self.log,
                             "Rejecting UDP message to {} as socket is already shut down.", addr
@@ -858,7 +904,7 @@ impl NetworkThread {
             for rejected_frame in channel.take_outbound() {
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::RejectedFrame(addr, rejected_frame),
+                        NetworkEvent::RejectedData(addr, DispatchData::Serialised(rejected_frame)),
                     )));
             }
             channel.shutdown();
