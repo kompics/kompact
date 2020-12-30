@@ -81,9 +81,9 @@ impl SerialisedFrame {
     /// Returns the data in this frame as a slice, in case of chaining only the front is returned!
     pub fn bytes(&self) -> &[u8] {
         match self {
-            SerialisedFrame::ChunkLease(chunk) => chunk.bytes(),
-            SerialisedFrame::ChunkRef(chunk) => chunk.bytes(),
-            SerialisedFrame::Bytes(bytes) => bytes.bytes(),
+            SerialisedFrame::ChunkLease(chunk) => chunk.chunk(),
+            SerialisedFrame::ChunkRef(chunk) => chunk.chunk(),
+            SerialisedFrame::Bytes(bytes) => bytes.chunk(),
         }
     }
 

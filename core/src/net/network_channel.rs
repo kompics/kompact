@@ -316,9 +316,9 @@ impl TcpChannel {
     /// No direct writing allowed, Must use other interface.
     fn write_serialized(&mut self, serialized: &SerialisedFrame) -> io::Result<usize> {
         match serialized {
-            SerialisedFrame::ChunkLease(chunk) => self.stream.write(chunk.bytes()),
-            SerialisedFrame::Bytes(bytes) => self.stream.write(bytes.bytes()),
-            SerialisedFrame::ChunkRef(chunkref) => self.stream.write(chunkref.bytes()),
+            SerialisedFrame::ChunkLease(chunk) => self.stream.write(chunk.chunk()),
+            SerialisedFrame::Bytes(bytes) => self.stream.write(bytes.chunk()),
+            SerialisedFrame::ChunkRef(chunkref) => self.stream.write(chunkref.chunk()),
         }
     }
 
