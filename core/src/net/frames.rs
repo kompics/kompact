@@ -242,7 +242,7 @@ impl FrameHead {
             eprintln!("Magic check fail: {:X}", magic_check);
             return Err(FramingError::InvalidMagicNum((
                 magic_check,
-                src.bytes().to_vec(),
+                src.chunk().to_vec(),
             )));
         }
 
@@ -329,13 +329,13 @@ impl FrameExt for Data {
         // NOTE: This method _COPIES_ the owned bytes into `dst` rather than extending with the owned bytes
         assert!(dst.remaining_mut() >= (self.encoded_len()));
         while self.payload.has_remaining() {
-            dst.put_slice(self.payload.bytes());
+            dst.put_slice(self.payload.chunk());
         }
         Ok(())
     }
 
     fn encoded_len(&self) -> usize {
-        self.payload.bytes().len()
+        self.payload.chunk().len()
     }
 }
 

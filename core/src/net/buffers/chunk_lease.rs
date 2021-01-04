@@ -115,10 +115,10 @@ impl ChunkLease {
     }
 
     // Recursive method for the bytes() impl
-    fn get_bytes_at(&self, pos: usize) -> &[u8] {
+    fn get_chunk_at(&self, pos: usize) -> &[u8] {
         if pos >= self.chain_head_len {
             if let Some(chain) = &self.chain {
-                chain.get_bytes_at(pos - self.chain_head_len)
+                chain.get_chunk_at(pos - self.chain_head_len)
             } else {
                 panic!("Critical Bug in ChunkLease, bad chain");
             }
@@ -129,10 +129,10 @@ impl ChunkLease {
     }
 
     // Recursive method for the bytes_mut() impl
-    fn get_bytes_mut_at(&mut self, pos: usize) -> &mut UninitSlice {
+    fn get_chunk_mut_at(&mut self, pos: usize) -> &mut UninitSlice {
         if pos >= self.chain_head_len {
             if let Some(chain) = &mut self.chain {
-                chain.get_bytes_mut_at(pos - self.chain_head_len)
+                chain.get_chunk_mut_at(pos - self.chain_head_len)
             } else {
                 panic!("Critical Bug in ChunkLease, bad chain");
             }
@@ -177,7 +177,7 @@ impl ChunkLease {
         let mut buf: Vec<u8> = Vec::with_capacity(self.remaining());
         let mut read_pointer = self.read_pointer;
         while read_pointer < self.chain_len {
-            let read_bytes = self.get_bytes_at(read_pointer);
+            let read_bytes = self.get_chunk_at(read_pointer);
             buf.extend_from_slice(read_bytes);
             read_pointer += read_bytes.len();
         }
@@ -190,8 +190,8 @@ impl Buf for ChunkLease {
         self.chain_len - self.read_pointer
     }
 
-    fn bytes(&self) -> &[u8] {
-        self.get_bytes_at(self.read_pointer)
+    fn chunk(&self) -> &[u8] {
+        self.get_chunk_at(self.read_pointer)
     }
 
     fn advance(&mut self, cnt: usize) {
@@ -209,8 +209,8 @@ unsafe impl BufMut for ChunkLease {
         self.write_pointer += cnt;
     }
 
-    fn bytes_mut(&mut self) -> &mut UninitSlice {
-        self.get_bytes_mut_at(self.write_pointer)
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
+        self.get_chunk_mut_at(self.write_pointer)
     }
 }
 
