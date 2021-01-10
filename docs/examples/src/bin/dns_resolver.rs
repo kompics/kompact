@@ -110,7 +110,7 @@ fn main() {
                     for domain in s.split(',') {
                         let domain = domain.trim();
                         info!(system.logger(), "Sending request for {}", domain);
-                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+                        let query_f = dns_comp_ref.ask(DNSRequest(domain.to_string()));
                         outstanding.push(query_f);
                     }
                     for query_f in outstanding {

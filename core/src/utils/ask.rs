@@ -124,14 +124,14 @@ mod tests {
         let start_f = system.start_notify(&tc);
         start_f.wait_timeout(WAIT_TIMEOUT).expect("Component start");
 
-        let ask_f = tc_ref.ask(|promise| Ask::new(promise, 42u64));
+        let ask_f = tc_ref.ask_with(|promise| Ask::new(promise, 42u64));
         ask_f.wait_timeout(WAIT_TIMEOUT).expect("Response");
 
         tc.on_definition(|c| {
             assert_eq!(c.counter, 42u64);
         });
 
-        let ask_f2 = tc_sref.ask(Ask::of(1u64));
+        let ask_f2 = tc_sref.ask_with(Ask::of(1u64));
         ask_f2.wait_timeout(WAIT_TIMEOUT).expect("Response2");
 
         tc.on_definition(|c| {
@@ -172,7 +172,7 @@ mod tests {
             match self.mode {
                 AsyncMode::Blocking => Handled::block_on(self, move |async_self| async move {
                     msg.complete_with(move |num| async move {
-                        async_self.proxee.ask(Ask::of(num)).await.expect("result");
+                        async_self.proxee.ask(num).await.expect("result");
                     })
                     .await
                     .expect("complete");
@@ -181,7 +181,7 @@ mod tests {
                     let proxee = self.proxee.clone();
                     let handle = self.spawn_off(async move {
                         msg.complete_with(move |num| async move {
-                            proxee.ask(Ask::of(num)).await.expect("result");
+                            proxee.ask(num).await.expect("result");
                         })
                         .await
                         .expect("complete");
@@ -194,7 +194,7 @@ mod tests {
                         let proxee = async_self.proxee.clone();
                         let res = msg
                             .complete_with(move |num| async move {
-                                proxee.ask(Ask::of(num)).await.expect("result");
+                                proxee.ask(num).await.expect("result");
                             })
                             .await;
                         if let Err(err) = res {
@@ -250,14 +250,14 @@ mod tests {
                 .wait_timeout(WAIT_TIMEOUT)
                 .expect("Component start");
 
-            let ask_f = atc_ref.ask(|promise| Ask::new(promise, 42u64));
+            let ask_f = atc_ref.ask(42u64);
             ask_f.wait_timeout(WAIT_TIMEOUT).expect("Response");
 
             tc.on_definition(|c| {
                 assert_eq!(c.counter, 42u64);
             });
 
-            let ask_f2 = atc_ref.ask(Ask::of(1u64));
+            let ask_f2 = atc_ref.ask(1u64);
             ask_f2.wait_timeout(WAIT_TIMEOUT).expect("Response2");
 
             tc.on_definition(|c| {

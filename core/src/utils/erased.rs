@@ -28,9 +28,47 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::prelude::*;
+    use std::time::Duration;
+
+    const WAIT_TIMEOUT: Duration = Duration::from_millis(1000);
+
+    #[derive(ComponentDefinition)]
+    struct TestComponent {
+        ctx: ComponentContext<Self>,
+        counter: u64,
+    }
+
+    impl TestComponent {
+        fn new() -> TestComponent {
+            TestComponent {
+                ctx: ComponentContext::uninitialised(),
+                counter: 0u64,
+            }
+        }
+    }
+
+    ignore_lifecycle!(TestComponent);
+
+    impl Actor for TestComponent {
+        type Message = Ask<u64, ()>;
+
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            msg.complete(|num| {
+                self.counter += num;
+            })
+            .expect("Should work!");
+            Handled::Ok
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!();
+        }
+    }
+
     #[test]
     fn test_erased_components() {
-        use utils::erased::CreateErased;
         let system = KompactConfig::default().build().expect("System");
 
         {
@@ -40,14 +78,10 @@ mod tests {
             let actor_ref = erased.actor_ref();
 
             let start_f = system.start_notify(&erased);
-            start_f
-                .wait_timeout(Duration::from_millis(1000))
-                .expect("Component start");
+            start_f.wait_timeout(WAIT_TIMEOUT).expect("Component start");
 
-            let ask_f = actor_ref.ask(|promise| Ask::new(promise, 42u64));
-            ask_f
-                .wait_timeout(Duration::from_millis(1000))
-                .expect("Response");
+            let ask_f = actor_ref.ask(42u64);
+            ask_f.wait_timeout(WAIT_TIMEOUT).expect("Response");
 
             erased
                 .as_any()
