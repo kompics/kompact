@@ -455,6 +455,28 @@ where
         let response = f(self.content);
         self.promise.fulfil(response)
     }
+
+    /// Run the future produced by `f` to completion, and then reply with its result.
+    ///
+    /// # Note
+    ///
+    /// The [PromiseErr](PromiseErr) that can be produced during reply attempts is silently ignored in this method.
+    /// If you need to handle reply errors, use [complete_with_err](complete_with_err) instead.
+    pub async fn complete_with<F>(self, f: impl FnOnce(Request) -> F) -> () where F: Future<Output=Response> + Send + 'static {
+        let response = f(self.content).await;
+        let _ = self.promise.fulfil(response); // ignore promise errors, since we got nothing to do with them
+    }
+
+    /// Run the future produced by `f` to completion, and then reply with its result. 
+    ///
+    /// This is the same as [complete_with](complete_with), but you can provide a custom error handling function.
+    pub async fn complete_with_err<F>(self, f: impl FnOnce(Request) -> F, err: impl FnOnce(PromiseErr) -> ()) -> () where F: Future<Output=Response> + Send + 'static {
+        let response = f(self.content).await;
+        let res = self.promise.fulfil(response); // ignore promise errors, since we got nothing to do with them
+        if let Err(e) = res {
+            err(e);
+        }
+    }
 }
 
 /// A macro that provides a shorthand for an irrefutable let binding,
@@ -742,6 +764,8 @@ mod tests {
     use super::*;
     use crate::messaging::NetMessage;
 
+    const WAIT_TIMEOUT: Duration = Duration::from_millis(1000);
+
     #[derive(ComponentDefinition)]
     struct TestComponent {
         ctx: ComponentContext<Self>,
@@ -784,12 +808,12 @@ mod tests {
 
         let start_f = system.start_notify(&tc);
         start_f
-            .wait_timeout(Duration::from_millis(1000))
+            .wait_timeout(WAIT_TIMEOUT)
             .expect("Component start");
 
         let ask_f = tc_ref.ask(|promise| Ask::new(promise, 42u64));
         ask_f
-            .wait_timeout(Duration::from_millis(1000))
+            .wait_timeout(WAIT_TIMEOUT)
             .expect("Response");
 
         tc.on_definition(|c| {
@@ -798,7 +822,7 @@ mod tests {
 
         let ask_f2 = tc_sref.ask(Ask::of(1u64));
         ask_f2
-            .wait_timeout(Duration::from_millis(1000))
+            .wait_timeout(WAIT_TIMEOUT)
             .expect("Response2");
 
         tc.on_definition(|c| {
@@ -808,6 +832,76 @@ mod tests {
         drop(tc_ref);
         drop(tc_sref);
         drop(tc);
+        system
+            .shutdown()
+            .expect("Kompact didn't shut down properly");
+    }
+
+    #[derive(ComponentDefinition)]
+    struct AsyncTestComponent {
+        ctx: ComponentContext<Self>,
+        proxee: ActorRef<Ask<u64, ()>>,
+    }
+
+    impl AsyncTestComponent {
+        fn new(proxee: ActorRef<Ask<u64, ()>>) -> AsyncTestComponent {
+            AsyncTestComponent {
+                ctx: ComponentContext::uninitialised(),
+                proxee,
+            }
+        }
+    }
+
+    ignore_lifecycle!(AsyncTestComponent);
+
+    impl Actor for AsyncTestComponent {
+        type Message = Ask<u64, ()>;
+
+        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            Handled::block_on(self, async move |async_self| async {
+                msg.complete_with(async move |num| async {
+                    async_self.proxee.ask(Ask::of(num))
+                })
+            })
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!();
+        }
+    }
+
+    #[test]
+    fn test_ask_complete_with() -> () {
+        let system = KompactConfig::default().build().expect("System");
+        {
+        let tc = system.create(TestComponent::new);
+        let tc_ref = tc.actor_ref();
+        let atc = system.create(||AsyncTestComponent::new(tc_ref));
+        let atc_ref = atc.actor_ref();
+
+        system.start_notify(&tc).wait_timeout(WAIT_TIMEOUT)
+            .expect("Component start");
+        system.start_notify(&atc).wait_timeout(WAIT_TIMEOUT)
+            .expect("Component start");
+
+        let ask_f = atc_ref.ask(|promise| Ask::new(promise, 42u64));
+        ask_f
+            .wait_timeout(WAIT_TIMEOUT)
+            .expect("Response");
+
+        tc.on_definition(|c| {
+            assert_eq!(c.counter, 42u64);
+        });
+
+        let ask_f2 = atc_ref.ask(Ask::of(1u64));
+        ask_f2
+            .wait_timeout(WAIT_TIMEOUT)
+            .expect("Response2");
+
+        tc.on_definition(|c| {
+            assert_eq!(c.counter, 43u64);
+        });
+}  
         system
             .shutdown()
             .expect("Kompact didn't shut down properly");
