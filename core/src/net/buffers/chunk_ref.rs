@@ -53,10 +53,10 @@ impl ChunkRef {
     }
 
     // Recursive method for the bytes() impl
-    fn get_bytes_at(&self, pos: usize) -> &[u8] {
+    fn get_chunk_at(&self, pos: usize) -> &[u8] {
         if pos >= self.chain_head_len {
             if let Some(chain) = &self.chain {
-                chain.get_bytes_at(pos - self.chain_head_len)
+                chain.get_chunk_at(pos - self.chain_head_len)
             } else {
                 panic!("Critical Bug in ChunkRef, bad chain");
             }
@@ -73,8 +73,8 @@ impl Buf for ChunkRef {
     }
 
     // Returns a slice starting from the read-pointer up to (possibly) the
-    fn bytes(&self) -> &[u8] {
-        self.get_bytes_at(self.read_pointer)
+    fn chunk(&self) -> &[u8] {
+        self.get_chunk_at(self.read_pointer)
     }
 
     fn advance(&mut self, cnt: usize) {

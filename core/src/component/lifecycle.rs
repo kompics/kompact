@@ -133,7 +133,9 @@ fn set_state(state: &AtomicU64, new_state: u64) {
         let current_state = state.load(Ordering::SeqCst);
         let current_count = remove_flags(current_state);
         let new_state = new_state | current_count;
-        if state.compare_and_swap(current_state, new_state, Ordering::SeqCst) == current_state {
+        if state.compare_exchange(current_state, new_state, Ordering::SeqCst, Ordering::SeqCst)
+            == Ok(current_state)
+        {
             return;
         }
     }

@@ -269,7 +269,7 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
         }
     }
 
-    fn bytes_mut(&mut self) -> &mut UninitSlice {
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
         unsafe {
             let ptr = (&mut *self.encode_buffer.buffer.chunk).as_mut_ptr();
             let offset_ptr = ptr.add(self.encode_buffer.write_offset);
@@ -288,8 +288,8 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
             if self.ser_error.is_some() {
                 return;
             };
-            let len = src.bytes().len();
-            self.put_slice(src.bytes());
+            let len = src.chunk().len();
+            self.put_slice(src.chunk());
             src.advance(len);
         }
     }
@@ -303,7 +303,7 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
                 return;
             };
             unsafe {
-                let dst = self.bytes_mut();
+                let dst = self.chunk_mut();
                 let cnt = cmp::min(dst.len(), src.len() - off);
 
                 ptr::copy_nonoverlapping(src.as_ptr().add(off), dst.as_mut_ptr() as *mut u8, cnt);
@@ -453,7 +453,7 @@ mod tests {
                     chunk_lease_cnt
                 );
                 // Bytes only returns the chain-head, remaining is the full length of the chain
-                if chunk_lease.bytes().len() < chunk_lease.remaining() {
+                if chunk_lease.chunk().len() < chunk_lease.remaining() {
                     chain_cnt += 1;
                 }
                 // to_bytes() makes the chain readable in full to a single continuous slice.

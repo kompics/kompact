@@ -1068,7 +1068,7 @@ fn remote_delivery_overflow_network_thread_buffers() {
     // This config is also used when giving up on running out of buffers.
     // The big_pinger_system will occupy all buffers on the ponger_system for 5 seconds
     // And then it will be freed.
-    net_cfg.set_connection_retry_interval(500);
+    net_cfg.set_connection_retry_interval(1000);
     net_cfg.set_max_connection_retry_attempts(10);
 
     let big_pinger_system = system_from_network_config(net_cfg.clone());
@@ -1092,7 +1092,7 @@ fn remote_delivery_overflow_network_thread_buffers() {
     });
     pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
-    // Ponger_system blocked for 5 Seconds from this time.
+    // Ponger_system blocked for 10 Seconds from this time.
     ponger_system.start(&ponger_named);
     big_pinger_system.start(&big_pinger_named);
 
@@ -1103,7 +1103,7 @@ fn remote_delivery_overflow_network_thread_buffers() {
     small_pinger_system.start(&small_pinger1_named);
 
     // Give the sytem time to fail to establish connection
-    thread::sleep(Duration::from_millis(1500));
+    thread::sleep(Duration::from_millis(4000));
 
     // Start the second Pinger and assert that small_pinger1 hasn't gotten the pong yet.
     // small_pinger_system.start(&small_pinger2_named);
@@ -1131,7 +1131,7 @@ fn remote_delivery_overflow_network_thread_buffers() {
 
     // Wait for the big_pinger_system connection to time_out
     // and let the small_pinger system establish its connection and succeed with its messages
-    thread::sleep(Duration::from_millis(4000));
+    thread::sleep(Duration::from_millis(20000));
 
     // Assert that small_pinger2 has gotten the pongs.
     let pingfn = small_pinger_system.stop_notify(&small_pinger1_named);

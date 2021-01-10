@@ -1,14 +1,16 @@
 use super::*;
+use crate::serialisation::ser_helpers::deserialise_bytes;
 
 /// An abstraction over lazy or eagerly serialised data sent to the dispatcher
 #[derive(Debug)]
 pub enum DispatchData {
     /// Lazily serialised variant – must still be serialised by the dispatcher or networking system
-    Lazy(Box<dyn Serialisable>),
+    /// (Serialisable Msg, Source, Destination)
+    Lazy(Box<dyn Serialisable>, ActorPath, ActorPath),
     /// Should be serialised and [framed](crate::net::frames::Frame).
-    SerialisedLease(ChunkLease),
-    /// Should be serialised and [framed](crate::net::frames::Frame).
-    SerialisedRef(ChunkRef),
+    Serialised(SerialisedFrame),
+    /// Used in message forwarding
+    NetMessage(NetMessage),
 }
 
 impl DispatchData {
@@ -16,40 +18,43 @@ impl DispatchData {
     ///
     /// This can fail, if the data can't be moved onto the heap, and serialisation
     /// also fails.
-    pub fn into_local(self, src: ActorPath, dst: ActorPath) -> Result<NetMessage, SerError> {
+    pub fn into_local(self) -> Result<NetMessage, SerError> {
         match self {
-            DispatchData::Lazy(ser) => {
+            DispatchData::Lazy(ser, src, dst) => {
                 let ser_id = ser.ser_id();
                 Ok(NetMessage::with_box(ser_id, src, dst, ser))
             }
-            DispatchData::SerialisedLease(mut chunk) => {
+            DispatchData::Serialised(SerialisedFrame::ChunkLease(mut chunk_lease)) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
-                chunk.advance(FRAME_HEAD_LEN as usize);
+                chunk_lease.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(deserialise_chunk_lease(chunk).expect("s11n errors"))
+                Ok(deserialise_chunk_lease(chunk_lease).expect("s11n errors"))
             }
-            DispatchData::SerialisedRef(mut chunk) => {
+            DispatchData::Serialised(SerialisedFrame::ChunkRef(mut chunk_ref)) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
-                chunk.advance(FRAME_HEAD_LEN as usize);
+                chunk_ref.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(deserialise_chunk_ref(chunk).expect("s11n errors"))
+                Ok(deserialise_chunk_ref(chunk_ref).expect("s11n errors"))
             }
+            DispatchData::Serialised(SerialisedFrame::Bytes(mut bytes)) => {
+                bytes.advance(FRAME_HEAD_LEN as usize);
+                //println!("to_local (from: {:?}; to: {:?})", src, dst);
+                Ok(deserialise_bytes(bytes).expect("s11n errors"))
+            }
+            DispatchData::NetMessage(net_message) => Ok(net_message),
         }
     }
 
     /// Try to serialise this to data to bytes for remote delivery
-    pub fn into_serialised(
-        self,
-        src: ActorPath,
-        dst: ActorPath,
-        buf: &mut BufferEncoder,
-    ) -> Result<SerialisedFrame, SerError> {
+    pub fn into_serialised(self, buf: &mut BufferEncoder) -> Result<SerialisedFrame, SerError> {
         match self {
-            DispatchData::Lazy(ser) => Ok(SerialisedFrame::ChunkLease(
+            DispatchData::Lazy(ser, src, dst) => Ok(SerialisedFrame::ChunkLease(
                 crate::serialisation::ser_helpers::serialise_msg(&src, &dst, ser.deref(), buf)?,
             )),
-            DispatchData::SerialisedLease(chunk) => Ok(SerialisedFrame::ChunkLease(chunk)),
-            DispatchData::SerialisedRef(chunk) => Ok(SerialisedFrame::ChunkRef(chunk)),
+            DispatchData::Serialised(frame) => Ok(frame),
+            DispatchData::NetMessage(net_message) => Ok(SerialisedFrame::ChunkRef(
+                crate::serialisation::ser_helpers::embed_msg(net_message, buf)?,
+            )),
         }
     }
 }

@@ -54,10 +54,10 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
             buf: mut b,
         } = self;
         let pr = {
-            if b.bytes().len() < b.remaining() {
-                m.merge_from_bytes(b.copy_to_bytes(b.remaining()).bytes())
+            if b.chunk().len() < b.remaining() {
+                m.merge_from_bytes(b.copy_to_bytes(b.remaining()).chunk())
             } else {
-                m.merge_from_bytes(b.bytes())
+                m.merge_from_bytes(b.chunk())
             }
         };
         let r = pr.map_err(|e| match e {
