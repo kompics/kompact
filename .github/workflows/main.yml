@@ -1,0 +1,163 @@
+name: Rust CI
+on:
+  push:
+    branches:
+      - master
+    pull_request:
+      types: [opened, reopened, synchronize]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, nightly-2020-12-13]
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: Setup rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --verbose
+
+  test-core-serde-features:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, nightly-2020-12-13]
+        feature: [ser_id_8, ser_id_16, ser_id_32]
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: Setup rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }}
+
+  test-core-misc-features:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, nightly-2020-12-13]
+        feature: [thread_pinning, low_latency, type_erasure]
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: Setup rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }}
+
+  codecov-grcov:
+    name: Generate code coverage
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: install toolchain according to rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: default
+          override: true
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Run tests for coverage
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests
+          RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests
+        run: |
+          cargo test
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning
+          cargo test --manifest-path=core/Cargo.toml --features low_latency
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure
+      - name: Compute coverage
+        uses: actions-rs/grcov@v0.1
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2020-12-13
+          override: true
+          components: rustfmt, clippy
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+  format:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check

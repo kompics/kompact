@@ -30,6 +30,7 @@ enum ActorTreeEntry {
 }
 
 impl ActorTreeEntry {
+    #[allow(clippy::wrong_self_convention)]
     fn into_result(entry: Option<ActorTreeEntry>) -> InsertResult {
         match entry {
             Some(ActorTreeEntry::Ref(aref)) => InsertResult::Ref(aref),
