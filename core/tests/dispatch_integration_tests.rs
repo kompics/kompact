@@ -813,7 +813,7 @@ fn local_delivery() {
 fn local_forwarding() {
     let system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
+    let (ponger, pof) = system.create_and_register(BigPongerAct::new_lazy);
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
     let mut ponger_path =
         pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -824,7 +824,7 @@ fn local_forwarding() {
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
     forwarder_path.set_protocol(Transport::LOCAL);
 
-    let (pinger, pif) = system.create_and_register(move || PingerAct::new_lazy(forwarder_path));
+    let (pinger, pif) = system.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system.start(&ponger);
@@ -859,7 +859,7 @@ fn local_forwarding() {
 fn local_forwarding_eager() {
     let system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
+    let (ponger, pof) = system.create_and_register(BigPongerAct::new_lazy);
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
     let mut ponger_path =
         pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -870,7 +870,7 @@ fn local_forwarding_eager() {
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
     forwarder_path.set_protocol(Transport::LOCAL);
 
-    let (pinger, pif) = system.create_and_register(move || PingerAct::new_eager(forwarder_path));
+    let (pinger, pif) = system.create_and_register(move || BigPingerAct::new_eager(forwarder_path, 512, BufferConfig::default()));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system.start(&ponger);
@@ -907,14 +907,14 @@ fn remote_forwarding_unique() {
     let system2 = system_from_network_config(NetworkConfig::default());
     let system3 = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system1.create_and_register(PongerAct::new_lazy);
+    let (ponger, pof) = system1.create_and_register(BigPongerAct::new_lazy);
     let ponger_path = pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
     let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
     let forwarder_path =
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
-    let (pinger, pif) = system3.create_and_register(move || PingerAct::new_lazy(forwarder_path));
+    let (pinger, pif) = system3.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system1.start(&ponger);
@@ -957,14 +957,14 @@ fn remote_forwarding_unique_two_systems() {
     let system1 = system_from_network_config(NetworkConfig::default());
     let system2 = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system1.create_and_register(PongerAct::new_lazy);
+    let (ponger, pof) = system1.create_and_register(BigPongerAct::new_lazy);
     let ponger_path = pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
     let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
     let forwarder_path =
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
-    let (pinger, pif) = system1.create_and_register(move || PingerAct::new_lazy(forwarder_path));
+    let (pinger, pif) = system1.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system1.start(&ponger);
@@ -1005,7 +1005,7 @@ fn remote_forwarding_named() {
     let system2 = system_from_network_config(NetworkConfig::default());
     let system3 = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, _pof) = system1.create_and_register(PongerAct::new_lazy);
+    let (ponger, _pof) = system1.create_and_register(BigPongerAct::new_lazy);
     let pnf = system1.register_by_alias(&ponger, "ponger");
     let ponger_path = pnf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
 
@@ -1014,7 +1014,9 @@ fn remote_forwarding_named() {
     let forwarder_path =
         fnf.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
-    let (pinger, pif) = system3.create_and_register(move || PingerAct::new_lazy(forwarder_path));
+    let mut buf_cfg = BufferConfig::default();
+    buf_cfg.chunk_size(256);
+    let (pinger, pif) = system3.create_and_register(move || BigPingerAct::new_eager(forwarder_path, 512, buf_cfg));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system1.start(&ponger);
