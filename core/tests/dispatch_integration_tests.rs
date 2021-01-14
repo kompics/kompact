@@ -824,7 +824,8 @@ fn local_forwarding() {
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
     forwarder_path.set_protocol(Transport::LOCAL);
 
-    let (pinger, pif) = system.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
+    let (pinger, pif) =
+        system.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system.start(&ponger);
@@ -870,7 +871,9 @@ fn local_forwarding_eager() {
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
     forwarder_path.set_protocol(Transport::LOCAL);
 
-    let (pinger, pif) = system.create_and_register(move || BigPingerAct::new_eager(forwarder_path, 512, BufferConfig::default()));
+    let (pinger, pif) = system.create_and_register(move || {
+        BigPingerAct::new_eager(forwarder_path, 512, BufferConfig::default())
+    });
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system.start(&ponger);
@@ -914,7 +917,8 @@ fn remote_forwarding_unique() {
     let forwarder_path =
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
-    let (pinger, pif) = system3.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
+    let (pinger, pif) =
+        system3.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system1.start(&ponger);
@@ -964,7 +968,8 @@ fn remote_forwarding_unique_two_systems() {
     let forwarder_path =
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
 
-    let (pinger, pif) = system1.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
+    let (pinger, pif) =
+        system1.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system1.start(&ponger);
@@ -1016,7 +1021,8 @@ fn remote_forwarding_named() {
 
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(256);
-    let (pinger, pif) = system3.create_and_register(move || BigPingerAct::new_eager(forwarder_path, 512, buf_cfg));
+    let (pinger, pif) =
+        system3.create_and_register(move || BigPingerAct::new_eager(forwarder_path, 512, buf_cfg));
     let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
     system1.start(&ponger);
