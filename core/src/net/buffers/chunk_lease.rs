@@ -1,6 +1,6 @@
 use super::*;
 use bytes::{buf::UninitSlice, Bytes};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, ptr::NonNull};
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
 /// [BufMut](bytes::BufMut) interfaces. They are created with one or many distinct slices of
@@ -31,6 +31,16 @@ impl ChunkLease {
             read_pointer: 0,
             chain: None,
             chain_len: capacity,
+        }
+    }
+
+    /// Creates an empty ChunkLease
+    pub fn empty() -> ChunkLease {
+        unsafe {
+            ChunkLease::new(
+                std::slice::from_raw_parts_mut(NonNull::dangling().as_ptr(), 0),
+                Arc::new(0),
+            )
         }
     }
 
@@ -72,7 +82,7 @@ impl ChunkLease {
     pub(crate) fn split_at(&mut self, position: usize) -> ChunkLease {
         // Recursion by decrementing position in each recursive step
         assert!(
-            position < self.capacity(),
+            position <= self.capacity(),
             "Trying to split at bad position: {}, read_pointer: {}, \
             chain_head_len: {}, chain_len: {}",
             position,
@@ -90,9 +100,12 @@ impl ChunkLease {
             }
             Ordering::Equal => {
                 // Simple split, take the chain out and return it
-                if let Some(tail_chain) = self.chain.take() {
-                    return *tail_chain;
-                }
+                return if let Some(tail_chain) = self.chain.take() {
+                    *tail_chain
+                } else {
+                    // Special case, splitting at the end of the ChunkLease
+                    ChunkLease::empty()
+                };
             }
             Ordering::Less => {
                 // Split of the data in self and retain self while returning the "tail" of the split

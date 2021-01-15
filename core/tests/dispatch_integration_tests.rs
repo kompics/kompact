@@ -1066,6 +1066,7 @@ fn remote_forwarding_named() {
 // all buffers of the BigPonger system. The small pings are then sent but can not be received
 // until the Ponger system closes the Big Ping-channel due to too many retries.
 // A new batch up small-pings are then sent and replied to.
+#[ignore]
 fn remote_delivery_overflow_network_thread_buffers() {
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(1280);
