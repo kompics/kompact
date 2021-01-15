@@ -3,8 +3,10 @@ on:
   push:
     branches:
       - master
-    pull_request:
-      types: [opened, reopened, synchronize]
+  pull_request:
+    branches:
+      - master
+    types: [opened, reopened, synchronize]
 
 jobs:
   tests:
