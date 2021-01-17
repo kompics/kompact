@@ -46,18 +46,24 @@ impl BitField for Transport {
     const WIDTH: usize = 5;
 }
 
+// other direction is try_from
+#[allow(clippy::from_over_into)]
 impl Into<u8> for AddressType {
     fn into(self) -> u8 {
         self as u8
     }
 }
 
+// other direction is try_from
+#[allow(clippy::from_over_into)]
 impl Into<u8> for PathType {
     fn into(self) -> u8 {
         self as u8
     }
 }
 
+// other direction is try_from
+#[allow(clippy::from_over_into)]
 impl Into<u8> for Transport {
     fn into(self) -> u8 {
         self as u8
