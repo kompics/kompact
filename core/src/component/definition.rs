@@ -259,7 +259,7 @@ pub trait AbstractComponent: MsgQueueContainer + CoreContainer + Any {
     /// Upcast this
     ///
     /// Needed to implement [ActorRefFactory](ActorRefFactory) due to
-    /// https://github.com/rust-lang/rust/issues/18469
+    /// <https://github.com/rust-lang/rust/issues/18469>
     fn as_queue_container(self: Arc<Self>) -> Weak<dyn MsgQueueContainer<Message = Self::Message>>;
 }
 

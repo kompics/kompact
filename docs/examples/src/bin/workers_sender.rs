@@ -253,7 +253,7 @@ fn run_task(num_workers: usize, data_size: usize) {
     println!("Sending request...");
     // ANCHOR: main_ask
     let res = manager_ref
-        .ask(|promise| ManagerMessage::Work(Ask::new(promise, work)))
+        .ask_with(|promise| ManagerMessage::Work(Ask::new(promise, work)))
         .wait();
     // ANCHOR_END: main_ask
     println!("*******\nGot result: {}\n*******", res.0);

@@ -273,7 +273,7 @@ fn run_task(num_workers: usize, data_size: usize) {
     let work = Work::with(data, overflowing_sum, 0u64);
     println!("Sending request...");
     // ANCHOR: main_ask
-    let res = manager_ref.ask(Ask::of(work)).wait();
+    let res = manager_ref.ask(work).wait();
     // ANCHOR_END: main_ask
     println!("*******\nGot result: {}\n*******", res.0);
     assert_eq!(triangular_number(data_size as u64), res.0);

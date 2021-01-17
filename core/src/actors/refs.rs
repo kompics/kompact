@@ -286,14 +286,14 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("component start");
     ///
-    /// let response_f = strong_ref.ask(Ask::of(42u64));
+    /// let response_f = strong_ref.ask_with(Ask::of(42u64));
     /// let response = response_f
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("response");
     /// assert_eq!("42".to_string(), response);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn ask<R, F>(&self, f: F) -> KFuture<R>
+    pub fn ask_with<R, F>(&self, f: F) -> KFuture<R>
     where
         R: Send + Sized,
         F: FnOnce(KPromise<R>) -> M,
@@ -311,6 +311,76 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         ActorRef { component: c }
     }
 }
+
+impl<Request, Response> ActorRefStrong<Ask<Request, Response>>
+where
+    Request: MessageBounds,
+    Response: Send + Sized + std::fmt::Debug + 'static,
+{
+    /// Helper to create messages that expect a response via a future instead of a message
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct AskComponent {
+    ///     ctx: ComponentContext<Self>
+    /// }
+    ///
+    /// # impl AskComponent {
+    /// #  fn new() -> AskComponent {
+    /// #        AskComponent {
+    /// #            ctx: ComponentContext::uninitialised()
+    /// #        }
+    /// #    }
+    /// # }
+    ///
+    /// # ignore_lifecycle!(AskComponent);
+    ///
+    /// impl Actor for AskComponent {
+    ///     type Message = Ask<u64, String>;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///         msg.complete(|num| {
+    ///             format!("{}", num)
+    ///         })
+    ///         .expect("completion");
+    ///         Handled::Ok
+    ///     }
+    ///
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    /// #        unimplemented!("We don't care about this.");
+    /// #    }
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(AskComponent::new);
+    /// let strong_ref = c.actor_ref().hold().expect("live ref");
+    ///
+    /// let start_f = system.start_notify(&c);
+    /// start_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("component start");
+    ///
+    /// let response_f = strong_ref.ask(42u64);
+    /// let response = response_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("response");
+    /// assert_eq!("42".to_string(), response);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    pub fn ask(&self, request: Request) -> KFuture<Response> {
+        let (promise, future) = promise::<Response>();
+        let msg = Ask::new(promise, request);
+        let env = MsgEnvelope::Typed(msg);
+        self.enqueue(env);
+        future
+    }
+}
+
 impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
     type Message = M;
 
@@ -461,14 +531,14 @@ impl<M: MessageBounds> ActorRef<M> {
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("component start");
     ///
-    /// let response_f = actor_ref.ask(Ask::of(42u64));
+    /// let response_f = actor_ref.ask_with(Ask::of(42u64));
     /// let response = response_f
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("response");
     /// assert_eq!("42".to_string(), response);
     /// # system.shutdown().expect("shutdown");
     /// ```
-    pub fn ask<R, F>(&self, f: F) -> KFuture<R>
+    pub fn ask_with<R, F>(&self, f: F) -> KFuture<R>
     where
         R: Send + Sized,
         F: FnOnce(KPromise<R>) -> M,
@@ -513,6 +583,75 @@ impl<M: MessageBounds> ActorRef<M> {
     {
         let adapter = TypedMsgQueue::create_adapter(self.component.clone(), convert);
         Recipient::from(adapter)
+    }
+}
+
+impl<Request, Response> ActorRef<Ask<Request, Response>>
+where
+    Request: MessageBounds,
+    Response: Send + Sized + std::fmt::Debug + 'static,
+{
+    /// Helper to create messages that expect a response via a future instead of a message
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kompact::prelude::*;
+    /// use std::time::Duration;
+    ///
+    /// #[derive(ComponentDefinition)]
+    /// struct AskComponent {
+    ///     ctx: ComponentContext<Self>
+    /// }
+    ///
+    /// # impl AskComponent {
+    /// #  fn new() -> AskComponent {
+    /// #        AskComponent {
+    /// #            ctx: ComponentContext::uninitialised()
+    /// #        }
+    /// #    }
+    /// # }
+    ///
+    /// # ignore_lifecycle!(AskComponent);
+    ///
+    /// impl Actor for AskComponent {
+    ///     type Message = Ask<u64, String>;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///         msg.complete(|num| {
+    ///             format!("{}", num)
+    ///         })
+    ///         .expect("completion");
+    ///         Handled::Ok
+    ///     }
+    ///
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    /// #        unimplemented!("We don't care about this.");
+    /// #    }
+    /// }
+    ///
+    /// let system = KompactConfig::default().build().expect("system");
+    /// let c = system.create(AskComponent::new);
+    /// let actor_ref = c.actor_ref();
+    ///
+    /// let start_f = system.start_notify(&c);
+    /// start_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("component start");
+    ///
+    /// let response_f = actor_ref.ask(42u64);
+    /// let response = response_f
+    ///     .wait_timeout(Duration::from_millis(1000))
+    ///     .expect("response");
+    /// assert_eq!("42".to_string(), response);
+    /// # system.shutdown().expect("shutdown");
+    /// ```
+    pub fn ask(&self, request: Request) -> KFuture<Response> {
+        let (promise, future) = promise::<Response>();
+        let msg = Ask::new(promise, request);
+        let env = MsgEnvelope::Typed(msg);
+        self.enqueue(env);
+        future
     }
 }
 

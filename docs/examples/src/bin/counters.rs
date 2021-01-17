@@ -104,7 +104,7 @@ pub fn main() {
     let actor_ref = counter.actor_ref();
     let port_ref: ProvidedRef<CounterPort> = counter.provided_ref();
     for _i in 0..100 {
-        let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+        let current_count = actor_ref.ask(CountMe).wait();
         info!(system.logger(), "The current count is: {:?}", current_count);
     }
     for _i in 0..100 {
@@ -112,7 +112,7 @@ pub fn main() {
         // Where do the answers go?
     }
     std::thread::sleep(Duration::from_millis(1000));
-    let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+    let current_count = actor_ref.ask(CountMe).wait();
     info!(system.logger(), "The final count is: {:?}", current_count);
     system.shutdown().expect("shutdown");
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down

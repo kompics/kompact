@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly-2020-12-13]
+        rust: [stable, nightly]
     steps:
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
@@ -32,13 +32,18 @@ jobs:
         with:
           command: test
           args: --verbose
+      - name: Run ignored tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --verbose -- --ignored
 
   test-core-serde-features:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly-2020-12-13]
+        rust: [stable, nightly]
         feature: [ser_id_8, ser_id_16, ser_id_32]
     steps:
       - name: Install Protoc
@@ -57,13 +62,18 @@ jobs:
         with:
           command: test
           args: --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }}
+      - name: Run ignored tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }} -- --ignored
 
   test-core-misc-features:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly-2020-12-13]
+        rust: [stable, nightly]
         feature: [thread_pinning, low_latency, type_erasure]
     steps:
       - name: Install Protoc
@@ -82,6 +92,11 @@ jobs:
         with:
           command: test
           args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }}
+      - name: Run ignored tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }} -- --ignored
 
   codecov-grcov:
     name: Generate code coverage
@@ -131,17 +146,36 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-13
+          toolchain: nightly-2021-01-16
           override: true
           components: rustfmt, clippy
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - name: Run cargo clippy
+      - name: Run cargo clippy (default)
         uses: actions-rs/cargo@v1
-        with:
+        with: 
           command: clippy
-          args: -- -D warnings
+          args: --all-targets -- -D warnings
+      - name: Run cargo clippy (ser_id_8)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
+      - name: Run cargo clippy (thread_pinning)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
+      - name: Run cargo clippy (low_latency)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
+      - name: Run cargo clippy (type_erasure)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
 
   format:
     name: cargo fmt
@@ -154,7 +188,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2021-01-16
           override: true
           components: rustfmt, clippy
 
