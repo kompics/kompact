@@ -131,7 +131,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-31
+          toolchain: nightly-2021-01-16
           override: true
           components: rustfmt, clippy
       - name: Checkout sources
@@ -154,7 +154,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-31
+          toolchain: nightly-2021-01-16
           override: true
           components: rustfmt, clippy
 
