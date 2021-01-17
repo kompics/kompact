@@ -1,0 +1,54 @@
+name: Codecov
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+    types: [review_requested]
+
+jobs:
+  codecov-grcov:
+    name: Generate code coverage
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: install toolchain according to rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: default
+          override: true
+          components: llvm-tools-preview
+      - name: Checkout sources
+        uses: actions/checkout@v2
+         - name: Install grcov
+        run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
+      - name: Run tests
+        env:
+          RUSTFLAGS: '-Zinstrument-coverage'
+        run: |
+          cargo test
+          cargo test -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8 -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16 -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32 -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features low_latency
+          cargo test --manifest-path=core/Cargo.toml --features low_latency -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure -- --ignored
+      - name: Run grcov
+        run: grcov core/ --binary-path target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.lcov
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
