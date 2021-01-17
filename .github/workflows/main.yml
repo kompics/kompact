@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly-2020-12-13]
+        rust: [stable, nightly]
     steps:
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly-2020-12-13]
+        rust: [stable, nightly]
         feature: [ser_id_8, ser_id_16, ser_id_32]
     steps:
       - name: Install Protoc
@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly-2020-12-13]
+        rust: [stable, nightly]
         feature: [thread_pinning, low_latency, type_erasure]
     steps:
       - name: Install Protoc
