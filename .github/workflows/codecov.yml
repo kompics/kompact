@@ -28,7 +28,7 @@ jobs:
           components: llvm-tools-preview
       - name: Checkout sources
         uses: actions/checkout@v2
-         - name: Install grcov
+      - name: Install grcov
         run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
       - name: Run tests
         env:
