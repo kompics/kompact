@@ -30,9 +30,18 @@ jobs:
         uses: actions/checkout@v2
       - name: Install grcov
         run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+        env:
+          RUSTFLAGS: '-Zinstrument-coverage'
+          RUSTDOCFLAGS: '-Zinstrument-coverage'
       - name: Run tests
         env:
           RUSTFLAGS: '-Zinstrument-coverage'
+          RUSTDOCFLAGS: '-Zinstrument-coverage'
+          LLVM_PROFILE_FILE: 'codecov-instrumentation-%p-%m.profraw'
         run: |
           cargo test
           cargo test -- --ignored
