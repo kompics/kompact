@@ -66,7 +66,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }} -- --ignored
+          args: --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }} -- --ignored
 
   test-core-misc-features:
     runs-on: ubuntu-latest
@@ -151,13 +151,31 @@ jobs:
           components: rustfmt, clippy
       - name: Checkout sources
         uses: actions/checkout@v2
-      - name: Run cargo clippy
-        run: |
-          cargo clippy --all-targets -- -D warnings
-          cargo clippy --all-targets --no-default-features --features ser_id_8 -- -D warnings
-          cargo clippy --all-targets --features thread_pinning -- -D warnings
-          cargo clippy --all-targets --features low_latency -- -D warnings
-          cargo clippy --all-targets --features type_erasure -- -D warnings
+      - name: Run cargo clippy (default)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --all-targets -- -D warnings
+      - name: Run cargo clippy (ser_id_8)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
+      - name: Run cargo clippy (thread_pinning)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
+      - name: Run cargo clippy (low_latency)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
+      - name: Run cargo clippy (type_erasure)
+        uses: actions-rs/cargo@v1
+        with: 
+          command: clippy
+          args: --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
 
   format:
     name: cargo fmt
