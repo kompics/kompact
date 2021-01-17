@@ -43,20 +43,20 @@ jobs:
           RUSTDOCFLAGS: '-Zinstrument-coverage'
           LLVM_PROFILE_FILE: 'codecov-instrumentation-%p-%m.profraw'
         run: |
-          cargo test
-          cargo test -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8 -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16 -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32 -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --features thread_pinning
-          cargo test --manifest-path=core/Cargo.toml --features thread_pinning -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --features low_latency
-          cargo test --manifest-path=core/Cargo.toml --features low_latency -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --features type_erasure -- --ignored
-          cargo test --manifest-path=core/Cargo.toml --features type_erasure -- --ignored
+          cargo test --features slog/max_level_info
+          cargo test --features slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8,slog/max_level_info
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8,slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16,slog/max_level_info
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16,slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32,slog/max_level_info
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32,slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning,slog/max_level_info
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning,slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features low_latency,slog/max_level_info
+          cargo test --manifest-path=core/Cargo.toml --features low_latency,slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure,slog/max_level_info -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure,slog/max_level_info -- --ignored
       - name: Run grcov
         run: grcov core/ --binary-path target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.lcov
       - name: Upload to codecov.io
