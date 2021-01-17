@@ -42,7 +42,7 @@ In the Kompics-style communication, we reply by simply triggering the `CurrentCo
 
 ### Sending Stuff
 
-In order to count something, we must of course send some events and messages. We could do so in Actor-style by using `tell(...)` as before, but this time we want to wait for a response as well. So instead we will use `ask(...)` and wrap our `CountMe` into an `Ask` instance as required by our actor's implementation. In the Kompics-style, we can trigger on a port reference using `system.trigger_r(...)` instead. Whenever we get a response, we print it using the system's logger:
+In order to count something, we must of course send some events and messages. We could do so in Actor-style by using `tell(...)` as before, but this time we want to wait for a response as well. So instead we will use `ask(...)` to automatically wrap our `CountMe` into an `Ask` instance as required by our actor's implementation. In the Kompics-style, we can trigger on a port reference using `system.trigger_r(...)` instead. Whenever we get a response, we print it using the system's logger:
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/counters.rs:main}}

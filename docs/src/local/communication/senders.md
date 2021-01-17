@@ -7,7 +7,7 @@ In Kompact, for local messages at least, sender information must be passed expli
 1. It avoids creating an `ActorRef` for every message when it's not needed, since actor references are not trivially cheap to create.
 2. It allows the sender reference to be typed with the appropriate message type.
 
-This design gives us basically two variants to do request-reponse. If we know we are always going to response to the same component instance, the most efficient thing to do is to get a reference to it once and then just keep it around as part of our internal state. This avoids constantly creating actor references, and is pretty efficient. If, however, we must respond to multiple different actors, which is often the case, we must make the sender reference part of the request message. We can do that either by adding a field to our custom message type, or simply wrapping our custom message type into the Kompact provided `WithSender` struct. `WithSender` is really the same idea as `Ask`, replacing the `KPromise<Response>` with an `ActorRef<Response>` (yes, there is also `WithSenderStrong` using an `ActorRefStrong` instead).
+This design gives us basically two variants to do request-reponse. If we know we are always going to respond to the same component instance, the most efficient thing to do is to get a reference to it once and then just keep it around as part of our internal state. This avoids constantly creating actor references, and is pretty efficient. If, however, we must respond to multiple different actors, which is often the case, we must make the sender reference part of the request message. We can do that either by adding a field to our custom message type, or simply wrapping our custom message type into the Kompact provided `WithSender` struct. `WithSender` is really the same idea as `Ask`, replacing the `KPromise<Response>` with an `ActorRef<Response>` (yes, there is also `WithSenderStrong` using an `ActorRefStrong` instead).
 
 ## Workers with Senders
 
@@ -39,7 +39,7 @@ We also remove the port connection logic from the `ComponentLifecycle` handler. 
 
 The `receive_local(...)` function is getting pretty long, so we should probably decompose it into smaller private functions if we actually wanted to maintain this code.
 
-Now finally, when we want to send the `Ask` from the main-thread, we also need to wrap it into `ManagerMessage::Work`. This prevents us from using `Ask::of`, as it only returns a direct `Ask`, but never a wrapped `Ask`. This gets us back to previously mentioned custom function from `KPromise` to the actual message type, which in this case is `ManagerMessage`.
+Now finally, when we want to send the `Ask` from the main-thread, we also need to wrap it into `ManagerMessage::Work`. This prevents us from simply using `ActorRef::ask`, as it only produces an  `Ask` instance, not our wrapper `ManagerMessage`. This gets us back to previously mentioned `ActorRef::ask_with` function, which allows us to construct our `Ask` instance and put it into our wrapper ourselves. If we were to use this construction in many places throughout or code, it would likely be a good idea to use a constructor function on `ManagerMessage` to map the `promise` and the `work` values to the proper structure.
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../../examples/src/bin/workers_sender.rs:main_ask}}
