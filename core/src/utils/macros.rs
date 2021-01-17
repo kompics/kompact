@@ -14,7 +14,7 @@ macro_rules! let_irrefutable {
     };
 }
 
-/// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
+/// A macro that provides an empty implementation of [ComponentLifecycle](crate::prelude::ComponentLifecycle) for the given component
 ///
 /// Use this in components that do not require any special treatment of lifecycle events.
 ///
@@ -32,7 +32,7 @@ macro_rules! ignore_lifecycle {
     };
 }
 
-/// A macro that provides an implementation of [ComponentLifecycle](ComponentLifecycle) for the given component that logs
+/// A macro that provides an implementation of [ComponentLifecycle](crate::prelude::ComponentLifecycle) for the given component that logs
 /// the lifecycle stages at INFO log level.
 ///
 /// Use this in components that do not require any special treatment of lifecycle events besides logging.
@@ -63,7 +63,7 @@ macro_rules! info_lifecycle {
     };
 }
 
-/// A macro that provides an empty implementation of [ComponentLifecycle](ComponentLifecycle) for the given component
+/// A macro that provides an empty implementation of [ComponentLifecycle](crate::prelude::ComponentLifecycle) for the given component
 ///
 /// Use this in components that do not require any special treatment of control events.
 ///

@@ -46,6 +46,8 @@ where
 
     /// Reply to this `Ask` with the `response`.
     ///
+    /// # Errors
+    ///
     /// Fails with a [PromiseErr](PromiseErr) if the promise has already been fulfilled or the other end dropped the future.
     pub fn reply(self, response: Response) -> Result<(), PromiseErr> {
         self.promise.fulfil(response)
@@ -53,18 +55,48 @@ where
 
     /// Run `f` to produce a response to this `Ask` and reply with that reponse.
     ///
+    /// # Errors
+    ///
     /// Fails with a [PromiseErr](PromiseErr) if the promise has already been fulfilled or the other end dropped the future.
-    pub fn complete<F>(self, f: F) -> Result<(), PromiseErr>
-    where
-        F: FnOnce(Request) -> Response,
-    {
+    pub fn complete(self, f: impl FnOnce(Request) -> Response) -> Result<(), PromiseErr> {
         let response = f(self.content);
         self.promise.fulfil(response)
     }
 
     /// Run the future produced by `f` to completion, and then reply with its result.
     ///
+    /// # Errors
+    ///
     /// Fails with a [PromiseErr](PromiseErr) if the promise has already been fulfilled or the other end dropped the future.
+    ///
+    /// # Note
+    ///
+    /// As usual for async functions, you must await the future returned by this function somewhere,
+    /// in order for the code to actually be executed.
+    ///
+    /// You can do so, for example, by using [block_on](Handled::block_on) and returning the result
+    /// from a message handling function:
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # #[derive(ComponentDefinition)]
+    /// # struct ExampleComponent {ctx: ComponentContext<Self>}
+    /// # ignore_lifecycle!(ExampleComponent);
+    /// impl Actor for ExampleComponent {
+    ///     type Message = Ask<usize, usize>;
+    ///
+    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///         Handled::block_on(self, move |async_self| async move {
+    ///             msg.complete_with(move |num| async move {
+    ///                 num + 1 // produce response
+    ///             })
+    ///             .await
+    ///             .expect("complete");
+    ///         })
+    ///     }
+    /// #   fn receive_network(&mut self, msg: NetMessage) -> Handled { unimplemented!() }
+    /// }
+    /// ```
     pub async fn complete_with<F>(self, f: impl FnOnce(Request) -> F) -> Result<(), PromiseErr>
     where
         F: Future<Output = Response> + Send + 'static,
