@@ -1,6 +1,6 @@
 use super::*;
 use bytes::{buf::UninitSlice, Bytes};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, ptr::NonNull};
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
 /// [BufMut](bytes::BufMut) interfaces. They are created with one or many distinct slices of
@@ -31,6 +31,16 @@ impl ChunkLease {
             read_pointer: 0,
             chain: None,
             chain_len: capacity,
+        }
+    }
+
+    /// Creates an empty ChunkLease
+    pub fn empty() -> ChunkLease {
+        unsafe {
+            ChunkLease::new(
+                std::slice::from_raw_parts_mut(NonNull::dangling().as_ptr(), 0),
+                Arc::new(0),
+            )
         }
     }
 
@@ -72,8 +82,13 @@ impl ChunkLease {
     pub(crate) fn split_at(&mut self, position: usize) -> ChunkLease {
         // Recursion by decrementing position in each recursive step
         assert!(
-            position < self.remaining(),
-            "Trying to split at bad position"
+            position <= self.capacity(),
+            "Trying to split at bad position: {}, read_pointer: {}, \
+            chain_head_len: {}, chain_len: {}",
+            position,
+            self.read_pointer,
+            self.chain_head_len,
+            self.chain_len,
         );
         self.chain_len = position;
         match position.cmp(&self.chain_head_len) {
@@ -85,9 +100,12 @@ impl ChunkLease {
             }
             Ordering::Equal => {
                 // Simple split, take the chain out and return it
-                if let Some(tail_chain) = self.chain.take() {
-                    return *tail_chain;
-                }
+                return if let Some(tail_chain) = self.chain.take() {
+                    *tail_chain
+                } else {
+                    // Special case, splitting at the end of the ChunkLease
+                    ChunkLease::empty()
+                };
             }
             Ordering::Less => {
                 // Split of the data in self and retain self while returning the "tail" of the split
@@ -145,16 +163,25 @@ impl ChunkLease {
     }
 
     /// Transforms this `ChunkLease` into a [ChunkRef](ChunkRef), an immutable and cloneable smart-pointer
-    pub fn into_chunk_ref(self) -> ChunkRef {
-        let chain = self.chain.map(|chain| Box::new(chain.into_chunk_ref()));
-        ChunkRef::new(
-            self.content,
-            self.read_pointer,
-            self.chain_head_len,
-            self.lock,
-            chain,
-            self.chain_len,
-        )
+    ///
+    /// Data stored before the current `read_pointer` location will be dropped and the new `ChunkRef`
+    /// will have a `read_pointer` at 0.
+    pub fn into_chunk_ref(mut self) -> ChunkRef {
+        if self.read_pointer > 0 {
+            let mut tail = self.split_at(self.read_pointer);
+            tail.read_pointer = 0;
+            tail.into_chunk_ref()
+        } else {
+            let chain = self.chain.map(|chain| Box::new(chain.into_chunk_ref()));
+            ChunkRef::new(
+                self.content,
+                self.read_pointer,
+                self.chain_head_len,
+                self.lock,
+                chain,
+                self.chain_len,
+            )
+        }
     }
 
     /// Creates a chained [ChunkRef](ChunkRef) with `tail` at the end of the new `ChunkRef`.
