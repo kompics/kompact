@@ -901,6 +901,7 @@ mod tests {
     use crate::prelude_test::net_test_helpers::{PingerAct, PongerAct};
     use std::{thread, time::Duration};
 
+    /*
     // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
     #[ignore]
@@ -925,6 +926,7 @@ mod tests {
         ));
         println!("Got path: {}", named_path);
     }
+    */
 
     #[test]
     fn network_cleanup() {

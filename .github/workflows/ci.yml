@@ -1,4 +1,4 @@
-name: Rust CI
+name: CI
 on:
   push:
     branches:
@@ -7,6 +7,8 @@ on:
     branches:
       - master
     types: [opened, reopened, synchronize]
+  schedule:
+    - cron: '0 0 * * *'  # every day at midnight
 
 jobs:
   tests:
@@ -97,42 +99,6 @@ jobs:
         with:
           command: test
           args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }} -- --ignored
-
-  codecov-grcov:
-    name: Generate code coverage
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-    steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.6.1'
-      - name: install toolchain according to rust-toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: default
-          override: true
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Run tests for coverage
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests
-          RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests
-        run: |
-          cargo test
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16
-          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32
-          cargo test --manifest-path=core/Cargo.toml --features thread_pinning
-          cargo test --manifest-path=core/Cargo.toml --features low_latency
-          cargo test --manifest-path=core/Cargo.toml --features type_erasure
-      - name: Compute coverage
-        uses: actions-rs/grcov@v0.1
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1
 
   clippy:
     name: cargo clippy
