@@ -1,6 +1,6 @@
 # Ask
 
-We have now mentioned multiple times that we want to use the "ask"-pattern again, as we did in the [introduction](../../introduction/state.md) briefly already. The "ask"-pattern is simply a mechanism to translate from message-based communication into a thread-based model. It does so by coupling a request message with a *future* that is to be fulfilled with a response for the request. On the sending thread, the one with the future, the result can then be waited for at some point, when it is needed, via blocking, for example. The receiving Actor, on the other hand, gets a combination of the request message with a *promise*, an `Ask` instance, that it can fulfill with the response at any later time. Thus, the `Message` type for such an actor is not `Request` but rather `Ask<Request, Response>`.
+We have now mentioned multiple times that we want to use the "ask"-pattern again, as we did in the [introduction](../../introduction/state.md) briefly already. The "ask"-pattern is simply a mechanism to translate from message-based communication into a thread- or future-based model. It does so by coupling a request message with a *future* that is to be fulfilled with a response for the request. On the sending thread, the one with the future, the result can then be waited for at some point, when it is needed, via blocking, for example. The receiving Actor, on the other hand, gets a combination of the request message with a *promise*, an `Ask` instance, that it can fulfill with the response at any later time. Thus, the `Message` type for such an actor is not `Request` but rather `Ask<Request, Response>`.
 
 > **Note:** The futures returned by Kompact's "ask"-API conform with Rust's built-in async/await mechanism. On top of that Kompact offers some convenience methods that can be called on a `KFuture` to make the common case of blocking on the result easier.
 
@@ -16,10 +16,10 @@ We then must distribute the work more or less evenly over the available workers.
 
 ## Sending Work
 
-When sending work to the manager from the main-thread, we can construct the required `Ask` instance with the combination of `ActorRef::ask(...)` and `Ask::of(...)`. The former is actually more general than using `Ask` instances, as it simply expects a function that takes `KPromise<Result>` and produces the Actor's `Message` type. This allows for custom `Ask` variants with more fields. However, for the most part wrapping with `Ask<Request, Result>` is the easiest way to go. Thus, if we have an instance of `Work`, we can simply pass this into `Ask::of(...)`, which produces the required function from `KPromise` to `Ask` for us.
-
-Since we only want to handle a single request at a time, we will immediately `wait()` for the result of the future.
+When sending work to the manager from the main-thread, we can construct the required `Ask` instance with `ActorRef::ask(...)`. Since we only want to handle a single request at a time, we will immediately `wait()` for the result of the future.
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../../examples/src/bin/workers.rs:main_ask}}
 ```
+
+> **Note:** For situations where the `Ask` instance is nested, for example, into an enum, Kompact offers the `ActorRef::ask_with` function. Instead of a `Request` value, `ask_with` expects a *function* that takes a `KPromise<Result>` and produces the Actor's `Message` type. This also allows for custom `Ask` variants with more fields, for example.

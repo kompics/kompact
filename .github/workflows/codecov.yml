@@ -1,0 +1,63 @@
+name: Codecov
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+    types: [opened, reopened, synchronize]
+
+jobs:
+  codecov-grcov:
+    name: Generate code coverage
+    runs-on: self-hosted
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: '3.6.1'
+      - name: install toolchain according to rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: default
+          override: true
+          components: llvm-tools-preview
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install grcov
+        run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+        env:
+          RUSTFLAGS: '-Zinstrument-coverage'
+          RUSTDOCFLAGS: '-Zinstrument-coverage'
+      - name: Run tests
+        env:
+          RUSTFLAGS: '-Zinstrument-coverage'
+          RUSTDOCFLAGS: '-Zinstrument-coverage'
+          LLVM_PROFILE_FILE: 'codecov-instrumentation-%p-%m.profraw'
+        run: |
+          cargo test --features slog/max_level_error
+          cargo test --features slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8,slog/max_level_error
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_8,slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16,slog/max_level_error
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_16,slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32,slog/max_level_error
+          cargo test --manifest-path=core/Cargo.toml --no-default-features --features ser_id_32,slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning,slog/max_level_error
+          cargo test --manifest-path=core/Cargo.toml --features thread_pinning,slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features low_latency,slog/max_level_error
+          cargo test --manifest-path=core/Cargo.toml --features low_latency,slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure,slog/max_level_error -- --ignored
+          cargo test --manifest-path=core/Cargo.toml --features type_erasure,slog/max_level_error -- --ignored
+      - name: Run grcov
+        run: grcov core/ --binary-path target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.lcov
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
