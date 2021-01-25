@@ -4,10 +4,10 @@ use crate::{
     actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport},
     component::{Component, ComponentContext, ExecuteResult},
 };
-use std::{net::SocketAddr, pin::Pin, sync::Arc};
+use std::{pin::Pin, sync::Arc};
 
 use crate::{
-    actors::NamedPath,
+    actors::{NamedPath, Transport::Tcp},
     messaging::{
         ActorRegistration,
         DispatchData,
@@ -22,7 +22,14 @@ use crate::{
         RegistrationEvent,
         RegistrationPromise,
     },
-    net::{buffers::*, events::NetworkEvent, ConnectionState, NetworkBridgeErr},
+    net::{
+        buffers::*,
+        events::NetworkEvent,
+        ConnectionState,
+        NetworkBridgeErr,
+        Protocol,
+        SocketAddr,
+    },
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
@@ -70,7 +77,7 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
+    /// Create a new config with `addr` and protocol [Tcp](Transport::Tcp)
     /// NetworkDispatcher and NetworkThread will use the default `BufferConfig`
     pub fn new(addr: SocketAddr) -> Self {
         NetworkConfig {
@@ -84,7 +91,7 @@ impl NetworkConfig {
         }
     }
 
-    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
+    /// Create a new config with `addr` and protocol [Tcp](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_buffer_config(addr: SocketAddr, buffer_config: BufferConfig) -> Self {
         buffer_config.validate();
@@ -99,7 +106,7 @@ impl NetworkConfig {
         }
     }
 
-    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
+    /// Create a new config with `addr` and protocol [Tcp](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_custom_allocator(
         addr: SocketAddr,
@@ -152,7 +159,7 @@ impl NetworkConfig {
         self.tcp_nodelay
     }
 
-    /// If set to `true` the Nagle algorithm will be turned off for all TCP Network-channels.
+    /// If set to `true` the Nagle algorithm will be turned off for all Tcp Network-channels.
     ///
     /// Decreases network-latency at the cost of reduced throughput and increased congestion.
     ///
@@ -187,7 +194,7 @@ impl NetworkConfig {
     }
 }
 
-/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::Tcp)
+/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [Tcp](Transport::Tcp)
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
@@ -202,6 +209,38 @@ impl Default for NetworkConfig {
     }
 }
 
+/// A port providing `NetworkStatusUpdates´ to listeners.
+pub struct NetworkStatusPort;
+impl Port for NetworkStatusPort {
+    type Indication = NetworkStatus;
+    type Request = NetworkStatusRequest;
+}
+
+/// Information regarding changes to the systems connections to remote systems
+#[derive(Clone, Debug)]
+pub enum NetworkStatus {
+    /// Indicates that a connection has been established to the remote system
+    ConnectionEstablished(SystemPath),
+    /// Indicates that a connection has been lost to the remote system.
+    /// The system will automatically try to recover the connection for a configurable amount of
+    /// retries. The end of the automatic retries is signalled by a `ConnectionDropped` message.
+    ConnectionLost(SystemPath),
+    /// Indicates that a connection has been dropped and no more automatic retries to re-establish
+    /// the connection will be attempted and all queued messages have been dropped.
+    ConnectionDropped(SystemPath),
+    /// Indicates that a connection has been gracefully closed.
+    ConnectionClosed(SystemPath),
+}
+
+/// Sent by Actors and Components to request information about the Network
+#[derive(Clone, Debug)]
+pub enum NetworkStatusRequest {
+    /// Request that the connection to the given address is gracefully closed.
+    DisconnectSystem(SystemPath),
+    /// Request that a connection is established to the given System.
+    ConnectSystem(SystemPath),
+}
+
 /// A network-capable dispatcher for sending messages to remote actors
 ///
 /// Construct this using [NetworkConfig](NetworkConfig::build).
@@ -209,7 +248,7 @@ impl Default for NetworkConfig {
 /// This dispatcher automatically creates channels to requested target
 /// systems on demand and maintains them while in use.
 ///
-/// The current implementation only supports [TCP](Transport::Tcp) as
+/// The current implementation only supports [Tcp](Transport::Tcp) as
 /// a transport protocol.
 ///
 /// If possible, this implementation will "reflect" messages
@@ -236,6 +275,8 @@ pub struct NetworkDispatcher {
     /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
     retry_map: FxHashMap<SocketAddr, u8>,
     garbage_buffers: VecDeque<BufferChunk>,
+    /// The dispatcher emits NetworkStatusUpdates to the `NetworkStatusPort`.
+    network_status_port: ProvidedPort<NetworkStatusPort>,
 }
 
 impl NetworkDispatcher {
@@ -281,6 +322,7 @@ impl NetworkDispatcher {
             notify_ready: Some(notify_ready),
             garbage_buffers: VecDeque::new(),
             retry_map: Default::default(),
+            network_status_port: ProvidedPort::uninitialised(),
         }
     }
 
@@ -335,16 +377,19 @@ impl NetworkDispatcher {
     }
 
     fn stop(&mut self) -> () {
-        self.do_stop(false)
+        if let Some(bridge) = self.net_bridge.take() {
+            if let Err(e) = bridge.stop() {
+                error!(
+                    self.ctx().log(),
+                    "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
+                );
+            }
+        }
     }
 
     fn kill(&mut self) -> () {
-        self.do_stop(true)
-    }
-
-    fn do_stop(&mut self, _cleanup: bool) -> () {
         if let Some(bridge) = self.net_bridge.take() {
-            if let Err(e) = bridge.stop() {
+            if let Err(e) = bridge.kill() {
                 error!(
                     self.ctx().log(),
                     "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
@@ -415,6 +460,11 @@ impl NetworkDispatcher {
                 );
                 self.queue_manager.drop_queue(&addr);
                 self.connections.remove(&addr);
+                self.network_status_port
+                    .trigger(NetworkStatus::ConnectionDropped(SystemPath::with_socket(
+                        Transport::Tcp,
+                        addr,
+                    )));
             }
         }
         self.schedule_once(
@@ -461,6 +511,10 @@ impl NetworkDispatcher {
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
                 );
+                self.network_status_port
+                    .trigger(NetworkStatus::ConnectionEstablished(
+                        SystemPath::with_socket(Transport::Tcp, addr),
+                    ));
                 let _ = self.retry_map.remove(&addr);
                 if self.queue_manager.has_data(&addr) {
                     // Drain as much as possible
@@ -473,11 +527,12 @@ impl NetworkDispatcher {
                 }
             }
             Closed => {
-                if self.retry_map.get(&addr).is_none() {
-                    warn!(self.ctx().log(), "connection closed for {:?}", addr);
-                    self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
-                }
-                // Ack the close message
+                self.network_status_port
+                    .trigger(NetworkStatus::ConnectionClosed(SystemPath::with_socket(
+                        Transport::Tcp,
+                        addr,
+                    )));
+                // Ack the closing
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
                 }
@@ -487,7 +542,7 @@ impl NetworkDispatcher {
                     x if x.kind() == ErrorKind::ConnectionRefused => {
                         error!(self.ctx().log(), "connection refused for {:?}", addr);
                         // TODO determine how we want to proceed
-                        // If TCP, the network bridge has already attempted retries with exponential
+                        // If Tcp, the network bridge has already attempted retries with exponential
                         // backoff according to its configuration.
                     }
                     why => {
@@ -496,6 +551,20 @@ impl NetworkDispatcher {
                             "connection error for {:?}: {:?}", addr, why
                         );
                     }
+                }
+            }
+            Lost => {
+                if self.retry_map.get(&addr).is_none() {
+                    warn!(self.ctx().log(), "connection lost to {:?}", addr);
+                    self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
+                }
+                self.network_status_port
+                    .trigger(NetworkStatus::ConnectionLost(SystemPath::with_socket(
+                        Transport::Tcp,
+                        addr,
+                    )));
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.ack_closed(addr)?;
                 }
             }
             ref _other => (), // Don't care
@@ -605,7 +674,16 @@ impl NetworkDispatcher {
                 None
             }
             ConnectionState::Closed => {
-                // Enqueue the Frame. The connection will sort itself out or drop the queue eventually
+                // Enqueue the Frame and request a connection to the destination.
+                self.queue_manager.enqueue_data(data, addr);
+                if let Some(bridge) = &self.net_bridge {
+                    // Request a new connection
+                    bridge.connect(Tcp, addr)?;
+                }
+                Some(ConnectionState::Initializing)
+            }
+            ConnectionState::Lost => {
+                // May be recovered...
                 self.queue_manager.enqueue_data(data, addr);
                 None
             }
@@ -763,6 +841,39 @@ impl NetworkDispatcher {
             RegistrationPromise::None => (), // ignore
         }
     }
+
+    fn close_channel(&mut self, addr: SocketAddr) -> () {
+        if let Some(state) = self.connections.get_mut(&addr) {
+            match state {
+                ConnectionState::Connected(_) => {
+                    debug!(
+                        self.ctx.log(),
+                        "Closing channel to connected system {}", addr
+                    );
+                    if let Some(bridge) = &self.net_bridge {
+                        while self.queue_manager.has_data(&addr) {
+                            if let Some(data) = self.queue_manager.pop_data(&addr) {
+                                if let Err(e) = bridge.route(addr, data, Protocol::Tcp) {
+                                    error!(self.ctx.log(), "Bridge error while routing {:?}", e);
+                                }
+                            }
+                        }
+                        if let Err(e) = bridge.close_channel(addr) {
+                            error!(self.ctx.log(), "Bridge error closing channel {:?}", e);
+                        }
+                    }
+                }
+                _ => {
+                    warn!(
+                        self.ctx.log(),
+                        "Trying to close channel to a system which is not connected {}", addr
+                    );
+                }
+            }
+        } else {
+            warn!(self.ctx.log(), "Closing channel to unknown system {}", addr);
+        }
+    }
 }
 
 impl Actor for NetworkDispatcher {
@@ -823,6 +934,13 @@ impl Dispatcher for NetworkDispatcher {
             }
         }
     }
+
+    fn connect_network_status_port(
+        &mut self,
+        required: &mut RequiredPort<NetworkStatusPort>,
+    ) -> () {
+        utils::biconnect_ports(&mut self.network_status_port, required);
+    }
 }
 
 impl ComponentLifecycle for NetworkDispatcher {
@@ -849,6 +967,29 @@ impl ComponentLifecycle for NetworkDispatcher {
         info!(self.ctx.log(), "Killing network...");
         self.kill();
         info!(self.ctx.log(), "Killed network.");
+        Handled::Ok
+    }
+}
+
+impl Provide<NetworkStatusPort> for NetworkDispatcher {
+    fn handle(&mut self, event: <NetworkStatusPort as Port>::Request) -> Handled {
+        trace!(
+            self.ctx.log(),
+            "Received NetworkStatusPort Request {:?}",
+            event
+        );
+        match event {
+            NetworkStatusRequest::DisconnectSystem(system_path) => {
+                self.close_channel(system_path.socket_address());
+            }
+            NetworkStatusRequest::ConnectSystem(system_path) => {
+                if let Some(bridge) = &self.net_bridge {
+                    bridge
+                        .connect(system_path.protocol(), system_path.socket_address())
+                        .unwrap();
+                }
+            }
+        }
         Handled::Ok
     }
 }

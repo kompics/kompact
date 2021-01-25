@@ -80,7 +80,8 @@ pub struct NetworkThread {
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum IoReturn {
     SwapBuffer,
-    Close,
+    LostConnection,
+    CloseConnection,
     None,
     Start(SocketAddr, Uuid),
     Ack,
@@ -91,7 +92,7 @@ impl NetworkThread {
     /// The `input_queue` is used to send DispatchEvents to the thread but they won't be read unless
     /// the `dispatcher_registration` is activated to wake up the thread.
     /// `network_thread_sender` is used to confirm shutdown of the thread.
-    pub fn new(
+    pub(crate) fn new(
         log: KompactLogger,
         addr: SocketAddr,
         lookup: Arc<ArcSwap<ActorStore>>,
@@ -335,18 +336,34 @@ impl NetworkThread {
                     }
                 };
                 let mut swap_buffer = false;
-                let mut close_channel = false;
+                let mut lost_connection = false;
                 if writeable {
-                    if let IoReturn::Close = self.try_write(&addr) {
-                        // Remove and deregister
-                        close_channel = true;
+                    match self.try_write(&addr) {
+                        IoReturn::LostConnection => {
+                            // Remove and deregister
+                            lost_connection = true;
+                        }
+                        IoReturn::CloseConnection => {
+                            // A bye has been sent and received
+                            debug!(
+                                self.log,
+                                "Connection shutdown gracefully, awaiting dispatcher Ack"
+                            );
+                            self.dispatcher_ref.tell(DispatchEnvelope::Event(
+                                EventEnvelope::Network(NetworkEvent::Connection(
+                                    addr,
+                                    ConnectionState::Closed,
+                                )),
+                            ));
+                        }
+                        _ => {}
                     }
                 }
                 if readable {
                     match self.try_read(&addr) {
-                        IoReturn::Close => {
+                        IoReturn::LostConnection => {
                             // Remove and deregister
-                            close_channel = true;
+                            lost_connection = true;
                         }
                         IoReturn::SwapBuffer => {
                             swap_buffer = true;
@@ -358,9 +375,13 @@ impl NetworkThread {
                         IoReturn::Start(remote_addr, id) => {
                             self.handle_start(token, remote_addr, id);
                         }
-                        IoReturn::Close => {
+                        IoReturn::LostConnection => {
                             // Remove and deregister
-                            close_channel = true;
+                            lost_connection = true;
+                        }
+                        IoReturn::CloseConnection => {
+                            // A bye was received
+                            self.handle_bye(&addr);
                         }
                         _ => (),
                     }
@@ -404,13 +425,13 @@ impl NetworkThread {
                                     &addr,
                                     retries
                                 );
-                                close_channel = true;
+                                lost_connection = true;
                             }
                         }
                         // We retry the event such that the read is performed with the new buffer.
                     }
-                    if close_channel {
-                        self.close_channel(addr);
+                    if lost_connection {
+                        self.lost_connection(addr);
                     }
                 }
             }
@@ -458,7 +479,7 @@ impl NetworkThread {
                                     &registered_addr
                                 );
                                 let _ = self.poll.registry().deregister(channel.stream_mut());
-                                channel.graceful_shutdown();
+                                let _ = channel.initiate_graceful_shutdown();
                                 self.channel_map.insert(remote_addr, other_channel);
                                 // It will be driven to completion on its own.
                                 return;
@@ -539,14 +560,37 @@ impl NetworkThread {
         }
     }
 
+    fn handle_bye(&mut self, addr: &SocketAddr) -> () {
+        if let Some(channel) = self.channel_map.get_mut(addr) {
+            debug!(self.log, "Handling Bye for {}", addr);
+            if channel.handle_bye().is_ok() {
+                // Channel has been closed entirely
+                debug!(
+                    self.log,
+                    "Connection shutdown gracefully, awaiting dispatcher Ack"
+                );
+
+                self.dispatcher_ref
+                    .tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                        NetworkEvent::Connection(*addr, ConnectionState::Closed),
+                    )));
+                // Wait for ClosedAck
+            }
+        }
+    }
+
     fn try_write(&mut self, addr: &SocketAddr) -> IoReturn {
         if let Some(channel) = self.channel_map.get_mut(&addr) {
             match channel.try_drain() {
                 Err(ref err) if broken_pipe(err) => {
-                    return IoReturn::Close;
+                    return IoReturn::LostConnection;
                 }
                 Ok(n) => {
                     self.sent_bytes += n as u64;
+                    if let ChannelState::CloseReceived(addr, id) = channel.state {
+                        channel.state = ChannelState::Closed(addr, id);
+                        return IoReturn::CloseConnection;
+                    }
                 }
                 Err(e) => {
                     error!(
@@ -578,7 +622,7 @@ impl NetworkThread {
                         self.log,
                         "Connection_reset to peer {}, shutting down the channel", &addr
                     );
-                    ret = IoReturn::Close
+                    ret = IoReturn::LostConnection
                 }
                 Err(err) => {
                     // Fatal error don't try to read again
@@ -646,7 +690,7 @@ impl NetworkThread {
                     }
                     Ok(Frame::Bye()) => {
                         debug!(self.log, "Received Bye from {}", &addr);
-                        return IoReturn::Close;
+                        return IoReturn::CloseConnection;
                     }
                     Err(FramingError::InvalidMagicNum((check, slice))) => {
                         // There is no way to recover from this error right now. Would need resending mechanism
@@ -832,8 +876,8 @@ impl NetworkThread {
                             )));
                         break;
                     }
-                    if let IoReturn::Close = self.try_write(&addr) {
-                        self.close_channel(addr);
+                    if let IoReturn::LostConnection = self.try_write(&addr) {
+                        self.lost_connection(addr);
                     }
                 }
                 DispatchEvent::SendUdp(addr, data) => {
@@ -881,6 +925,9 @@ impl NetworkThread {
                 DispatchEvent::Stop => {
                     self.stop();
                 }
+                DispatchEvent::Kill => {
+                    self.kill();
+                }
                 DispatchEvent::Connect(addr) => {
                     debug!(self.log, "Got DispatchEvent::Connect({})", addr);
                     self.request_stream(addr);
@@ -889,17 +936,20 @@ impl NetworkThread {
                     debug!(self.log, "Got DispatchEvent::ClosedAck({})", addr);
                     self.handle_closed_ack(addr);
                 }
+                DispatchEvent::Close(addr) => {
+                    self.close_connection(addr);
+                }
             }
         }
     }
 
-    fn close_channel(&mut self, addr: SocketAddr) -> () {
+    /// Handles all logic necessary to shutdown a channel for which the connection has been lost.
+    fn lost_connection(&mut self, addr: SocketAddr) -> () {
         // We will only drop the Channel once we get the CloseAck from the NetworkDispatcher
-        // Which ensures that the
         if let Some(channel) = self.channel_map.get_mut(&addr) {
             self.dispatcher_ref
                 .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                    NetworkEvent::Connection(addr, ConnectionState::Closed),
+                    NetworkEvent::Connection(addr, ConnectionState::Lost),
                 )));
             for rejected_frame in channel.take_outbound() {
                 self.dispatcher_ref
@@ -911,14 +961,25 @@ impl NetworkThread {
         }
     }
 
+    /// Initiates a graceful closing sequence
+    fn close_connection(&mut self, addr: SocketAddr) -> () {
+        if let Some(channel) = self.channel_map.get_mut(&addr) {
+            // The channel may fail to perform its graceful shutdown if the Network
+            // is unable to send the closing message now, in that case the channel will remain
+            // open until it has been sent
+            let _ = channel.initiate_graceful_shutdown();
+        }
+    }
+
     fn handle_closed_ack(&mut self, addr: SocketAddr) -> () {
-        if let Some(channel) = self.channel_map.remove(&addr) {
+        if let Some(mut channel) = self.channel_map.remove(&addr) {
             match channel.state {
                 ChannelState::Connected(_, _) => {
                     error!(self.log, "ClosedAck for connected Channel: {:#?}", channel);
                     self.channel_map.insert(addr, channel);
                 }
                 _ => {
+                    channel.shutdown();
                     let buffer = channel.destroy();
                     self.buffer_pool.return_buffer(buffer);
                 }
@@ -936,7 +997,7 @@ impl NetworkThread {
                 self.log,
                 "Stopping channel with message count {}", channel.messages
             );
-            channel.graceful_shutdown();
+            let _ = channel.initiate_graceful_shutdown();
         }
         if let Some(mut listener) = self.tcp_listener.take() {
             self.poll.registry().deregister(&mut listener).ok();
@@ -953,7 +1014,15 @@ impl NetworkThread {
             );
         }
         self.stopped = true;
-        debug!(self.log, "Stopped.");
+        debug!(self.log, "Stopped");
+    }
+
+    fn kill(&mut self) -> () {
+        debug!(self.log, "Killing channels");
+        for (_, channel) in self.channel_map.drain() {
+            channel.kill();
+        }
+        self.stop();
     }
 
     fn next_token(&mut self) -> () {

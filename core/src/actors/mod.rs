@@ -10,6 +10,7 @@ use std::{
 
 mod paths;
 mod refs;
+use crate::prelude::NetworkStatusPort;
 pub use paths::*;
 pub use refs::*;
 
@@ -149,6 +150,10 @@ pub trait Actor {
 pub trait Dispatcher: ActorRaw<Message = DispatchEnvelope> {
     /// Returns the system path for this dispatcher
     fn system_path(&mut self) -> SystemPath;
+
+    /// Connects the Dispatcher to the `RequiredPort<NetworkStatusPort>` reference.
+    fn connect_network_status_port(&mut self, required: &mut RequiredPort<NetworkStatusPort>)
+        -> ();
 }
 
 impl<A, M: MessageBounds> ActorRaw for A

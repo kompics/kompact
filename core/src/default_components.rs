@@ -1,5 +1,6 @@
 use super::*;
 use crate::{
+    dispatch::NetworkStatusPort,
     messaging::{DispatchEnvelope, NetMessage},
     timer::timer_manager::TimerRefFactory,
 };
@@ -51,6 +52,15 @@ impl SystemComponents for DefaultComponents {
         system.kill(self.deadletter_box.clone());
         self.dispatcher.wait_ended();
         self.deadletter_box.wait_ended();
+    }
+
+    fn kill(&self, system: &KompactSystem) -> () {
+        // default_components has no graceful shutdown sequence to bypass
+        self.stop(system);
+    }
+
+    fn connect_network_status_port(&self, _: &mut RequiredPort<NetworkStatusPort>) -> () {
+        unimplemented!("No NetworkDispatcher in DefaultComponents");
     }
 }
 
@@ -123,10 +133,22 @@ where
     }
 
     fn stop(&self, system: &KompactSystem) -> () {
+        // Gracefully stop the dispatcher/Network layer.
+        system.stop(&self.dispatcher.clone());
+        self.kill(system);
+    }
+
+    fn kill(&self, system: &KompactSystem) -> () {
         system.kill(self.dispatcher.clone());
         system.kill(self.deadletter_box.clone());
         self.dispatcher.wait_ended();
         self.deadletter_box.wait_ended();
+    }
+
+    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
+        self.dispatcher.on_definition(|d| {
+            d.connect_network_status_port(required);
+        })
     }
 }
 
@@ -239,6 +261,10 @@ impl Actor for LocalDispatcher {
 impl Dispatcher for LocalDispatcher {
     fn system_path(&mut self) -> SystemPath {
         SystemPath::new(Transport::Local, "127.0.0.1".parse().unwrap(), 0)
+    }
+
+    fn connect_network_status_port(&mut self, _: &mut RequiredPort<NetworkStatusPort>) -> () {
+        unimplemented!()
     }
 }
 

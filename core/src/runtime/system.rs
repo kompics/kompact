@@ -11,6 +11,7 @@ use crate::{
         RegistrationError,
         RegistrationResult,
     },
+    prelude::NetworkStatusPort,
     routing::groups::StorePolicy,
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
     timer::timer_manager::{CanCancelTimers, TimerRefFactory},
@@ -642,6 +643,49 @@ impl KompactSystem {
         c.enqueue_control(ControlEvent::Start);
     }
 
+    /// Subscribes the given component to the systems `NetworkStatusPort`.
+    ///
+    /// The status port pushes notifications about the systems Network layer, when new connections
+    /// are set-up, when connections are lost, closed, or dropped. It may also receive requests
+    /// for information about what remote systems the local system is currently connected to.
+    ///
+    /// The `component` must implement [Require](component::Require) for
+    /// [NetworkStatusPort](dispatch::NetworkStatusPort). The system must be set-up with a
+    /// `NetworkingConfig`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use kompact::prelude::*;
+    /// # use kompact::net::net_test_helpers::NetworkStatusCounter;
+    /// let mut cfg = KompactConfig::new();
+    /// cfg.system_components(DeadletterBox::new, {
+    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+    ///     net_config.build()
+    /// });
+    /// let system = cfg.build().expect("KompactSystem");
+    /// let c = system.create(NetworkStatusCounter::new);
+    /// system.connect_network_status_port(&c);
+    /// ```
+    pub fn connect_network_status_port<C>(&self, component: &Arc<Component<C>>) -> ()
+    where
+        C: ComponentDefinition
+            + Sized
+            + 'static
+            + Require<NetworkStatusPort>
+            + RequireRef<NetworkStatusPort>,
+    {
+        component.on_definition(|c| {
+            let any_port = c
+                .get_required_port_as_any(TypeId::of::<NetworkStatusPort>())
+                .expect("The Component does not Require a NetworkStatusPort");
+            let network_status_port = any_port
+                .downcast_mut()
+                .expect("Unable to access NetworkStatusPort of component");
+            self.inner.connect_network_status_port(network_status_port);
+        })
+    }
+
     /// Start a component and complete a future once it has started
     ///
     /// When the returned future completes, the component is guaranteed to have started.
@@ -897,6 +941,19 @@ impl KompactSystem {
     pub fn shutdown(self) -> Result<(), String> {
         self.inner.assert_active();
         self.inner.shutdown(&self)?;
+        self.scheduler.shutdown()?;
+        Ok(())
+    }
+
+    /// Kill the Kompact system
+    ///
+    /// Similar to `shutdown()` except the Network will not be gracefully disconnected, making this
+    /// shutdown more immediate and brutal.
+    ///
+    /// Remote systems will perceive this system as crashed.
+    pub fn kill_system(self) -> Result<(), String> {
+        self.inner.assert_active();
+        self.inner.kill(&self)?;
         self.scheduler.shutdown()?;
         Ok(())
     }
@@ -1518,10 +1575,14 @@ pub trait SystemComponents: Send + Sync + 'static {
     fn start(&self, _system: &KompactSystem) -> ();
     /// Stop all the system components
     fn stop(&self, _system: &KompactSystem) -> ();
+    /// Stop all the system components as fast as possible, no graceful shutdown
+    fn kill(&self, _system: &KompactSystem) -> ();
     /// Allow downcasting to concrete type
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
+    /// Allow subscribing to `NetworkStatusUpdate` messages
+    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> ();
 }
 
 impl dyn SystemComponents {
@@ -1584,6 +1645,10 @@ impl InternalComponents {
         self.system_components.dispatcher_ref()
     }
 
+    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
+        self.system_components.connect_network_status_port(required);
+    }
+
     fn system_path(&self) -> SystemPath {
         self.system_components.system_path()
     }
@@ -1598,6 +1663,14 @@ impl InternalComponents {
             .enqueue(SupervisorMsg::Shutdown(Arc::new(Mutex::new(p))));
         f.wait();
         self.system_components.stop(system);
+    }
+
+    fn kill(&self, system: &KompactSystem) -> () {
+        let (p, f) = utils::promise();
+        self.supervision_port
+            .enqueue(SupervisorMsg::Shutdown(Arc::new(Mutex::new(p))));
+        f.wait();
+        self.system_components.kill(system);
     }
 
     pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
@@ -1739,6 +1812,13 @@ impl KompactRuntime {
         }
     }
 
+    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
+        match *self.internal_components {
+            Some(ref sc) => sc.connect_network_status_port(required),
+            None => panic!("KompactRuntime was not properly initialised!"),
+        }
+    }
+
     fn system_path(&self) -> SystemPath {
         match *self.internal_components {
             Some(ref sc) => sc.system_path(),
@@ -1761,6 +1841,18 @@ impl KompactRuntime {
         match *self.internal_components {
             Some(ref ic) => {
                 ic.stop(system);
+            }
+            None => panic!("KompactRuntime was not initialised at shutdown!"),
+        }
+        let res = self.timer.shutdown();
+        lifecycle::set_destroyed(self.state());
+        res
+    }
+
+    fn kill(&self, system: &KompactSystem) -> Result<(), String> {
+        match *self.internal_components {
+            Some(ref ic) => {
+                ic.kill(system);
             }
             None => panic!("KompactRuntime was not initialised at shutdown!"),
         }

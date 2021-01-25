@@ -4,8 +4,6 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 use net::events::NetworkEvent;
 
-use std::{io, net::SocketAddr, sync::Arc, thread};
-
 use crate::{
     messaging::DispatchData,
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
@@ -13,6 +11,8 @@ use crate::{
 };
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
+pub use std::net::SocketAddr;
+use std::{io, sync::Arc, thread};
 
 #[allow(missing_docs)]
 pub mod buffers;
@@ -30,8 +30,10 @@ pub enum ConnectionState {
     Initializing,
     /// Connected with a confirmed canonical SocketAddr
     Connected(SocketAddr),
-    /// Already closed
+    /// Closed gracefully, by request on either side
     Closed,
+    /// Unexpected lost connection
+    Lost,
     /// Threw an error
     Error(std::io::Error),
 }
@@ -54,10 +56,10 @@ impl From<Transport> for Protocol {
 pub mod events {
 
     use super::ConnectionState;
-    use crate::net::frames::*;
-    use std::net::SocketAddr;
-
-    use crate::messaging::DispatchData;
+    use crate::{
+        messaging::DispatchData,
+        net::{frames::*, SocketAddr},
+    };
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
@@ -77,12 +79,16 @@ pub mod events {
         SendTcp(SocketAddr, DispatchData),
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
         SendUdp(SocketAddr, DispatchData),
-        /// Tells the network thread to Stop
+        /// Tells the network thread to Stop, will gracefully shutdown all channels.
         Stop,
+        /// Tells the network thread to Die as soon as possible, without graceful shutdown.
+        Kill,
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
         Connect(SocketAddr),
         /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
         ClosedAck(SocketAddr),
+        /// Tells the `NetworkThread` to gracefully close the channel to the `SocketAddr`
+        Close(SocketAddr),
     }
 
     /// Errors emitted byt the network `Bridge`
@@ -208,10 +214,20 @@ impl Bridge {
         std::mem::replace(&mut self.dispatcher, Some(dispatcher))
     }
 
-    /// Stops the bridge
+    /// Stops the bridge gracefully
     pub fn stop(self) -> Result<(), NetworkBridgeErr> {
         debug!(self.log, "Stopping NetworkBridge...");
         self.network_input_queue.send(DispatchEvent::Stop)?;
+        self.waker.wake()?;
+        self.shutdown_future.wait(); // should block until something is sent
+        debug!(self.log, "Stopped NetworkBridge.");
+        Ok(())
+    }
+
+    /// Kills the Network
+    pub fn kill(self) -> Result<(), NetworkBridgeErr> {
+        debug!(self.log, "Killing NetworkBridge...");
+        self.network_input_queue.send(DispatchEvent::Kill)?;
         self.waker.wake()?;
         self.shutdown_future.wait(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
@@ -271,6 +287,14 @@ impl Bridge {
     pub fn ack_closed(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         self.network_input_queue
             .send(events::DispatchEvent::ClosedAck(addr))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests that the NetworkThread should be closed
+    pub fn close_channel(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::Close(addr))?;
         self.waker.wake()?;
         Ok(())
     }
@@ -1082,6 +1106,107 @@ pub mod net_test_helpers {
                 },
                 !Err(e) => error!(self.ctx.log(), "Error deserialising BigPingMsg: {:?}", e),
             }}
+            Handled::Ok
+        }
+    }
+
+    /// Actor which can subscribe to the `NetworkStatusPort` and maintains a counter of how many
+    /// of each kind of NetworkStatusUpdate has been received.
+    #[derive(ComponentDefinition)]
+    pub struct NetworkStatusCounter {
+        ctx: ComponentContext<NetworkStatusCounter>,
+        network_status_port: RequiredPort<NetworkStatusPort>,
+        /// Counts the number of connection_established messages received
+        pub connection_established: u32,
+        /// Counts the number of connection_lost messages received
+        pub connection_lost: u32,
+        /// Counts the number of connection_dropped messages received
+        pub connection_dropped: u32,
+        /// Counts the number of connection_closed messages received
+        pub connection_closed: u32,
+        /// Counts the number of connected_systems messages received
+        pub connected_systems: Vec<SystemPath>,
+        /// Counts the number of disconnected_systems messages received
+        pub disconnected_systems: Vec<SystemPath>,
+        /// Counts the number of max_channels_reached messages received
+        pub max_channels_reached: u32,
+        /// Counts the number of network_out_of_buffers messages received
+        pub network_out_of_buffers: u32,
+    }
+
+    impl NetworkStatusCounter {
+        /// Creates a new uninitialised NetworkStatusCounter with all counters set to 0
+        pub fn new() -> NetworkStatusCounter {
+            Self {
+                ctx: ComponentContext::uninitialised(),
+                network_status_port: RequiredPort::<NetworkStatusPort>::uninitialised(),
+                connection_established: 0,
+                connection_lost: 0,
+                connection_dropped: 0,
+                connection_closed: 0,
+                connected_systems: Vec::new(),
+                disconnected_systems: Vec::new(),
+                max_channels_reached: 0,
+                network_out_of_buffers: 0,
+            }
+        }
+
+        /// triggers the given `request` on the NetworkStatusPort
+        pub fn send_status_request(&mut self, request: NetworkStatusRequest) {
+            debug!(self.ctx.log(), "Sending Status Request. {:?}", request);
+            self.network_status_port.trigger(request);
+        }
+
+        /*
+        pub fn ask_connection_status(&self) {
+            debug!(self.ctx.log(), "Asking connection status");
+            self.network_status_port.trigger()
+                .ask_with(ConnectionStatusAsk).wait();
+            for conn in connections {
+
+            }
+        }*/
+    }
+
+    impl ComponentLifecycle for NetworkStatusCounter {
+        fn on_start(&mut self) -> Handled {
+            Handled::Ok
+        }
+
+        fn on_stop(&mut self) -> Handled {
+            Handled::Ok
+        }
+
+        fn on_kill(&mut self) -> Handled {
+            Handled::Ok
+        }
+    }
+
+    impl Actor for NetworkStatusCounter {
+        type Message = ();
+
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            unimplemented!()
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!("Ignoring network messages.");
+        }
+    }
+
+    impl Require<NetworkStatusPort> for NetworkStatusCounter {
+        fn handle(&mut self, event: <NetworkStatusPort as Port>::Indication) -> Handled {
+            debug!(
+                self.ctx.log(),
+                "Got NetworkStatusPort indication. {:?}", event
+            );
+
+            match event {
+                NetworkStatus::ConnectionEstablished(_) => self.connection_established += 1,
+                NetworkStatus::ConnectionLost(_) => self.connection_lost += 1,
+                NetworkStatus::ConnectionDropped(_) => self.connection_dropped += 1,
+                NetworkStatus::ConnectionClosed(_) => self.connection_closed += 1,
+            }
             Handled::Ok
         }
     }
