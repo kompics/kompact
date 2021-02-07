@@ -1,6 +1,5 @@
 // only build this module on nightly
 #![cfg(nightly)]
-#![feature(const_in_array_repeat_expressions)]
 
 pub struct ByteSliceMap<V> {
     inner: MaybeTree<V>,
@@ -75,10 +74,15 @@ impl<V> MaybeTree<V> {
     }
 }
 
-#[allow(clippy::large_enum_variant)]
+impl<V> Default for MaybeTree<V> {
+    fn default() -> Self {
+        MaybeTree::Empty
+    }
+}
+
 enum RadixTree<V> {
     Value { key_suffix: Box<[u8]>, value: V },
-    Node { children: [MaybeTree<V>; 256] },
+    Node { children: Box<[MaybeTree<V>; 256]> },
 }
 
 impl<V> RadixTree<V> {
@@ -88,8 +92,14 @@ impl<V> RadixTree<V> {
     }
 
     fn empty_children() -> RadixTree<V> {
-        let children: [MaybeTree<V>; 256] = [MaybeTree::Empty; 256];
-        RadixTree::Node { children }
+        let mut children: Vec<MaybeTree<V>> = Vec::with_capacity(256);
+        for _ in 0..256 {
+            children.push(MaybeTree::Empty);
+        }
+        debug_assert_eq!(256, children.len());
+        let boxed = children.into_boxed_slice();
+        let fixed = unsafe { Box::from_raw(Box::into_raw(boxed) as *mut [MaybeTree<V>; 256]) };
+        RadixTree::Node { children: fixed }
     }
 
     fn get(&self, key: &[u8]) -> Option<&V> {
