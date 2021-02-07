@@ -27,6 +27,14 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
+      - name: Use the cache to share dependencies # keyed by Cargo.lock
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout sources
         uses: actions/checkout@v2
       - name: Run tests
@@ -57,6 +65,14 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
+      - name: Use the cache to share dependencies # keyed by Cargo.lock
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout sources
         uses: actions/checkout@v2
       - name: Run tests
@@ -87,6 +103,14 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
+      - name: Use the cache to share dependencies # keyed by Cargo.lock
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout sources
         uses: actions/checkout@v2
       - name: Run tests
@@ -115,31 +139,39 @@ jobs:
           toolchain: nightly-2021-01-16
           override: true
           components: rustfmt, clippy
+      - name: Use the cache to share dependencies # keyed by Cargo.lock
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout sources
         uses: actions/checkout@v2
       - name: Run cargo clippy (default)
         uses: actions-rs/cargo@v1
-        with: 
+        with:
           command: clippy
           args: --all-targets -- -D warnings
       - name: Run cargo clippy (ser_id_8)
         uses: actions-rs/cargo@v1
-        with: 
+        with:
           command: clippy
           args: --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
       - name: Run cargo clippy (thread_pinning)
         uses: actions-rs/cargo@v1
-        with: 
+        with:
           command: clippy
           args: --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
       - name: Run cargo clippy (low_latency)
         uses: actions-rs/cargo@v1
-        with: 
+        with:
           command: clippy
           args: --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
       - name: Run cargo clippy (type_erasure)
         uses: actions-rs/cargo@v1
-        with: 
+        with:
           command: clippy
           args: --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
 
@@ -147,9 +179,6 @@ jobs:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -157,7 +186,16 @@ jobs:
           toolchain: nightly-2021-01-31
           override: true
           components: rustfmt, clippy
-
+      - name: Use the cache to share dependencies # keyed by Cargo.lock
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Checkout sources
+        uses: actions/checkout@v2
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
