@@ -183,19 +183,10 @@ where
             future,
             unblock_state,
         };
-        #[cfg(nightly)]
-        {
-            self.blocking_future
-                .replace(blocking_state)
-                .expect_none("Replacing a blocking future without completing it first is invalid!");
-        }
-        #[cfg(not(nightly))]
-        {
-            assert!(
-                self.blocking_future.replace(blocking_state).is_none(),
-                "Replacing a blocking future without completing it first is invalid!"
-            );
-        }
+        assert!(
+            self.blocking_future.replace(blocking_state).is_none(),
+            "Replacing a blocking future without completing it first is invalid!"
+        );
         let component = self.typed_component();
         component.set_blocking();
     }
@@ -230,19 +221,10 @@ where
         match blocking_state.future.run(&component) {
             BlockingRunResult::BlockOn(f) => {
                 blocking_state.future = f;
-                #[cfg(nightly)]
-                {
-                    self.blocking_future.replace(blocking_state).expect_none(
-                        "Replacing a blocking future without completing it first is invalid!",
-                    );
-                }
-                #[cfg(not(nightly))]
-                {
-                    assert!(
-                        self.blocking_future.replace(blocking_state).is_none(),
-                        "Replacing a blocking future without completing it first is invalid!"
-                    );
-                }
+                assert!(
+                    self.blocking_future.replace(blocking_state).is_none(),
+                    "Replacing a blocking future without completing it first is invalid!"
+                );
                 SchedulingDecision::Blocked
             }
             BlockingRunResult::Unblock => {

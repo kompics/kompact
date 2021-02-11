@@ -69,7 +69,6 @@
 #![allow(clippy::match_ref_pats)]
 #![allow(clippy::new_without_default)]
 #![cfg_attr(nightly, feature(never_type))]
-#![cfg_attr(nightly, feature(option_expect_none))]
 #![cfg_attr(nightly, feature(async_closure))]
 #![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
