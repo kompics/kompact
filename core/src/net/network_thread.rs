@@ -27,14 +27,6 @@ use std::{
 };
 use uuid::Uuid;
 
-/*
-    Using https://github.com/tokio-rs/mio/blob/master/examples/tcp_server.rs as template.
-    Single threaded MIO event loop.
-    Receives outgoing Box<IoVec> via SegQueue, notified by polling via the "Registration"
-    Buffers the outgoing Boxes for different connections in a hashmap.
-    Will Send incoming messages directly to components.
-*/
-
 // Used for identifying connections
 const TCP_SERVER: Token = Token(0);
 const UDP_SOCKET: Token = Token(1);
@@ -51,14 +43,11 @@ const BIND_RETRY_INTERVAL: u64 = 1000;
 /// Thread structure responsible for driving the Network IO
 pub struct NetworkThread {
     log: KompactLogger,
-    /// The SocketAddr the network thread is bound to and listening on
     pub addr: SocketAddr,
-    //connection_events: UnboundedSender<NetworkEvent>,
     lookup: Arc<ArcSwap<ActorStore>>,
     tcp_listener: Option<TcpListener>,
     udp_state: Option<UdpState>,
     poll: Poll,
-    // Contains K,V=Remote SocketAddr, Output buffer; Token for polling; Input-buffer,
     channel_map: FxHashMap<SocketAddr, TcpChannel>,
     token_map: FxHashMap<Token, SocketAddr>,
     token: Token,
@@ -535,10 +524,7 @@ impl NetworkThread {
 
                 self.dispatcher_ref
                     .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                        NetworkEvent::Connection(
-                            remote_addr,
-                            ConnectionState::Connected(remote_addr),
-                        ),
+                        NetworkEvent::Connection(remote_addr, ConnectionState::Connected),
                     )));
             }
         } else {
@@ -555,7 +541,7 @@ impl NetworkThread {
             channel.handle_ack();
             self.dispatcher_ref
                 .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                    NetworkEvent::Connection(*addr, ConnectionState::Connected(*addr)),
+                    NetworkEvent::Connection(*addr, ConnectionState::Connected),
                 )));
         }
     }
@@ -739,7 +725,7 @@ impl NetworkThread {
                     );
                     self.dispatcher_ref
                         .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                            NetworkEvent::Connection(addr, ConnectionState::Connected(addr)),
+                            NetworkEvent::Connection(addr, ConnectionState::Connected),
                         )));
                     self.channel_map.insert(addr, channel);
                     return;

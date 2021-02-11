@@ -84,11 +84,11 @@ In our example, `CheckIn` is a *zero-sized type* (ZST), since we don't really ca
 {{#rustdoc_include ../../examples/src/bin/serialisation.rs:zstser}}
 ```
 
-We continue using the `SerialisationId` trait like we did for Serde, because we need to write id of the ZST not of the `ZSTSerialiser`, which can serialise and deserialise many different ZSTs.
+We continue using the `SerialisationId` trait like we did for Serde, because we need to write id of the ZST not of the `ZstSerialiser`, which can serialise and deserialise many different ZSTs.
 
 In order to create the correct type instance during deserialisation, we use the `Default` trait, which can be trivially derived for ZSTs.
 
-It is clear that this serialiser is basically trivial. We can use it by creating a pair of `Checkin` with a reference to our static instance `CHECK_IN_SER`, which simply specialises the `ZSTSerialiser` for `CheckIn`, as we did before: 
+It is clear that this serialiser is basically trivial. We can use it by creating a pair of `Checkin` with a reference to our static instance `CHECK_IN_SER`, which simply specialises the `ZstSerialiser` for `CheckIn`, as we did before: 
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/serialisation.rs:checkin}}

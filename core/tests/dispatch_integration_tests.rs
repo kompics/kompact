@@ -639,11 +639,18 @@ fn remote_lost_and_continued_connection() {
     // We now kill remote_a
     remote_a.kill_system().ok();
 
+    thread::sleep(Duration::from_millis(1000));
+
     // Start a new pinger on system
     let (pinger_named2, pinf2) =
         system.create_and_register(move || PingerAct::new_lazy(named_path));
     pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    // The first start will succesfully buffer its outgoing message then trigger lost connection, losing the message
     system.start(&pinger_named2);
+    thread::sleep(Duration::from_millis(1000));
+    // The second start will be rejected due to lost connection, but retained until the connection is alive again.
+    system.start(&pinger_named2);
+
     // Wait for it to send its pings, system should recognize the remote address
     thread::sleep(Duration::from_millis(1000));
     // Assert that things are going as they should be, ping count has not increased
@@ -1089,25 +1096,26 @@ fn network_status_port_established_lost_dropped_connection() {
     // The systems establish a connection and the pings/pongs are sent
     thread::sleep(Duration::from_millis(5000));
 
+    // Inspect live sockets
+    // thread::sleep(Duration::from_millis(2 * 60 * 1000)); // "2MSL" to drop the socket
+
     // Shutdown the remote system and wait for the connection to be lost and dropped by local_system
     let _ = remote_system.kill_system();
     thread::sleep(Duration::from_millis(2500));
 
+    let pinger_path_clone = pinger_path.clone();
     // Make sure the local_system discovers the lost connection
     let (failing_pinger, _pif) =
-        local_system.create_and_register(move || PingerAct::new_lazy(pinger_path));
+        local_system.create_and_register(move || PingerAct::new_lazy(pinger_path_clone));
     local_system.start(&failing_pinger);
-    thread::sleep(Duration::from_millis(2500));
 
-    // Assert connection lost but not dropped
-    status_counter.on_definition(|sc| {
-        assert_eq!(sc.connection_established, 1);
-        assert_eq!(sc.connection_lost, 1);
-        assert_eq!(sc.connection_dropped, 0);
-    });
-    // Wait for connection to be dropped
-    thread::sleep(Duration::from_millis(5000));
-    // Assert dropped
+    // Make sure the local_system discovers the lost connection on Linux....
+    let (failing_pinger2, _pif) =
+        local_system.create_and_register(move || PingerAct::new_lazy(pinger_path));
+    local_system.start(&failing_pinger2);
+
+    thread::sleep(Duration::from_millis(12000)); // let failure and drop happen
+                                                 // Assert connection lost and dropped
     status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 1);
         assert_eq!(sc.connection_lost, 1);
@@ -1121,6 +1129,7 @@ fn network_status_port_close_connection_closed_connection() {
     net_cfg.set_max_connection_retry_attempts(2);
     net_cfg.set_connection_retry_interval(1000);
     let local_system = system_from_network_config(net_cfg.clone());
+    //std::proess::Command::new();
     let remote_system = system_from_network_config(net_cfg);
 
     // Create a status_counter which will listen to the status port and count messages received

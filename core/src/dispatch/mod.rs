@@ -40,7 +40,7 @@ use futures::{
 use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
 use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
-use std::{collections::VecDeque, io::ErrorKind, time::Duration};
+use std::{collections::VecDeque, time::Duration};
 
 pub mod lookup;
 pub mod queue_manager;
@@ -502,11 +502,11 @@ impl NetworkDispatcher {
     fn on_conn_state(
         &mut self,
         addr: SocketAddr,
-        mut state: ConnectionState,
+        state: ConnectionState,
     ) -> Result<(), NetworkBridgeErr> {
         use self::ConnectionState::*;
         match state {
-            Connected(ref mut _frame_sender) => {
+            Connected => {
                 info!(
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
@@ -535,22 +535,6 @@ impl NetworkDispatcher {
                 // Ack the closing
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
-                }
-            }
-            Error(ref err) => {
-                match err {
-                    x if x.kind() == ErrorKind::ConnectionRefused => {
-                        error!(self.ctx().log(), "connection refused for {:?}", addr);
-                        // TODO determine how we want to proceed
-                        // If Tcp, the network bridge has already attempted retries with exponential
-                        // backoff according to its configuration.
-                    }
-                    why => {
-                        error!(
-                            self.ctx().log(),
-                            "connection error for {:?}: {:?}", addr, why
-                        );
-                    }
                 }
             }
             Lost => {
@@ -650,7 +634,7 @@ impl NetworkDispatcher {
                     Some(ConnectionState::Closed)
                 }
             }
-            ConnectionState::Connected(_) => {
+            ConnectionState::Connected => {
                 if self.queue_manager.has_data(&addr) {
                     self.queue_manager.enqueue_data(data, addr);
 
@@ -687,7 +671,6 @@ impl NetworkDispatcher {
                 self.queue_manager.enqueue_data(data, addr);
                 None
             }
-            _ => None,
         };
 
         if let Some(next) = next {
@@ -845,7 +828,7 @@ impl NetworkDispatcher {
     fn close_channel(&mut self, addr: SocketAddr) -> () {
         if let Some(state) = self.connections.get_mut(&addr) {
             match state {
-                ConnectionState::Connected(_) => {
+                ConnectionState::Connected => {
                     debug!(
                         self.ctx.log(),
                         "Closing channel to connected system {}", addr
