@@ -10,7 +10,12 @@ mod defaults {
     pub const ADDITIVE_INCREASE: u64 = 500;
     //pub const MULTIPLICATIVE_DECREASE_NUM: u64 = 1;
     pub const MULTIPLICATIVE_DECREASE_DEN: u64 = 2;
-    pub const ALGORITHM: FeedbackAlgorithm = super::FeedbackAlgorithm::AIMD;
+    pub const ALGORITHM: FeedbackAlgorithm = super::FeedbackAlgorithm::Aimd;
+}
+
+pub mod config_keys {
+    // TODO use something like const_format crate to make this more modular
+    pub const ALGORITHM: &str = "kompact.dispatch.actor-lookup.gc.algorithm";
 }
 
 /// Reaps deallocated actor references from the underlying lookup table.
@@ -30,28 +35,24 @@ pub struct UpdateStrategy {
 }
 
 pub enum FeedbackAlgorithm {
-    AIMD, // additive increase/multiplicative decrease
-    MIMD, // multiplicative increase/multiplicative decrease
+    Aimd, // additive increase/multiplicative decrease
+    Mimd, // multiplicative increase/multiplicative decrease
 }
 
 impl Default for ActorRefReaper {
     fn default() -> Self {
-        ActorRefReaper {
-            scheduled: false,
-            strategy: UpdateStrategy::new(
-                defaults::INITIAL_INTERVAL_MS,
-                defaults::MIN_INTERVAL_MS,
-                defaults::MAX_INTERVAL_MS,
-                defaults::ADDITIVE_INCREASE,
-                defaults::MULTIPLICATIVE_DECREASE_DEN,
-                defaults::ALGORITHM,
-            ),
-        }
+        Self::new(
+            defaults::INITIAL_INTERVAL_MS,
+            defaults::MIN_INTERVAL_MS,
+            defaults::MAX_INTERVAL_MS,
+            defaults::ADDITIVE_INCREASE,
+            defaults::MULTIPLICATIVE_DECREASE_DEN,
+            defaults::ALGORITHM,
+        )
     }
 }
 
 impl ActorRefReaper {
-    #[allow(unused)]
     pub fn new(
         initial_interval: u64,
         min: u64,
@@ -64,6 +65,28 @@ impl ActorRefReaper {
             scheduled: false,
             strategy: UpdateStrategy::new(initial_interval, min, max, incr, decr, algo),
         }
+    }
+
+    pub fn from_config(conf: &hocon::Hocon) -> Self {
+        // TODO: Make all parameters configurable
+        let algorithm = match conf[config_keys::ALGORITHM].as_string().as_deref() {
+            Some("AIMD") => FeedbackAlgorithm::Aimd,
+            Some("MIMD") => FeedbackAlgorithm::Mimd,
+            Some(s) => panic!(
+                "Illegal configuration argument for key {}: {}. Allowed values are [AIMD, MIMD]",
+                config_keys::ALGORITHM,
+                s
+            ),
+            None => defaults::ALGORITHM,
+        };
+        Self::new(
+            defaults::INITIAL_INTERVAL_MS,
+            defaults::MIN_INTERVAL_MS,
+            defaults::MAX_INTERVAL_MS,
+            defaults::ADDITIVE_INCREASE,
+            defaults::MULTIPLICATIVE_DECREASE_DEN,
+            algorithm,
+        )
     }
 
     /// Walks through all stored [ActorRef] entries and removes
@@ -123,8 +146,8 @@ impl UpdateStrategy {
     pub fn incr(&mut self) -> u64 {
         use self::FeedbackAlgorithm::*;
         self.curr = match self.algo {
-            AIMD => self.curr + self.incr,
-            MIMD => self.curr * self.incr,
+            Aimd => self.curr + self.incr,
+            Mimd => self.curr * self.incr,
         }
         .min(self.max);
         self.curr
@@ -135,7 +158,7 @@ impl UpdateStrategy {
     pub fn decr(&mut self) -> u64 {
         use self::FeedbackAlgorithm::*;
         self.curr = match self.algo {
-            AIMD | MIMD => self.curr / self.decr,
+            Aimd | Mimd => self.curr / self.decr,
         }
         .max(self.min);
         self.curr

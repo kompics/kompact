@@ -157,7 +157,7 @@ mod tests {
         let res = String::deserialise(&mut buf);
         match res {
             Ok(test_str_res) => assert_eq!(test_str, test_str_res),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
         }
     }
 
@@ -174,7 +174,7 @@ mod tests {
         let res = u64::deserialise(&mut buf);
         match res {
             Ok(test_num_res) => assert_eq!(test_num, test_num_res),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
         }
     }
 

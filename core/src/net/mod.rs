@@ -37,14 +37,14 @@ pub enum ConnectionState {
 }
 
 pub(crate) enum Protocol {
-    TCP,
-    UDP,
+    Tcp,
+    Udp,
 }
 impl From<Transport> for Protocol {
     fn from(t: Transport) -> Self {
         match t {
-            Transport::TCP => Protocol::TCP,
-            Transport::UDP => Protocol::UDP,
+            Transport::Tcp => Protocol::Tcp,
+            Transport::Udp => Protocol::Udp,
             _ => unimplemented!("Unsupported Protocol"),
         }
     }
@@ -74,9 +74,9 @@ pub mod events {
     #[derive(Debug)]
     pub enum DispatchEvent {
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
-        SendTCP(SocketAddr, DispatchData),
+        SendTcp(SocketAddr, DispatchData),
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
-        SendUDP(SocketAddr, DispatchData),
+        SendUdp(SocketAddr, DispatchData),
         /// Tells the network thread to Stop
         Stop,
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
@@ -231,15 +231,15 @@ impl Bridge {
         protocol: Protocol,
     ) -> Result<(), NetworkBridgeErr> {
         match protocol {
-            Protocol::TCP => {
+            Protocol::Tcp => {
                 let _ = self
                     .network_input_queue
-                    .send(DispatchEvent::SendTCP(addr, data))?;
+                    .send(DispatchEvent::SendTcp(addr, data))?;
             }
-            Protocol::UDP => {
+            Protocol::Udp => {
                 let _ = self
                     .network_input_queue
-                    .send(DispatchEvent::SendUDP(addr, data))?;
+                    .send(DispatchEvent::SendUdp(addr, data))?;
             }
         }
         self.waker.wake()?;
@@ -257,7 +257,7 @@ impl Bridge {
     /// If the provided protocol is not supported
     pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         match proto {
-            Transport::TCP => {
+            Transport::Tcp => {
                 self.network_input_queue
                     .send(events::DispatchEvent::Connect(addr))?;
                 self.waker.wake()?;

@@ -79,7 +79,7 @@ impl UdpState {
         Ok(sent_bytes)
     }
 
-    pub(super) fn try_read(&mut self) -> io::Result<(usize, IOReturn)> {
+    pub(super) fn try_read(&mut self) -> io::Result<(usize, IoReturn)> {
         let mut received_bytes: usize = 0;
         let mut interrupts = 0;
         loop {
@@ -90,12 +90,12 @@ impl UdpState {
                         "Swapping UDP buffer as only {} bytes remain.",
                         buf.len()
                     );
-                    return Ok((received_bytes, IOReturn::SwapBuffer));
+                    return Ok((received_bytes, IoReturn::SwapBuffer));
                 }
                 match self.socket.recv_from(&mut buf) {
                     Ok((0, addr)) => {
                         debug!(self.logger, "Got empty UDP datagram from {}", addr);
-                        return Ok((received_bytes, IOReturn::None));
+                        return Ok((received_bytes, IoReturn::None));
                     }
                     Ok((n, addr)) => {
                         received_bytes += n;
@@ -103,7 +103,7 @@ impl UdpState {
                         self.decode_message(addr);
                     }
                     Err(err) if would_block(&err) => {
-                        return Ok((received_bytes, IOReturn::None));
+                        return Ok((received_bytes, IoReturn::None));
                     }
                     Err(err) if interrupted(&err) => {
                         // We should continue trying until no interruption
@@ -117,7 +117,7 @@ impl UdpState {
                     }
                 }
             } else {
-                return Ok((received_bytes, IOReturn::SwapBuffer));
+                return Ok((received_bytes, IoReturn::SwapBuffer));
             }
         }
     }

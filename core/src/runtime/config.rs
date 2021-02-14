@@ -35,7 +35,7 @@ pub struct KompactConfig {
     pub(crate) threads: usize,
     pub(crate) timer_builder: Rc<TimerBuilder>,
     pub(crate) scheduler_builder: Rc<SchedulerBuilder>,
-    pub(crate) sc_builder: Rc<SCBuilder>,
+    pub(crate) sc_builder: Rc<ScBuilder>,
     pub(crate) root_logger: Option<KompactLogger>,
     pub(crate) config_sources: Vec<ConfigSource>,
 }

@@ -238,7 +238,7 @@ impl Actor for LocalDispatcher {
 
 impl Dispatcher for LocalDispatcher {
     fn system_path(&mut self) -> SystemPath {
-        SystemPath::new(Transport::LOCAL, "127.0.0.1".parse().unwrap(), 0)
+        SystemPath::new(Transport::Local, "127.0.0.1".parse().unwrap(), 0)
     }
 }
 

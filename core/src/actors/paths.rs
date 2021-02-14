@@ -24,20 +24,20 @@ use uuid::Uuid;
 #[repr(u8)]
 pub enum Transport {
     /// Local reflection only, no network messages involved
-    LOCAL = 0b00,
+    Local = 0b00,
     /// Send messages over TCP
-    TCP = 0b01,
+    Tcp = 0b01,
     /// Send messages as UDP datagrams
-    UDP = 0b10,
+    Udp = 0b10,
 }
 
 impl Transport {
-    /// Returns `true` if this is an instance of [Transport::LOCAL](Transport::LOCAL)
+    /// Returns `true` if this is an instance of [Transport::Local](Transport::Local)
     pub fn is_local(&self) -> bool {
-        matches!(*self, Transport::LOCAL)
+        matches!(*self, Transport::Local)
     }
 
-    /// Returns `true` if this is *not* an instance of [Transport::LOCAL](Transport::LOCAL)
+    /// Returns `true` if this is *not* an instance of [Transport::Local](Transport::Local)
     pub fn is_remote(&self) -> bool {
         !self.is_local()
     }
@@ -46,9 +46,9 @@ impl Transport {
 impl fmt::Display for Transport {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            &Transport::LOCAL => write!(fmt, "local"),
-            &Transport::TCP => write!(fmt, "tcp"),
-            &Transport::UDP => write!(fmt, "udp"),
+            &Transport::Local => write!(fmt, "local"),
+            &Transport::Tcp => write!(fmt, "tcp"),
+            &Transport::Udp => write!(fmt, "udp"),
         }
     }
 }
@@ -58,9 +58,9 @@ impl FromStr for Transport {
 
     fn from_str(s: &str) -> Result<Transport, TransportParseError> {
         match s {
-            "local" => Ok(Transport::LOCAL),
-            "tcp" => Ok(Transport::TCP),
-            "udp" => Ok(Transport::UDP),
+            "local" => Ok(Transport::Local),
+            "tcp" => Ok(Transport::Tcp),
+            "udp" => Ok(Transport::Udp),
             _ => Err(TransportParseError),
         }
     }
@@ -387,7 +387,7 @@ impl ActorPath {
         CD: ComponentTraits + ComponentLifecycle,
         B: Serialisable + 'static,
     {
-        if self.protocol() == Transport::LOCAL {
+        if self.protocol() == Transport::Local {
             // No need to serialize!
             self.tell_with_sender(m, dispatch, from);
             Ok(())
@@ -519,17 +519,17 @@ impl ActorPath {
 
     /// Sets the transport protocol for this actor path to UDP
     pub fn via_udp(&mut self) {
-        self.set_protocol(Transport::UDP);
+        self.set_protocol(Transport::Udp);
     }
 
     /// Sets the transport protocol for this actor path to TCP
     pub fn via_tcp(&mut self) {
-        self.set_protocol(Transport::TCP);
+        self.set_protocol(Transport::Tcp);
     }
 
     /// Sets the transport protocol for this actor path to LOCAL
     pub fn via_local(&mut self) {
-        self.set_protocol(Transport::LOCAL);
+        self.set_protocol(Transport::Local);
     }
 
     /// If this path is a named path, return the underlying named path
@@ -1013,7 +1013,7 @@ mod tests {
     #[test]
     fn actor_path_unique_strings() {
         let ref1 = ActorPath::Unique(UniquePath::new(
-            Transport::LOCAL,
+            Transport::Local,
             "127.0.0.1".parse().expect("hardcoded IP"),
             8080,
             Uuid::new_v4(),
@@ -1028,7 +1028,7 @@ mod tests {
     #[test]
     fn actor_path_named_strings() {
         let ref1 = ActorPath::Named(NamedPath::new(
-            Transport::LOCAL,
+            Transport::Local,
             "127.0.0.1".parse().expect("hardcoded IP"),
             8080,
             vec!["test".to_string(), "path".to_string()],

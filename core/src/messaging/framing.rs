@@ -99,9 +99,9 @@ impl TryFrom<u8> for Transport {
 
     fn try_from(x: u8) -> Result<Self, Self::Error> {
         match x {
-            x if x == Transport::LOCAL as u8 => Ok(Transport::LOCAL),
-            x if x == Transport::UDP as u8 => Ok(Transport::UDP),
-            x if x == Transport::TCP as u8 => Ok(Transport::TCP),
+            x if x == Transport::Local as u8 => Ok(Transport::Local),
+            x if x == Transport::Udp as u8 => Ok(Transport::Udp),
+            x if x == Transport::Tcp as u8 => Ok(Transport::Tcp),
             _ => Err(SerError::InvalidType(
                 "Unsupported transport protocol".into(),
             )),
@@ -455,7 +455,7 @@ mod serialisation_tests {
             messaging::framing::AddressType,
         };
 
-        let system_path = SystemPath::new(Transport::TCP, "127.0.0.1".parse().unwrap(), 8080u16);
+        let system_path = SystemPath::new(Transport::Tcp, "127.0.0.1".parse().unwrap(), 8080u16);
         let named_path = ActorPath::Named(NamedPath::with_system(
             system_path.clone(),
             vec!["actor-name".into()],
@@ -465,13 +465,13 @@ mod serialisation_tests {
         {
             let header = SystemPathHeader::from_path(&named_path);
             assert_eq!(header.path_type, PathType::Named);
-            assert_eq!(header.protocol, Transport::TCP);
+            assert_eq!(header.protocol, Transport::Tcp);
             assert_eq!(header.address_type, AddressType::IPv4);
         }
         {
             let header = SystemPathHeader::from_path(&unique_path);
             assert_eq!(header.path_type, PathType::Unique);
-            assert_eq!(header.protocol, Transport::TCP);
+            assert_eq!(header.protocol, Transport::Tcp);
             assert_eq!(header.address_type, AddressType::IPv4);
         }
 
@@ -489,7 +489,7 @@ mod serialisation_tests {
 
     #[test]
     fn actor_path_serequiv() {
-        let expected_transport: Transport = Transport::TCP;
+        let expected_transport: Transport = Transport::Tcp;
         let expected_addr: IpAddr = "12.0.0.1".parse().unwrap();
         let unique_id: Uuid = Uuid::new_v4();
         let port: u16 = 1234;

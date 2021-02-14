@@ -780,7 +780,7 @@ fn local_delivery() {
     let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
     let mut ponger_path = system.actor_path_for(&ponger);
-    ponger_path.set_protocol(Transport::LOCAL);
+    ponger_path.set_protocol(Transport::Local);
     let (pinger, pif) = system.create_and_register(move || PingerAct::new_lazy(ponger_path));
 
     pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
@@ -817,12 +817,12 @@ fn local_forwarding() {
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
     let mut ponger_path =
         pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_path.set_protocol(Transport::LOCAL);
+    ponger_path.set_protocol(Transport::Local);
 
     let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
     let mut forwarder_path =
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
-    forwarder_path.set_protocol(Transport::LOCAL);
+    forwarder_path.set_protocol(Transport::Local);
 
     let (pinger, pif) =
         system.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
@@ -864,12 +864,12 @@ fn local_forwarding_eager() {
     // Construct ActorPath with system's `proto` field explicitly set to LOCAL
     let mut ponger_path =
         pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_path.set_protocol(Transport::LOCAL);
+    ponger_path.set_protocol(Transport::Local);
 
     let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
     let mut forwarder_path =
         fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
-    forwarder_path.set_protocol(Transport::LOCAL);
+    forwarder_path.set_protocol(Transport::Local);
 
     let (pinger, pif) = system.create_and_register(move || {
         BigPingerAct::new_eager(forwarder_path, 512, BufferConfig::default())
