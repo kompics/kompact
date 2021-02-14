@@ -266,20 +266,22 @@ impl Actor for EventualLeaderElector {
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
-        match_deser!(msg.data; {
-            _heartbeat: Heartbeat [Serde] => {
-                self.candidates.insert(sender);
-            },
-            update: UpdateProcesses [UpdateProcesses] => {
-                let UpdateProcesses(processes) = update;
-                info!(
-                    self.log(),
-                    "Received new process set with {} processes",
-                    processes.len()
-                );
-                self.processes = processes.into_boxed_slice();
-            },
-        });
+        match_deser! {
+            (msg.data) {
+                msg(_heartbeat): Heartbeat [using Serde] => {
+                    self.candidates.insert(sender);
+                },
+                msg(update): UpdateProcesses => {
+                    let UpdateProcesses(processes) = update;
+                    info!(
+                        self.log(),
+                        "Received new process set with {} processes",
+                        processes.len()
+                    );
+                    self.processes = processes.into_boxed_slice();
+                },
+            }
+        }
         Handled::Ok
     }
     // ANCHOR_END: receive_network

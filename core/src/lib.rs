@@ -72,6 +72,9 @@
 #![cfg_attr(nightly, feature(async_closure))]
 #![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
+// TODO: Remove
+//#![feature(trace_macros)]
+
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
 
@@ -375,6 +378,9 @@ mod test_helpers {
         path::{Path, PathBuf},
     };
     use tempfile::TempDir;
+
+    /// A quick test path to create an [ActorPath](ActorPath) with
+    pub const TEST_PATH: &str = "local://127.0.0.1:0/test_actor";
 
     // liberally borrowed from https://andrewra.dev/2019/03/01/testing-in-rust-temporary-files/
     pub struct Fixture {

@@ -23,11 +23,18 @@
 /// let buf = mbuf.freeze();
 /// let msg = NetMessage::with_bytes(String::SER_ID, some_path, some_path2, buf);
 /// // try to deserialise it again
-/// match_deser!(msg; {
-///     _num: u64 [u64]           => unreachable!("It's definitely not a u64..."),
-///     test_res: String [String] => assert_eq!(test_str, test_res),
-/// });
+/// match_deser!{
+///     msg {
+///         msg(_num): u64                       => unreachable!("It's definitely not a u64..."),
+///         msg(test_res): String [using String] => assert_eq!(test_str, test_res),
+///     }
+/// }
 /// ```
+///
+/// You can specify the [Deserialiser](crate::prelude::Deserialiser) to use as `D` via `[using D]`
+/// (as is done above for `String`).
+/// If no [Deserialiser](crate::prelude::Deserialiser) is specified the macro will try to use
+/// the target message type as a [Deserialiser](crate::prelude::Deserialiser).
 ///
 /// # Example with Error Handling
 ///
@@ -47,69 +54,320 @@
 /// let buf = mbuf.freeze();
 /// let msg = NetMessage::with_bytes(String::SER_ID, some_path, some_path2, buf);
 /// // try to deserialise it again
-/// match_deser!(msg; {
-///     _num: u64 [u64]           => unreachable!("It's definitely not a u64..."),
-///     test_res: String [String] => assert_eq!(test_str, test_res),
-///     !Err(error)               => panic!("Some error occurred during deserialisation: {:?}", error),
-///     _                         => unreachable!("It's definitely not...whatever this is..."),
-/// });
+/// match_deser! {
+///     msg {
+///         msg(_num): u64                       => unreachable!("It's definitely not a u64..."),
+///         msg(test_res): String [using String] => assert_eq!(test_str, test_res),
+///         err(error)                           => panic!("Some error occurred during deserialisation: {:?}", error),
+///         default(_)                           => unreachable!("It's definitely not...whatever this is..."),
+///     }
+/// }
 /// ```
+/// # Note
+///
+/// You can use an expression instead of a simple identifier for the message to be matched,
+/// but it must be wrapped into parentheses in that case to not confuse the Rust compiler.
 #[macro_export]
 macro_rules! match_deser {
-    ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , }) => {
+    ($msg:ident {$($tokens:tt)*}) => {{
+        let msg = $msg;
+        $crate::match_deser_internal!(
+            msg;
+            $($tokens)*
+        )
+    }};
+    (($msg:expr) {$($tokens:tt)*}) => {{
+        let msg = $msg;
+        $crate::match_deser_internal!(
+            msg;
+            $($tokens)*
+        )
+    }};
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! match_deser_internal {
+    // The list is empty. Now check the arguments of each processed case.
+    (@list
+        $msg:ident;
+        ();
+        $cases:tt
+    ) => {
+        $crate::match_deser_internal!(
+            @case
+            $msg;
+            $cases;
+            ();
+            ();
+            ()
+        )
+    };
+    // Separate by comma
+    (@list
+        $msg:ident;
+        ($case:ident ($($args:tt)*) $(: $msg_ty:ty)? $([using $deser_ty:ty])? => $body:expr, $($tail:tt)*);
+        ($($head:tt)*)
+        ) => {
+            $crate::match_deser_internal!(
+            @list
+            $msg;
+            ($($tail)*);
+            ($($head)* $case ($($args)*) $(: $msg_ty)* $([$deser_ty])* => { $body },)
+        )
+    };
+    // Don't require a comma if it has a proper block.
+    (@list
+        $msg:ident;
+        ($case:ident ($($args:tt)*) $(: $msg_ty:ty)? $([using $deser_ty:ty])? => $body:block, $($tail:tt)*);
+        ($($head:tt)*)
+        ) => {
+            $crate::match_deser_internal!(
+            @list
+            $msg;
+            ($($tail)*);
+            ($($head)* $case ($($args)*) $(: $msg_ty)* $([$deser_ty])* => { $body },)
+        )
+    };
+    // Last case
+    (@list
+        $msg:ident;
+        ($case:ident ($($args:tt)*) $(: $msg_ty:ty)? $([using $deser_ty:ty])? => $body:expr);
+        ($($head:tt)*)
+        ) => {
+            $crate::match_deser_internal!(
+            @list
+            $msg;
+            ();
+            ($($head)* $case ($($args)*) $(: $msg_ty)* $([$deser_ty])* => { $body },)
+        )
+    };
+    // Accept trailing comma
+    (@list
+        $msg:ident;
+        ($case:ident ($($args:tt)*) $(: $msg_ty:ty)? $([using $deser_ty:ty])? => $body:expr,);
+        ($($head:tt)*)
+        ) => {
+            $crate::match_deser_internal!(
+            @list
+            $msg;
+            ();
+            ($($head)* $case ($($args)*) $(: $msg_ty)* $([$deser_ty])* => { $body },)
+        )
+    };
+    // Inject default and error case
+    (@case
+        $msg:ident;
+        ();
+        $msgs:tt;
+        ();
+        ()
+    ) => {
+        $crate::match_deser_internal!(
+            @init
+            $msg;
+            $msgs;
+            (err(e) => { panic!("{:?}", e); });
+            (default(_) => { unimplemented!(); })
+        )
+    };
+    // Inject default case
+    (@case
+        $msg:ident;
+        ();
+        $msgs:tt;
+        $errors:tt;
+        ()
+    ) => {
+        $crate::match_deser_internal!(
+            @init
+            $msg;
+            $msgs;
+            $errors;
+            (default(_) => { unimplemented!(); })
+        )
+    };
+    // Inject error handler
+    (@case
+        $msg:ident;
+        ();
+        $msgs:tt;
+        ();
+        $default:tt
+    ) => {
+        $crate::match_deser_internal!(
+            @init
+            $msg;
+            $msgs;
+            (err(e) => { panic!("{:?}", e); });
+            $default
+        )
+    };
+    // Success! All cases were parsed.
+    (@case
+        $msg:ident;
+        ();
+        $msgs:tt;
+        $error:tt;
+        $default:tt
+    ) => {
+        $crate::match_deser_internal!(
+            @init
+            $msg;
+            $msgs;
+            $error;
+            $default
+        )
+    };
+    // Check the format of a msg case where msg_ty: Deserialiser<msg_ty>.
+    (@case
+        $msg:ident;
+        (msg($msg_pat:pat) : $msg_ty:ty => $body:tt, $($tail:tt)*);
+        ($($msgs:tt)*);
+        $error:tt;
+        $default:tt
+    ) => {
+        $crate::match_deser_internal!(
+            @case
+            $msg;
+            ($($tail)*);
+            ($($msgs)* msg($msg_pat) : $msg_ty [$msg_ty] => $body,);
+            $error;
+            $default
+        )
+    };
+    // Check the format of a msg case where msg_ty != deser_ty.
+    (@case
+        $msg:ident;
+        (msg($msg_pat:pat) : $msg_ty:ty [$deser_ty:ty] => $body:tt, $($tail:tt)*);
+        ($($msgs:tt)*);
+        $error:tt;
+        $default:tt
+    ) => {
+        $crate::match_deser_internal!(
+            @case
+            $msg;
+            ($($tail)*);
+            ($($msgs)* msg($msg_pat) : $msg_ty [$deser_ty] => $body,);
+            $error;
+            $default
+        )
+    };
+    // Check the format of an err case
+    (@case
+        $msg:ident;
+        (err($err_pat:pat) => $body:tt, $($tail:tt)*);
+        $msgs:tt;
+        ();
+        $default:tt
+    ) => {
+        $crate::match_deser_internal!(
+            @case
+            $msg;
+            ($($tail)*);
+            $msgs;
+            (err($err_pat) => $body);
+            $default
+        )
+    };
+    // Can only have one err case!
+    (@case
+        $msg:ident;
+        (err($err_pat:pat) => $body:tt, $($tail:tt)*);
+        $msgs:tt;
+        $error:tt;
+        $default:tt
+    ) => {
+        compile_error!("Only a single `err(_)` arm is allowed in `match_deser!`");
+    };
+    // Check the format of a default case
+    (@case
+        $msg:ident;
+        (default(_) => $body:tt, $($tail:tt)*);
+        $msgs:tt;
+        $error:tt;
+        ()
+    ) => {
+        $crate::match_deser_internal!(
+            @case
+            $msg;
+            ($($tail)*);
+            $msgs;
+            $error;
+            (default(_) => $body)
+        )
+    };
+    // Can only have one default case!
+    (@case
+        $msg:ident;
+        (default(_) => $body:tt, $($tail:tt)*);
+        $msgs:tt;
+        $error:tt;
+        $default:tt
+    ) => {
+        compile_error!("Only a single `default(_)` arm is allowed in `match_deser!`");
+    };
+    (@init
+        $msg:ident;
+        ($(msg($msg_pat:pat) : $msg_ty:ty [$deser_ty:ty] => $body:tt,)*);
+        (err($err_pat:pat) => $err_body:tt);
+        (default(_) => $default_body:tt)
+        ) => {
         match $msg.ser_id() {
-            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
-            let $id = $msg.try_deserialise_unchecked::<$target_ty, $deser>().unwrap();
-            $rhs
-        } )*,
-        _ => unimplemented!(),
+            $( &<$deser_ty as $crate::prelude::Deserialiser<$msg_ty>>::SER_ID => {
+                match $msg.try_deserialise_unchecked::<$msg_ty, $deser_ty>() {
+                    Ok($msg_pat) => $body,
+                    Err($err_pat) => $err_body,
+                }
+            } ),*
+            _ => $default_body,
         }
     };
-    ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , !Err($e:pat) => $err_handler:expr, }) => {
-        match $msg.ser_id() {
-            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
-            match $msg.try_deserialise_unchecked::<$target_ty, $deser>() {
-                Ok($id) => $rhs,
-                Err($e) => $err_handler,
-            }
-        } )*,
-        _ => unimplemented!(),
-        }
+    ($msg:ident;) => {
+        compile_error!("Empty `match_deser!` block");
     };
-    ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , _ => $other:expr, }) => {
-        match $msg.ser_id() {
-            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
-            let $id = $msg.try_deserialise_unchecked::<$target_ty, $deser>().unwrap();
-            $rhs
-        } )*,
-        _ => $other,
-        }
-    };
-    ($msg:expr ; { $($id:ident : $target_ty:ty [$deser:ty] => $rhs:expr),* , !Err($e:pat) => $err_handler:expr , _ => $other:expr, }) => {
-        match $msg.ser_id() {
-            $( &<$deser as $crate::prelude::Deserialiser<$target_ty>>::SER_ID => {
-            match $msg.try_deserialise_unchecked::<$target_ty, $deser>() {
-                Ok($id) => $rhs,
-                Err($e) => $err_handler,
-            }
-        } )*,
-        _ => $other,
-        }
+    ($msg:ident; $($tokens:tt)*) => {
+        $crate::match_deser_internal!(
+            @list
+            $msg;
+            ($($tokens)*);
+            ()
+        )
     };
 }
 
 #[cfg(test)]
 mod deser_macro_tests {
-    use crate::{messaging::*, serialisation::Serialiser};
+    use crate::{
+        messaging::*,
+        serialisation::{Deserialiser, Serialisable, Serialiser},
+    };
     use bytes::{Buf, BufMut};
     use std::str::FromStr;
+
+    // #[test]
+    // fn new_macro_syntax_test() {
+    //     simple_macro_test_impl(|msg| {
+    //         //trace_macros!(true);
+    //         let res = new_match_deser! { msg {
+    //              msg(res): MsgA => EitherAOrB::A(res),
+    //              msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+    //              err(_e) => panic!("test panic please ignore"),
+    //              default(_) => unimplemented!("Should be either MsgA or MsgB!"),
+    //             }
+    //         };
+    //         //trace_macros!(false);
+    //         res
+    //     })
+    // }
 
     #[test]
     fn simple_macro_test() {
         simple_macro_test_impl(|msg| {
-            match_deser! { msg; {
-                    res: MsgA [MsgA] => EitherAOrB::A(res),
-                    res: MsgB [BSer] => EitherAOrB::B(res),
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrB::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrB::B(res),
                 }
             }
         })
@@ -118,10 +376,11 @@ mod deser_macro_tests {
     #[test]
     fn simple_macro_test_with_other() {
         simple_macro_test_impl(|msg| {
-            match_deser! { msg; {
-                    res: MsgA [MsgA] => EitherAOrB::A(res),
-                    res: MsgB [BSer] => EitherAOrB::B(res),
-                    _ => unimplemented!("Should be either MsgA or MsgB!"),
+            match_deser! {
+                msg {
+                    msg(res): MsgA  => EitherAOrB::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+                    default(_) => unimplemented!("Should be either MsgA or MsgB!"),
                 }
             }
         })
@@ -131,18 +390,20 @@ mod deser_macro_tests {
     #[should_panic(expected = "test panic please ignore")]
     fn simple_macro_test_with_err() {
         simple_macro_test_impl(|msg| {
-            match_deser! { msg; {
-                    res: MsgA [MsgA] => EitherAOrB::A(res),
-                    res: MsgB [BSer] => EitherAOrB::B(res),
-                    !Err(_e) => panic!("test panic please ignore"),
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrB::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+                    err(_e) => panic!("test panic please ignore"),
                 }
             }
         });
         simple_macro_test_err_impl(|msg| {
-            match_deser! { msg; {
-                    res: MsgA [MsgA] => EitherAOrB::A(res),
-                    res: MsgB [BSer] => EitherAOrB::B(res),
-                    !Err(_e) => panic!("test panic please ignore"),
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrB::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+                    err(_e) => panic!("test panic please ignore"),
                 }
             }
         });
@@ -152,30 +413,22 @@ mod deser_macro_tests {
     #[should_panic(expected = "test panic please ignore")]
     fn simple_macro_test_with_err_and_other() {
         simple_macro_test_impl(|msg| {
-            match_deser! { msg; {
-                    res: MsgA [MsgA] => EitherAOrB::A(res),
-                    res: MsgB [BSer] => EitherAOrB::B(res),
-                    !Err(_e) => panic!("test panic please ignore"),
-                    _ => unimplemented!("Should be either MsgA or MsgB!"),
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrB::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+                    err(_e) => panic!("test panic please ignore"),
+                    default(_) => unimplemented!("Should be either MsgA or MsgB!"),
                 }
             }
         });
-        // alternative design
-        //  simple_macro_test_impl(|msg| {
-        //     match_deser! { msg; {
-        //             Msg(res: MsgA [MsgA]) => EitherAOrB::A(res),
-        //             Msg(res: MsgB [BSer]) => EitherAOrB::B(res),
-        //             Err(_e) => panic!("test panic please ignore"),
-        //             _ => unimplemented!("Should be either MsgA or MsgB!"),
-        //         }
-        //     }
-        // });
         simple_macro_test_err_impl(|msg| {
-            match_deser! { msg; {
-                    res: MsgA [MsgA] => EitherAOrB::A(res),
-                    res: MsgB [BSer] => EitherAOrB::B(res),
-                    !Err(_e) => panic!("test panic please ignore"),
-                    _ => unimplemented!("Should be either MsgA or MsgB!"),
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrB::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+                    err(_e) => panic!("test panic please ignore"),
+                    default(_) => unimplemented!("Should be either MsgA or MsgB!"),
                 }
             }
         });

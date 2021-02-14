@@ -69,14 +69,16 @@ impl Actor for QueryServer {
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
-        match_deser!(msg.data; {
-            query: Query [Serde] => {
-                let matches = self.find_matches(&query.pattern);
-                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-                sender.tell((response, Serde), self);
-                self.handled_requests += 1;
-            },
-        });
+        match_deser! {
+            (msg.data) {
+                msg(query): Query [using Serde] => {
+                    let matches = self.find_matches(&query.pattern);
+                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+                    sender.tell((response, Serde), self);
+                    self.handled_requests += 1;
+                }
+            }
+        }
         Handled::Ok
     }
 }
@@ -167,22 +169,24 @@ impl Actor for Client {
     }
 
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
-        match_deser!(msg; {
-            response: QueryResponse [Serde] => {
-                trace!(self.log(), "Got response for query id={}: {:?}", response.id, response.matches);
-                if let Some(current_query) = self.current_query.take() {
-                    if current_query.id == response.id {
-                        debug!(self.log(), "Got response with {} matches for query: {}", response.matches.len(), current_query.pattern);
-                        self.send_request();
-                    } else {
-                        // wrong id, put it back
-                        self.current_query = Some(current_query);
+        match_deser! {
+            msg {
+                msg(response): QueryResponse [using Serde] => {
+                    trace!(self.log(), "Got response for query id={}: {:?}", response.id, response.matches);
+                    if let Some(current_query) = self.current_query.take() {
+                        if current_query.id == response.id {
+                            debug!(self.log(), "Got response with {} matches for query: {}", response.matches.len(), current_query.pattern);
+                            self.send_request();
+                        } else {
+                            // wrong id, put it back
+                            self.current_query = Some(current_query);
+                        }
                     }
-                }
-                // in any case, put it in the cache
-                self.cache.put(response.pattern, response.matches);
-            },
-        });
+                    // in any case, put it in the cache
+                    self.cache.put(response.pattern, response.matches);
+                },
+            }
+        }
         Handled::Ok
     }
 }
