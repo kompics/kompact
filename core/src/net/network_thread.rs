@@ -78,7 +78,7 @@ pub struct NetworkThread {
 
 /// Return values for IO Operations on the [NetworkChannel](net::network_channel::NetworkChannel) abstraction
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum IOReturn {
+pub(super) enum IoReturn {
     SwapBuffer,
     Close,
     None,
@@ -259,7 +259,7 @@ impl NetworkThread {
                                 if n > 0 {
                                     self.received_bytes += n as u64;
                                 }
-                                if IOReturn::SwapBuffer == ioret {
+                                if IoReturn::SwapBuffer == ioret {
                                     if let Some(mut new_buffer) = self.buffer_pool.get_buffer() {
                                         udp_state.swap_buffer(&mut new_buffer);
                                         self.buffer_pool.return_buffer(new_buffer);
@@ -337,28 +337,28 @@ impl NetworkThread {
                 let mut swap_buffer = false;
                 let mut close_channel = false;
                 if writeable {
-                    if let IOReturn::Close = self.try_write(&addr) {
+                    if let IoReturn::Close = self.try_write(&addr) {
                         // Remove and deregister
                         close_channel = true;
                     }
                 }
                 if readable {
                     match self.try_read(&addr) {
-                        IOReturn::Close => {
+                        IoReturn::Close => {
                             // Remove and deregister
                             close_channel = true;
                         }
-                        IOReturn::SwapBuffer => {
+                        IoReturn::SwapBuffer => {
                             swap_buffer = true;
                         }
                         _ => {}
                     }
 
                     match self.decode(&addr) {
-                        IOReturn::Start(remote_addr, id) => {
+                        IoReturn::Start(remote_addr, id) => {
                             self.handle_start(token, remote_addr, id);
                         }
-                        IOReturn::Close => {
+                        IoReturn::Close => {
                             // Remove and deregister
                             close_channel = true;
                         }
@@ -539,11 +539,11 @@ impl NetworkThread {
         }
     }
 
-    fn try_write(&mut self, addr: &SocketAddr) -> IOReturn {
+    fn try_write(&mut self, addr: &SocketAddr) -> IoReturn {
         if let Some(channel) = self.channel_map.get_mut(&addr) {
             match channel.try_drain() {
                 Err(ref err) if broken_pipe(err) => {
-                    return IOReturn::Close;
+                    return IoReturn::Close;
                 }
                 Ok(n) => {
                     self.sent_bytes += n as u64;
@@ -556,11 +556,11 @@ impl NetworkThread {
                 }
             }
         }
-        IOReturn::None
+        IoReturn::None
     }
 
-    fn try_read(&mut self, addr: &SocketAddr) -> IOReturn {
-        let mut ret = IOReturn::None;
+    fn try_read(&mut self, addr: &SocketAddr) -> IoReturn {
+        let mut ret = IoReturn::None;
         if let Some(channel) = self.channel_map.get_mut(&addr) {
             match channel.receive() {
                 Ok(n) => {
@@ -568,7 +568,7 @@ impl NetworkThread {
                 }
                 Err(ref err) if no_buffer_space(err) => {
                     debug!(self.log, "no_buffer_space for channel {:?}", channel);
-                    ret = IOReturn::SwapBuffer
+                    ret = IoReturn::SwapBuffer
                 }
                 Err(err) if interrupted(&err) || would_block(&err) => {
                     // Just retry later
@@ -578,7 +578,7 @@ impl NetworkThread {
                         self.log,
                         "Connection_reset to peer {}, shutting down the channel", &addr
                     );
-                    ret = IOReturn::Close
+                    ret = IoReturn::Close
                 }
                 Err(err) => {
                     // Fatal error don't try to read again
@@ -592,8 +592,8 @@ impl NetworkThread {
         ret
     }
 
-    fn decode(&mut self, addr: &SocketAddr) -> IOReturn {
-        let mut ret = IOReturn::None;
+    fn decode(&mut self, addr: &SocketAddr) -> IoReturn {
+        let mut ret = IoReturn::None;
         // ret is used as return place-holder and internal flow-control.
         if let Some(channel) = self.channel_map.get_mut(addr) {
             loop {
@@ -637,16 +637,16 @@ impl NetworkThread {
                     }
                     Ok(Frame::Start(start)) => {
                         // Channel handles hello internally. NetworkThread decides in next state transition
-                        return IOReturn::Start(start.addr, start.id);
+                        return IoReturn::Start(start.addr, start.id);
                     }
                     Ok(Frame::Ack(_)) => {
                         // We need to handle Acks immediately outside of the loop, then continue the loop
-                        ret = IOReturn::Ack;
+                        ret = IoReturn::Ack;
                         break;
                     }
                     Ok(Frame::Bye()) => {
                         debug!(self.log, "Received Bye from {}", &addr);
-                        return IOReturn::Close;
+                        return IoReturn::Close;
                     }
                     Err(FramingError::InvalidMagicNum((check, slice))) => {
                         // There is no way to recover from this error right now. Would need resending mechanism
@@ -671,7 +671,7 @@ impl NetworkThread {
             }
         }
         match ret {
-            IOReturn::Ack => {
+            IoReturn::Ack => {
                 self.handle_ack(addr);
                 // We must continue decoding after.
                 self.decode(addr)
@@ -791,7 +791,7 @@ impl NetworkThread {
     fn receive_dispatch(&mut self) {
         while let Ok(event) = self.input_queue.try_recv() {
             match event {
-                DispatchEvent::SendTCP(addr, data) => {
+                DispatchEvent::SendTcp(addr, data) => {
                     self.sent_msgs += 1;
                     // Get the token corresponding to the connection
                     if let Some(channel) = self.channel_map.get_mut(&addr) {
@@ -832,11 +832,11 @@ impl NetworkThread {
                             )));
                         break;
                     }
-                    if let IOReturn::Close = self.try_write(&addr) {
+                    if let IoReturn::Close = self.try_write(&addr) {
                         self.close_channel(addr);
                     }
                 }
-                DispatchEvent::SendUDP(addr, data) => {
+                DispatchEvent::SendUdp(addr, data) => {
                     self.sent_msgs += 1;
                     // Get the token corresponding to the connection
                     if let Some(ref mut udp_state) = self.udp_state {

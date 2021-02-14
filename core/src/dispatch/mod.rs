@@ -70,12 +70,12 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
+    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// NetworkDispatcher and NetworkThread will use the default `BufferConfig`
     pub fn new(addr: SocketAddr) -> Self {
         NetworkConfig {
             addr,
-            transport: Transport::TCP,
+            transport: Transport::Tcp,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,
@@ -84,13 +84,13 @@ impl NetworkConfig {
         }
     }
 
-    /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
+    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_buffer_config(addr: SocketAddr, buffer_config: BufferConfig) -> Self {
         buffer_config.validate();
         NetworkConfig {
             addr,
-            transport: Transport::TCP,
+            transport: Transport::Tcp,
             buffer_config,
             custom_allocator: None,
             tcp_nodelay: true,
@@ -99,7 +99,7 @@ impl NetworkConfig {
         }
     }
 
-    /// Create a new config with `addr` and protocol [TCP](Transport::TCP)
+    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_custom_allocator(
         addr: SocketAddr,
@@ -109,7 +109,7 @@ impl NetworkConfig {
         buffer_config.validate();
         NetworkConfig {
             addr,
-            transport: Transport::TCP,
+            transport: Transport::Tcp,
             buffer_config,
             custom_allocator: Some(custom_allocator),
             tcp_nodelay: true,
@@ -187,12 +187,12 @@ impl NetworkConfig {
     }
 }
 
-/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::TCP)
+/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::Tcp)
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
             addr: "127.0.0.1:0".parse().unwrap(),
-            transport: Transport::TCP,
+            transport: Transport::Tcp,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,
@@ -209,7 +209,7 @@ impl Default for NetworkConfig {
 /// This dispatcher automatically creates channels to requested target
 /// systems on demand and maintains them while in use.
 ///
-/// The current implementation only supports [TCP](Transport::TCP) as
+/// The current implementation only supports [TCP](Transport::Tcp) as
 /// a transport protocol.
 ///
 /// If possible, this implementation will "reflect" messages
@@ -266,6 +266,7 @@ impl NetworkDispatcher {
     /// use [NetworkConfig::build](NetworkConfig::build) instead.
     pub fn with_config(cfg: NetworkConfig, notify_ready: KPromise<()>) -> Self {
         let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
+        // Just a temporary assignment...will be replaced from config on start
         let reaper = lookup::gc::ActorRefReaper::default();
 
         NetworkDispatcher {
@@ -304,6 +305,7 @@ impl NetworkDispatcher {
 
     fn start(&mut self) -> () {
         debug!(self.ctx.log(), "Starting self and network bridge");
+        self.reaper = lookup::gc::ActorRefReaper::from_config(self.ctx.config());
         let dispatcher = self
             .actor_ref()
             .hold()
@@ -403,7 +405,7 @@ impl NetworkDispatcher {
                         retry,
                         self.cfg.max_connection_retry_attempts
                     );
-                    bridge.connect(Transport::TCP, addr).unwrap();
+                    bridge.connect(Transport::Tcp, addr).unwrap();
                 }
             } else {
                 // Too many retries, give up on the connection.
@@ -465,7 +467,7 @@ impl NetworkDispatcher {
                     while let Some(frame) = self.queue_manager.pop_data(&addr) {
                         if let Some(bridge) = &self.net_bridge {
                             //println!("Sending queued frame to newly established connection");
-                            bridge.route(addr, frame, net::Protocol::TCP)?;
+                            bridge.route(addr, frame, net::Protocol::Tcp)?;
                         }
                     }
                 }
@@ -544,7 +546,7 @@ impl NetworkDispatcher {
         data: DispatchData,
     ) -> Result<(), NetworkBridgeErr> {
         if let Some(bridge) = &self.net_bridge {
-            bridge.route(addr, data, net::Protocol::UDP)?;
+            bridge.route(addr, data, net::Protocol::Udp)?;
         } else {
             warn!(
                 self.ctx.log(),
@@ -572,7 +574,7 @@ impl NetworkDispatcher {
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
                     self.retry_map.insert(addr, 0); // Make sure we will re-request connection later
-                    bridge.connect(Transport::TCP, addr).unwrap();
+                    bridge.connect(Transport::Tcp, addr).unwrap();
                     Some(ConnectionState::Initializing)
                 } else {
                     error!(self.ctx.log(), "No network bridge found; dropping message");
@@ -585,14 +587,14 @@ impl NetworkDispatcher {
 
                     if let Some(bridge) = &self.net_bridge {
                         while let Some(queued_data) = self.queue_manager.pop_data(&addr) {
-                            bridge.route(addr, queued_data, net::Protocol::TCP)?;
+                            bridge.route(addr, queued_data, net::Protocol::Tcp)?;
                         }
                     }
                     None
                 } else {
                     // Send frame
                     if let Some(bridge) = &self.net_bridge {
-                        bridge.route(addr, data, net::Protocol::TCP)?;
+                        bridge.route(addr, data, net::Protocol::Tcp)?;
                     }
                     None
                 }
@@ -641,15 +643,15 @@ impl NetworkDispatcher {
         } else {
             let proto = dst.system().protocol();
             match proto {
-                Transport::LOCAL => {
+                Transport::Local => {
                     self.route_local(dst, msg);
                     Ok(())
                 }
-                Transport::TCP => {
+                Transport::Tcp => {
                     let addr = SocketAddr::new(*dst.address(), dst.port());
                     self.route_remote_tcp(addr, msg)
                 }
-                Transport::UDP => {
+                Transport::Udp => {
                     let addr = SocketAddr::new(*dst.address(), dst.port());
                     self.route_remote_udp(addr, msg)
                 }

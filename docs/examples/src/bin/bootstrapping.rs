@@ -265,7 +265,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
     let system = cfg.build().expect("KompactSystem");
 
     let bootstrap_service: ActorPath = NamedPath::with_socket(
-        Transport::TCP,
+        Transport::Tcp,
         bootstrap_socket,
         vec![BOOTSTRAP_PATH.into()],
     )

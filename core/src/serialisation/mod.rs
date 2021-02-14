@@ -282,7 +282,7 @@ mod tests {
         let t1_res = T1Ser::deserialise(&mut buf);
         match t1_res {
             Ok(t2) => assert_eq!(t1c, t2),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
         }
     }
 }

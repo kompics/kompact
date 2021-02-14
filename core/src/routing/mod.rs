@@ -422,11 +422,11 @@ mod tests {
             .into_named_with_string("routing-group/?")
             .expect("actor path")
             .into();
-        let mut receiver_reg_fs: Vec<KFuture<RegistrationResult>> = Vec::with_capacity(3);
-        receiver_reg_fs.push(system.register_by_alias(&receivers[0], "routing-group/receiver1"));
-        receiver_reg_fs.push(system.register_by_alias(&receivers[1], "routing-group/receiver2"));
-        receiver_reg_fs
-            .push(system.register_by_alias(&receivers[2], "routing-group/receivers/node1"));
+        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = vec![
+            system.register_by_alias(&receivers[0], "routing-group/receiver1"),
+            system.register_by_alias(&receivers[1], "routing-group/receiver2"),
+            system.register_by_alias(&receivers[2], "routing-group/receivers/node1"),
+        ];
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
@@ -489,11 +489,11 @@ mod tests {
             .into_named_with_string("routing-group/*")
             .expect("actor path")
             .into();
-        let mut receiver_reg_fs: Vec<KFuture<RegistrationResult>> = Vec::with_capacity(3);
-        receiver_reg_fs.push(system.register_by_alias(&receivers[0], "routing-group/receiver1"));
-        receiver_reg_fs.push(system.register_by_alias(&receivers[1], "routing-group/receiver2"));
-        receiver_reg_fs
-            .push(system.register_by_alias(&receivers[2], "routing-group/receivers/node1"));
+        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = vec![
+            system.register_by_alias(&receivers[0], "routing-group/receiver1"),
+            system.register_by_alias(&receivers[1], "routing-group/receiver2"),
+            system.register_by_alias(&receivers[2], "routing-group/receivers/node1"),
+        ];
         let receiver_refs: Vec<ActorPath> = receiver_reg_fs
             .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))

@@ -65,7 +65,7 @@ pub fn drop_default_logger() {
 
 type SchedulerBuilder = dyn Fn(usize) -> Box<dyn Scheduler>;
 
-type SCBuilder = dyn Fn(&KompactSystem, KPromise<()>, KPromise<()>) -> Box<dyn SystemComponents>;
+type ScBuilder = dyn Fn(&KompactSystem, KPromise<()>, KPromise<()>) -> Box<dyn SystemComponents>;
 
 type TimerBuilder = dyn Fn() -> Box<dyn TimerComponent>;
 
