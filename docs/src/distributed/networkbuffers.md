@@ -9,20 +9,20 @@ Before we begin describing the Network Buffers we remind the reader that there a
 With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the `NetworkDispatcher`, which later serialises the message into its (the `NetworkDispatcher`'s) own buffers.   
 Eager serialisation serialises the data immediately into the Actor's buffers, and then transfers ownership of the serialised the data to the `NetworkDispatcher`.
 
+Lazy serialisation may fail due to two reasons: A serialisation error, or there are no available buffers. Both will be
+unnoticeable to the actor initiating the message sending, and both will lead to the message being lost.
+
 ## How the Buffer Pools work
 
 ### Buffer Pool locations
-In a Kompact system where many actors use eager serialisation there will be many `BufferPool` instances. Ìf the actors in the system only use lazy serialisation there will be two pools, one used by the `NetworkDispatcher` for serialising outbound data, and one used by the `NetworkThread` for receiving incoming data.
+In a Kompact system where many actors use eager serialisation there will be many `BufferPool` instances. If the actors in the system only use lazy serialisation there will be a single pool, owned by the `NetworkThread` for serialising and receiving data.
 
 ### BufferPool, BufferChunk, and ChunkLease
 Each `BufferPool` (pool) consists of more than one `BufferChunk` (chunks). A chunk is the concrete memory area used for serialising data into. There may be many messages serialised into a single chunk, and discrete slices of the chunks (i.e. individual messages) can be extracted and sent to other threads/actors through the smart-pointer `ChunkLease` (lease). When a chunk runs out of space it will be locked and returned to the pool. If and only if all outstanding leases created from a chunk have been dropped may the chunk be unlocked and reused, or deallocated.
 
 When a pool is created it will pre-allocate a configurable amount of chunks, and will attempt to reuse those as long as possible, and only when it needs to will it allocate more chunks, up to a configurable maximum number of chunks. 
 
-**Note: In the current version, behaviour is unstable when a pool runs out of chunks and is unable to allocate more and will often cause a panic, similar to out-of-memory exception.** 
-
-### The BufferPool interface
-Actors access their pool through the `EncodeBuffer` wrapper which maintains a single active chunk at a time, and automatically swaps the active buffer with the local `BufferPool` when necessary.  
+### BufferPool interface
 
 The method `tell_serialised(msg, &self)` automatically uses the `EncodeBuffer` interface such that users of Kompact do not need to use the interfaces of the pool (which is why the method requires a `self` reference). 
 

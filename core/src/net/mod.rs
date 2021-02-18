@@ -6,13 +6,13 @@ use net::events::NetworkEvent;
 
 use crate::{
     messaging::DispatchData,
-    net::{events::DispatchEvent, frames::*, network_thread::NetworkThread},
+    net::{events::DispatchEvent, frames::*, network_thread::NetworkThreadBuilder},
     prelude::NetworkConfig,
 };
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
 pub use std::net::SocketAddr;
-use std::{io, sync::Arc, thread};
+use std::{io, panic, sync::Arc, thread};
 
 #[allow(missing_docs)]
 pub mod buffers;
@@ -158,7 +158,7 @@ pub struct Bridge {
     /// Reference back to the Kompact dispatcher
     dispatcher: Option<DispatcherRef>,
     /// Socket the network actually bound on
-    bound_addr: Option<SocketAddr>,
+    bound_address: Option<SocketAddr>,
     shutdown_future: KFuture<()>,
 }
 
@@ -178,7 +178,7 @@ impl Bridge {
     ) -> (Self, SocketAddr) {
         let (sender, receiver) = channel();
         let (shutdown_p, shutdown_f) = promise();
-        let (mut network_thread, waker) = NetworkThread::new(
+        match NetworkThreadBuilder::new(
             network_thread_log,
             addr,
             lookup,
@@ -186,27 +186,33 @@ impl Bridge {
             shutdown_p,
             dispatcher_ref.clone(),
             network_config.clone(),
-        );
-        let bound_addr = network_thread.addr;
-        let bridge = Bridge {
-            // cfg: BridgeConfig::default(),
-            log: bridge_log,
-            // lookup,
-            network_input_queue: sender,
-            waker,
-            dispatcher: Some(dispatcher_ref),
-            bound_addr: Some(bound_addr),
-            shutdown_future: shutdown_f,
-        };
-        if let Err(e) = thread::Builder::new()
-            .name("network_thread".to_string())
-            .spawn(move || {
-                network_thread.run();
-            })
-        {
-            panic!("Failed to start a Network Thread, error: {:?}", e);
+        ) {
+            Ok(mut network_thread_builder) => {
+                let bound_address = network_thread_builder.address;
+                let waker = network_thread_builder
+                    .take_waker()
+                    .expect("NetworkThread poll error");
+
+                run_network_thread(network_thread_builder, bridge_log.clone())
+                    .expect("Failed to spawn NetworkThread");
+
+                let bridge = Bridge {
+                    // cfg: BridgeConfig::default(),
+                    log: bridge_log,
+                    // lookup,
+                    network_input_queue: sender,
+                    waker,
+                    dispatcher: Some(dispatcher_ref),
+                    bound_address: Some(bound_address),
+                    shutdown_future: shutdown_f,
+                };
+
+                (bridge, bound_address)
+            }
+            Err(e) => {
+                panic!("Failed to build a Network Thread, error: {:?}", e);
+            }
         }
-        (bridge, bound_addr)
     }
 
     /// Sets the dispatcher reference, returning the previously stored one
@@ -236,7 +242,7 @@ impl Bridge {
 
     /// Returns the local address if already bound
     pub fn local_addr(&self) -> &Option<SocketAddr> {
-        &self.bound_addr
+        &self.bound_address
     }
 
     /// Forwards `serialized` to the NetworkThread and makes sure that it will wake up.
@@ -300,6 +306,30 @@ impl Bridge {
     }
 }
 
+fn run_network_thread(
+    builder: NetworkThreadBuilder,
+    logger: KompactLogger,
+) -> async_std::io::Result<()> {
+    thread::Builder::new()
+        .name("network_thread".to_string())
+        .spawn(move || {
+            if let Err(e) = panic::catch_unwind(panic::AssertUnwindSafe(|| builder.build().run())) {
+                if let Some(error_msg) = e.downcast_ref::<&str>() {
+                    error!(logger, "NetworkThread panicked with: {:?}", error_msg);
+                } else if let Some(error_msg) = e.downcast_ref::<String>() {
+                    error!(logger, "NetworkThread panicked with: {:?}", error_msg);
+                } else {
+                    error!(
+                        logger,
+                        "NetworkThread panicked with a non-string message with type id={:?}",
+                        e.type_id()
+                    );
+                }
+            };
+        })
+        .map(|_| ())
+}
+
 /// Errors which the NetworkBridge might return, not used for now.
 #[derive(Debug)]
 pub enum NetworkBridgeErr {
@@ -347,7 +377,7 @@ pub(crate) fn interrupted(err: &io::Error) -> bool {
 }
 
 pub(crate) fn no_buffer_space(err: &io::Error) -> bool {
-    err.kind() == io::ErrorKind::InvalidData
+    err.kind() == io::ErrorKind::InvalidInput
 }
 
 pub(crate) fn connection_reset(err: &io::Error) -> bool {
@@ -356,6 +386,10 @@ pub(crate) fn connection_reset(err: &io::Error) -> bool {
 
 pub(crate) fn broken_pipe(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::BrokenPipe
+}
+
+pub(crate) fn out_of_buffers(err: &SerError) -> bool {
+    matches!(err, SerError::NoBuffersAvailable(_))
 }
 
 /// A module with helper functions for testing network configurations/implementations

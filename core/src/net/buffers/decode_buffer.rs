@@ -65,11 +65,29 @@ impl DecodeBuffer {
         // If the readable portion of the buffer would have less than `encode_buf_min_free_space`
         // Or if we would return less than 8 readable bytes we don't allow further writing into
         // the current buffer, caller must swap.
-        // TODO: Define what is a sensible amount of minimum bytes to be read at any given moment.
-        if self.writeable_len() < 8 {
-            return None;
+        if self.is_writeable() {
+            unsafe { Some(self.buffer.get_slice(self.write_offset, self.buffer.len())) }
+        } else {
+            None
         }
-        unsafe { Some(self.buffer.get_slice(self.write_offset, self.buffer.len())) }
+    }
+
+    /// True if there is sufficient amount of writeable bytes
+    pub(crate) fn is_writeable(&mut self) -> bool {
+        self.writeable_len() > 8
+    }
+
+    /// Returns true if there is data to be decoded, else false
+    pub(crate) fn has_frame(&mut self) -> io::Result<bool> {
+        if self.decode_frame_head().is_err() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "framing error"));
+        }
+        if let Some(head) = &self.next_frame_head {
+            if self.readable_len() >= head.content_length() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Swaps the underlying buffer in place with other
@@ -86,7 +104,10 @@ impl DecodeBuffer {
         if let Some(mut overflow_chunk) = overflow {
             // TODO: change the config parameter to a separate value?
             let overflow_len = overflow_chunk.remaining();
-            if self.writeable_len() - overflow_len > self.buffer_config.encode_buf_min_free_space {
+            if overflow_len < self.writeable_len()
+                && self.writeable_len() - overflow_len
+                    > self.buffer_config.encode_buf_min_free_space
+            {
                 // Just copy the overflow_chunk bytes, no need to chain.
                 // the overflow must not exceed the new buffers capacity
                 unsafe {
@@ -145,47 +166,41 @@ impl DecodeBuffer {
 
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
+        self.decode_frame_head()?;
         if let Some(head) = &self.next_frame_head {
             if self.readable_len() >= head.content_length() {
                 let head = self.next_frame_head.take().unwrap();
-                let chunk_lease = self.read_chunk_lease(head.content_length());
-                match head.frame_type() {
+                return match head.frame_type() {
                     // Frames with empty bodies should be handled in frame-head decoding below.
                     FrameType::Data => {
-                        Data::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
+                        Data::decode_from(self.read_chunk_lease(head.content_length()))
+                            .map_err(|_| FramingError::InvalidFrame)
                     }
-                    FrameType::StreamRequest => StreamRequest::decode_from(chunk_lease)
-                        .map_err(|_| FramingError::InvalidFrame),
                     FrameType::Hello => {
-                        Hello::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
+                        Hello::decode_from(self.read_chunk_lease(head.content_length()))
+                            .map_err(|_| FramingError::InvalidFrame)
                     }
                     FrameType::Start => {
-                        Start::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
+                        Start::decode_from(self.read_chunk_lease(head.content_length()))
+                            .map_err(|_| FramingError::InvalidFrame)
                     }
-                    FrameType::Ack => {
-                        Ack::decode_from(chunk_lease).map_err(|_| FramingError::InvalidFrame)
-                    }
-                    _ => Err(FramingError::UnsupportedFrameType),
-                }
-            } else {
-                Err(FramingError::NoData)
-            }
-        } else if self.readable_len() >= FRAME_HEAD_LEN as usize {
-            let mut chunk_lease = self.read_chunk_lease(FRAME_HEAD_LEN as usize);
-            let head = FrameHead::decode_from(&mut chunk_lease)?;
-            if head.content_length() == 0 {
-                match head.frame_type() {
                     // Frames without content match here for expediency, Decoder doesn't allow 0 length.
                     FrameType::Bye => Ok(Frame::Bye()),
-                    _ => Err(FramingError::NoData),
-                }
-            } else {
-                self.next_frame_head = Some(head);
-                self.get_frame()
+                    FrameType::Ack => Ok(Frame::Ack()),
+                    _ => Err(FramingError::UnsupportedFrameType),
+                };
             }
-        } else {
-            Err(FramingError::NoData)
         }
+        Err(FramingError::NoData)
+    }
+
+    fn decode_frame_head(&mut self) -> Result<(), FramingError> {
+        if self.next_frame_head.is_none() && self.readable_len() >= FRAME_HEAD_LEN as usize {
+            let mut chunk_lease = self.read_chunk_lease(FRAME_HEAD_LEN as usize);
+            let head = FrameHead::decode_from(&mut chunk_lease)?;
+            self.next_frame_head = Some(head);
+        }
+        Ok(())
     }
 
     /// Extracts the readable portion (if any) from the active buffer as a ChunkLease
@@ -197,11 +212,6 @@ impl DecodeBuffer {
             return Some(lease);
         }
         None
-    }
-
-    /// Destroys the DecodeBuffer and returns the BufferChunk
-    pub(crate) fn destroy(self) -> BufferChunk {
-        self.buffer
     }
 }
 

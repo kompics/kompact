@@ -653,15 +653,12 @@ impl NetworkDispatcher {
                 }
             }
             ConnectionState::Initializing => {
-                //debug!(self.ctx.log(), "Connection is initializing; queuing frame");
                 self.queue_manager.enqueue_data(data, addr);
                 None
             }
             ConnectionState::Closed => {
-                // Enqueue the Frame and request a connection to the destination.
                 self.queue_manager.enqueue_data(data, addr);
                 if let Some(bridge) = &self.net_bridge {
-                    // Request a new connection
                     bridge.connect(Tcp, addr)?;
                 }
                 Some(ConnectionState::Initializing)
@@ -829,7 +826,7 @@ impl NetworkDispatcher {
         if let Some(state) = self.connections.get_mut(&addr) {
             match state {
                 ConnectionState::Connected => {
-                    debug!(
+                    trace!(
                         self.ctx.log(),
                         "Closing channel to connected system {}", addr
                     );
@@ -953,7 +950,7 @@ impl ComponentLifecycle for NetworkDispatcher {
 
 impl Provide<NetworkStatusPort> for NetworkDispatcher {
     fn handle(&mut self, event: <NetworkStatusPort as Port>::Request) -> Handled {
-        trace!(
+        debug!(
             self.ctx.log(),
             "Received NetworkStatusPort Request {:?}",
             event

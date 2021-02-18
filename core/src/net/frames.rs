@@ -47,10 +47,6 @@ impl From<std::io::Error> for FramingError {
 /// Core network frame definition
 #[derive(Debug)]
 pub enum Frame {
-    /// Request Credits for credit-based flow-control
-    StreamRequest(StreamRequest),
-    /// Give Credits for credit-based flow-control
-    CreditUpdate(CreditUpdate),
     /// Frame of Data
     Data(Data),
     /// Hello, used to initiate network channels
@@ -58,7 +54,7 @@ pub enum Frame {
     /// Start, used to initiate network channels
     Start(Start),
     /// Ack to acknowledge that the connection is started.
-    Ack(Ack),
+    Ack(),
     /// Bye to signal that a channel is closing.
     Bye(),
 }
@@ -67,38 +63,23 @@ impl Frame {
     /// Returns which FrameType a Frame is.
     pub fn frame_type(&self) -> FrameType {
         match *self {
-            Frame::StreamRequest(_) => FrameType::StreamRequest,
-            Frame::CreditUpdate(_) => FrameType::CreditUpdate,
             Frame::Data(_) => FrameType::Data,
             Frame::Hello(_) => FrameType::Hello,
             Frame::Start(_) => FrameType::Start,
-            Frame::Ack(_) => FrameType::Ack,
+            Frame::Ack() => FrameType::Ack,
             Frame::Bye() => FrameType::Bye,
         }
     }
 
-    /*
-    pub fn decode_from(buf: &mut ChunkLease<Bytes>) -> Result<Self, FramingError> {
-        //let mut buf = buf.into_buf();
-        let head = FrameHead::decode_from( buf)?;
-        match head.frame_type {
-            FrameType::StreamRequest => StreamRequest::decode_from( buf),
-            FrameType::Data => Data::decode_from( buf),
-            FrameType::CreditUpdate => CreditUpdate::decode_from( buf),
-            _ => unimplemented!(),
-        }
-    }*/
     /// Encode a frame into a BufMut
     pub fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), FramingError> {
         let mut head = FrameHead::new(self.frame_type(), self.encoded_len());
         head.encode_into(dst);
         match self {
-            Frame::StreamRequest(frame) => frame.encode_into(dst),
-            Frame::CreditUpdate(frame) => frame.encode_into(dst),
             Frame::Data(frame) => frame.encode_into(dst),
             Frame::Hello(frame) => frame.encode_into(dst),
             Frame::Start(frame) => frame.encode_into(dst),
-            Frame::Ack(frame) => frame.encode_into(dst),
+            Frame::Ack() => Ok(()),
             Frame::Bye() => Ok(()),
         }
     }
@@ -106,12 +87,9 @@ impl Frame {
     /// Returns the number of bytes required to serialize this frame
     pub fn encoded_len(&self) -> usize {
         match *self {
-            Frame::StreamRequest(ref frame) => frame.encoded_len(),
-            Frame::CreditUpdate(ref frame) => frame.encoded_len(),
             Frame::Data(ref frame) => frame.encoded_len(),
             Frame::Hello(ref frame) => frame.encoded_len(),
             Frame::Start(ref frame) => frame.encoded_len(),
-            Frame::Ack(ref frame) => frame.encoded_len(),
             _ => 0,
         }
     }
@@ -146,7 +124,7 @@ pub struct Data {
 }
 
 /// Hello, used to initiate network channels
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Hello {
     /// The Cannonical Address of the host saying Hello
     pub addr: SocketAddr,
@@ -161,23 +139,12 @@ pub struct Start {
     pub id: Uuid,
 }
 
-/// Hello, used to initiate network channels
-#[derive(Debug)]
-pub struct Ack {
-    /// Ack where we're ready to start receiving from.
-    pub offset: u128,
-}
-
 /// Byte-mappings for frame types
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub enum FrameType {
-    /// Request Credits for credit-based flow-control
-    StreamRequest = 0x01,
     /// Frame of Data
     Data = 0x02,
-    /// Give Credits for credit-based flow-control
-    CreditUpdate = 0x03,
     /// Hello, used to initiate network channels
     Hello = 0x04,
     /// Start, used to initiate network channels
@@ -193,9 +160,7 @@ pub enum FrameType {
 impl From<u8> for FrameType {
     fn from(byte: u8) -> Self {
         match byte {
-            0x01 => FrameType::StreamRequest,
             0x02 => FrameType::Data,
-            0x03 => FrameType::CreditUpdate,
             0x04 => FrameType::Hello,
             0x05 => FrameType::Start,
             0x06 => FrameType::Ack,
@@ -262,13 +227,6 @@ impl FrameHead {
     }
 }
 
-impl StreamRequest {
-    #[allow(dead_code)]
-    pub(crate) fn new(credit_capacity: u32) -> Self {
-        StreamRequest { credit_capacity }
-    }
-}
-
 impl Hello {
     /// Create a new hello message
     pub fn new(addr: SocketAddr) -> Self {
@@ -316,10 +274,6 @@ impl Data {
 
 impl FrameExt for Data {
     fn decode_from(payload: ChunkLease) -> Result<Frame, FramingError> {
-        /*if src.remaining() < 12 {
-            return Err(FramingError::InvalidFrame);
-        } */
-        //let payload: Bytes = src.to_bytes();
         let data_frame = Data { payload };
         Ok(Frame::Data(data_frame))
     }
@@ -336,31 +290,6 @@ impl FrameExt for Data {
 
     fn encoded_len(&self) -> usize {
         self.payload.chunk().len()
-    }
-}
-
-impl FrameExt for StreamRequest {
-    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
-        if src.remaining() < 8 {
-            return Err(FramingError::InvalidFrame);
-        }
-        //let stream_id: StreamId = src.get_u32_be().into();
-        let credit = src.get_u32();
-        let stream_req = StreamRequest {
-            credit_capacity: credit,
-        };
-        Ok(Frame::StreamRequest(stream_req))
-    }
-
-    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), FramingError> {
-        assert!(dst.remaining_mut() >= self.encoded_len());
-        //dst.put_u32_be(self.stream_id.into());
-        dst.put_u32(self.credit_capacity);
-        Ok(())
-    }
-
-    fn encoded_len(&self) -> usize {
-        4 //stream_id + credit_capacity
     }
 }
 
@@ -465,36 +394,5 @@ impl FrameExt for Start {
                 1 + 16 + 2 + 16 // version + ip + port + uuid
             }
         }
-    }
-}
-
-impl FrameExt for Ack {
-    fn decode_from(mut src: ChunkLease) -> Result<Frame, FramingError> {
-        Ok(Frame::Ack(Ack {
-            offset: src.get_u128(),
-        }))
-    }
-
-    fn encode_into<B: BufMut>(&mut self, dst: &mut B) -> Result<(), FramingError> {
-        dst.put_u128(self.offset);
-        Ok(())
-    }
-
-    fn encoded_len(&self) -> usize {
-        16
-    }
-}
-
-impl FrameExt for CreditUpdate {
-    fn decode_from(_src: ChunkLease) -> Result<Frame, FramingError> {
-        unimplemented!()
-    }
-
-    fn encode_into<B: BufMut>(&mut self, _dst: &mut B) -> Result<(), FramingError> {
-        unimplemented!()
-    }
-
-    fn encoded_len(&self) -> usize {
-        4 // stream_id + credit
     }
 }
