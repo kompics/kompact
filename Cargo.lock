@@ -637,6 +637,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dissimilar"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc4b29f4b9bb94bf267d57269fd0706d343a160937108e9619fe380645428abb"
+
+[[package]]
 name = "dynamic-benches"
 version = "0.1.0"
 dependencies = [
@@ -1180,6 +1186,7 @@ dependencies = [
  "protobuf",
  "rustc-hash",
  "rustc_version",
+ "rustversion",
  "serde",
  "slog",
  "slog-async",
@@ -2227,6 +2234,7 @@ version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99471a206425fba51842a9186315f32d91c56eadc21ea4c21f847b59cf778f8b"
 dependencies = [
+ "dissimilar",
  "glob",
  "lazy_static",
  "serde",
