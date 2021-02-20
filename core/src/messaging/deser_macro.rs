@@ -83,6 +83,9 @@ macro_rules! match_deser {
             $($tokens)*
         )
     }};
+    ($msg:expr; {$($tokens:tt)*}) => {
+        compile_error!("You are using an old `match_deser!` format. See docs for the new format.");
+    }
 }
 
 #[macro_export]
@@ -307,6 +310,45 @@ macro_rules! match_deser_internal {
     ) => {
         compile_error!("Only a single `default(_)` arm is allowed in `match_deser!`");
     };
+    // --- Error Handling ---
+    (@list
+        $msg:ident;
+        ($($stuff:tt)*);
+        ($($head:tt)*)
+        ) => {
+            compile_error!(concat!(
+                "Illegal `match_deser!` item(s). See docs for example of legal items. Offending item(s): ",
+                stringify!($($stuff)*)
+            ));
+    };
+    (@case
+        $msg:ident;
+        (msg($msg_pat:pat) => $body:tt, $($tail:tt)*);
+        ($($msgs:tt)*);
+        $error:tt;
+        $default:tt
+    ) => {
+        compile_error!("Must specify a deserialisation target type");
+    };
+    (@case
+        $msg:ident;
+        (msg($msg_pat:pat) [$($stuff:tt)*] => $body:tt, $($tail:tt)*);
+        ($($msgs:tt)*);
+        $error:tt;
+        $default:tt
+    ) => {
+        compile_error!("Must specify a deserialisation target type");
+    };
+    (@case
+        $msg:ident;
+        ($other:ident($msg_pat:pat) $($stuff:tt)*);
+        ($($msgs:tt)*);
+        $error:tt;
+        $default:tt
+    ) => {
+        compile_error!(concat!("Illegal case `", stringify!($other), "`. Allowed values: [`msg`, `err`, `default`]"));
+    };
+    // --- Output Generation ---
     (@init
         $msg:ident;
         ($(msg($msg_pat:pat) : $msg_ty:ty [$deser_ty:ty] => $body:tt,)*);
@@ -323,6 +365,7 @@ macro_rules! match_deser_internal {
             _ => $default_body,
         }
     };
+    // --- Entry Point ---
     ($msg:ident;) => {
         compile_error!("Empty `match_deser!` block");
     };
