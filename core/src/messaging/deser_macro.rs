@@ -343,7 +343,7 @@ mod deser_macro_tests {
         serialisation::{Deserialiser, Serialisable, Serialiser},
     };
     use bytes::{Buf, BufMut};
-    use std::str::FromStr;
+    use std::{fmt, str::FromStr};
 
     // #[test]
     // fn new_macro_syntax_test() {
@@ -368,6 +368,19 @@ mod deser_macro_tests {
                 msg {
                     msg(res): MsgA => EitherAOrB::A(res),
                     msg(res): MsgB [using BSer] => EitherAOrB::B(res),
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn generic_macro_test() {
+        generic_macro_test_impl(|msg| {
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrBOrWrapped::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrBOrWrapped::B(res),
+                    msg(res): Wrapper<MsgA> => EitherAOrBOrWrapped::W(res),
                 }
             }
         })
@@ -435,6 +448,33 @@ mod deser_macro_tests {
     }
 
     #[test]
+    #[should_panic(expected = "test panic please ignore")]
+    fn generic_macro_test_with_err_and_other() {
+        generic_macro_test_impl(|msg| {
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrBOrWrapped::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrBOrWrapped::B(res),
+                    msg(res): Wrapper<MsgA> => EitherAOrBOrWrapped::W(res),
+                    err(_e) => panic!("test panic please ignore"),
+                    default(_) => unimplemented!("Should be either MsgA or MsgB!"),
+                }
+            }
+        });
+        generic_macro_test_err_impl(|msg| {
+            match_deser! {
+                msg {
+                    msg(res): MsgA => EitherAOrBOrWrapped::A(res),
+                    msg(res): MsgB [using BSer] => EitherAOrBOrWrapped::B(res),
+                    msg(res): Wrapper<MsgA> => EitherAOrBOrWrapped::W(res),
+                    err(_e) => panic!("test panic please ignore"),
+                    default(_) => unimplemented!("Should be either MsgA or MsgB!"),
+                }
+            }
+        });
+    }
+
+    #[test]
     fn simple_no_macro_test() {
         simple_macro_test_impl(|msg| match msg.ser_id() {
             &MsgA::SER_ID => {
@@ -457,7 +497,7 @@ mod deser_macro_tests {
     where
         F: Fn(NetMessage) -> EitherAOrB,
     {
-        let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
+        let ap = ActorPath::from_str(crate::test_helpers::TEST_PATH).expect("an ActorPath");
 
         let msg_a = MsgA::new(54);
         let msg_b = MsgB::new(true);
@@ -478,11 +518,55 @@ mod deser_macro_tests {
         assert!(f(msg_b_ser).is_b());
     }
 
+    fn generic_macro_test_impl<F>(f: F)
+    where
+        F: Fn(NetMessage) -> EitherAOrBOrWrapped,
+    {
+        let ap = ActorPath::from_str(crate::test_helpers::TEST_PATH).expect("an ActorPath");
+
+        let msg_a = MsgA::new(54);
+        let msg_b = MsgB::new(true);
+        let msg_wrap_a = Wrapper::from(MsgA::new(66));
+
+        let msg_a_ser = crate::serialisation::ser_helpers::serialise_to_msg(
+            ap.clone(),
+            ap.clone(),
+            Box::new(msg_a),
+        )
+        .expect("MsgA should serialise!");
+        let msg_b_ser = crate::serialisation::ser_helpers::serialise_to_msg(
+            ap.clone(),
+            ap.clone(),
+            (msg_b, BSer).into(),
+        )
+        .expect("MsgB should serialise!");
+        let msg_wrap_a_ser = crate::serialisation::ser_helpers::serialise_to_msg(
+            ap.clone(),
+            ap,
+            Box::new(msg_wrap_a),
+        )
+        .expect("Wrapped<MsgA> should serialise!");
+        assert!(f(msg_a_ser).is_a());
+        assert!(f(msg_b_ser).is_b());
+        assert!(f(msg_wrap_a_ser).is_wrapped_a());
+    }
+
     fn simple_macro_test_err_impl<F>(f: F)
     where
         F: Fn(NetMessage) -> EitherAOrB,
     {
-        let ap = ActorPath::from_str("local://127.0.0.1:12345/testme").expect("an ActorPath");
+        let ap = ActorPath::from_str(crate::test_helpers::TEST_PATH).expect("an ActorPath");
+
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap, Bytes::default());
+
+        f(msg);
+    }
+
+    fn generic_macro_test_err_impl<F>(f: F)
+    where
+        F: Fn(NetMessage) -> EitherAOrBOrWrapped,
+    {
+        let ap = ActorPath::from_str(crate::test_helpers::TEST_PATH).expect("an ActorPath");
 
         let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap, Bytes::default());
 
@@ -593,6 +677,82 @@ mod deser_macro_tests {
             let num = buf.get_u8();
             let flag = num == 1u8;
             let msg = MsgB { flag };
+            Ok(msg)
+        }
+    }
+
+    enum EitherAOrBOrWrapped {
+        A(MsgA),
+        B(MsgB),
+        W(Wrapper<MsgA>),
+    }
+
+    impl EitherAOrBOrWrapped {
+        fn is_a(&self) -> bool {
+            matches!(self, EitherAOrBOrWrapped::A(_))
+        }
+
+        fn is_b(&self) -> bool {
+            matches!(self, EitherAOrBOrWrapped::B(_))
+        }
+
+        fn is_wrapped_a(&self) -> bool {
+            matches!(self, EitherAOrBOrWrapped::W(_))
+        }
+    }
+
+    #[derive(Debug)]
+    struct Wrapper<F> {
+        wrapped: F,
+    }
+
+    impl<F> Wrapper<F> {
+        const MAGIC_BYTE: u8 = 42u8;
+
+        pub fn from(f: F) -> Self {
+            Wrapper { wrapped: f }
+        }
+    }
+
+    impl<F> Serialisable for Wrapper<F>
+    where
+        F: Serialisable + Deserialiser<F> + fmt::Debug + 'static,
+    {
+        fn ser_id(&self) -> SerId {
+            F::SER_ID | ((Self::MAGIC_BYTE as SerId) << 2)
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            self.wrapped.size_hint().map(|a| a + 1)
+        }
+
+        fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
+            buf.put_u8(Self::MAGIC_BYTE);
+            self.wrapped.serialise(buf)
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
+            Ok(self)
+        }
+    }
+
+    impl<F> Deserialiser<Wrapper<F>> for Wrapper<F>
+    where
+        F: Serialisable + Deserialiser<F> + fmt::Debug,
+    {
+        const SER_ID: SerId = F::SER_ID | ((Self::MAGIC_BYTE as SerId) << 2);
+
+        fn deserialise(buf: &mut dyn Buf) -> Result<Self, SerError> {
+            let magic_byte = buf.get_u8();
+            if magic_byte != Self::MAGIC_BYTE {
+                return Err(SerError::InvalidData(format!(
+                    "Expected MAGIC_BYTE={}, but got {} instead",
+                    Self::MAGIC_BYTE,
+                    magic_byte
+                )));
+            }
+            let wrapped = F::deserialise(buf)?;
+            let msg = Wrapper { wrapped };
             Ok(msg)
         }
     }
