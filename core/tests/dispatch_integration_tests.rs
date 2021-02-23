@@ -1078,7 +1078,9 @@ fn network_status_port_established_lost_dropped_connection() {
 
     // Create a status_counter which will listen to the status port and count messages received
     let (status_counter, _scf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_system.connect_network_status_port(&status_counter);
+    status_counter.on_definition(|c| {
+        local_system.connect_network_status_port(&mut c.network_status_port);
+    });
     local_system.start(&status_counter);
 
     // Create a pinger ponger pair such that the Network will be used.
@@ -1129,17 +1131,20 @@ fn network_status_port_close_connection_closed_connection() {
     net_cfg.set_max_connection_retry_attempts(2);
     net_cfg.set_connection_retry_interval(1000);
     let local_system = system_from_network_config(net_cfg.clone());
-    //std::proess::Command::new();
     let remote_system = system_from_network_config(net_cfg);
 
     // Create a status_counter which will listen to the status port and count messages received
     let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_system.connect_network_status_port(&local_status_counter);
+    local_status_counter.on_definition(|c| {
+        local_system.connect_network_status_port(&mut c.network_status_port);
+    });
     local_system.start(&local_status_counter);
 
     let (remote_status_counter, _rscf) =
         remote_system.create_and_register(NetworkStatusCounter::new);
-    remote_system.connect_network_status_port(&remote_status_counter);
+    remote_status_counter.on_definition(|c| {
+        remote_system.connect_network_status_port(&mut c.network_status_port);
+    });
     remote_system.start(&remote_status_counter);
 
     // Create a pinger ponger pair such that the Network will be used.
@@ -1272,7 +1277,9 @@ fn network_status_port_open_close_open() {
     let system_path = remote_system.system_path();
     // Create a status_counter which will listen to the status port and count messages received
     let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_system.connect_network_status_port(&local_status_counter);
+    local_status_counter.on_definition(|c| {
+        local_system.connect_network_status_port(&mut c.network_status_port);
+    });
     local_system.start(&local_status_counter);
 
     local_status_counter.on_definition(|sc| {

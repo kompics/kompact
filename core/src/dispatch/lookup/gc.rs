@@ -34,7 +34,6 @@ pub struct UpdateStrategy {
     algo: FeedbackAlgorithm,
 }
 
-#[allow(dead_code)]
 pub enum FeedbackAlgorithm {
     Aimd, // additive increase/multiplicative decrease
     Mimd, // multiplicative increase/multiplicative decrease

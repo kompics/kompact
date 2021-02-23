@@ -1115,7 +1115,8 @@ pub mod net_test_helpers {
     #[derive(ComponentDefinition)]
     pub struct NetworkStatusCounter {
         ctx: ComponentContext<NetworkStatusCounter>,
-        network_status_port: RequiredPort<NetworkStatusPort>,
+        /// The NetworkStatusPort, needs to be exposed to allow connecting to it
+        pub network_status_port: RequiredPort<NetworkStatusPort>,
         /// Counts the number of connection_established messages received
         pub connection_established: u32,
         /// Counts the number of connection_lost messages received

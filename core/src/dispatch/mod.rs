@@ -77,7 +77,7 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Create a new config with `addr` and protocol [Tcp](Transport::Tcp)
+    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// NetworkDispatcher and NetworkThread will use the default `BufferConfig`
     pub fn new(addr: SocketAddr) -> Self {
         NetworkConfig {
@@ -91,7 +91,7 @@ impl NetworkConfig {
         }
     }
 
-    /// Create a new config with `addr` and protocol [Tcp](Transport::Tcp)
+    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_buffer_config(addr: SocketAddr, buffer_config: BufferConfig) -> Self {
         buffer_config.validate();
@@ -106,7 +106,7 @@ impl NetworkConfig {
         }
     }
 
-    /// Create a new config with `addr` and protocol [Tcp](Transport::Tcp)
+    /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_custom_allocator(
         addr: SocketAddr,
@@ -194,7 +194,7 @@ impl NetworkConfig {
     }
 }
 
-/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [Tcp](Transport::Tcp)
+/// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::Tcp)
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
@@ -248,7 +248,7 @@ pub enum NetworkStatusRequest {
 /// This dispatcher automatically creates channels to requested target
 /// systems on demand and maintains them while in use.
 ///
-/// The current implementation only supports [Tcp](Transport::Tcp) as
+/// The current implementation only supports [TCP](Transport::Tcp) as
 /// a transport protocol.
 ///
 /// If possible, this implementation will "reflect" messages
@@ -918,11 +918,8 @@ impl Dispatcher for NetworkDispatcher {
         }
     }
 
-    fn connect_network_status_port(
-        &mut self,
-        required: &mut RequiredPort<NetworkStatusPort>,
-    ) -> () {
-        utils::biconnect_ports(&mut self.network_status_port, required);
+    fn network_status_port(&mut self) -> &mut ProvidedPort<NetworkStatusPort> {
+        &mut self.network_status_port
     }
 }
 

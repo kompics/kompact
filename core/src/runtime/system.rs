@@ -664,26 +664,16 @@ impl KompactSystem {
     ///     net_config.build()
     /// });
     /// let system = cfg.build().expect("KompactSystem");
-    /// let c = system.create(NetworkStatusCounter::new);
-    /// system.connect_network_status_port(&c);
+    /// let status_counter = system.create(NetworkStatusCounter::new);
+    /// status_counter.on_definition(|c|{
+    ///     system.connect_network_status_port(&mut c.network_status_port);
+    /// })
     /// ```
-    pub fn connect_network_status_port<C>(&self, component: &Arc<Component<C>>) -> ()
-    where
-        C: ComponentDefinition
-            + Sized
-            + 'static
-            + Require<NetworkStatusPort>
-            + RequireRef<NetworkStatusPort>,
-    {
-        component.on_definition(|c| {
-            let any_port = c
-                .get_required_port_as_any(TypeId::of::<NetworkStatusPort>())
-                .expect("The Component does not Require a NetworkStatusPort");
-            let network_status_port = any_port
-                .downcast_mut()
-                .expect("Unable to access NetworkStatusPort of component");
-            self.inner.connect_network_status_port(network_status_port);
-        })
+    pub fn connect_network_status_port(
+        &self,
+        required: &mut RequiredPort<NetworkStatusPort>,
+    ) -> () {
+        self.inner.connect_network_status_port(required);
     }
 
     /// Start a component and complete a future once it has started
@@ -1646,7 +1636,7 @@ impl InternalComponents {
     }
 
     fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
-        self.system_components.connect_network_status_port(required);
+        self.system_components.connect_network_status_port(required)
     }
 
     fn system_path(&self) -> SystemPath {

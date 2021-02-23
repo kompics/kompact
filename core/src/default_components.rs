@@ -59,8 +59,8 @@ impl SystemComponents for DefaultComponents {
         self.stop(system);
     }
 
-    fn connect_network_status_port(&self, _: &mut RequiredPort<NetworkStatusPort>) -> () {
-        unimplemented!("No NetworkDispatcher in DefaultComponents");
+    fn connect_network_status_port(&self, _required: &mut RequiredPort<NetworkStatusPort>) -> () {
+        unimplemented!("System must have a NetworkDispatcher to use the NetworkStatusPort")
     }
 }
 
@@ -147,7 +147,7 @@ where
 
     fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
         self.dispatcher.on_definition(|d| {
-            d.connect_network_status_port(required);
+            utils::biconnect_ports(d.network_status_port(), required);
         })
     }
 }
@@ -263,8 +263,8 @@ impl Dispatcher for LocalDispatcher {
         SystemPath::new(Transport::Local, "127.0.0.1".parse().unwrap(), 0)
     }
 
-    fn connect_network_status_port(&mut self, _: &mut RequiredPort<NetworkStatusPort>) -> () {
-        unimplemented!()
+    fn network_status_port(&mut self) -> &mut ProvidedPort<NetworkStatusPort> {
+        unimplemented!("The LocalDispatcher does not provide a NetworkStatusPort");
     }
 }
 
