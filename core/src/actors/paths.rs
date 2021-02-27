@@ -189,6 +189,11 @@ impl SystemPath {
         self.into_named_with_vec(parsed)
     }
 
+    /// Returns the SocketAddr corresponding to the SystemPath
+    pub fn socket_address(&self) -> SocketAddr {
+        SocketAddr::new(self.address, self.port)
+    }
+
     /// Create a named path starting with this system path and ending with the sequence of path segments
     ///
     /// Paths created with this function will be validated to be a valid lookup path,

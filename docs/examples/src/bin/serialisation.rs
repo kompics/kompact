@@ -9,11 +9,11 @@ use std::{
 };
 
 // ANCHOR: zstser
-struct ZSTSerialiser<T>(T)
+struct ZstSerialiser<T>(T)
 where
     T: Send + Sync + Default + Copy + SerialisationId;
 
-impl<T> Serialiser<T> for &ZSTSerialiser<T>
+impl<T> Serialiser<T> for &ZstSerialiser<T>
 where
     T: Send + Sync + Default + Copy + SerialisationId,
 {
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<T> Deserialiser<T> for ZSTSerialiser<T>
+impl<T> Deserialiser<T> for ZstSerialiser<T>
 where
     T: Send + Sync + Default + Copy + SerialisationId,
 {
@@ -48,7 +48,7 @@ impl SerialisationId for CheckIn {
     const SER_ID: SerId = 2345;
 }
 
-static CHECK_IN_SER: ZSTSerialiser<CheckIn> = ZSTSerialiser(CheckIn);
+static CHECK_IN_SER: ZstSerialiser<CheckIn> = ZstSerialiser(CheckIn);
 // ANCHOR_END: zstser
 
 // ANCHOR: serialisable
@@ -127,7 +127,7 @@ impl BootstrapServer {
 ignore_lifecycle!(BootstrapServer);
 
 impl NetworkActor for BootstrapServer {
-    type Deserialiser = ZSTSerialiser<CheckIn>;
+    type Deserialiser = ZstSerialiser<CheckIn>;
     type Message = CheckIn;
 
     fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {

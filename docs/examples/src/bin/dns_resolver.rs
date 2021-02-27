@@ -6,20 +6,20 @@ use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequest
 
 // ANCHOR: messages
 #[derive(Debug)]
-struct DNSRequest(String);
+struct DnsRequest(String);
 #[derive(Debug)]
-struct DNSResponse(String);
+struct DnsResponse(String);
 // ANCHOR_END: messages
 
 // ANCHOR: state
 #[derive(ComponentDefinition)]
-struct DNSComponent {
+struct DnsComponent {
     ctx: ComponentContext<Self>,
     resolver: Option<AsyncStdResolver>,
 }
-impl DNSComponent {
+impl DnsComponent {
     pub fn new() -> Self {
-        DNSComponent {
+        DnsComponent {
             ctx: ComponentContext::uninitialised(),
             resolver: None,
         }
@@ -28,7 +28,7 @@ impl DNSComponent {
 // ANCHOR_END: state
 
 // ANCHOR: lifecycle
-impl ComponentLifecycle for DNSComponent {
+impl ComponentLifecycle for DnsComponent {
     fn on_start(&mut self) -> Handled {
         debug!(self.log(), "Starting...");
         Handled::block_on(self, move |mut async_self| async move {
@@ -55,8 +55,8 @@ impl ComponentLifecycle for DNSComponent {
 // ANCHOR_END: lifecycle
 
 // ANCHOR: actor
-impl Actor for DNSComponent {
-    type Message = Ask<DNSRequest, DNSResponse>;
+impl Actor for DnsComponent {
+    type Message = Ask<DnsRequest, DnsResponse>;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         debug!(self.log(), "Got request for domain: {}", msg.request().0);
@@ -78,7 +78,7 @@ impl Actor for DNSComponent {
                     results.push(format!("{}. {:?}", index, ip));
                 }
                 let result_string = format!("{}:\n   {}", msg.request().0, results.join("\n    "));
-                msg.reply(DNSResponse(result_string)).expect("reply");
+                msg.reply(DnsResponse(result_string)).expect("reply");
                 Handled::Ok
             });
             Handled::Ok
@@ -96,7 +96,7 @@ impl Actor for DNSComponent {
 // ANCHOR: main
 fn main() {
     let system = KompactConfig::default().build().expect("system");
-    let dns_comp = system.create(DNSComponent::new);
+    let dns_comp = system.create(DnsComponent::new);
     let dns_comp_ref = dns_comp.actor_ref().hold().expect("live");
     system.start_notify(&dns_comp).wait();
     println!("System is ready, enter your queries.");
@@ -110,7 +110,7 @@ fn main() {
                     for domain in s.split(',') {
                         let domain = domain.trim();
                         info!(system.logger(), "Sending request for {}", domain);
-                        let query_f = dns_comp_ref.ask(DNSRequest(domain.to_string()));
+                        let query_f = dns_comp_ref.ask(DnsRequest(domain.to_string()));
                         outstanding.push(query_f);
                     }
                     for query_f in outstanding {

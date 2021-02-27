@@ -162,12 +162,11 @@ pub mod constants {
 pub mod prelude {
     pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
 
+    pub use bytes::{Buf, BufMut};
     pub use std::{
         any::Any,
         convert::{From, Into},
-    };
-
-    pub use bytes::{Buf, BufMut}; // IntoBuf
+    }; // IntoBuf
 
     pub use kompact_actor_derive::*;
     pub use kompact_component_derive::*;
@@ -251,7 +250,13 @@ pub mod prelude {
 
     pub use crate::{
         default_components::{CustomComponents, DeadletterBox, LocalDispatcher},
-        dispatch::{NetworkConfig, NetworkDispatcher},
+        dispatch::{
+            NetworkConfig,
+            NetworkDispatcher,
+            NetworkStatus,
+            NetworkStatusPort,
+            NetworkStatusRequest,
+        },
         messaging::{
             DispatchEnvelope,
             MsgEnvelope,
