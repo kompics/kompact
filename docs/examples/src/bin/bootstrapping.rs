@@ -185,8 +185,7 @@ impl Actor for EventualLeaderElector {
                 msg(_heartbeat): Heartbeat [using Serde] => {
                     self.candidates.insert(sender);
                 },
-                msg(update): UpdateProcesses [using Serde] => {
-                    let UpdateProcesses(processes) = update;
+                msg(UpdateProcesses(processes)): UpdateProcesses [using Serde] => {
                     info!(
                         self.log(),
                         "Received new process set with {} processes",

@@ -49,7 +49,28 @@ match msg.ser_id() {
 }
 ```
 
-Kompact provides the `match_deser!` macro to generate code like the above, since this is very common behaviour and writing it manually gets somewhat tedious eventually. The syntax for each different message case in the macro is basically `variable_name: MessageType [DeserialiserType] => <body>,`. Using this, our new actor implementation becomes the following:
+Kompact provides the `match_deser!` macro to generate code like the above, since this is very common behaviour and writing it manually gets somewhat tedious eventually. The overall syntax for the macro is:
+
+```
+match_deser! {
+	(<message expression>) {
+		<message case 1>,
+		<message case 2>,
+		...
+	}
+}
+```
+
+Here `<message expression>` is an expression that gives the message (data) to be deserialised. If the expression is simply an identifier like `msg` then the parenthesis may be elided.
+The syntax for each different message case in the macro is basically:
+
+```
+msg(variable_name): MessageType [using DeserialiserType] => <body>
+```
+
+For cases where `MessageType = DeserialiserType` the `[using DeserialiserType]` block can be elided. There are also default and error branches available for the macro, an example of which can be see in the [API docs](https://docs.rs/kompact/latest/kompact/macro.match_deser.html). It is also possible to immediately destructure the deserialised message by replacing `variable_name` with a pattern, as can be seen in the case of `UpdateProcesses` below.
+
+Using this macro, our new actor implementation becomes the following:
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:actor}}

@@ -38,8 +38,8 @@ impl BufferConfig {
     /// if it fails to read from the config.
     pub fn from_config(config: &Hocon) -> Self {
         let mut buffer_config = BufferConfig::default();
-        if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
-            buffer_config.chunk_size = chunk_size as usize;
+        if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_bytes() {
+            buffer_config.chunk_size = chunk_size.ceil() as usize;
         }
         if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
             buffer_config.initial_chunk_count = initial_chunk_count as usize;
@@ -47,9 +47,9 @@ impl BufferConfig {
         if let Some(max_chunk_count) = config["buffer_config"]["max_chunk_count"].as_i64() {
             buffer_config.max_chunk_count = max_chunk_count as usize;
         }
-        if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_i64()
+        if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_bytes()
         {
-            buffer_config.encode_buf_min_free_space = encode_min_remaining as usize;
+            buffer_config.encode_buf_min_free_space = encode_min_remaining.ceil() as usize;
         }
         buffer_config.validate();
         buffer_config
@@ -455,11 +455,11 @@ mod tests {
         cfg.load_config_str(
             r#"{
                 buffer_config {
-                    chunk_size: 256,
+                    chunk_size: "256B",
                     initial_chunk_count: 3,
                     max_chunk_count: 4,
-                    encode_min_remaining: 20,
-                    }
+                    encode_min_remaining: "20B",
+                }
                 }"#,
         );
         cfg.system_components(DeadletterBox::new, {
