@@ -43,23 +43,23 @@ pub trait CheckedIntegerCasts<Target> {
     ///
     /// Returns errors if there is no equivalent target value
     /// or the source value is out of range for the target.
-    fn as_checked(self) -> Result<Target, ConvertToIntError<Self>>
+    fn checked_cast(self) -> Result<Target, ConvertToIntError<Self>>
     where
         Self: Sized;
 
     /// If the cast involves rounding, round up.
-    fn ceil_as_checked(self) -> Result<Target, ConvertToIntError<Self>>
+    fn ceil_checked_cast(self) -> Result<Target, ConvertToIntError<Self>>
     where
         Self: Sized;
 
     /// If the cast involves rounding, round down.
-    fn floor_as_checked(self) -> Result<Target, ConvertToIntError<Self>>
+    fn floor_checked_cast(self) -> Result<Target, ConvertToIntError<Self>>
     where
         Self: Sized;
 }
 
 impl CheckedIntegerCasts<usize> for f64 {
-    fn as_checked(self) -> Result<usize, ConvertToIntError<Self>> {
+    fn checked_cast(self) -> Result<usize, ConvertToIntError<Self>> {
         if self.is_nan() || self.is_infinite() {
             return Err(ConvertToIntError::illegal_value(self));
         }
@@ -69,18 +69,18 @@ impl CheckedIntegerCasts<usize> for f64 {
         Ok(self as usize)
     }
 
-    fn ceil_as_checked(self) -> Result<usize, ConvertToIntError<Self>>
+    fn ceil_checked_cast(self) -> Result<usize, ConvertToIntError<Self>>
     where
         Self: Sized,
     {
-        self.ceil().as_checked()
+        self.ceil().checked_cast()
     }
 
-    fn floor_as_checked(self) -> Result<usize, ConvertToIntError<Self>>
+    fn floor_checked_cast(self) -> Result<usize, ConvertToIntError<Self>>
     where
         Self: Sized,
     {
-        self.floor().as_checked()
+        self.floor().checked_cast()
     }
 }
 
@@ -90,20 +90,20 @@ mod tests {
 
     #[test]
     fn check_f64_casts() {
-        assert_eq!(1usize, 1.0f64.as_checked().unwrap());
-        assert_eq!(1usize, 0.5f64.ceil_as_checked().unwrap());
-        assert_eq!(0usize, 0.5f64.floor_as_checked().unwrap());
+        assert_eq!(1usize, 1.0f64.checked_cast().unwrap());
+        assert_eq!(1usize, 0.5f64.ceil_checked_cast().unwrap());
+        assert_eq!(0usize, 0.5f64.floor_checked_cast().unwrap());
 
-        assert_eq!(0usize, 0.0f64.as_checked().unwrap());
-        assert_eq!(0usize, (-0.0f64).as_checked().unwrap());
+        assert_eq!(0usize, 0.0f64.checked_cast().unwrap());
+        assert_eq!(0usize, (-0.0f64).checked_cast().unwrap());
 
-        assert_eq!(usize::MAX, (usize::MAX as f64).as_checked().unwrap());
+        assert_eq!(usize::MAX, (usize::MAX as f64).checked_cast().unwrap());
 
-        assert!((f64::NAN).as_checked().is_err());
-        assert!((f64::INFINITY).as_checked().is_err());
-        assert!((f64::NEG_INFINITY).as_checked().is_err());
-        //assert!((usize::MAX as f64 + 1.0).as_checked().is_err());
-        assert!((f64::MAX).as_checked().is_err());
-        assert!((-1.0f64).as_checked().is_err());
+        assert!((f64::NAN).checked_cast().is_err());
+        assert!((f64::INFINITY).checked_cast().is_err());
+        assert!((f64::NEG_INFINITY).checked_cast().is_err());
+        //assert!((usize::MAX as f64 + 1.0).checked_cast().is_err());
+        assert!((f64::MAX).checked_cast().is_err());
+        assert!((-1.0f64).checked_cast().is_err());
     }
 }
