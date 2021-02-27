@@ -47,7 +47,8 @@ impl BufferConfig {
         if let Some(max_chunk_count) = config["buffer_config"]["max_chunk_count"].as_i64() {
             buffer_config.max_chunk_count = max_chunk_count as usize;
         }
-        if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_bytes()
+        if let Some(encode_min_remaining) =
+            config["buffer_config"]["encode_min_remaining"].as_bytes()
         {
             buffer_config.encode_buf_min_free_space = encode_min_remaining.ceil() as usize;
         }
