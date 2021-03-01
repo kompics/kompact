@@ -1,9 +1,10 @@
 use super::*;
-use crate::messaging::DispatchEnvelope;
+use crate::{messaging::DispatchEnvelope, utils::checked_casts::*};
 use bytes::{Buf, BufMut};
 use core::{cmp, fmt, ptr};
 use hocon::{Hocon, HoconLoader};
 use std::{
+    convert::TryFrom,
     fmt::{Debug, Formatter},
     sync::Arc,
 };
@@ -38,18 +39,25 @@ impl BufferConfig {
     /// if it fails to read from the config.
     pub fn from_config(config: &Hocon) -> Self {
         let mut buffer_config = BufferConfig::default();
-        if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_i64() {
-            buffer_config.chunk_size = chunk_size as usize;
+        if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_bytes() {
+            buffer_config.chunk_size = chunk_size
+                .ceil_checked_cast()
+                .expect("Invalid byte number for chunk_size");
         }
         if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
-            buffer_config.initial_chunk_count = initial_chunk_count as usize;
+            buffer_config.initial_chunk_count =
+                usize::try_from(initial_chunk_count).expect("Invalid initial_chunk_count");
         }
         if let Some(max_chunk_count) = config["buffer_config"]["max_chunk_count"].as_i64() {
-            buffer_config.max_chunk_count = max_chunk_count as usize;
+            buffer_config.max_chunk_count =
+                usize::try_from(max_chunk_count).expect("Invalid max_chunk_count")
         }
-        if let Some(encode_min_remaining) = config["buffer_config"]["encode_min_remaining"].as_i64()
+        if let Some(encode_min_remaining) =
+            config["buffer_config"]["encode_min_remaining"].as_bytes()
         {
-            buffer_config.encode_buf_min_free_space = encode_min_remaining as usize;
+            buffer_config.encode_buf_min_free_space = encode_min_remaining
+                .ceil_checked_cast()
+                .expect("Invalid byte number for encode_min_remaining");
         }
         buffer_config.validate();
         buffer_config
@@ -455,11 +463,11 @@ mod tests {
         cfg.load_config_str(
             r#"{
                 buffer_config {
-                    chunk_size: 256,
+                    chunk_size: "256B",
                     initial_chunk_count: 3,
                     max_chunk_count: 4,
-                    encode_min_remaining: 20,
-                    }
+                    encode_min_remaining: "20B",
+                }
                 }"#,
         );
         cfg.system_components(DeadletterBox::new, {

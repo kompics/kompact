@@ -63,7 +63,7 @@ omega {
 }
 ```
 
-And the we can load it and start the initial timeout in the `on_start` handler as before:
+And then we can load it and start the initial timeout in the `on_start` handler as before:
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/leader_election.rs:lifecycle}}

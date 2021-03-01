@@ -630,20 +630,22 @@ pub mod net_test_helpers {
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             let sender = msg.sender;
-            match_deser! {msg.data; {
-                ping: PingMsg [PingPongSer] => {
-                    debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
-                    let pong = PongMsg { i: ping.i };
-                    if self.eager {
-                        sender
-                            .tell_serialised(pong, self)
-                            .expect("PongMsg should serialise");
-                    } else {
-                        sender.tell(pong, self);
-                    }
-                },
-                !Err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
-            }}
+            match_deser! {
+                (msg.data) {
+                    msg(ping): PingMsg [using PingPongSer] => {
+                        debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
+                        let pong = PongMsg { i: ping.i };
+                        if self.eager {
+                            sender
+                                .tell_serialised(pong, self)
+                                .expect("PongMsg should serialise");
+                        } else {
+                            sender.tell(pong, self);
+                        }
+                    },
+                    err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
+                }
+            }
             Handled::Ok
         }
     }
@@ -1091,21 +1093,23 @@ pub mod net_test_helpers {
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             let sender = msg.sender;
-            match_deser! {msg.data; {
-                ping: BigPingMsg [BigPingPongSer] => {
-                    debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
-                    ping.validate();
-                    let pong = BigPongMsg::new(ping.i, ping.data.len());
-                    if self.eager {
-                        sender
-                            .tell_serialised(pong, self)
-                            .expect("BigPongMsg should serialise");
-                    } else {
-                        sender.tell(pong, self);
-                    }
-                },
-                !Err(e) => error!(self.ctx.log(), "Error deserialising BigPingMsg: {:?}", e),
-            }}
+            match_deser! {
+                (msg.data) {
+                    msg(ping): BigPingMsg [using BigPingPongSer] => {
+                        debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
+                        ping.validate();
+                        let pong = BigPongMsg::new(ping.i, ping.data.len());
+                        if self.eager {
+                            sender
+                                .tell_serialised(pong, self)
+                                .expect("BigPongMsg should serialise");
+                        } else {
+                            sender.tell(pong, self);
+                        }
+                    },
+                    err(e) => error!(self.ctx.log(), "Error deserialising BigPingMsg: {:?}", e),
+                }
+            }
             Handled::Ok
         }
     }

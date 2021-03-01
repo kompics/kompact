@@ -70,10 +70,12 @@ pub(crate) mod test_helpers {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
-            match_deser!(msg; {
-                _count_me: CountMe [CountMe] => self.count += 1,
-                !Err(e) => error!(self.log(), "Received something else: {:?}", e),
-            });
+            match_deser! {
+                msg {
+                    msg(_count_me): CountMe => self.count += 1,
+                    err(e) => error!(self.log(), "Received something else: {:?}", e),
+                }
+            };
             Handled::Ok
         }
     }
