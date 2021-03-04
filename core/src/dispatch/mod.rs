@@ -828,7 +828,8 @@ impl NetworkDispatcher {
                 ConnectionState::Connected => {
                     trace!(
                         self.ctx.log(),
-                        "Closing channel to connected system {}", addr
+                        "Closing channel to connected system {}",
+                        addr
                     );
                     if let Some(bridge) = &self.net_bridge {
                         while self.queue_manager.has_data(&addr) {
@@ -952,8 +953,7 @@ impl Provide<NetworkStatusPort> for NetworkDispatcher {
     fn handle(&mut self, event: <NetworkStatusPort as Port>::Request) -> Handled {
         debug!(
             self.ctx.log(),
-            "Received NetworkStatusPort Request {:?}",
-            event
+            "Received NetworkStatusPort Request {:?}", event
         );
         match event {
             NetworkStatusRequest::DisconnectSystem(system_path) => {
