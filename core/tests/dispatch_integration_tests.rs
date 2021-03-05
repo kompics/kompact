@@ -1,5 +1,6 @@
 use kompact::{prelude::*, prelude_test::net_test_helpers::*};
 use std::{net::SocketAddr, thread, time::Duration};
+use serial_test::serial;
 
 fn system_from_network_config(network_config: NetworkConfig) -> KompactSystem {
     let mut cfg = KompactConfig::new();
@@ -247,6 +248,7 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
 }
 
 #[test]
+#[serial(udp)]
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
@@ -293,6 +295,7 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
 }
 
 #[test]
+#[serial(udp)]
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
@@ -341,6 +344,7 @@ fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
 }
 
 #[test]
+#[serial(udp)]
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
@@ -389,6 +393,7 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
 }
 
 #[test]
+#[serial(udp)]
 // Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
 // the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
@@ -526,6 +531,7 @@ fn remote_delivery_to_registered_actors_lazy() {
 }
 
 #[test]
+#[serial(udp)]
 // Sets up two KompactSystems with 2x Pingers and Pongers. One Ponger is registered by UUID,
 // the other by a custom name. One Pinger communicates with the UUID-registered Ponger,
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong

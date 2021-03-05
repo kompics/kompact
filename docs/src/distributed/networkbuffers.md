@@ -23,6 +23,7 @@ Each `BufferPool` (pool) consists of more than one `BufferChunk` (chunks). A chu
 When a pool is created it will pre-allocate a configurable amount of chunks, and will attempt to reuse those as long as possible, and only when it needs to will it allocate more chunks, up to a configurable maximum number of chunks. 
 
 ### BufferPool interface
+Actors access their pool through the `EncodeBuffer` wrapper which maintains a single active chunk at a time, and automatically swaps the active buffer with the local `BufferPool` when necessary.
 
 The method `tell_serialised(msg, &self)` automatically uses the `EncodeBuffer` interface such that users of Kompact do not need to use the interfaces of the pool (which is why the method requires a `self` reference). 
 
