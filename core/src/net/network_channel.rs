@@ -2,14 +2,15 @@ use super::*;
 use crate::{
     messaging::SerialisedFrame,
     net::{
-        buffers::{BufferChunk, DecodeBuffer},
-        frames::{Ack, Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
+        buffers::{BufferChunk, BufferPool, DecodeBuffer},
+        frames::{Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
     },
 };
 use bytes::{Buf, BytesMut};
 use mio::{net::TcpStream, Token};
 use network_thread::*;
 use std::{
+    cell::RefCell,
     cmp::Ordering,
     collections::VecDeque,
     fmt::Formatter,
@@ -42,6 +43,7 @@ pub(crate) struct TcpChannel {
     stream: TcpStream,
     outbound_queue: VecDeque<SerialisedFrame>,
     pub token: Token,
+    address: SocketAddr,
     input_buffer: DecodeBuffer,
     pub state: ChannelState,
     pub messages: u32,
@@ -53,6 +55,7 @@ impl TcpChannel {
     pub fn new(
         stream: TcpStream,
         token: Token,
+        address: SocketAddr,
         buffer_chunk: BufferChunk,
         state: ChannelState,
         own_addr: SocketAddr,
@@ -63,6 +66,7 @@ impl TcpChannel {
             stream,
             outbound_queue: VecDeque::new(),
             token,
+            address,
             input_buffer,
             state,
             messages: 0,
@@ -83,10 +87,6 @@ impl TcpChannel {
 
     pub fn connected(&self) -> bool {
         matches!(self.state, ChannelState::Connected(_, _))
-    }
-
-    pub fn closed(&self) -> bool {
-        matches!(self.state, ChannelState::Closed(_, _))
     }
 
     /// Internal helper function for special frames
@@ -122,42 +122,42 @@ impl TcpChannel {
     }
 
     /// Must be called when a Hello frame is received on the channel.
-    pub fn handle_hello(&mut self, hello: Hello) -> () {
+    pub fn handle_hello(&mut self, hello: &Hello) -> () {
         if let ChannelState::Requested(_, id) = self.state {
             // Has now received Hello(addr), must send Start(addr, uuid) and await ack
             let start = Frame::Start(Start::new(self.own_addr, id));
             self.send_frame(start);
             self.state = ChannelState::Initialised(hello.addr, id);
+            self.address = hello.addr;
         }
     }
 
     /// Must be called when we Ack the channel. This means that the sender can start using the channel
     /// The receiver of the Ack must accept the Ack and use the channel.
-    pub fn handle_start(&mut self, addr: &SocketAddr, id: Uuid) -> () {
+    pub fn handle_start(&mut self, start: &Start) -> () {
         if let ChannelState::Initialising = self.state {
             // Method called because we received Start and want to send Ack.
-            let ack = Frame::Ack(Ack { offset: 0 }); // we don't use offsets yet.
+            let ack = Frame::Ack();
             self.stream
                 .set_nodelay(self.nodelay)
                 .expect("set nodelay failed");
             self.send_frame(ack);
-            self.state = ChannelState::Connected(*addr, id);
+            self.state = ChannelState::Connected(start.addr, start.id);
+            self.address = start.addr;
         }
     }
 
-    /// Returns true if it transitioned, false if it's not starting.
-    pub fn handle_ack(&mut self) -> bool {
+    pub fn address(&self) -> SocketAddr {
+        self.address
+    }
+
+    pub fn handle_ack(&mut self) -> () {
         if let ChannelState::Initialised(addr, id) = self.state {
             // An Ack was received. Transition the channel.
             self.stream
                 .set_nodelay(self.nodelay)
                 .expect("set nodelay failed");
             self.state = ChannelState::Connected(addr, id);
-            true
-        } else {
-            eprintln!("Bad state reached during channel initialisation (handle_ack). Handshake went wrong.\
-              Connection will likely fail and a re-connect will occur. Non fatal");
-            false
         }
     }
 
@@ -173,43 +173,70 @@ impl TcpChannel {
         ret
     }
 
+    /// Performs receive and decode, should be called repeatedly
+    /// May return `Ok(Frame::Data)`, `Ok(Frame::Start)`, `Ok(Frame::Bye)`, or an Error.
+    pub fn read_frame(&mut self, buffer_pool: &RefCell<BufferPool>) -> io::Result<Option<Frame>> {
+        if !self.input_buffer.has_frame()? {
+            match self.receive() {
+                Ok(_) => {}
+                Err(err) if no_buffer_space(&err) => {
+                    if !&self.input_buffer.has_frame()? {
+                        let mut pool = buffer_pool.borrow_mut();
+                        let mut buffer_chunk = pool.get_buffer().ok_or(err)?;
+                        self.swap_buffer(&mut buffer_chunk);
+                        pool.return_buffer(buffer_chunk);
+                        drop(pool);
+                        return self.read_frame(buffer_pool);
+                    }
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            };
+        }
+        match self.decode() {
+            Ok(Frame::Hello(hello)) => Ok(Some(Frame::Hello(hello))),
+            Ok(Frame::Ack()) => {
+                self.handle_ack();
+                Ok(Some(Frame::Ack()))
+            }
+            Ok(Frame::Bye()) => {
+                self.handle_bye();
+                Ok(Some(Frame::Bye()))
+            }
+            Ok(frame) => Ok(Some(frame)),
+            Err(FramingError::NoData) => Ok(None),
+            Err(_) => Err(Error::new(ErrorKind::InvalidData, "Framing Error")),
+        }
+    }
+
     /// This tries to read from the Tcp buffer into the DecodeBuffer, nothing else.
-    pub fn receive(&mut self) -> io::Result<usize> {
-        let mut read_bytes = 0;
-        let mut sum_read_bytes = 0;
+    fn receive(&mut self) -> io::Result<()> {
         let mut interrupts = 0;
         loop {
-            // Keep all the read bytes in the buffer without overwriting
-            if read_bytes > 0 {
-                self.input_buffer.advance_writeable(read_bytes);
-                read_bytes = 0;
-            }
-            if let Some(mut buf) = self.input_buffer.get_writeable() {
-                match self.stream.read(&mut buf) {
-                    Ok(0) => {
-                        return Ok(sum_read_bytes);
-                    }
-                    Ok(n) => {
-                        sum_read_bytes += n;
-                        read_bytes = n;
-                        // continue looping and reading
-                    }
-                    Err(err) if would_block(&err) => {
-                        return Ok(sum_read_bytes);
-                    }
-                    Err(err) if interrupted(&err) => {
-                        // We should continue trying until no interruption
-                        interrupts += 1;
-                        if interrupts >= network_thread::MAX_INTERRUPTS {
-                            return Err(err);
-                        }
-                    }
-                    Err(err) => {
+            let mut buf = self
+                .input_buffer
+                .get_writeable()
+                .ok_or_else(|| io::Error::new(ErrorKind::InvalidInput, "No Buffer Space"))?;
+            match self.stream.read(&mut buf) {
+                Ok(0) => {
+                    return Ok(());
+                }
+                Ok(n) => {
+                    self.input_buffer.advance_writeable(n);
+                }
+                Err(err) if would_block(&err) => {
+                    return Ok(());
+                }
+                Err(err) if interrupted(&err) => {
+                    interrupts += 1;
+                    if interrupts >= network_thread::MAX_INTERRUPTS {
                         return Err(err);
                     }
                 }
-            } else {
-                return Err(Error::new(ErrorKind::InvalidData, "No space in Buffer"));
+                Err(err) => {
+                    return Err(err);
+                }
             }
         }
     }
@@ -236,19 +263,16 @@ impl TcpChannel {
     }
 
     /// Handles a Bye message. If the method returns Ok it is safe to shutdown.
-    pub fn handle_bye(&mut self) -> io::Result<()> {
+    pub fn handle_bye(&mut self) -> () {
         match self.state {
             ChannelState::Connected(addr, id) => {
                 self.state = ChannelState::CloseReceived(addr, id);
-                self.send_bye()?;
-                // Bye has been sent and received, channel is now closed
-                self.state = ChannelState::Closed(addr, id);
-                Ok(())
+                if self.send_bye().is_ok() {
+                    self.state = ChannelState::Closed(addr, id);
+                }
             }
-            _ => {
-                // Any other state means we just shut it down.
-                io::Result::Ok(())
-            }
+            ChannelState::CloseRequested(addr, id) => self.state = ChannelState::Closed(addr, id),
+            _ => {}
         }
     }
 
@@ -265,16 +289,11 @@ impl TcpChannel {
         }
     }
 
-    /// Returns `true` if this channel was not in [ChannelState::Connected](ChannelState::Connected)
-    /// `true` means that it can safely be dropped.
-    pub fn shutdown(&mut self) -> bool {
+    /// Shuts down the channel stream
+    pub fn shutdown(&mut self) -> () {
         let _ = self.stream.shutdown(Both); // Discard errors while closing channels for now...
-        match self.state {
-            ChannelState::Connected(addr, id) => {
-                self.state = ChannelState::Closed(addr, id);
-                false
-            }
-            _ => true,
+        if let ChannelState::Connected(addr, id) = self.state {
+            self.state = ChannelState::Closed(addr, id);
         }
     }
 
@@ -329,19 +348,16 @@ impl TcpChannel {
                 // Would block "errors" are the OS's way of saying that the
                 // connection is not actually ready to perform this I/O operation.
                 Err(ref err) if would_block(err) => {
-                    // re-insert the data at the front of the buffer and return
                     self.outbound_queue.push_front(serialized_frame);
                     return Ok(sent_bytes);
                 }
                 Err(err) if interrupted(&err) => {
-                    // re-insert the data at the front of the buffer
                     self.outbound_queue.push_front(serialized_frame);
                     interrupts += 1;
                     if interrupts >= MAX_INTERRUPTS {
                         return Err(err);
                     }
                 }
-                // Other errors we'll consider fatal.
                 Err(err) => {
                     self.outbound_queue.push_front(serialized_frame);
                     return Err(err);
@@ -360,12 +376,7 @@ impl TcpChannel {
         }
     }
 
-    /// Destroys the channel and returns the Buffer
-    pub(crate) fn destroy(self) -> BufferChunk {
-        self.input_buffer.destroy()
-    }
-
-    pub(crate) fn kill(self) -> () {
+    pub(crate) fn kill(&mut self) -> () {
         let _ = self.stream.shutdown(Both);
     }
 }
