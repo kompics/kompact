@@ -151,19 +151,13 @@ impl TcpChannel {
         self.address
     }
 
-    /// Returns true if it transitioned, false if it's not starting.
-    pub fn handle_ack(&mut self) -> bool {
+    pub fn handle_ack(&mut self) -> () {
         if let ChannelState::Initialised(addr, id) = self.state {
             // An Ack was received. Transition the channel.
             self.stream
                 .set_nodelay(self.nodelay)
                 .expect("set nodelay failed");
             self.state = ChannelState::Connected(addr, id);
-            true
-        } else {
-            eprintln!("Bad state reached during channel initialisation (handle_ack). Handshake went wrong.\
-              Connection will likely fail and a re-connect will occur. Non fatal");
-            false
         }
     }
 

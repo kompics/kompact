@@ -436,7 +436,6 @@ impl NetworkThread {
             if channel.connected() {
                 match self.serialise_dispatch_data(data) {
                     Ok(frame) => {
-                        info!(self.log, "enqueued frame");
                         channel.enqueue_serialised(frame);
                         self.enqueue_writeable_event(&channel.token);
                     }
