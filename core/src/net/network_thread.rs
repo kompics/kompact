@@ -49,6 +49,7 @@ pub const MAX_INTERRUPTS: i32 = 9;
 const MAX_BIND_RETRIES: usize = 5;
 const BIND_RETRY_INTERVAL: u64 = 1000;
 
+/// Builder struct, can be sent to a thread safely to launch a NetworkThread
 pub struct NetworkThreadBuilder {
     poll: Poll,
     waker: Option<Waker>,

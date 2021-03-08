@@ -12,7 +12,7 @@ use crate::{
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
 pub use std::net::SocketAddr;
-use std::{io, panic, sync::Arc, thread};
+use std::{io, panic, sync::Arc, thread, time::Duration};
 
 #[allow(missing_docs)]
 pub mod buffers;
@@ -193,8 +193,12 @@ impl Bridge {
                     .take_waker()
                     .expect("NetworkThread poll error");
 
-                run_network_thread(network_thread_builder, bridge_log.clone())
+                let (started_p, started_f) = promise();
+                run_network_thread(network_thread_builder, bridge_log.clone(), started_p)
                     .expect("Failed to spawn NetworkThread");
+                started_f
+                    .wait_timeout(Duration::from_millis(network_config.get_boot_timeout()))
+                    .expect("NetworkThread time-out during boot sequence");
 
                 let bridge = Bridge {
                     // cfg: BridgeConfig::default(),
@@ -309,11 +313,18 @@ impl Bridge {
 fn run_network_thread(
     builder: NetworkThreadBuilder,
     logger: KompactLogger,
+    started_promise: KPromise<()>,
 ) -> async_std::io::Result<()> {
     thread::Builder::new()
         .name("network_thread".to_string())
         .spawn(move || {
-            if let Err(e) = panic::catch_unwind(panic::AssertUnwindSafe(|| builder.build().run())) {
+            if let Err(e) = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                let network_thread = builder.build();
+                let _ = started_promise
+                    .fulfil(())
+                    .expect("NetworkThread started but failed to fulfil promise");
+                network_thread.run()
+            })) {
                 if let Some(error_msg) = e.downcast_ref::<&str>() {
                     error!(logger, "NetworkThread panicked with: {:?}", error_msg);
                 } else if let Some(error_msg) = e.downcast_ref::<String>() {
@@ -324,7 +335,7 @@ fn run_network_thread(
                         "NetworkThread panicked with a non-string message with type id={:?}",
                         e.type_id()
                     );
-                }
+                };
             };
         })
         .map(|_| ())

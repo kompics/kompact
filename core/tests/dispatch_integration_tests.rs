@@ -1,6 +1,6 @@
 use kompact::{prelude::*, prelude_test::net_test_helpers::*};
-use std::{net::SocketAddr, thread, time::Duration};
 use serial_test::serial;
+use std::{net::SocketAddr, thread, time::Duration};
 
 fn system_from_network_config(network_config: NetworkConfig) -> KompactSystem {
     let mut cfg = KompactConfig::new();

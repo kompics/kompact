@@ -47,6 +47,7 @@ pub mod queue_manager;
 
 // Default values for network config.
 const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
+const BOOT_TIMEOUT: u64 = 5000;
 const MAX_RETRY_ATTEMPTS: u8 = 10;
 
 type NetHashMap<K, V> = FxHashMap<K, V>;
@@ -74,6 +75,7 @@ pub struct NetworkConfig {
     tcp_nodelay: bool,
     max_connection_retry_attempts: u8,
     connection_retry_interval: u64,
+    boot_timeout: u64,
 }
 
 impl NetworkConfig {
@@ -88,6 +90,7 @@ impl NetworkConfig {
             tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: BOOT_TIMEOUT,
         }
     }
 
@@ -95,15 +98,9 @@ impl NetworkConfig {
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
     pub fn with_buffer_config(addr: SocketAddr, buffer_config: BufferConfig) -> Self {
         buffer_config.validate();
-        NetworkConfig {
-            addr,
-            transport: Transport::Tcp,
-            buffer_config,
-            custom_allocator: None,
-            tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-        }
+        let mut cfg = NetworkConfig::new(addr);
+        cfg.set_buffer_config(buffer_config);
+        cfg
     }
 
     /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
@@ -122,6 +119,7 @@ impl NetworkConfig {
             tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: BOOT_TIMEOUT,
         }
     }
 
@@ -192,6 +190,18 @@ impl NetworkConfig {
     pub fn get_connection_retry_interval(&self) -> u64 {
         self.connection_retry_interval
     }
+
+    /// Configures how long the system will wait (in ms) for the network layer to set-up
+    ///
+    /// Default value is 5000 ms.
+    pub fn set_boot_timeout(&mut self, milliseconds: u64) {
+        self.boot_timeout = milliseconds;
+    }
+
+    /// How long (in ms) the system will wait (in ms) for the network layer to set-up
+    pub fn get_boot_timeout(&self) -> u64 {
+        self.boot_timeout
+    }
 }
 
 /// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::Tcp)
@@ -205,6 +215,7 @@ impl Default for NetworkConfig {
             tcp_nodelay: true,
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: BOOT_TIMEOUT,
         }
     }
 }
