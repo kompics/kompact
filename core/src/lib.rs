@@ -73,7 +73,7 @@
 #![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
 // TODO: Remove
-//#![feature(trace_macros)]
+#![feature(trace_macros)]
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
@@ -106,6 +106,9 @@ use std::convert::{From, Into};
 mod actors;
 /// Traits and structs for component API and internals
 pub mod component;
+/// Utilities for working with Kompact configuration keys and values
+#[macro_use]
+pub mod config;
 mod dedicated_scheduler;
 /// Default implementations for system components
 pub mod default_components;
