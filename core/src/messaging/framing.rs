@@ -348,7 +348,6 @@ impl Serialisable for ActorPath {
             ActorPath::Named(ref np) => {
                 // Named paths are length-prefixed (2 bytes)
                 // followed by variable-length name
-                // TODO replace this with a heuristic once https://github.com/kompics/kompact/issues/33 is resolved
                 let path_len: u16 = 2;
                 // Use 5 bytes per segment as base heuristic.
                 // This is much cheaper than calculating the actual length there.

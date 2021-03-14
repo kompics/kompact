@@ -6,20 +6,6 @@ mod macros;
 
 const PATH_SEP: char = '.';
 
-kompact_config! {
-    TEST_KEY,
-    key = "kompact.test.key",
-    doc = r#"A test key.
-
-This can be used to define additional comment options.
-
-# Note
-
-Formatting should work for keys as well, I hope.
-    "#,
-    version = "0.11"
-}
-
 /// Extension methods for Hocon instances to support [ConfigEntry](ConfigEntry) lookup.
 pub trait HoconExt {
     /// Read the value at the location given by `key` from this config.

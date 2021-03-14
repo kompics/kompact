@@ -1,16 +1,3 @@
-// key: &'static str,
-//     /// Documentation for this config entry.
-//     doc: &'static str,
-//     /// The Kompact version in which the value was introduced.
-//     version: &'static str,
-//     /// Type information of this config value.
-//     ///
-//     /// Can be used for converting the raw config value into a runtime type.
-//     value_type: PhantomData<T>,
-//     /// The default value for this config entry.
-//     ///
-//     /// Used if no value is specified in the Hocon config.
-//     default: Option<fn() -> T::Value>,
 
 /// Macro to create config entries.
 ///
