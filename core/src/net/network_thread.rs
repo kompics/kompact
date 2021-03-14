@@ -879,7 +879,7 @@ mod tests {
         NetworkThread,
         Sender<DispatchEvent>,
     ) {
-        let mut cfg = KompactConfig::new();
+        let mut cfg = KompactConfig::default();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = cfg.build().expect("KompactSystem");
 
@@ -1081,7 +1081,7 @@ mod tests {
         buffer_config.initial_chunk_count(13);
         buffer_config.encode_buf_min_free_space(10);
         let network_config = NetworkConfig::with_buffer_config(addr, buffer_config);
-        let mut cfg = KompactConfig::new();
+        let mut cfg = KompactConfig::default();
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         let system = cfg.build().expect("KompactSystem");
 

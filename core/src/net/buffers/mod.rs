@@ -454,7 +454,7 @@ mod tests {
         }
     }
     fn buffer_config_testing_system() -> KompactSystem {
-        let mut cfg = KompactConfig::new();
+        let mut cfg = KompactConfig::default();
         let mut network_buffer_config = BufferConfig::default();
         network_buffer_config.chunk_size(512);
         network_buffer_config.initial_chunk_count(2);

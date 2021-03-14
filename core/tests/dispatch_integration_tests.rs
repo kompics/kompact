@@ -2,7 +2,7 @@ use kompact::{prelude::*, prelude_test::net_test_helpers::*};
 use std::{net::SocketAddr, thread, time::Duration};
 
 fn system_from_network_config(network_config: NetworkConfig) -> KompactSystem {
-    let mut cfg = KompactConfig::new();
+    let mut cfg = KompactConfig::default();
     cfg.system_components(DeadletterBox::new, network_config.build());
     cfg.build().expect("KompactSystem")
 }

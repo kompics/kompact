@@ -1,5 +1,5 @@
 use hocon::Hocon;
-use std::{error::Error, fmt, marker::PhantomData};
+use std::{convert::TryInto, error::Error, fmt, marker::PhantomData};
 
 #[macro_use]
 mod macros;
@@ -23,20 +23,34 @@ Formatting should work for keys as well, I hope.
 /// Extension methods for Hocon instances to support [ConfigEntry](ConfigEntry) lookup.
 pub trait HoconExt {
     /// Read the value at the location given by `key` from this config.
-    fn get<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError> where T: ConfigValueType;
+    fn get<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError>
+    where
+        T: ConfigValueType;
 
     /// Read the value at the location given by `key` from this config, or return the default, if any.
-    fn get_or_default<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError> where T: ConfigValueType;
+    fn get_or_default<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError>
+    where
+        T: ConfigValueType;
 }
 
 impl HoconExt for Hocon {
-    fn get<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError> where T: ConfigValueType {
+    fn get<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError>
+    where
+        T: ConfigValueType,
+    {
         key.read(self)
     }
-    fn get_or_default<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError> where T: ConfigValueType {
+
+    fn get_or_default<T>(&self, key: &ConfigEntry<T>) -> Result<T::Value, ConfigError>
+    where
+        T: ConfigValueType,
+    {
         key.read_or_default(self)
     }
 }
+
+/// A validator for extracted values of `T::Value`
+pub type ValidatorFun<T> = fn(&<T as ConfigValueType>::Value) -> Result<(), String>;
 
 /// Description of a configuration parameter that can be set via HOCON config.
 ///
@@ -45,6 +59,7 @@ impl HoconExt for Hocon {
 /// # Note
 ///
 /// This should be created via the [kompact_config](crate::kompact_config) macro and not directly.
+#[derive(Clone)]
 pub struct ConfigEntry<T>
 where
     T: ConfigValueType,
@@ -55,8 +70,12 @@ where
     pub doc: &'static str,
     /// The Kompact version in which the value was introduced.
     pub version: &'static str,
-    value_type: PhantomData<T>,
-    default: Option<fn() -> T::Value>,
+    #[doc(hidden)]
+    pub value_type: PhantomData<T>,
+    #[doc(hidden)]
+    pub default: Option<fn() -> T::Value>,
+    #[doc(hidden)]
+    pub validator: Option<ValidatorFun<T>>,
 }
 
 impl<T> ConfigEntry<T>
@@ -85,13 +104,28 @@ where
         hocon
     }
 
+    /// Performs the validation of the given value
+    ///
+    /// If no validator is specified, the value is simply passed through.
+    pub fn validate(&self, v: T::Value) -> Result<T::Value, ConfigError> {
+        if let Some(validator) = self.validator {
+            match validator(&v) {
+                Ok(_) => Ok(v),
+                Err(err_msg) => Err(ConfigError::InvalidValue(err_msg)),
+            }
+        } else {
+            Ok(v)
+        }
+    }
+
     /// Read the value for this key from the given config.
     pub fn read(&self, conf: &Hocon) -> Result<T::Value, ConfigError> {
         let hocon = self.select(conf);
         if let Hocon::BadValue(error) = hocon {
             Err(error.clone().into())
         } else {
-            T::from_conf(hocon)
+            let v = T::from_conf(hocon)?;
+            self.validate(v)
         }
     }
 
@@ -106,11 +140,6 @@ where
             Err(e) => Err(e),
         }
     }
-
-    // TODO: Hocon has no mutable indexing support, so we gotta traverse the tree
-    // pub fn write(&self, conf: &mut Hocon, value: T::Value) {
-
-    // }
 }
 
 /// A value extractor for config values
@@ -120,6 +149,9 @@ pub trait ConfigValueType {
 
     /// Extract the value from a config instance.
     fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError>;
+
+    /// Produce a format for the value that can be spliced into a config string.
+    fn config_string(value: Self::Value) -> String;
 }
 
 /// Value converter for type `String`
@@ -131,6 +163,44 @@ impl ConfigValueType for StringValue {
         conf.as_string()
             .ok_or_else(|| ConfigError::expected::<Self::Value>(conf))
     }
+
+    fn config_string(value: Self::Value) -> String {
+        format!(r#""{}""#, value)
+    }
+}
+
+/// Value converter for type `usize`
+pub struct UsizeValue;
+impl ConfigValueType for UsizeValue {
+    type Value = usize;
+
+    fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError> {
+        let res = conf
+            .as_i64()
+            .ok_or_else(|| ConfigError::expected::<Self::Value>(conf))?;
+        let ures: usize = res.try_into()?;
+        Ok(ures)
+    }
+
+    fn config_string(value: Self::Value) -> String {
+        format!("{}", value)
+    }
+}
+
+/// Value converter for type `f32`
+pub struct F32Value;
+impl ConfigValueType for F32Value {
+    type Value = f32;
+
+    fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError> {
+        conf.as_f64()
+            .map(|v| v as f32) // this is safe...only loses accuracy
+            .ok_or_else(|| ConfigError::expected::<Self::Value>(conf))
+    }
+
+    fn config_string(value: Self::Value) -> String {
+        format!("{}", value)
+    }
 }
 
 /// Errors that occur during config lookup.
@@ -140,6 +210,8 @@ pub enum ConfigError {
     ConversionError(String),
     /// Path traversal failed.
     PathError(hocon::Error),
+    /// Value validation failed.
+    InvalidValue(String),
 }
 impl ConfigError {
     fn expected<T>(conf: &Hocon) -> Self {
@@ -156,6 +228,11 @@ impl From<hocon::Error> for ConfigError {
         ConfigError::PathError(error)
     }
 }
+impl From<std::num::TryFromIntError> for ConfigError {
+    fn from(error: std::num::TryFromIntError) -> Self {
+        ConfigError::ConversionError(format!("{}", error))
+    }
+}
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -163,6 +240,9 @@ impl fmt::Display for ConfigError {
                 write!(f, "Error during type conversion: {}", description)
             }
             ConfigError::PathError(error) => write!(f, "Error during path traversal: {}", error),
+            ConfigError::InvalidValue(description) => {
+                write!(f, "Error during value validation: {}", description)
+            }
         }
     }
 }
@@ -171,6 +251,7 @@ impl Error for ConfigError {
         match self {
             ConfigError::ConversionError(_) => None,
             ConfigError::PathError(error) => Some(error),
+            ConfigError::InvalidValue(_) => None,
         }
     }
 }
@@ -186,6 +267,7 @@ mod tests {
         version: "0.11",
         value_type: PhantomData,
         default: None,
+        validator: None,
     };
 
     const KEY_WITH_DEFAULT: ConfigEntry<StringValue> = {
@@ -199,6 +281,7 @@ mod tests {
             version: "0.11",
             value_type: PhantomData,
             default: Some(default_value),
+            validator: None,
         }
     };
 
@@ -218,18 +301,31 @@ mod tests {
         version = "0.11"
     }
 
+    kompact_config! {
+        KEY_FROM_MACRO_VALIDATE,
+        key = "kompact.my-validate-key",
+        type = UsizeValue,
+        default = 0,
+        validate = |value| *value < 100,
+        doc = "A config key generated from a macro with a validator.",
+        version = "0.11"
+    }
+
     const EXAMPLE_CONFIG: &str = r#"
     kompact {
-        my-test-key: "testme",
+        my-test-key = "testme",
+
+        my-validate-key = 50
 
         test-group {
-            inner-key: "test me inside"
+            inner-key = "test me inside"
         }
     }
     "#;
 
     const BAD_CONFIG: &str = r#"
-    my-test-key: "testme"
+    my-test-key = "testme"
+    kompact.my-validate-key = 200
     "#;
 
     #[test]
@@ -257,23 +353,29 @@ mod tests {
         assert_eq!("default value", v2);
     }
 
-    // #[test]
-    // fn nested_config_key() {
-    //     assert_eq!("test-group", TEST_GROUP.key);
+    #[test]
+    fn validated_config_key() {
+        {
+            let loader = HoconLoader::new().load_str(EXAMPLE_CONFIG).expect("config");
+            let hocon = loader.hocon().expect("config");
 
-    //     assert_eq!("kompact.test-group", TEST_GROUP.path());
+            let v = hocon.get(&KEY_FROM_MACRO_VALIDATE).unwrap();
+            assert_eq!(50, v);
+        }
+        {
+            let loader = HoconLoader::new().load_str(BAD_CONFIG).expect("config");
+            let hocon = loader.hocon().expect("config");
 
-    //     // let loader = HoconLoader::new().load_str(EXAMPLE_CONFIG).expect("config");
-    //     // let hocon = loader.hocon().expect("config");
-    //     // let v = SIMPLE_KEY.read(&hocon).expect("String");
-    //     // assert_eq!("testme", v);
-    // }
+            let res = hocon.get(&KEY_FROM_MACRO_VALIDATE);
+            assert!(res.is_err());
+        }
+    }
 
     #[test]
     fn simple_key_bad_config() {
         let loader = HoconLoader::new().load_str(BAD_CONFIG).expect("config");
         let hocon = loader.hocon().expect("config");
         let res = SIMPLE_KEY.read(&hocon);
-        assert_eq!(Err(ConfigError::PathError(hocon::Error::InvalidKey)), res);
+        assert_eq!(Err(ConfigError::PathError(hocon::Error::MissingKey)), res);
     }
 }

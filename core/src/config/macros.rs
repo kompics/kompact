@@ -1,5 +1,3 @@
-use super::*;
-
 // key: &'static str,
 //     /// Documentation for this config entry.
 //     doc: &'static str,
@@ -19,6 +17,40 @@ use super::*;
 /// This macro also generated rustdoc that is consistent with the key and the doc field.
 #[macro_export]
 macro_rules! kompact_config {
+	($name:ident,
+    key = $key:literal,
+    type = $value_type:ty,
+    default = $default:expr,
+    validate = |$value_id:ident| $validate:expr,
+    doc = $doc:literal,
+    version = $version:literal) => {
+        #[doc = "(`"]
+        #[doc = $key]
+        #[doc = "`) "]
+        #[doc = $doc]
+        #[doc = "\n# Since\n Kompact version "]
+        #[doc = $version]
+        pub const $name: $crate::config::ConfigEntry<$value_type> = {
+            fn default_value() -> <$value_type as $crate::config::ConfigValueType>::Value {
+                $default
+            }
+            fn validate_value($value_id: &<$value_type as $crate::config::ConfigValueType>::Value) -> Result<(), String> {
+            	if $validate {
+            		Ok(())
+            	} else {
+            		Err(format!("Value {} did satisfy {}", $value_id, stringify!($validate)))
+            	}
+            }
+            $crate::config::ConfigEntry {
+                key: $key,
+                doc: $doc,
+                version: $version,
+                value_type: ::std::marker::PhantomData,
+                default: Some(default_value),
+                validator: Some(validate_value),
+            }
+        };
+    };
     ($name:ident,
     key = $key:literal,
     type = $value_type:ty,
@@ -39,8 +71,9 @@ macro_rules! kompact_config {
                 key: $key,
                 doc: $doc,
                 version: $version,
-                value_type: PhantomData,
+                value_type: ::std::marker::PhantomData,
                 default: Some(default_value),
+                validator: None,
             }
         };
     };
@@ -60,8 +93,9 @@ macro_rules! kompact_config {
             key: $key,
             doc: $doc,
             version: $version,
-            value_type: PhantomData,
+            value_type: ::std::marker::PhantomData,
             default: None,
+            validator: None,
         };
     };
     ($name:ident,
