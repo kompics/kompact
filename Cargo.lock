@@ -389,26 +389,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "const_format"
-version = "0.2.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0412fd9e3c921f868af82a0097da41c250087e513786858b9e6b6055f8ed300"
-dependencies = [
- "const_format_proc_macros",
-]
-
-[[package]]
-name = "const_format_proc_macros"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8df496e1bbc93814d728a8036ff054cd95830afe9cf2275c9326688c02eff936"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-xid",
-]
-
-[[package]]
 name = "core_affinity"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1176,7 +1156,6 @@ dependencies = [
  "async-std",
  "bitfields",
  "bytes",
- "const_format",
  "core_affinity",
  "crossbeam-channel 0.4.4",
  "crossbeam-queue 0.2.3",
