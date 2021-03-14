@@ -40,7 +40,7 @@ use futures::{
 use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
 use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
-use std::{collections::VecDeque, time::Duration};
+use std::{collections::VecDeque, net::IpAddr, time::Duration};
 
 pub mod lookup;
 pub mod queue_manager;
@@ -241,6 +241,14 @@ pub enum NetworkStatus {
     ConnectionDropped(SystemPath),
     /// Indicates that a connection has been gracefully closed.
     ConnectionClosed(SystemPath),
+    /// Indicates that a system has been blocked
+    BlockedSystem(SystemPath),
+    /// Indicates that an IpAddr has been blocked
+    BlockedIpAddr(IpAddr),
+    /// Indicates that a system has been allowed after previously being blocked
+    UnblockedSystem(SystemPath),
+    /// Indicates that an IpAddr has been allowed after previously being blocked
+    UnblockedIpAddr(IpAddr),
 }
 
 /// Sent by Actors and Components to request information about the Network
@@ -250,6 +258,16 @@ pub enum NetworkStatusRequest {
     DisconnectSystem(SystemPath),
     /// Request that a connection is established to the given System.
     ConnectSystem(SystemPath),
+    /// Request that a SystemPath to be blocked from this system. An established connection
+    /// will be dropped and future attempts to establish a connection by that given SystemPath
+    /// will be denied.
+    BlockSystem(SystemPath),
+    /// Request an IpAddr to be blocked.
+    BlockIpAddr(IpAddr),
+    /// Request a System to be allowed after previously being blocked
+    UnblockSystem(SystemPath),
+    /// Request an IpAddr to be allowed after previously being blocked
+    UnblockIpAddr(IpAddr),
 }
 
 /// A network-capable dispatcher for sending messages to remote actors
@@ -506,6 +524,32 @@ impl NetworkDispatcher {
                     // These are messages which we routed to a network-thread before they lost the connection.
                     self.queue_manager.enqueue_priority_data(data, addr);
                 }
+                NetworkEvent::BlockedSocket(socket_addr, trigger_status_port) => {
+                    let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
+                    self.connections
+                        .insert(socket_addr, ConnectionState::Blocked);
+                    if trigger_status_port {
+                        self.network_status_port
+                            .trigger(NetworkStatus::BlockedSystem(sys_path));
+                    }
+                }
+                NetworkEvent::BlockedIpAddr(ip_addr) => {
+                    self.network_status_port
+                        .trigger(NetworkStatus::BlockedIpAddr(ip_addr));
+                }
+                NetworkEvent::UnblockedSocket(socket_addr, trigger_status_port) => {
+                    let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
+                    self.connections
+                        .insert(socket_addr, ConnectionState::Closed);
+                    if trigger_status_port {
+                        self.network_status_port
+                            .trigger(NetworkStatus::UnblockedSystem(sys_path));
+                    }
+                }
+                NetworkEvent::UnblockedIpAddr(ip_addr) => {
+                    self.network_status_port
+                        .trigger(NetworkStatus::UnblockedIpAddr(ip_addr));
+                }
             },
         }
     }
@@ -677,6 +721,14 @@ impl NetworkDispatcher {
             ConnectionState::Lost => {
                 // May be recovered...
                 self.queue_manager.enqueue_data(data, addr);
+                None
+            }
+            ConnectionState::Blocked => {
+                warn!(
+                    self.ctx.log(),
+                    "Tried sending a message to a blocked connection: {:?}. Dropping message.",
+                    addr
+                );
                 None
             }
         };
@@ -975,6 +1027,26 @@ impl Provide<NetworkStatusPort> for NetworkDispatcher {
                     bridge
                         .connect(system_path.protocol(), system_path.socket_address())
                         .unwrap();
+                }
+            }
+            NetworkStatusRequest::BlockIpAddr(ip_addr) => {
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.block_ip(ip_addr).unwrap();
+                }
+            }
+            NetworkStatusRequest::BlockSystem(system_path) => {
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.block_socket(system_path.socket_address()).unwrap();
+                }
+            }
+            NetworkStatusRequest::UnblockIpAddr(ip_addr) => {
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.unblock_ip(ip_addr).unwrap();
+                }
+            }
+            NetworkStatusRequest::UnblockSystem(system_path) => {
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.unblock_socket(system_path.socket_address()).unwrap();
                 }
             }
         }

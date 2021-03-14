@@ -12,7 +12,7 @@ use crate::{
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
 pub use std::net::SocketAddr;
-use std::{io, panic, sync::Arc, thread, time::Duration};
+use std::{io, net::IpAddr, panic, sync::Arc, thread, time::Duration};
 
 #[allow(missing_docs)]
 pub mod buffers;
@@ -34,6 +34,8 @@ pub enum ConnectionState {
     Closed,
     /// Unexpected lost connection
     Lost,
+    /// Blocked by request from component through NetworkStatusPort
+    Blocked,
     // Threw an error
     // Error(std::io::Error),
 }
@@ -60,6 +62,7 @@ pub mod events {
         messaging::DispatchData,
         net::{frames::*, SocketAddr},
     };
+    use std::net::IpAddr;
 
     /// Network events emitted by the network `Bridge`
     #[derive(Debug)]
@@ -70,6 +73,16 @@ pub mod events {
         Data(Frame),
         /// The NetworkThread lost connection to the remote host and rejects the frame
         RejectedData(SocketAddr, DispatchData),
+        /// The NetworkThread has blocked `SocketAddr` and dropped its corresponding channel.
+        /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
+        BlockedSocket(SocketAddr, bool),
+        /// The NetworkThread has blocked `IpAddr` and dropped all channels to it
+        BlockedIpAddr(IpAddr),
+        /// The NetworkThread has unblocked `SocketAddr`
+        /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
+        UnblockedSocket(SocketAddr, bool),
+        /// The NetworkThread has unblocked `IpAddr`
+        UnblockedIpAddr(IpAddr),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
@@ -89,6 +102,14 @@ pub mod events {
         ClosedAck(SocketAddr),
         /// Tells the `NetworkThread` to gracefully close the channel to the `SocketAddr`
         Close(SocketAddr),
+        /// Tells the `NetworkThread` to block the `SocketAddr`
+        BlockSocket(SocketAddr),
+        /// Tells the `NetworkThread` to block the `IpAddr`
+        BlockIpAddr(IpAddr),
+        /// Tells the `NetworkThread` to block the `SocketAddr`
+        UnblockSocket(SocketAddr),
+        /// Tells the `NetworkThread` to block the `IpAddr`
+        UnblockIpAddr(IpAddr),
     }
 
     /// Errors emitted byt the network `Bridge`
@@ -305,6 +326,38 @@ impl Bridge {
     pub fn close_channel(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         self.network_input_queue
             .send(events::DispatchEvent::Close(addr))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests the NetworkThread to block the socket addr
+    pub fn block_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::BlockSocket(addr))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests the NetworkThread to block the ip address ip_addr
+    pub fn block_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::BlockIpAddr(ip_addr))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests the NetworkThread to unblock the socket addr
+    pub fn unblock_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::UnblockSocket(addr))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests the NetworkThread to unblock the ip address ip_addr
+    pub fn unblock_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::UnblockIpAddr(ip_addr))?;
         self.waker.wake()?;
         Ok(())
     }
@@ -1246,6 +1299,7 @@ pub mod net_test_helpers {
                 NetworkStatus::ConnectionLost(_) => self.connection_lost += 1,
                 NetworkStatus::ConnectionDropped(_) => self.connection_dropped += 1,
                 NetworkStatus::ConnectionClosed(_) => self.connection_closed += 1,
+                _ => unimplemented!(),
             }
             Handled::Ok
         }
