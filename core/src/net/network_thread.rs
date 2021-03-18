@@ -575,6 +575,12 @@ impl NetworkThread {
     ///     The connection has already started, in which case this channel must be killed.
     ///     The connection has a known UUID but is not connected: Use the UUID as a tie breaker for which to kill and which to keep.
     fn handle_start(&mut self, event: &EventWithRetries, channel: &mut TcpChannel, start: &Start) {
+        if self.block_list.contains_ip_addr(&start.addr.ip())
+            || self.block_list.contains_socket_addr(&start.addr)
+        {
+            self.drop_channel(channel);
+            return;
+        }
         if let Some(other_channel_rc) = self.get_channel_by_address(&start.addr) {
             debug!(
                 self.log,
@@ -820,57 +826,54 @@ impl NetworkThread {
 
     fn block_ip_addr(&mut self, ip_addr: IpAddr) {
         if self.block_list.insert_ip_addr(ip_addr) {
-            // new block
+            debug!(self.log, "Blocking ip: {:?}", ip_addr);
             let trigger_status_port = false; // don't trigger NetworkStatusPort per blocked socket, one event for ip_addr is enough
-            let block_sockets: Vec<_> = self
+            let block_sockets: Vec<SocketAddr> = self
                 .address_map
                 .keys()
                 .filter(|socket_addr| socket_addr.ip() == ip_addr)
-                .map(|s| s.clone())
+                .copied()
                 .collect();
             for socket_addr in block_sockets {
                 self.block_socket_addr(socket_addr, trigger_status_port);
             }
-            // let dispatcher know this IpAddr is blocked, this triggers the indication BlockedIpAddr on NetworkStatusPort
-            self.notify_network_event(NetworkEvent::BlockedIpAddr(ip_addr));
         }
+        self.notify_network_event(NetworkEvent::BlockedIp(ip_addr));
     }
 
     fn block_socket_addr(&mut self, socket_addr: SocketAddr, trigger_status_port: bool) {
-        if self.block_list.insert_socket_addr(socket_addr.clone()) {
-            // new block
+        if self.block_list.insert_socket_addr(socket_addr) {
+            debug!(self.log, "Blocking socket: {:?}", socket_addr);
             if let Some(channel_rc) = self.get_channel_by_address(&socket_addr) {
+                debug!(
+                    self.log,
+                    "Dropping channel to blocked socket: {:?}", socket_addr
+                );
                 let mut channel = channel_rc.borrow_mut();
                 self.drop_channel(&mut channel);
             }
-            self.notify_network_event(NetworkEvent::BlockedSocket(
-                socket_addr,
-                trigger_status_port,
-            ));
         }
+        self.notify_network_event(NetworkEvent::BlockedSocket(
+            socket_addr,
+            trigger_status_port,
+        ));
     }
 
     fn unblock_ip_addr(&mut self, ip_addr: IpAddr) {
         if self.block_list.remove_ip_addr(&ip_addr) {
-            // new unblock
+            debug!(self.log, "Unblocking ip: {:?}", ip_addr);
             let trigger_status_port = false; // don't trigger NetworkStatusPort per unblocked socket, one event for ip_addr is enough
-            let unblock_sockets: Vec<_> = self
-                .address_map
-                .keys()
-                .filter(|socket_addr| socket_addr.ip() == ip_addr)
-                .map(|s| s.clone())
-                .collect();
+            let unblock_sockets = self.block_list.get_sockets_with_ip(ip_addr);
             for socket_addr in unblock_sockets {
                 self.unblock_socket_addr(socket_addr, trigger_status_port);
             }
-            // let dispatcher know this IpAddr is unblocked, this triggers the indication UnblockedIpAddr on NetworkStatusPort
-            self.notify_network_event(NetworkEvent::UnblockedIpAddr(ip_addr));
         }
+        self.notify_network_event(NetworkEvent::UnblockedIp(ip_addr));
     }
 
     fn unblock_socket_addr(&mut self, socket_addr: SocketAddr, trigger_status_port: bool) {
         if self.block_list.remove_socket_addr(&socket_addr) {
-            // new unblock
+            debug!(self.log, "Unblocking socket: {:?}", socket_addr);
             self.notify_network_event(NetworkEvent::UnblockedSocket(
                 socket_addr,
                 trigger_status_port,
@@ -976,8 +979,12 @@ impl AdressSet {
         self.socket_addr.remove(&socket_addr)
     }
 
-    fn remove_socket_addr_with_ip(&mut self, ip_addr: &IpAddr) {
-        self.socket_addr.retain(|x| &x.ip() == ip_addr);
+    fn get_sockets_with_ip(&self, ip_addr: IpAddr) -> Vec<SocketAddr> {
+        self.socket_addr
+            .iter()
+            .filter(|socket_addr| socket_addr.ip() == ip_addr)
+            .copied()
+            .collect()
     }
 }
 
