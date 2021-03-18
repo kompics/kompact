@@ -244,11 +244,11 @@ pub enum NetworkStatus {
     /// Indicates that a system has been blocked
     BlockedSystem(SystemPath),
     /// Indicates that an IpAddr has been blocked
-    BlockedIpAddr(IpAddr),
+    BlockedIp(IpAddr),
     /// Indicates that a system has been allowed after previously being blocked
     UnblockedSystem(SystemPath),
     /// Indicates that an IpAddr has been allowed after previously being blocked
-    UnblockedIpAddr(IpAddr),
+    UnblockedIp(IpAddr),
 }
 
 /// Sent by Actors and Components to request information about the Network
@@ -263,11 +263,11 @@ pub enum NetworkStatusRequest {
     /// will be denied.
     BlockSystem(SystemPath),
     /// Request an IpAddr to be blocked.
-    BlockIpAddr(IpAddr),
+    BlockIp(IpAddr),
     /// Request a System to be allowed after previously being blocked
     UnblockSystem(SystemPath),
     /// Request an IpAddr to be allowed after previously being blocked
-    UnblockIpAddr(IpAddr),
+    UnblockIp(IpAddr),
 }
 
 /// A network-capable dispatcher for sending messages to remote actors
@@ -533,9 +533,9 @@ impl NetworkDispatcher {
                             .trigger(NetworkStatus::BlockedSystem(sys_path));
                     }
                 }
-                NetworkEvent::BlockedIpAddr(ip_addr) => {
+                NetworkEvent::BlockedIp(ip_addr) => {
                     self.network_status_port
-                        .trigger(NetworkStatus::BlockedIpAddr(ip_addr));
+                        .trigger(NetworkStatus::BlockedIp(ip_addr));
                 }
                 NetworkEvent::UnblockedSocket(socket_addr, trigger_status_port) => {
                     let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
@@ -546,9 +546,9 @@ impl NetworkDispatcher {
                             .trigger(NetworkStatus::UnblockedSystem(sys_path));
                     }
                 }
-                NetworkEvent::UnblockedIpAddr(ip_addr) => {
+                NetworkEvent::UnblockedIp(ip_addr) => {
                     self.network_status_port
-                        .trigger(NetworkStatus::UnblockedIpAddr(ip_addr));
+                        .trigger(NetworkStatus::UnblockedIp(ip_addr));
                 }
             },
         }
@@ -1029,22 +1029,26 @@ impl Provide<NetworkStatusPort> for NetworkDispatcher {
                         .unwrap();
                 }
             }
-            NetworkStatusRequest::BlockIpAddr(ip_addr) => {
+            NetworkStatusRequest::BlockIp(ip_addr) => {
+                debug!(self.ctx.log(), "Got BlockIp: {:?}", ip_addr);
                 if let Some(bridge) = &self.net_bridge {
                     bridge.block_ip(ip_addr).unwrap();
                 }
             }
             NetworkStatusRequest::BlockSystem(system_path) => {
+                debug!(self.ctx.log(), "Got BlockSystem: {:?}", system_path);
                 if let Some(bridge) = &self.net_bridge {
                     bridge.block_socket(system_path.socket_address()).unwrap();
                 }
             }
-            NetworkStatusRequest::UnblockIpAddr(ip_addr) => {
+            NetworkStatusRequest::UnblockIp(ip_addr) => {
+                debug!(self.ctx.log(), "Got UnblockIp: {:?}", ip_addr);
                 if let Some(bridge) = &self.net_bridge {
                     bridge.unblock_ip(ip_addr).unwrap();
                 }
             }
             NetworkStatusRequest::UnblockSystem(system_path) => {
+                debug!(self.ctx.log(), "Got UnblockSystem: {:?}", system_path);
                 if let Some(bridge) = &self.net_bridge {
                     bridge.unblock_socket(system_path.socket_address()).unwrap();
                 }

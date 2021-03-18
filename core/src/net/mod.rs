@@ -77,12 +77,12 @@ pub mod events {
         /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
         BlockedSocket(SocketAddr, bool),
         /// The NetworkThread has blocked `IpAddr` and dropped all channels to it
-        BlockedIpAddr(IpAddr),
+        BlockedIp(IpAddr),
         /// The NetworkThread has unblocked `SocketAddr`
         /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
         UnblockedSocket(SocketAddr, bool),
         /// The NetworkThread has unblocked `IpAddr`
-        UnblockedIpAddr(IpAddr),
+        UnblockedIp(IpAddr),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
@@ -462,7 +462,8 @@ pub mod net_test_helpers {
     use std::{
         collections::VecDeque,
         fmt::{Debug, Formatter},
-        time::{SystemTime, UNIX_EPOCH},
+        net::IpAddr,
+        time::{Duration, SystemTime, UNIX_EPOCH},
     };
 
     /// The number of Ping-Pong messages, used in assertions and Pingers/BigPingers
@@ -695,6 +696,8 @@ pub mod net_test_helpers {
     pub struct PongerAct {
         ctx: ComponentContext<PongerAct>,
         eager: bool,
+        /// number of `PingMsg` received
+        pub count: u64,
     }
 
     impl PongerAct {
@@ -704,6 +707,7 @@ pub mod net_test_helpers {
             PongerAct {
                 ctx: ComponentContext::uninitialised(),
                 eager: false,
+                count: 0,
             }
         }
 
@@ -713,6 +717,7 @@ pub mod net_test_helpers {
             PongerAct {
                 ctx: ComponentContext::uninitialised(),
                 eager: true,
+                count: 0,
             }
         }
     }
@@ -732,6 +737,7 @@ pub mod net_test_helpers {
                 (msg.data) {
                     msg(ping): PingMsg [using PingPongSer] => {
                         debug!(self.ctx.log(), "Got msg {:?} from {}", ping, sender);
+                        self.count += 1;
                         let pong = PongMsg { i: ping.i };
                         if self.eager {
                             sender
@@ -1231,6 +1237,10 @@ pub mod net_test_helpers {
         pub connected_systems: Vec<SystemPath>,
         /// Counts the number of disconnected_systems messages received
         pub disconnected_systems: Vec<SystemPath>,
+        /// The blocked SystemPaths
+        pub blocked_systems: Vec<SystemPath>,
+        /// The blocked ip addresses
+        pub blocked_ip: Vec<IpAddr>,
         /// Counts the number of max_channels_reached messages received
         pub max_channels_reached: u32,
         /// Counts the number of network_out_of_buffers messages received
@@ -1249,6 +1259,8 @@ pub mod net_test_helpers {
                 connection_closed: 0,
                 connected_systems: Vec::new(),
                 disconnected_systems: Vec::new(),
+                blocked_systems: Vec::new(),
+                blocked_ip: Vec::new(),
                 max_channels_reached: 0,
                 network_out_of_buffers: 0,
             }
@@ -1299,7 +1311,89 @@ pub mod net_test_helpers {
                 NetworkStatus::ConnectionLost(_) => self.connection_lost += 1,
                 NetworkStatus::ConnectionDropped(_) => self.connection_dropped += 1,
                 NetworkStatus::ConnectionClosed(_) => self.connection_closed += 1,
-                _ => unimplemented!(),
+                NetworkStatus::BlockedSystem(sys_path) => self.blocked_systems.push(sys_path),
+                NetworkStatus::BlockedIp(ip_addr) => self.blocked_ip.push(ip_addr),
+                NetworkStatus::UnblockedSystem(sys_path) => {
+                    self.blocked_systems.retain(|s| s == &sys_path)
+                }
+                NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip == &ip_addr),
+            }
+            Handled::Ok
+        }
+    }
+
+    /// An actor that continuously sends `PingMsg` to a `target` over the network.
+    /// Target should be a [PongerAct](PongerAct).
+    #[derive(ComponentDefinition)]
+    pub struct PingStream {
+        ctx: ComponentContext<PingStream>,
+        target: ActorPath,
+        period: Duration,
+        timer: Option<ScheduledTimer>,
+        ping_count: u64,
+        pong_count: u64,
+    }
+
+    impl PingStream {
+        /// creates a `PingStream` actor that sends `PingMsg` to `target` every `period`
+        /// Target should be a [PongerAct](PongerAct).
+        pub fn new(target: ActorPath, period: Duration) -> Self {
+            Self {
+                ctx: ComponentContext::uninitialised(),
+                target,
+                period,
+                timer: None,
+                ping_count: 0,
+                pong_count: 0,
+            }
+        }
+
+        /// method to start pinging
+        pub fn start_pinging(&mut self) {
+            let timer =
+                self.schedule_periodic(Duration::from_millis(0), self.period, move |p, _| {
+                    p.ping();
+                    Handled::Ok
+                });
+            self.timer = Some(timer);
+        }
+
+        /// method to stop pinging
+        pub fn stop_pinging(&mut self) {
+            let timer = self.timer.take().expect("No timer");
+            self.cancel_timer(timer);
+        }
+
+        fn ping(&mut self) {
+            self.ping_count += 1;
+            self.target
+                .tell_serialised(PingMsg { i: self.ping_count }, self)
+                .expect("serialise");
+        }
+    }
+
+    impl ComponentLifecycle for PingStream {
+        fn on_start(&mut self) -> Handled {
+            debug!(self.ctx.log(), "Starting");
+            self.start_pinging();
+            Handled::Ok
+        }
+    }
+
+    impl Actor for PingStream {
+        type Message = Never;
+
+        fn receive_local(&mut self, _: Self::Message) -> Handled {
+            unimplemented!()
+        }
+
+        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            match msg.try_deserialise::<PongMsg, PingPongSer>() {
+                Ok(pong) => {
+                    debug!(self.ctx.log(), "Got msg {:?}", pong);
+                    self.pong_count += 1;
+                }
+                Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
             Handled::Ok
         }
