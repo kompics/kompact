@@ -1428,9 +1428,9 @@ fn network_status_port_block_unblock_ip() {
     thread::sleep(delay);
 
     let before_block_count = ponger.on_definition(|ponger| ponger.count);
-    let pinger_ip = pinger_path.address().clone();
+    let pinger_ip = pinger_path.address();
     local_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::BlockIp(pinger_ip.clone()));
+        sc.send_status_request(NetworkStatusRequest::BlockIp(*pinger_ip));
     });
 
     thread::sleep(delay);
@@ -1444,7 +1444,7 @@ fn network_status_port_block_unblock_ip() {
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
     local_status_counter.on_definition(|sc| {
         assert!(sc.blocked_ip.contains(&pinger_ip));
-        sc.send_status_request(NetworkStatusRequest::UnblockIp(pinger_ip));
+        sc.send_status_request(NetworkStatusRequest::UnblockIp(*pinger_ip));
     });
 
     thread::sleep(delay); // should receive pings again after unblocking
