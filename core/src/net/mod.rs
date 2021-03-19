@@ -1314,9 +1314,9 @@ pub mod net_test_helpers {
                 NetworkStatus::BlockedSystem(sys_path) => self.blocked_systems.push(sys_path),
                 NetworkStatus::BlockedIp(ip_addr) => self.blocked_ip.push(ip_addr),
                 NetworkStatus::UnblockedSystem(sys_path) => {
-                    self.blocked_systems.retain(|s| s == &sys_path)
+                    self.blocked_systems.retain(|s| s != &sys_path)
                 }
-                NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip == &ip_addr),
+                NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
             }
             Handled::Ok
         }
