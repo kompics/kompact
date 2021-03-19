@@ -1362,7 +1362,7 @@ fn network_status_port_block_unblock_system() {
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
     local_status_counter.on_definition(|sc| {
         assert!(sc.blocked_systems.contains(&pinger_sys_path));
-        sc.send_status_request(NetworkStatusRequest::UnblockSystem(pinger_sys_path));
+        sc.send_status_request(NetworkStatusRequest::UnblockSystem(pinger_sys_path.clone()));
     });
 
     thread::sleep(delay); // should receive pings again after unblocking
@@ -1375,6 +1375,8 @@ fn network_status_port_block_unblock_system() {
             ponger.count
         );
     });
+    local_status_counter
+        .on_definition(|sc| assert_eq!(sc.blocked_systems.contains(&pinger_sys_path), false));
 
     let pingf = remote_system.kill_notify(pinger);
     let pongf = local_system.kill_notify(ponger);
@@ -1443,7 +1445,7 @@ fn network_status_port_block_unblock_ip() {
 
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
     local_status_counter.on_definition(|sc| {
-        assert!(sc.blocked_ip.contains(&pinger_ip));
+        assert!(sc.blocked_ip.contains(pinger_ip));
         sc.send_status_request(NetworkStatusRequest::UnblockIp(*pinger_ip));
     });
 
@@ -1457,6 +1459,7 @@ fn network_status_port_block_unblock_ip() {
             ponger.count
         );
     });
+    local_status_counter.on_definition(|sc| assert_eq!(sc.blocked_ip.contains(pinger_ip), false));
 
     let pingf = remote_system.kill_notify(pinger);
     let pongf = local_system.kill_notify(ponger);
