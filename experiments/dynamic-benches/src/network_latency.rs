@@ -140,9 +140,10 @@ where
 }
 
 fn setup_system(name: &'static str, threads: usize) -> KompactSystem {
-    let mut cfg = KompactConfig::new();
-    cfg.label(name.to_string());
-    cfg.threads(threads);
+    use kompact::config_keys::system;
+    let mut cfg = KompactConfig::default();
+    cfg.set_config_value(&system::LABEL, name.to_string());
+    cfg.set_config_value(&system::THREADS, threads);
     cfg.system_components(DeadletterBox::new, {
         let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
         net_config.build()

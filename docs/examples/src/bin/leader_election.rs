@@ -157,7 +157,7 @@ pub fn main() {
 pub fn run_systems(num_systems: usize) {
     let mut systems: Vec<KompactSystem> = {
         let system = || {
-            let mut cfg = KompactConfig::new();
+            let mut cfg = KompactConfig::default();
             cfg.load_config_file("./application.conf");
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
             cfg.build().expect("KompactSystem")

@@ -87,8 +87,9 @@ impl Actor for Counter {
 }
 
 pub fn main() {
+    use kompact::config_keys::system;
     let mut conf = KompactConfig::default();
-    conf.threads(1usize);
+    conf.set_config_value(&system::THREADS, 1usize);
     // ANCHOR: channel_pool
     conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
     // ANCHOR_END: channel_pool

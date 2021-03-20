@@ -223,7 +223,8 @@ fn generate_database(size: usize) -> Arc<[String]> {
 }
 
 pub fn main() {
-    let mut cfg = KompactConfig::new();
+    let mut cfg = KompactConfig::default();
+    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
     cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
     let system = cfg.build().expect("KompactSystem");
 

@@ -101,7 +101,11 @@ mod tests {
     use std::time::Duration;
 
     pub fn bench_clone_recipient(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
+        let sys = {
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
+            cfg.build().expect("KompactSystem")
+        };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         let tester_recipient: Recipient<Ping> = tester_ref.recipient();
@@ -117,7 +121,11 @@ mod tests {
     }
 
     pub fn bench_tell_recipient(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
+        let sys = {
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
+            cfg.build().expect("KompactSystem")
+        };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         let tester_recipient: Recipient<Ping> = tester_ref.recipient();
@@ -130,7 +138,11 @@ mod tests {
     }
 
     pub fn bench_clone_actor_ref(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
+        let sys = {
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
+            cfg.build().expect("KompactSystem")
+        };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         let mut cloned_ref = tester_ref.clone();
@@ -144,7 +156,11 @@ mod tests {
     }
 
     pub fn bench_tell_actor_ref(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
+        let sys = {
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
+            cfg.build().expect("KompactSystem")
+        };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
         b.iter(|| {
@@ -156,7 +172,11 @@ mod tests {
     }
 
     pub fn bench_tell_actor_ref_strong(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
+        let sys = {
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
+            cfg.build().expect("KompactSystem")
+        };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref().hold().expect("Live Ref");
         b.iter(|| {
@@ -168,7 +188,11 @@ mod tests {
     }
 
     pub fn bench_trigger_port(b: &mut Bencher) {
-        let sys = KompactConfig::default().build().expect("System");
+        let sys = {
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
+            cfg.build().expect("KompactSystem")
+        };
         let tester = sys.create(TestActor::new);
         let test_port = tester.on_definition(|c| c.testp.share());
         b.iter(|| {
@@ -181,7 +205,8 @@ mod tests {
 
     pub fn bench_clone_actor_path(b: &mut Bencher) {
         let sys = {
-            let mut cfg = KompactConfig::new();
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
             cfg.build().expect("KompactSystem")
         };
@@ -202,7 +227,8 @@ mod tests {
     #[allow(dead_code)]
     pub fn bench_tell_actor_path(b: &mut Bencher) {
         let sys = {
-            let mut cfg = KompactConfig::new();
+            let mut cfg = KompactConfig::default();
+            cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
             cfg.build().expect("KompactSystem")
         };
