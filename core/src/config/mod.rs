@@ -4,6 +4,11 @@ use std::{convert::TryInto, error::Error, fmt, marker::PhantomData};
 #[macro_use]
 mod macros;
 
+mod converters_for_hocon_types;
+pub use converters_for_hocon_types::*;
+mod converters_for_other_types;
+pub use converters_for_other_types::*;
+
 const PATH_SEP: char = '.';
 
 /// Extension methods for Hocon instances to support [ConfigEntry](ConfigEntry) lookup.
@@ -138,55 +143,6 @@ pub trait ConfigValueType {
 
     /// Produce a format for the value that can be spliced into a config string.
     fn config_string(value: Self::Value) -> String;
-}
-
-/// Value converter for type `String`
-pub struct StringValue;
-impl ConfigValueType for StringValue {
-    type Value = String;
-
-    fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError> {
-        conf.as_string()
-            .ok_or_else(|| ConfigError::expected::<Self::Value>(conf))
-    }
-
-    fn config_string(value: Self::Value) -> String {
-        format!(r#""{}""#, value)
-    }
-}
-
-/// Value converter for type `usize`
-pub struct UsizeValue;
-impl ConfigValueType for UsizeValue {
-    type Value = usize;
-
-    fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError> {
-        let res = conf
-            .as_i64()
-            .ok_or_else(|| ConfigError::expected::<Self::Value>(conf))?;
-        let ures: usize = res.try_into()?;
-        Ok(ures)
-    }
-
-    fn config_string(value: Self::Value) -> String {
-        format!("{}", value)
-    }
-}
-
-/// Value converter for type `f32`
-pub struct F32Value;
-impl ConfigValueType for F32Value {
-    type Value = f32;
-
-    fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError> {
-        conf.as_f64()
-            .map(|v| v as f32) // this is safe...only loses accuracy
-            .ok_or_else(|| ConfigError::expected::<Self::Value>(conf))
-    }
-
-    fn config_string(value: Self::Value) -> String {
-        format!("{}", value)
-    }
 }
 
 /// Errors that occur during config lookup.
@@ -363,5 +319,25 @@ mod tests {
         let hocon = loader.hocon().expect("config");
         let res = SIMPLE_KEY.read(&hocon);
         assert_eq!(Err(ConfigError::PathError(hocon::Error::MissingKey)), res);
+    }
+
+    pub(super) fn str_conf(config_string: &str) -> Hocon {
+        let loader = HoconLoader::new().load_str(config_string).expect("config");
+        loader.hocon().expect("config")
+    }
+
+    const ROUNDTRIP_KEY: &str = "value";
+
+    pub(super) fn conf_test_roundtrip<T: ConfigValueType>(value: T::Value)
+    where
+        T::Value: PartialEq + fmt::Debug + Clone,
+    {
+        let config_string = format!("{} = {}", ROUNDTRIP_KEY, T::config_string(value.clone()));
+        let loader = HoconLoader::new()
+            .load_str(config_string.as_ref())
+            .expect("config");
+        let conf = loader.hocon().expect("config");
+        let res = T::from_conf(&conf[ROUNDTRIP_KEY]);
+        assert_eq!(Ok(value), res);
     }
 }

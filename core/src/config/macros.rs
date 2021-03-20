@@ -1,4 +1,3 @@
-
 /// Macro to create config entries.
 ///
 /// This macro also generated rustdoc that is consistent with the key and the doc field.
@@ -90,5 +89,16 @@ macro_rules! kompact_config {
     doc = $doc:literal,
     version = $version:literal) => {
         kompact_config!($name, key = $key, type = $crate::config::StringValue, doc = $doc, version = $version);
+    };
+}
+
+macro_rules! config_assert {
+    ($cond:expr, $val:ident) => {
+        #[allow(clippy::neg_cmp_op_on_partial_ord)]
+        if !($cond) {
+            let condition = stringify!($cond).replace(stringify!($val), "value");
+            let error_msg = format!("value={} did not satisfy condition `{}`", $val, condition);
+            return Err($crate::config::ConfigError::ConversionError(error_msg));
+        }
     };
 }
