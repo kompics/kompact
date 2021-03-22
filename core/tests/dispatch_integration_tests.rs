@@ -1,10 +1,222 @@
+use crossbeam_channel::Receiver as Rcv;
 use kompact::{prelude::*, prelude_test::net_test_helpers::*};
-use std::{net::SocketAddr, thread, time::Duration};
+use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
+
+const REGISTRATION_TIMEOUT: Duration = Duration::from_millis(1000);
+const STOP_COMPONENT_TIMEOUT: Duration = Duration::from_millis(1000);
+const PINGPONG_TIMEOUT: Duration = Duration::from_millis(10_000);
+const PING_INTERVAL: Duration = Duration::from_millis(500);
+const CONNECTION_STATUS_TIMEOUT: Duration = Duration::from_millis(2000);
+
+const CONNECTION_RETRY_INTERVAL: u64 = 500;
+const CONNECTION_RETRY_ATTEMPTS: u8 = 10;
+const DROP_CONNECTION_TIMEOUT: Duration =
+    Duration::from_millis(CONNECTION_RETRY_INTERVAL * (CONNECTION_RETRY_ATTEMPTS as u64 + 3));
+const SMALL_CHUNK_SIZE: usize = 128;
+const MINIMUM_UDP_CHUNK_SIZE: usize = 66000;
+// BigPings with >0 data size provide stricter checks on data-correctness than regular pings...
+const ARBITRARY_DATA_SIZE: usize = 500;
 
 fn system_from_network_config(network_config: NetworkConfig) -> KompactSystem {
     let mut cfg = KompactConfig::default();
     cfg.system_components(DeadletterBox::new, network_config.build());
     cfg.build().expect("KompactSystem")
+}
+
+fn start_pinger(
+    system: &KompactSystem,
+    mut pinger_actor: PingerAct,
+) -> (Arc<Component<PingerAct>>, KFuture<()>) {
+    let all_pongs_received_future = pinger_actor.completion_future();
+    let (pinger, reg_future) = system.create_and_register(move || pinger_actor);
+    reg_future.wait_expect(REGISTRATION_TIMEOUT, "Pinger failed to register!");
+    system.start(&pinger);
+    (pinger, all_pongs_received_future)
+}
+
+fn start_big_pinger(
+    system: &KompactSystem,
+    mut big_pinger: BigPingerAct,
+) -> (Arc<Component<BigPingerAct>>, KFuture<()>) {
+    let all_pongs_received_future = big_pinger.completion_future();
+    let (pinger, reg_future) = system.create_and_register(move || big_pinger);
+    reg_future.wait_expect(REGISTRATION_TIMEOUT, "Pinger failed to register!");
+    system.start(&pinger);
+    (pinger, all_pongs_received_future)
+}
+
+fn start_ponger(
+    system: &KompactSystem,
+    ponger_actor: PongerAct,
+) -> (Arc<Component<PongerAct>>, ActorPath) {
+    let (ponger, pof) = system.create_and_register(move || ponger_actor);
+    let ponger_path = system.actor_path_for(&ponger);
+    pof.wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
+    system.start(&ponger);
+    (ponger, ponger_path)
+}
+
+fn start_big_ponger(
+    system: &KompactSystem,
+    big_ponger: BigPongerAct,
+) -> (Arc<Component<BigPongerAct>>, ActorPath) {
+    let (ponger, pof) = system.create_and_register(move || big_ponger);
+    let path = system.actor_path_for(&ponger);
+    pof.wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
+    system.start(&ponger);
+    (ponger, path)
+}
+
+fn start_ping_stream(system: &KompactSystem, target: &ActorPath) -> Arc<Component<PingStream>> {
+    let (pinger, pif) =
+        system.create_and_register(move || PingStream::new(target.clone(), PING_INTERVAL));
+    pif.wait_expect(REGISTRATION_TIMEOUT, "Pinger failed to register!");
+    system.start(&pinger);
+    pinger
+}
+
+fn start_status_counter(
+    system: &KompactSystem,
+) -> (Arc<Component<NetworkStatusCounter>>, NetworkStatusReceiver) {
+    let (sender, receiver) = crossbeam_channel::bounded(100);
+    let (status_counter, reg_future) = system.create_and_register(NetworkStatusCounter::new);
+    let started_future = status_counter.on_definition(|c| {
+        c.set_status_sender(sender);
+        system.connect_network_status_port(&mut c.network_status_port);
+        c.started_future()
+    });
+    reg_future.wait_expect(REGISTRATION_TIMEOUT, "StatusCounter failed to register!");
+    system.start(&status_counter);
+    started_future
+        .wait_timeout(REGISTRATION_TIMEOUT)
+        .expect("StatusCounter failed to start");
+    (status_counter, NetworkStatusReceiver { receiver })
+}
+
+struct NetworkStatusReceiver {
+    receiver: Rcv<NetworkStatus>,
+}
+
+impl NetworkStatusReceiver {
+    fn expect_connection_established(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::ConnectionEstablished(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for ConnectionEstablished",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for ConnectionEstablished")
+            }
+        }
+    }
+
+    fn expect_connection_lost(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::ConnectionLost(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for ConnectionLost",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for ConnectionLost")
+            }
+        }
+    }
+
+    fn expect_connection_dropped(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::ConnectionDropped(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for ConnectionDropped",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for ConnectionDropped")
+            }
+        }
+    }
+
+    fn expect_connection_closed(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::ConnectionClosed(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for ConnectionClosed",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for ConnectionClosed")
+            }
+        }
+    }
+
+    fn expect_blocked_system(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::BlockedSystem(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for BlockedSystem",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for BlockedSystem")
+            }
+        }
+    }
+
+    fn expect_unblocked_system(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::UnblockedSystem(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for UnblockedSystem",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for UnblockedSystem")
+            }
+        }
+    }
+
+    fn expect_blocked_ip(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::BlockedIp(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for BlockedIp",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for BlockedIp")
+            }
+        }
+    }
+
+    fn expect_unblocked_ip(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::UnblockedIp(_)) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for UnblockedIp",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for UnblockedIp")
+            }
+        }
+    }
 }
 
 #[test]
@@ -16,13 +228,13 @@ fn named_registration() {
     system.start(&ponger);
 
     let _res = system.register_by_alias(&ponger, ACTOR_NAME).wait_expect(
-        Duration::from_millis(1000),
+        REGISTRATION_TIMEOUT,
         "Single registration with unique alias should succeed.",
     );
 
     let res = system
         .register_by_alias(&ponger, ACTOR_NAME)
-        .wait_timeout(Duration::from_millis(1000))
+        .wait_timeout(REGISTRATION_TIMEOUT)
         .expect("Registration never completed.");
 
     assert_eq!(
@@ -33,9 +245,8 @@ fn named_registration() {
 
     system
         .kill_notify(ponger)
-        .wait_timeout(Duration::from_millis(1000))
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger did not die");
-    thread::sleep(Duration::from_millis(1000));
 
     system
         .shutdown()
@@ -48,51 +259,44 @@ fn named_registration() {
 // messages.
 #[test]
 fn remote_delivery_to_registered_actors_eager() {
-    let system = system_from_network_config(NetworkConfig::default());
-    let remote = system_from_network_config(NetworkConfig::default());
-    let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
-    let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+    let pinger_system = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
 
-    let ponger_unique_path =
-        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger_unique, ponger_unique_path) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let (ponger_named, _) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let ponger_named_path = ponger_system
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
 
-    let (pinger_unique, piuf) =
-        system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
-    let (pinger_named, pinf) =
-        system.create_and_register(move || PingerAct::new_eager(ponger_named_path));
+    let (pinger_unique, all_unique_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_unique_path));
+    let (pinger_named, all_named_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_named_path));
 
-    piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_unique_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+    all_named_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    remote.start(&ponger_unique);
-    remote.start(&ponger_named);
-    system.start(&pinger_unique);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(7000));
-
-    let pingfu = system.stop_notify(&pinger_unique);
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfu = remote.kill_notify(ponger_unique);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+
     pinger_unique.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -100,7 +304,10 @@ fn remote_delivery_to_registered_actors_eager() {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -110,43 +317,40 @@ fn remote_delivery_to_registered_actors_eager() {
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(128);
+    buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg);
-    let system = system_from_network_config(net_cfg.clone());
-    let remote = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
-    let (ponger_named, ponf) = remote.create_and_register(BigPongerAct::new_lazy);
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, ponger_path) = start_big_ponger(&ponger_system, BigPongerAct::new_lazy());
 
-    let (pinger_named, pinf) =
-        system.create_and_register(move || BigPingerAct::new_lazy(ponger_named_path, 120));
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_lazy(ponger_path, SMALL_CHUNK_SIZE),
+    );
 
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Should complete");
 
-    remote.start(&ponger_named);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(15000));
-
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
+
+    pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -156,44 +360,41 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(128);
+    buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let system = system_from_network_config(net_cfg.clone());
-    let remote = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
-    let (ponger_named, ponf) =
-        remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, ponger_path) =
+        start_big_ponger(&ponger_system, BigPongerAct::new_eager(buf_cfg.clone()));
 
-    let (pinger_named, pinf) = system
-        .create_and_register(move || BigPingerAct::new_eager(ponger_named_path, 120, buf_cfg));
+    let (pinger, pinger_complete_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_eager(ponger_path, SMALL_CHUNK_SIZE, buf_cfg),
+    );
 
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    pinger_complete_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Should complete");
 
-    remote.start(&ponger_named);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(15000));
-
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
+
+    pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -203,187 +404,177 @@ fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(128);
+    buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let system = system_from_network_config(net_cfg.clone());
-    let remote = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
-    let (ponger_named, ponf) =
-        remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, ponger_path) =
+        start_big_ponger(&ponger_system, BigPongerAct::new_eager(buf_cfg.clone()));
 
-    let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path, 120, buf_cfg)
-    });
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_preserialised(ponger_path, SMALL_CHUNK_SIZE, buf_cfg),
+    );
 
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Should complete");
 
-    remote.start(&ponger_named);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(15000));
-
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
+
+    pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
-// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
-// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+// Checks that BufferSwaps will occur for UDP sending/receiving during lazy sending
 fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(66000);
+    buf_cfg.chunk_size(MINIMUM_UDP_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg);
-    let system = system_from_network_config(net_cfg.clone());
-    let remote = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
-    let (ponger_named, ponf) = remote.create_and_register(BigPongerAct::new_lazy);
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let mut ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_named_path.via_udp();
-    let (pinger_named, pinf) =
-        system.create_and_register(move || BigPingerAct::new_lazy(ponger_named_path, 1500 * 3 / 4));
+    let (ponger, mut ponger_path) = start_big_ponger(&ponger_system, BigPongerAct::new_lazy());
+    ponger_path.via_udp();
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_lazy(ponger_path, MINIMUM_UDP_CHUNK_SIZE / PING_COUNT as usize),
+    );
 
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Should complete");
 
-    remote.start(&ponger_named);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(15000));
-
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
+
+    pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
-// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
-// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+// Checks that BufferSwaps will occur for UDP sending/receiving during eager sending
 fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(66000);
+    buf_cfg.chunk_size(MINIMUM_UDP_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let system = system_from_network_config(net_cfg.clone());
-    let remote = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
-    let (ponger_named, ponf) =
-        remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let mut ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_named_path.via_udp();
-    let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_eager(ponger_named_path, 1500 * 3 / 4, buf_cfg)
-    });
+    let (ponger, mut ponger_path) =
+        start_big_ponger(&ponger_system, BigPongerAct::new_eager(buf_cfg.clone()));
+    ponger_path.via_udp();
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_eager(
+            ponger_path,
+            MINIMUM_UDP_CHUNK_SIZE / PING_COUNT as usize,
+            buf_cfg,
+        ),
+    );
 
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Should complete");
 
-    remote.start(&ponger_named);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(15000));
-
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
+
+    pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
-// Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
-// BigPonger will validate the BigPing messages on reception, BigPinger counts replies
+// Checks that BufferSwaps will occur for UDP sending/receiving during preserialized sends
 fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(66000);
+    buf_cfg.chunk_size(MINIMUM_UDP_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
-    let system = system_from_network_config(net_cfg.clone());
-    let remote = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
-    let (ponger_named, ponf) =
-        remote.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let mut ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_named_path.via_udp();
-    let (pinger_named, pinf) = system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path, 1500 * 3 / 4, buf_cfg)
-    });
+    let (ponger, mut ponger_path) =
+        start_big_ponger(&ponger_system, BigPongerAct::new_eager(buf_cfg.clone()));
+    ponger_path.via_udp();
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_preserialised(
+            ponger_path,
+            MINIMUM_UDP_CHUNK_SIZE / PING_COUNT as usize,
+            buf_cfg,
+        ),
+    );
 
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Should complete");
 
-    remote.start(&ponger_named);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(15000));
-
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
+
+    pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -394,54 +585,46 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_eager_mixed_udp() {
-    let system = system_from_network_config(NetworkConfig::default());
-    let remote = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_eager);
-    let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_eager);
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-
-    let mut ponger_unique_path =
-        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_unique_path.via_udp();
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let mut ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger_unique, mut ponger_unique_path) =
+        start_ponger(&ponger_system, PongerAct::new_eager());
+    let (ponger_named, _) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let mut ponger_named_path = ponger_system
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
     ponger_named_path.via_udp();
+    ponger_unique_path.via_udp();
+    let (pinger_unique, all_unique_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_unique_path));
+    let (pinger_named, all_named_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_named_path));
 
-    let (pinger_unique, piuf) =
-        system.create_and_register(move || PingerAct::new_eager(ponger_unique_path));
-    let (pinger_named, pinf) =
-        system.create_and_register(move || PingerAct::new_eager(ponger_named_path));
+    all_unique_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+    all_named_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    remote.start(&ponger_unique);
-    remote.start(&ponger_named);
-    system.start(&pinger_unique);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(7000));
-
-    let pingfu = system.stop_notify(&pinger_unique);
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfu = remote.kill_notify(ponger_unique);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+
     pinger_unique.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -449,7 +632,10 @@ fn remote_delivery_to_registered_actors_eager_mixed_udp() {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -460,59 +646,44 @@ fn remote_delivery_to_registered_actors_eager_mixed_udp() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_lazy() {
-    let system = system_from_network_config(NetworkConfig::default());
-    let remote = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_lazy);
-    let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_lazy);
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
+    let (ponger_unique, ponger_unique_path) = start_ponger(&ponger_system, PongerAct::new_lazy());
+    let (ponger_named, _) = start_ponger(&ponger_system, PongerAct::new_lazy());
+    let ponger_named_path = ponger_system
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
 
-    pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (pinger_unique, all_unique_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_unique_path));
+    let (pinger_named, all_named_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_named_path));
 
-    let named_path = ActorPath::Named(NamedPath::with_system(
-        remote.system_path(),
-        vec!["custom_name".into()],
-    ));
+    all_unique_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+    all_named_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    let unique_path = ActorPath::Unique(UniquePath::with_system(
-        remote.system_path(),
-        ponger_unique.id(),
-    ));
-
-    let (pinger_unique, piuf) =
-        system.create_and_register(move || PingerAct::new_lazy(unique_path));
-    let (pinger_named, pinf) = system.create_and_register(move || PingerAct::new_lazy(named_path));
-
-    piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    remote.start(&ponger_unique);
-    remote.start(&ponger_named);
-    system.start(&pinger_unique);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(7000));
-
-    let pingfu = system.stop_notify(&pinger_unique);
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfu = remote.kill_notify(ponger_unique);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+
     pinger_unique.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -520,7 +691,10 @@ fn remote_delivery_to_registered_actors_lazy() {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -531,54 +705,47 @@ fn remote_delivery_to_registered_actors_lazy() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
-    let system = system_from_network_config(NetworkConfig::default());
-    let remote = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new_lazy);
-    let (ponger_named, ponf) = remote.create_and_register(PongerAct::new_lazy);
-    let poaf = remote.register_by_alias(&ponger_named, "custom_name");
-
-    let mut ponger_unique_path =
-        pouf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger_unique, mut ponger_unique_path) =
+        start_ponger(&ponger_system, PongerAct::new_lazy());
+    let (ponger_named, _) = start_ponger(&ponger_system, PongerAct::new_lazy());
+    let mut ponger_named_path = ponger_system
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
     ponger_unique_path.via_udp();
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let mut ponger_named_path =
-        poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
     ponger_named_path.via_udp();
 
-    let (pinger_unique, piuf) =
-        system.create_and_register(move || PingerAct::new_lazy(ponger_unique_path));
-    let (pinger_named, pinf) =
-        system.create_and_register(move || PingerAct::new_lazy(ponger_named_path));
+    let (pinger_unique, all_unique_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_unique_path));
+    let (pinger_named, all_named_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_named_path));
 
-    piuf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    all_unique_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+    all_named_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    remote.start(&ponger_unique);
-    remote.start(&ponger_named);
-    system.start(&pinger_unique);
-    system.start(&pinger_named);
-
-    // TODO maybe we could do this a bit more reliable?
-    thread::sleep(Duration::from_millis(7000));
-
-    let pingfu = system.stop_notify(&pinger_unique);
-    let pingfn = system.stop_notify(&pinger_named);
-    let pongfu = remote.kill_notify(ponger_unique);
-    let pongfn = remote.kill_notify(ponger_named);
-
-    pingfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfu
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .stop_notify(&pinger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pingfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+
     pinger_unique.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -586,7 +753,10 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -600,183 +770,189 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
 #[ignore]
 fn remote_lost_and_continued_connection() {
     let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(6);
-    net_cfg.set_connection_retry_interval(500);
-    let system = system_from_network_config(net_cfg);
-    let remote_a = system_from_network_config(NetworkConfig::default());
-    let remote_port = remote_a.system_path().port();
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+    let pinger_system = system_from_network_config(net_cfg);
+    let ponger_system_1 = system_from_network_config(NetworkConfig::default());
+    let ponger_system_port = ponger_system_1.system_path().port();
+    let (_, status_receiver) = start_status_counter(&pinger_system);
 
-    //let (ponger_unique, pouf) = remote.create_and_register(PongerAct::new);
-    let (ponger_named, ponf) = remote_a.create_and_register(PongerAct::new_lazy);
-    let poaf = remote_a.register_by_alias(&ponger_named, "custom_name");
-    ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger_named, _) = start_ponger(&ponger_system_1, PongerAct::new_lazy());
+    ponger_system_1
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
     let named_path = ActorPath::Named(NamedPath::with_system(
-        remote_a.system_path(),
+        ponger_system_1.system_path(),
         vec!["custom_name".into()],
     ));
-    let named_path_clone = named_path.clone();
 
-    let (pinger_named, pinf) =
-        system.create_and_register(move || PingerAct::new_lazy(named_path_clone));
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    // PingStream ensures that the network layer detects failures
+    let ping_stream = start_ping_stream(&pinger_system, &named_path);
+    ponger_system_1.start(&ponger_named);
 
-    remote_a.start(&ponger_named);
-    system.start(&pinger_named);
+    let (pinger_1, all_pongs_received_future_1) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
 
-    // Wait for the pingpong
-    thread::sleep(Duration::from_millis(2000));
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
-    // Assert that things are going as we expect
-    let pongfn = remote_a.kill_notify(ponger_named);
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    all_pongs_received_future_1
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    ponger_system_1
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
-    pinger_named.on_definition(|c| {
-        assert_eq!(c.count, PING_COUNT);
-    });
-
     // We now kill remote_a
-    remote_a.kill_system().ok();
+    ponger_system_1.kill_system().ok();
 
-    thread::sleep(Duration::from_millis(1000));
-
-    // Start a new pinger on system
-    let (pinger_named2, pinf2) =
-        system.create_and_register(move || PingerAct::new_lazy(named_path));
-    pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    // The first start will succesfully buffer its outgoing message then trigger lost connection, losing the message
-    system.start(&pinger_named2);
-    thread::sleep(Duration::from_millis(1000));
-    // The second start will be rejected due to lost connection, but retained until the connection is alive again.
-    system.start(&pinger_named2);
-
-    // Wait for it to send its pings, system should recognize the remote address
-    thread::sleep(Duration::from_millis(1000));
-    // Assert that things are going as they should be, ping count has not increased
-    pinger_named2.on_definition(|c| {
-        assert_eq!(c.count, 0);
-    });
+    status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
 
     // Start up remote_b
     let mut addr: SocketAddr = "127.0.0.1:0".parse().expect("Address should work");
-    addr.set_port(remote_port);
-    let remote_b = system_from_network_config(NetworkConfig::new(addr));
+    addr.set_port(ponger_system_port);
+    let ponger_system_2 = system_from_network_config(NetworkConfig::new(addr));
+    let (ponger_named, _) = start_ponger(&ponger_system_2, PongerAct::new_lazy());
+    ponger_system_2
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
 
-    let (ponger_named, ponf) = remote_b.create_and_register(PongerAct::new_lazy);
-    let poaf = remote_b.register_by_alias(&ponger_named, "custom_name");
-    ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    remote_b.start(&ponger_named);
+    let (pinger_2, all_pongs_received_future_2) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(named_path));
 
-    // We give the connection plenty of time to re-establish and transfer it's old queue
-    thread::sleep(Duration::from_millis(5000));
-    // Final assertion, did our systems re-connect without lost messages?
-    pinger_named2.on_definition(|c| {
-        assert_eq!(c.count, PING_COUNT);
-    });
-    system
+    status_receiver.expect_connection_established(DROP_CONNECTION_TIMEOUT);
+
+    all_pongs_received_future_2
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    pinger_system
+        .stop_notify(&ping_stream)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    pinger_system
+        .stop_notify(&pinger_1)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    pinger_system
+        .stop_notify(&pinger_2)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    ponger_system_2
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+
+    pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    remote_b
+    ponger_system_2
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
-// Identical with `remote_lost_and_continued_connection` up to the final sleep time and assertion
-// system1 times out in its reconnection attempts and drops the enqueued buffers.
-// After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
 #[ignore]
 fn remote_lost_and_dropped_connection() {
     let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(2);
-    net_cfg.set_connection_retry_interval(500);
-    let system = system_from_network_config(net_cfg);
-    let remote_a = system_from_network_config(NetworkConfig::default());
-    let remote_port = remote_a.system_path().port();
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+    let pinger_system = system_from_network_config(net_cfg);
+    let ponger_system_1 = system_from_network_config(NetworkConfig::default());
+    let ponger_system_port = ponger_system_1.system_path().port();
 
-    let (ponger_named, ponf) = remote_a.create_and_register(PongerAct::new_lazy);
-    let poaf = remote_a.register_by_alias(&ponger_named, "custom_name");
-    ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger_named, _) = start_ponger(&ponger_system_1, PongerAct::new_lazy());
+    ponger_system_1
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
     let named_path = ActorPath::Named(NamedPath::with_system(
-        remote_a.system_path(),
+        ponger_system_1.system_path(),
         vec!["custom_name".into()],
     ));
-    let named_path_clone = named_path.clone();
-    let named_path_clone2 = named_path.clone();
 
-    let (pinger_named, pinf) =
-        system.create_and_register(move || PingerAct::new_lazy(named_path_clone));
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    // PingStream ensures that the network layer detects failures
+    let _ = start_ping_stream(&pinger_system, &named_path);
 
-    remote_a.start(&ponger_named);
-    system.start(&pinger_named);
+    let (_, status_receiver) = start_status_counter(&pinger_system);
 
-    // Wait for the pingpong
-    thread::sleep(Duration::from_millis(2000));
-
-    // Assert that things are going as we expect
-    let pongfn = remote_a.kill_notify(ponger_named);
-    pongfn
-        .wait_timeout(Duration::from_millis(1000))
+    let (pinger_named, all_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    ponger_system_1
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+
     pinger_named.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
+
     // We now kill system2
-    remote_a.kill_system().ok();
+    ponger_system_1.kill_system().ok();
+    status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
 
     // Start a new pinger on system
-    let (pinger_named2, pinf2) =
-        system.create_and_register(move || PingerAct::new_lazy(named_path));
-    pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    system.start(&pinger_named2);
-    // Wait for it to send its pings, system should recognize the remote address
-    thread::sleep(Duration::from_millis(1000));
-    // Assert that things are going as they should be, ping count has not increased
-    pinger_named2.on_definition(|c| {
+    let (pinger_named_2, _) = start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
+    // Wait for it to send its pings but no progress should be made
+    // Assert that things are going as they should be, pong count has not increased
+    pinger_named_2.on_definition(|c| {
         assert_eq!(c.count, 0);
     });
-    // Sleep long-enough that the remote connection will be dropped with its queue
-    thread::sleep(Duration::from_millis(
-        3 * 500, // retry config from above
-    ));
+    status_receiver.expect_connection_dropped(DROP_CONNECTION_TIMEOUT);
+
     // Start up remote_b
     let mut addr: SocketAddr = "127.0.0.1:0".parse().expect("Address should work");
-    addr.set_port(remote_port);
-    let remote_b = system_from_network_config(NetworkConfig::new(addr));
+    addr.set_port(ponger_system_port);
+    let ponger_system_2 = system_from_network_config(NetworkConfig::new(addr));
 
-    let (ponger_named, ponf) = remote_b.create_and_register(PongerAct::new_lazy);
-    let poaf = remote_b.register_by_alias(&ponger_named, "custom_name");
-    ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    poaf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    remote_b.start(&ponger_named);
-
-    // We give the connection plenty of time to re-establish and transfer it's old queue
-    thread::sleep(Duration::from_millis(5000));
-    // Final assertion, did our systems re-connect without lost messages?
-    pinger_named2.on_definition(|c| {
-        assert_eq!(c.count, 0);
-    });
+    let (ponger_named, _) = start_ponger(&ponger_system_2, PongerAct::new_lazy());
+    ponger_system_2
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
 
     // This one should now succeed
-    let (pinger_named2, pinf2) =
-        system.create_and_register(move || PingerAct::new_lazy(named_path_clone2));
-    pinf2.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    system.start(&pinger_named2);
+    let (pinger_named_3, all_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(named_path));
+
     // Wait for it to send its pings, system should recognize the remote address
-    thread::sleep(Duration::from_millis(1000));
-    // Assert that things are going as they should be
-    pinger_named2.on_definition(|c| {
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    // Ensure that the new connection worked
+    pinger_named_3.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system
+    // Assert that the old messages were dropped
+    pinger_named_2.on_definition(|c| {
+        assert_eq!(c.count, 0);
+    });
+
+    pinger_system
+        .stop_notify(&pinger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    pinger_system
+        .stop_notify(&pinger_named_2)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    pinger_system
+        .stop_notify(&pinger_named_3)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    ponger_system_2
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+
+    pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    remote_b
+    ponger_system_2
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -785,29 +961,22 @@ fn remote_lost_and_dropped_connection() {
 fn local_delivery() {
     let system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system.create_and_register(PongerAct::new_lazy);
-    // Construct ActorPath with system's `proto` field explicitly set to LOCAL
-    let mut ponger_path = system.actor_path_for(&ponger);
+    let (ponger, mut ponger_path) = start_ponger(&system, PongerAct::new_lazy());
     ponger_path.set_protocol(Transport::Local);
-    let (pinger, pif) = system.create_and_register(move || PingerAct::new_lazy(ponger_path));
+    let (pinger, pinger_done_future) = start_pinger(&system, PingerAct::new_lazy(ponger_path));
+    pinger_done_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    system.start(&ponger);
-    system.start(&pinger);
-
-    // TODO no sleeps!
-    thread::sleep(Duration::from_millis(1000));
-
-    let pingf = system.stop_notify(&pinger);
-    let pongf = system.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
+    system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+    system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+
     pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -821,40 +990,36 @@ fn local_delivery() {
 fn local_forwarding() {
     let system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system.create_and_register(BigPongerAct::new_lazy);
-    // Construct ActorPath with system's `proto` field explicitly set to LOCAL
-    let mut ponger_path =
-        pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, mut ponger_path) = start_big_ponger(&system, BigPongerAct::new_lazy());
     ponger_path.set_protocol(Transport::Local);
 
     let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
-    let mut forwarder_path =
-        fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+    let mut forwarder_path = fof.wait_expect(REGISTRATION_TIMEOUT, "Forwarder failed to register!");
     forwarder_path.set_protocol(Transport::Local);
-
-    let (pinger, pif) =
-        system.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
-    let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    system.start(&ponger);
     system.start(&forwarder);
-    system.start(&pinger);
 
-    // TODO no sleeps!
-    thread::sleep(Duration::from_millis(1000));
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &system,
+        BigPingerAct::new_lazy(forwarder_path, ARBITRARY_DATA_SIZE),
+    );
 
-    let pingf = system.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
-    let forwf = system.kill_notify(forwarder);
-    let pongf = system.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never stopped!");
-    forwf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Forwarder never stopped!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+    system
+        .kill_notify(forwarder)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Forwarder never died!");
+    system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+
     pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -868,41 +1033,36 @@ fn local_forwarding() {
 fn local_forwarding_eager() {
     let system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system.create_and_register(BigPongerAct::new_lazy);
-    // Construct ActorPath with system's `proto` field explicitly set to LOCAL
-    let mut ponger_path =
-        pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, mut ponger_path) = start_big_ponger(&system, BigPongerAct::new_lazy());
     ponger_path.set_protocol(Transport::Local);
 
     let (forwarder, fof) = system.create_and_register(move || ForwarderAct::new(ponger_path));
-    let mut forwarder_path =
-        fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+    let mut forwarder_path = fof.wait_expect(REGISTRATION_TIMEOUT, "Forwarder failed to register!");
     forwarder_path.set_protocol(Transport::Local);
-
-    let (pinger, pif) = system.create_and_register(move || {
-        BigPingerAct::new_eager(forwarder_path, 512, BufferConfig::default())
-    });
-    let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    system.start(&ponger);
     system.start(&forwarder);
-    system.start(&pinger);
 
-    // TODO no sleeps!
-    thread::sleep(Duration::from_millis(1000));
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &system,
+        BigPingerAct::new_eager(forwarder_path, ARBITRARY_DATA_SIZE, BufferConfig::default()),
+    );
 
-    let pingf = system.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
-    let forwf = system.kill_notify(forwarder);
-    let pongf = system.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never stopped!");
-    forwf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Forwarder never stopped!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+    system
+        .kill_notify(forwarder)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Forwarder never died!");
+    system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+
     pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
@@ -914,156 +1074,155 @@ fn local_forwarding_eager() {
 
 #[test]
 fn remote_forwarding_unique() {
-    let system1 = system_from_network_config(NetworkConfig::default());
-    let system2 = system_from_network_config(NetworkConfig::default());
-    let system3 = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
+    let forwarder_system = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system1.create_and_register(BigPongerAct::new_lazy);
-    let ponger_path = pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, ponger_path) = start_big_ponger(&ponger_system, BigPongerAct::new_lazy());
 
-    let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
-    let forwarder_path =
-        fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+    let (forwarder, fof) =
+        forwarder_system.create_and_register(move || ForwarderAct::new(ponger_path));
+    let forwarder_path = fof.wait_expect(REGISTRATION_TIMEOUT, "Forwarder failed to register!");
+    forwarder_system.start(&forwarder);
 
-    let (pinger, pif) =
-        system3.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
-    let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_lazy(forwarder_path, ARBITRARY_DATA_SIZE),
+    );
 
-    system1.start(&ponger);
-    system2.start(&forwarder);
-    system3.start(&pinger);
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    // TODO no sleeps!
-    thread::sleep(Duration::from_millis(1000));
-
-    let pingf = system3.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
-    let forwf = system2.kill_notify(forwarder);
-    let pongf = system1.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never died!");
-    forwf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Forwarder never died!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+    forwarder_system
+        .kill_notify(forwarder)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Forwarder never died!");
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
 
     pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system1
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system2
+    forwarder_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system3
+    pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
 fn remote_forwarding_unique_two_systems() {
-    let system1 = system_from_network_config(NetworkConfig::default());
-    let system2 = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, pof) = system1.create_and_register(BigPongerAct::new_lazy);
-    let ponger_path = pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, ponger_path) = start_big_ponger(&ponger_system, BigPongerAct::new_lazy());
 
-    let (forwarder, fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
-    let forwarder_path =
-        fof.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+    let (forwarder, fof) =
+        pinger_system.create_and_register(move || ForwarderAct::new(ponger_path));
+    let forwarder_path = fof.wait_expect(REGISTRATION_TIMEOUT, "Forwarder failed to register!");
+    pinger_system.start(&forwarder);
 
-    let (pinger, pif) =
-        system1.create_and_register(move || BigPingerAct::new_lazy(forwarder_path, 512));
-    let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_lazy(forwarder_path, ARBITRARY_DATA_SIZE),
+    );
 
-    system1.start(&ponger);
-    system2.start(&forwarder);
-    system1.start(&pinger);
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    // TODO no sleeps!
-    thread::sleep(Duration::from_millis(1000));
-
-    let pingf = system1.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
-    let forwf = system2.kill_notify(forwarder);
-    let pongf = system1.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never died!");
-    forwf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Forwarder never died!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+    pinger_system
+        .kill_notify(forwarder)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Forwarder never died!");
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
 
     pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system1
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system2
+    pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
 
 #[test]
 fn remote_forwarding_named() {
-    let system1 = system_from_network_config(NetworkConfig::default());
-    let system2 = system_from_network_config(NetworkConfig::default());
-    let system3 = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
+    let forwarder_system = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
 
-    let (ponger, _pof) = system1.create_and_register(BigPongerAct::new_lazy);
-    let pnf = system1.register_by_alias(&ponger, "ponger");
-    let ponger_path = pnf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    let (ponger, _) = start_big_ponger(&ponger_system, BigPongerAct::new_lazy());
 
-    let (forwarder, _fof) = system2.create_and_register(move || ForwarderAct::new(ponger_path));
-    let fnf = system2.register_by_alias(&forwarder, "forwarder");
-    let forwarder_path =
-        fnf.wait_expect(Duration::from_millis(1000), "Forwarder failed to register!");
+    let ponger_path = ponger_system
+        .register_by_alias(&ponger, "ponger")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
+
+    let (forwarder, _fof) =
+        forwarder_system.create_and_register(move || ForwarderAct::new(ponger_path));
+    let forwarder_path = forwarder_system
+        .register_by_alias(&forwarder, "forwarder")
+        .wait_expect(REGISTRATION_TIMEOUT, "Forwarder failed to register!");
+    forwarder_system.start(&forwarder);
 
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(256);
-    let (pinger, pif) =
-        system3.create_and_register(move || BigPingerAct::new_eager(forwarder_path, 512, buf_cfg));
-    let _pinger_path = pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
+    // Use bigger than buffer chunk messages to make it a more difficult test scenario
+    let (pinger, all_pongs_received_future) = start_big_pinger(
+        &pinger_system,
+        BigPingerAct::new_lazy(forwarder_path, SMALL_CHUNK_SIZE * 2),
+    );
 
-    system1.start(&ponger);
-    system2.start(&forwarder);
-    system3.start(&pinger);
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    // TODO no sleeps!
-    thread::sleep(Duration::from_millis(1000));
-
-    let pingf = system3.kill_notify(pinger.clone()); // hold on to this ref so we can check count later
-    let forwf = system2.kill_notify(forwarder);
-    let pongf = system1.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never died!");
-    forwf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Forwarder never died!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
+    forwarder_system
+        .kill_notify(forwarder)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Forwarder never died!");
+    pinger_system
+        .stop_notify(&pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
 
     pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
 
-    system1
+    ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system2
+    forwarder_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
-    system3
+    pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
@@ -1071,301 +1230,184 @@ fn remote_forwarding_named() {
 #[test]
 fn network_status_port_established_lost_dropped_connection() {
     let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(6);
-    net_cfg.set_connection_retry_interval(1000);
-    let local_system = system_from_network_config(net_cfg.clone());
-    let remote_system = system_from_network_config(net_cfg);
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+    let pinger_system = system_from_network_config(net_cfg.clone());
+    let ponger_system = system_from_network_config(net_cfg);
 
     // Create a status_counter which will listen to the status port and count messages received
-    let (status_counter, _scf) = local_system.create_and_register(NetworkStatusCounter::new);
-    status_counter.on_definition(|c| {
-        local_system.connect_network_status_port(&mut c.network_status_port);
-    });
-    local_system.start(&status_counter);
+    let (status_counter, status_receiver) = start_status_counter(&pinger_system);
 
     // Create a pinger ponger pair such that the Network will be used.
-    let (ponger, _pof) = local_system.create_and_register(PongerAct::new_lazy);
-    let ponger_path = local_system
-        .register_by_alias(&ponger, "ponger")
-        .wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    local_system.start(&ponger);
-    let (pinger, _pif) =
-        remote_system.create_and_register(move || PingerAct::new_lazy(ponger_path));
-    let pinger_path = remote_system
-        .register_by_alias(&ponger, "ponger")
-        .wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    remote_system.start(&pinger);
-    // The systems establish a connection and the pings/pongs are sent
-    thread::sleep(Duration::from_millis(5000));
+    let (_, ponger_path) = start_ponger(&ponger_system, PongerAct::new_lazy());
+    let (_, pinger_done_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path.clone()));
 
-    // Inspect live sockets
-    // thread::sleep(Duration::from_millis(2 * 60 * 1000)); // "2MSL" to drop the socket
+    let _ = start_ping_stream(&pinger_system, &ponger_path);
+
+    pinger_done_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Pinger should complete");
 
     // Shutdown the remote system and wait for the connection to be lost and dropped by local_system
-    let _ = remote_system.kill_system();
-    thread::sleep(Duration::from_millis(2500));
+    let _ = ponger_system.kill_system();
 
-    let pinger_path_clone = pinger_path.clone();
-    // Make sure the local_system discovers the lost connection
-    let (failing_pinger, _pif) =
-        local_system.create_and_register(move || PingerAct::new_lazy(pinger_path_clone));
-    local_system.start(&failing_pinger);
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
-    // Make sure the local_system discovers the lost connection on Linux....
-    let (failing_pinger2, _pif) =
-        local_system.create_and_register(move || PingerAct::new_lazy(pinger_path));
-    local_system.start(&failing_pinger2);
+    status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
 
-    // Wait for connection to be dropped
-    thread::sleep(Duration::from_millis(12000));
+    status_receiver.expect_connection_dropped(DROP_CONNECTION_TIMEOUT);
 
     status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 1, "Connection established count");
         assert_eq!(sc.connection_lost, 1, "Connection lost count");
         assert_eq!(sc.connection_dropped, 1, "Connection dropped count");
     });
+
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
 }
 
 #[test]
 fn network_status_port_close_connection_closed_connection() {
-    let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(2);
-    net_cfg.set_connection_retry_interval(1000);
-    let local_system = system_from_network_config(net_cfg.clone());
-    let remote_system = system_from_network_config(net_cfg);
+    let ponger_system = system_from_network_config(NetworkConfig::default());
+    let pinger_system = system_from_network_config(NetworkConfig::default());
 
     // Create a status_counter which will listen to the status port and count messages received
-    let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_status_counter.on_definition(|c| {
-        local_system.connect_network_status_port(&mut c.network_status_port);
-    });
-    local_system.start(&local_status_counter);
-
-    let (remote_status_counter, _rscf) =
-        remote_system.create_and_register(NetworkStatusCounter::new);
-    remote_status_counter.on_definition(|c| {
-        remote_system.connect_network_status_port(&mut c.network_status_port);
-    });
-    remote_system.start(&remote_status_counter);
+    let (ponger_system_status_counter, ponger_status_receiver) =
+        start_status_counter(&ponger_system);
+    let (pinger_system_status_counter, pinger_status_receiver) =
+        start_status_counter(&pinger_system);
 
     // Create a pinger ponger pair such that the Network will be used.
-    let (ponger, _pof) = local_system.create_and_register(PongerAct::new_lazy);
-    let pnf = local_system.register_by_alias(&ponger, "ponger");
-    local_system.start(&ponger);
-    let ponger_path = pnf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let local_system_path = ponger_path.system().clone();
-    let (pinger, _pif) =
-        remote_system.create_and_register(move || PingerAct::new_lazy(ponger_path));
-    remote_system.start(&pinger);
-    // The systems establish a connection and the pings/pongs are sent
-    thread::sleep(Duration::from_millis(3000));
+    let (_, ponger_path) = start_ponger(&ponger_system, PongerAct::new_lazy());
+    let (_, all_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path));
+    let ponger_system_path = ponger_system.system_path();
 
-    remote_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::DisconnectSystem(local_system_path));
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    pinger_system_status_counter.on_definition(|sc| {
+        sc.send_status_request(NetworkStatusRequest::DisconnectSystem(ponger_system_path));
     });
 
     // Wait for the channel to be closed
-    thread::sleep(Duration::from_millis(5000));
-    local_status_counter.on_definition(|sc| {
+    ponger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+
+    ponger_status_receiver.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+    pinger_status_receiver.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+
+    ponger_system_status_counter.on_definition(|sc| {
+        assert_eq!(sc.connection_closed, 1);
+    });
+    pinger_system_status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_closed, 1);
     });
 
-    remote_status_counter.on_definition(|sc| {
-        assert_eq!(sc.connection_closed, 1);
-    });
+    ponger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
 }
-
-/*
-#[test]
-fn network_status_port_connected_and_disconnected_requests() {
-    let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(2);
-    net_cfg.set_connection_retry_interval(1000);
-    let ponger_system = system_from_network_config(net_cfg.clone());
-    let connection_system = system_from_network_config(net_cfg.clone());
-    let disconnection_system = system_from_network_config(net_cfg);
-
-    // Create a status_counter which will listen to the status port and count messages received
-    let (local_status_counter, _lscf) =
-        ponger_system.create_and_register(NetworkStatusCounter::new);
-    ponger_system.connect_network_status_port(&local_status_counter);
-    ponger_system.start(&local_status_counter);
-
-    let (connection_status_counter, _rscf) =
-        connection_system.create_and_register(NetworkStatusCounter::new);
-    connection_system.connect_network_status_port(&connection_status_counter);
-    connection_system.start(&connection_status_counter);
-
-    let (disconnection_status_counter, _rscf) =
-        disconnection_system.create_and_register(NetworkStatusCounter::new);
-    disconnection_system.connect_network_status_port(&disconnection_status_counter);
-    disconnection_system.start(&disconnection_status_counter);
-
-    // Create a ponger and two pingers pair such that the Network will be used.
-    let (ponger, _pof) = ponger_system.create_and_register(PongerAct::new_lazy);
-    let ponger_path = ponger_system
-        .register_by_alias(&ponger, "ponger")
-        .wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    ponger_system.start(&ponger);
-    let ponger_path_clone = ponger_path.clone();
-    let ponger_path_clone2 = ponger_path.clone();
-    let ponger_system_path = ponger_path.system().clone();
-
-    let (pinger, _pif) =
-        connection_system.create_and_register(move || PingerAct::new_lazy(ponger_path_clone));
-    let pinger_path = connection_system
-        .register_by_alias(&pinger, "pinger")
-        .wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    connection_system.start(&pinger);
-    let connection_system_path = pinger_path.system().clone();
-
-    let (pinger2, _pif) =
-        disconnection_system.create_and_register(move || PingerAct::new_lazy(ponger_path_clone2));
-    let pinger2_path = disconnection_system
-        .register_by_alias(&pinger2, "pinger")
-        .wait_expect(Duration::from_millis(1000), "Pinger2 failed to register!");
-    disconnection_system.start(&pinger2);
-    let disconnection_system_path = pinger2_path.system().clone();
-
-    // The systems establish a connection and the pings/pongs are sent, then close one channel
-    thread::sleep(Duration::from_millis(3000));
-    local_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::DisconnectSystem(
-            disconnection_system_path.clone(),
-        ));
-    });
-    thread::sleep(Duration::from_millis(3000));
-
-    // Send the status requests
-    connection_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::DisconnectedSystems);
-        sc.send_status_request(NetworkStatusRequest::ConnectedSystems);
-    });
-    disconnection_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::ConnectedSystems);
-        sc.send_status_request(NetworkStatusRequest::DisconnectedSystems);
-    });
-    local_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::DisconnectedSystems);
-        sc.send_status_request(NetworkStatusRequest::ConnectedSystems);
-    });
-
-    // Wait for the messages then assert
-    thread::sleep(Duration::from_millis(3000));
-    local_status_counter.on_definition(|sc| {
-        assert_eq!(sc.connected_systems[0], connection_system_path);
-        assert_eq!(sc.disconnected_systems[0], disconnection_system_path);
-    });
-    disconnection_status_counter.on_definition(|sc| {
-        assert_eq!(sc.disconnected_systems[0], ponger_system_path);
-        assert!(sc.connected_systems.is_empty());
-    });
-    connection_status_counter.on_definition(|sc| {
-        assert_eq!(sc.connected_systems[0], ponger_system_path);
-        assert!(sc.disconnected_systems.is_empty());
-    });
-}
- */
 
 #[test]
 fn network_status_port_open_close_open() {
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_max_connection_retry_attempts(2);
     net_cfg.set_connection_retry_interval(1000);
-    let local_system = system_from_network_config(net_cfg.clone());
-    let remote_system = system_from_network_config(net_cfg);
+    let initiator_system = system_from_network_config(net_cfg.clone());
+    let receiver_system = system_from_network_config(net_cfg);
 
-    let system_path = remote_system.system_path();
+    let system_path = receiver_system.system_path();
     // Create a status_counter which will listen to the status port and count messages received
-    let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_status_counter.on_definition(|c| {
-        local_system.connect_network_status_port(&mut c.network_status_port);
-    });
-    local_system.start(&local_status_counter);
+    let (status_counter, status_receiver) = start_status_counter(&initiator_system);
 
-    local_status_counter.on_definition(|sc| {
+    status_counter.on_definition(|sc| {
         sc.send_status_request(NetworkStatusRequest::ConnectSystem(system_path.clone()));
     });
-    thread::sleep(Duration::from_millis(3000));
-    local_status_counter.on_definition(|sc| {
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+
+    status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 1);
         assert_eq!(sc.connection_closed, 0);
         sc.send_status_request(NetworkStatusRequest::DisconnectSystem(system_path.clone()));
     });
-    thread::sleep(Duration::from_millis(3000));
-    local_status_counter.on_definition(|sc| {
+    status_receiver.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+    status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 1);
         assert_eq!(sc.connection_closed, 1);
         sc.send_status_request(NetworkStatusRequest::ConnectSystem(system_path.clone()));
     });
-    thread::sleep(Duration::from_millis(3000));
-    local_status_counter.on_definition(|sc| {
+    status_receiver.expect_connection_established(DROP_CONNECTION_TIMEOUT);
+    status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 2);
         assert_eq!(sc.connection_closed, 1);
     });
-    let _ = local_system.shutdown();
-    let _ = remote_system.shutdown();
+
+    initiator_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    receiver_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
 }
 
 #[test]
 fn network_status_port_block_unblock_system() {
-    let ping_period = Duration::from_millis(100);
-    let delay = Duration::from_millis(1500);
-
     let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(2);
-    net_cfg.set_connection_retry_interval(1000);
-    let local_system = system_from_network_config(net_cfg.clone());
-    let remote_system = system_from_network_config(net_cfg);
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
     // Create a status_counter which will listen to the status port and count messages received
-    let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_status_counter.on_definition(|c| {
-        local_system.connect_network_status_port(&mut c.network_status_port);
-    });
+    let (status_counter, ponger_status_receiver) = start_status_counter(&ponger_system);
+    let (_, pinger_status_receiver) = start_status_counter(&pinger_system);
 
-    let (ponger, pof) = local_system.create_and_register(PongerAct::new_eager);
-    let ponger_path = local_system.actor_path_for(&ponger);
-    let (pinger, pif) = remote_system
-        .create_and_register(move || PingStream::new(ponger_path.clone(), ping_period));
-    let pinger_path = remote_system.actor_path_for(&pinger);
+    let (ponger, ponger_path) = start_ponger(&ponger_system, PongerAct::new_lazy());
 
-    pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+    let pinger = start_ping_stream(&pinger_system, &ponger_path);
 
-    local_system.start(&local_status_counter);
-    local_system.start(&ponger);
-    remote_system.start(&pinger);
+    ponger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
-    thread::sleep(delay); // ping-pong for a while...
-
-    pinger.on_definition(|pinger| {
-        pinger.stop_pinging();
-    });
-
-    thread::sleep(delay);
-
-    let before_block_count = ponger.on_definition(|ponger| ponger.count);
-    let pinger_sys_path = pinger_path.system().clone();
-    local_status_counter.on_definition(|sc| {
+    let pinger_sys_path = pinger_system.system_path();
+    status_counter.on_definition(|sc| {
         sc.send_status_request(NetworkStatusRequest::BlockSystem(pinger_sys_path.clone()));
     });
 
-    thread::sleep(delay);
+    ponger_status_receiver.expect_blocked_system(CONNECTION_STATUS_TIMEOUT);
+    pinger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
 
-    pinger.on_definition(|pinger| {
-        pinger.start_pinging(); // try pinging after getting blocked
-    });
+    let before_block_count = ponger.on_definition(|ponger| ponger.count);
 
-    thread::sleep(delay);
+    // Give pings time to fail
+    thread::sleep(PING_INTERVAL * 3);
 
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
-    local_status_counter.on_definition(|sc| {
+
+    status_counter.on_definition(|sc| {
         assert!(sc.blocked_systems.contains(&pinger_sys_path));
         sc.send_status_request(NetworkStatusRequest::UnblockSystem(pinger_sys_path.clone()));
     });
+    ponger_status_receiver.expect_unblocked_system(CONNECTION_STATUS_TIMEOUT);
 
-    thread::sleep(delay); // should receive pings again after unblocking
+    ponger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+
+    let (_, all_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_path));
+
+    all_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
     ponger.on_definition(|ponger| {
         assert!(
@@ -1375,103 +1417,77 @@ fn network_status_port_block_unblock_system() {
             ponger.count
         );
     });
-    local_status_counter
+    status_counter
         .on_definition(|sc| assert_eq!(sc.blocked_systems.contains(&pinger_sys_path), false));
 
-    let pingf = remote_system.kill_notify(pinger);
-    let pongf = local_system.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
+    pinger_system
+        .kill_notify(pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
+
+    ponger_system
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
 
-    let _ = local_system.shutdown();
-    let _ = remote_system.shutdown();
+    let _ = ponger_system.shutdown();
+    let _ = pinger_system.shutdown();
 }
 
 #[test]
 fn network_status_port_block_unblock_ip() {
-    let ping_period = Duration::from_millis(100);
-    let delay = Duration::from_millis(1500);
-
     let mut net_cfg = NetworkConfig::default();
-    net_cfg.set_max_connection_retry_attempts(2);
-    net_cfg.set_connection_retry_interval(1000);
-    let local_system = system_from_network_config(net_cfg.clone());
-    let remote_system = system_from_network_config(net_cfg);
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg);
 
     // Create a status_counter which will listen to the status port and count messages received
-    let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
-    local_status_counter.on_definition(|c| {
-        local_system.connect_network_status_port(&mut c.network_status_port);
+    let (status_counter, status_receiver) = start_status_counter(&ponger_system);
+
+    let (ponger, ponger_path) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let _ = start_ping_stream(&pinger_system, &ponger_path);
+    let pinger_ip = *pinger_system.system_path().address();
+
+    let (_, all_pongs_received_future_1) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path.clone()));
+    all_pongs_received_future_1
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    status_counter.on_definition(|sc| {
+        sc.send_status_request(NetworkStatusRequest::BlockIp(pinger_ip));
     });
 
-    let (ponger, pof) = local_system.create_and_register(PongerAct::new_eager);
-    let ponger_path = local_system.actor_path_for(&ponger);
-    let (pinger, pif) = remote_system
-        .create_and_register(move || PingStream::new(ponger_path.clone(), ping_period));
-    let pinger_path = remote_system.actor_path_for(&pinger);
-
-    pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    local_system.start(&local_status_counter);
-    local_system.start(&ponger);
-    remote_system.start(&pinger);
-
-    thread::sleep(delay); // ping-pong for a while...
-
-    pinger.on_definition(|pinger| {
-        pinger.stop_pinging();
-    });
-
-    thread::sleep(delay);
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver.expect_blocked_ip(CONNECTION_STATUS_TIMEOUT);
 
     let before_block_count = ponger.on_definition(|ponger| ponger.count);
-    let pinger_ip = pinger_path.address();
-    local_status_counter.on_definition(|sc| {
-        sc.send_status_request(NetworkStatusRequest::BlockIp(*pinger_ip));
-    });
-
-    thread::sleep(delay);
-
-    pinger.on_definition(|pinger| {
-        pinger.start_pinging(); // try pinging after getting blocked
-    });
-
-    thread::sleep(delay);
+    let (_, all_pongs_received_future_2) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path.clone()));
+    all_pongs_received_future_2
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect_err("Expecting time out waiting for ping pong to complete");
 
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
-    local_status_counter.on_definition(|sc| {
-        assert!(sc.blocked_ip.contains(pinger_ip));
-        sc.send_status_request(NetworkStatusRequest::UnblockIp(*pinger_ip));
+    status_counter.on_definition(|sc| {
+        assert!(sc.blocked_ip.contains(&pinger_ip));
+        sc.send_status_request(NetworkStatusRequest::UnblockIp(pinger_ip));
     });
 
-    thread::sleep(delay); // should receive pings again after unblocking
+    status_receiver.expect_unblocked_ip(CONNECTION_STATUS_TIMEOUT);
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
-    ponger.on_definition(|ponger| {
-        assert!(
-            before_block_count < ponger.count,
-            "Should have received more pings after unblocking: before; {}, after: {}",
-            before_block_count,
-            ponger.count
-        );
-    });
-    local_status_counter.on_definition(|sc| assert_eq!(sc.blocked_ip.contains(pinger_ip), false));
+    let (_, all_pongs_received_future_3) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path));
+    all_pongs_received_future_3
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
 
-    let pingf = remote_system.kill_notify(pinger);
-    let pongf = local_system.kill_notify(ponger);
-    pingf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never stopped!");
-    pongf
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Ponger never died!");
+    status_counter.on_definition(|sc| assert_eq!(sc.blocked_ip.contains(&pinger_ip), false));
 
-    let _ = local_system.shutdown();
-    let _ = remote_system.shutdown();
+    let _ = ponger_system.shutdown();
+    let _ = pinger_system.shutdown();
 }
 
 #[test]
@@ -1482,95 +1498,71 @@ fn network_status_port_block_unblock_ip() {
 // A new batch up small-pings are then sent and replied to.
 fn remote_delivery_overflow_network_thread_buffers() {
     let mut buf_cfg = BufferConfig::default();
-    buf_cfg.chunk_size(1280);
-    buf_cfg.max_chunk_count(10);
+    let chunk_size = 1000;
+    let chunk_count = 10;
+    buf_cfg.chunk_size(chunk_size);
+    buf_cfg.max_chunk_count(chunk_count);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_buffer_config(buf_cfg.clone());
     // We will attempt to establish a connection for 5 seconds before giving up.
     // This config is also used when giving up on running out of buffers.
     // The big_pinger_system will occupy all buffers on the ponger_system for 5 seconds
     // And then it will be freed.
-    net_cfg.set_connection_retry_interval(1000);
-    net_cfg.set_max_connection_retry_attempts(10);
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+
     let big_pinger_system = system_from_network_config(net_cfg.clone());
     let ponger_system = system_from_network_config(net_cfg.clone());
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS * 3);
     let small_pinger_system = system_from_network_config(net_cfg);
-
     // Create the BigPonger on the Ponger system
-    let (ponger_named, ponf) =
-        ponger_system.create_and_register(|| BigPongerAct::new_eager(buf_cfg.clone()));
-    let _ = ponf.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let ponger_named_path = ponger_system
-        .register_by_alias(&ponger_named, "custom_name")
-        .wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
-    let ponger_named_path1 = ponger_named_path.clone();
-    let ponger_named_path2 = ponger_named_path.clone();
+    let (ponger, ponger_path) = start_big_ponger(&ponger_system, BigPongerAct::new_eager(buf_cfg));
 
-    // Create the three pingers
-    let (big_pinger_named, pinf) = big_pinger_system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path, 15000, BufferConfig::default())
-    });
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    let (small_pinger1_named, pinf) = small_pinger_system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path1, 10, BufferConfig::default())
-    });
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-    let (small_pinger2_named, pinf) = small_pinger_system.create_and_register(move || {
-        BigPingerAct::new_preserialised(ponger_named_path2, 10, BufferConfig::default())
-    });
-    pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
-
-    // Ponger_system will be blocked blocked for about 10 Seconds from this point.
-    ponger_system.start(&ponger_named);
-    big_pinger_system.start(&big_pinger_named);
-
-    // Wait for the buffers to run out
-    thread::sleep(Duration::from_millis(4000));
-
-    // remote system should be unable to receive any messages as the BigPing is occupying all buffers
-    small_pinger_system.start(&small_pinger1_named);
-    thread::sleep(Duration::from_millis(4000));
-    // Assert that it failed to ping-pong.
-    small_pinger1_named.on_definition(|c| {
-        assert_eq!(c.count, 0);
-    });
-
-    // Shutdown big_pinger_system to make sure it won't continue blocking.
-    // Assert that the big_pinger never got anything as a sanity check.
+    // Create the BIG pinger and expect it to fail
+    let (big_pinger, all_big_pongs_received_future) = start_big_pinger(
+        &big_pinger_system,
+        BigPingerAct::new_preserialised(
+            ponger_path.clone(),
+            chunk_size * chunk_count,
+            BufferConfig::default(),
+        ),
+    );
+    all_big_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect_err("Expecting time out waiting for ping pong to complete");
+    let (small_pinger, all_small_pongs_received_future) = start_big_pinger(
+        &small_pinger_system,
+        BigPingerAct::new_preserialised(ponger_path, chunk_size / 100, BufferConfig::default()),
+    );
     big_pinger_system
-        .stop_notify(&big_pinger_named)
-        .wait_timeout(Duration::from_millis(1000))
+        .stop_notify(&big_pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    big_pinger_named.on_definition(|c| {
+    big_pinger.on_definition(|c| {
         assert_eq!(c.count, 0);
     });
     big_pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
 
-    thread::sleep(Duration::from_millis(4000));
+    // ponger system should become unblocked and the ping pong should complete
+    all_small_pongs_received_future
+        .wait_timeout((DROP_CONNECTION_TIMEOUT * 3) + PINGPONG_TIMEOUT)
+        .expect("Should Complete");
 
-    // Start the second Pinger.
     small_pinger_system
-        .start_notify(&small_pinger2_named)
-        .wait_timeout(Duration::from_millis(1000))
+        .stop_notify(&small_pinger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Pinger never stopped!");
-    // Wait a long time to make sure that all time-outs occur and the sends are succesfull.
-    thread::sleep(Duration::from_millis(12000));
-    small_pinger_system
-        .stop_notify(&small_pinger1_named)
-        .wait_timeout(Duration::from_millis(1000))
-        .expect("Pinger never stopped!");
-
-    // Shut down the ponger
     ponger_system
-        .kill_notify(ponger_named)
-        .wait_timeout(Duration::from_millis(1000))
+        .kill_notify(ponger)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
 
-    small_pinger2_named.on_definition(|c| {
+    small_pinger.on_definition(|c| {
         assert_eq!(c.count, PING_COUNT);
     });
+
     ponger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");

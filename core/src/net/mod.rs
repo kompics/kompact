@@ -459,7 +459,9 @@ pub(crate) fn out_of_buffers(err: &SerError) -> bool {
 /// A module with helper functions for testing network configurations/implementations
 pub mod net_test_helpers {
     use crate::prelude::*;
+    use crossbeam_channel::Sender;
     use std::{
+        cmp::Ordering,
         collections::VecDeque,
         fmt::{Debug, Formatter},
         net::IpAddr,
@@ -623,6 +625,7 @@ pub mod net_test_helpers {
         /// The number of `PongMsg` received
         pub count: u64,
         eager: bool,
+        promise: Option<KPromise<()>>,
     }
 
     impl PingerAct {
@@ -634,6 +637,7 @@ pub mod net_test_helpers {
                 target,
                 count: 0,
                 eager: false,
+                promise: None,
             }
         }
 
@@ -645,7 +649,16 @@ pub mod net_test_helpers {
                 target,
                 count: 0,
                 eager: true,
+                promise: None,
             }
+        }
+
+        /// Creates a future which will be completed by the Pinger when it has received pongs for
+        /// all the pings it sent
+        pub fn completion_future(&mut self) -> KFuture<()> {
+            let (promise, future) = promise();
+            self.promise = Some(promise);
+            future
         }
     }
 
@@ -675,14 +688,23 @@ pub mod net_test_helpers {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.count += 1;
-                    if self.count < PING_COUNT {
-                        if self.eager {
+                    match self.count.cmp(&PING_COUNT) {
+                        Ordering::Less if self.eager => {
                             self.target
                                 .tell_serialised(PingMsg { i: pong.i + 1 }, self)
                                 .expect("serialise");
-                        } else {
+                        }
+                        Ordering::Less => {
                             self.target.tell(PingMsg { i: pong.i + 1 }, self);
                         }
+                        Ordering::Equal if self.promise.is_some() => {
+                            self.promise
+                                .take()
+                                .unwrap()
+                                .complete()
+                                .expect("Failed to fulfil promise");
+                        }
+                        _ => (), // ignore
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
@@ -1015,6 +1037,7 @@ pub mod net_test_helpers {
         eager: bool,
         buffer_config: BufferConfig,
         pre_serialised: Option<VecDeque<ChunkRef>>,
+        promise: Option<KPromise<()>>,
     }
 
     #[allow(dead_code)]
@@ -1033,6 +1056,7 @@ pub mod net_test_helpers {
                 eager: false,
                 buffer_config: BufferConfig::default(),
                 pre_serialised: None,
+                promise: None,
             }
         }
 
@@ -1051,6 +1075,7 @@ pub mod net_test_helpers {
                 eager: true,
                 buffer_config,
                 pre_serialised: None,
+                promise: None,
             }
         }
 
@@ -1070,7 +1095,16 @@ pub mod net_test_helpers {
                 eager: true,
                 buffer_config,
                 pre_serialised: Some(pre_serialised),
+                promise: None,
             }
+        }
+
+        /// Creates a future which will be completed by the Pinger when it has received pongs for
+        /// all the pings it sent
+        pub fn completion_future(&mut self) -> KFuture<()> {
+            let (promise, future) = promise();
+            self.promise = Some(promise);
+            future
         }
     }
 
@@ -1137,6 +1171,8 @@ pub mod net_test_helpers {
                             let ping = BigPingMsg::new(pong.i + 1, self.data_size);
                             self.target.tell(ping, self);
                         }
+                    } else if let Some(promise) = self.promise.take() {
+                        promise.complete().expect("Failed to fulfil promise");
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising BigPongMsg: {:?}", e),
@@ -1245,6 +1281,8 @@ pub mod net_test_helpers {
         pub max_channels_reached: u32,
         /// Counts the number of network_out_of_buffers messages received
         pub network_out_of_buffers: u32,
+        network_status_queue_sender: Option<Sender<NetworkStatus>>,
+        started_promise: Option<KPromise<()>>,
     }
 
     impl NetworkStatusCounter {
@@ -1263,7 +1301,14 @@ pub mod net_test_helpers {
                 blocked_ip: Vec::new(),
                 max_channels_reached: 0,
                 network_out_of_buffers: 0,
+                network_status_queue_sender: None,
+                started_promise: None,
             }
+        }
+
+        /// Sets a sender which the NetworkStatusCounter will foward all the NetworkStatus events to
+        pub fn set_status_sender(&mut self, sender: Sender<NetworkStatus>) {
+            self.network_status_queue_sender = Some(sender);
         }
 
         /// triggers the given `request` on the NetworkStatusPort
@@ -1271,10 +1316,20 @@ pub mod net_test_helpers {
             debug!(self.ctx.log(), "Sending Status Request. {:?}", request);
             self.network_status_port.trigger(request);
         }
+
+        /// Creates a future that will be fulfilled when the component starts
+        pub fn started_future(&mut self) -> KFuture<()> {
+            let (promise, future) = promise();
+            self.started_promise = Some(promise);
+            future
+        }
     }
 
     impl ComponentLifecycle for NetworkStatusCounter {
         fn on_start(&mut self) -> Handled {
+            if let Some(promise) = self.started_promise.take() {
+                promise.complete().expect("Failed to fulfil promise");
+            }
             Handled::Ok
         }
 
@@ -1305,7 +1360,11 @@ pub mod net_test_helpers {
                 self.ctx.log(),
                 "Got NetworkStatusPort indication. {:?}", event
             );
-
+            if let Some(sender) = &self.network_status_queue_sender {
+                sender
+                    .send(event.clone())
+                    .expect("StatusCounter to send NetworkStatus");
+            }
             match event {
                 NetworkStatus::ConnectionEstablished(_) => self.connection_established += 1,
                 NetworkStatus::ConnectionLost(_) => self.connection_lost += 1,

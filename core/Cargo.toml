@@ -39,8 +39,8 @@ implicit_routes		= []
 
 [dependencies]
 log 							= "0.4"
-kompact-component-derive 		= { version="0.10.0", path = "../macros/component-definition-derive/" }
-kompact-actor-derive 			= { version="0.10.0", path = "../macros/actor-derive/" }
+kompact-component-derive 		= { version="0.10.1", path = "../macros/component-definition-derive/" }
+kompact-actor-derive 			= { version="0.10.1", path = "../macros/actor-derive/" }
 crossbeam-channel 				= "0.4"
 crossbeam-queue 				= "0.2"
 crossbeam-utils 				= "0.7"
