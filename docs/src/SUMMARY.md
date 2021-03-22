@@ -27,6 +27,7 @@
 	- [Path Routing](distributed/pathrouting.md)
 	- [Serialisation](distributed/serialisation.md)
 	- [Configuring Buffers](distributed/networkbuffers.md)
+	- [Network Status Port](distributed/networkstatusport.md)
 - [Async/Await Interaction](async/index.md)
 
 [Project Info](project.md)
