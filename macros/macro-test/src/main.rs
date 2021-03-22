@@ -131,10 +131,9 @@ impl<A: MessageBounds> Actor for GenericComp<A> {
 }
 
 fn main() {
-    let mut conf = KompactConfig::new();
-    {
-        conf.throughput(5);
-    }
+    use kompact::config_keys::system;
+    let mut conf = KompactConfig::default();
+    conf.set_config_value(&system::THROUGHPUT, 5);
     let system = conf.build().expect("KompactSystem");
     let pingerc = system.create(Pinger::new);
     let pinger_ppp: RequiredRef<PingPongPort> = pingerc.required_ref(); //pingerc.on_definition(|cd| cd.ppp.share());

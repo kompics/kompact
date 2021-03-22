@@ -227,7 +227,7 @@ pub fn main() {
 const BOOTSTRAP_PATH: &str = "bootstrap";
 
 pub fn run_server(socket: SocketAddr) -> KompactSystem {
-    let mut cfg = KompactConfig::new();
+    let mut cfg = KompactConfig::default();
     cfg.load_config_file("./application.conf");
     cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 
@@ -256,7 +256,7 @@ pub fn run_server(socket: SocketAddr) -> KompactSystem {
 
 // ANCHOR: client
 pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> KompactSystem {
-    let mut cfg = KompactConfig::new();
+    let mut cfg = KompactConfig::default();
     cfg.load_config_file("./application.conf");
     cfg.system_components(
         DeadletterBox::new,

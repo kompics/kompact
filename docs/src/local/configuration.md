@@ -6,6 +6,8 @@ Configuration options must be set on the `KompactConfig` instance before the sys
 
 Within each component the [Hocon](https://docs.rs/hocon/latest/hocon/enum.Hocon.html) configuration instance can be accessed via the context and individual keys via bracket notation, e.g. `self.ctx.config()["my-key"]`. The configuration can also be accessed outside a component via `KompactSystem::config()`.
 
+In addition to component configuration, many parts of Kompact's runtime can also be configured via this mechanism. The complete set of available configuration keys and their effects is described in the modules below [kompact::config_keys](https://docs.rs/kompact/latest/kompact/config_keys/index.html).
+
 ## Example
 
 We are going to reuse the `Buncher` from the [timers](timers.md) section and pass its two parameters, `batch_size` and `timeout`, via configuration instead of the constructor.

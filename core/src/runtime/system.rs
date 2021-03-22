@@ -76,11 +76,13 @@ impl KompactSystem {
     }
 
     /// Use the [build](KompactConfig::build) method instead.
-    pub(crate) fn try_new(conf: KompactConfig) -> Result<Self, KompactError> {
+    pub(crate) fn try_new(mut conf: KompactConfig) -> Result<Self, KompactError> {
+        let config = Self::load_config(&conf)?;
+        conf.override_from_hocon(&config)?;
+
         let scheduler = (*conf.scheduler_builder)(conf.threads);
         let sc_builder = conf.sc_builder.clone();
 
-        let config = Self::load_config(&conf)?;
         let runtime = Arc::new(KompactRuntime::new(conf));
         let sys = KompactSystem {
             inner: runtime,

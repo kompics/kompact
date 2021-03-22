@@ -14,7 +14,7 @@ mod defaults {
 }
 
 pub mod config_keys {
-    // TODO use something like const_format crate to make this more modular
+    // TODO(Adam): Convert to the new config mechanism
     pub const ALGORITHM: &str = "kompact.dispatch.actor-lookup.gc.algorithm";
 }
 
@@ -68,7 +68,7 @@ impl ActorRefReaper {
     }
 
     pub fn from_config(conf: &hocon::Hocon) -> Self {
-        // TODO: Make all parameters configurable
+        // TODO(Adam): Make all parameters configurable
         let algorithm = match conf[config_keys::ALGORITHM].as_string().as_deref() {
             Some("AIMD") => FeedbackAlgorithm::Aimd,
             Some("MIMD") => FeedbackAlgorithm::Mimd,

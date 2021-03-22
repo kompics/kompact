@@ -81,7 +81,7 @@ impl Actor for SelfCaller {
 
 #[test]
 fn repeated_blocking_self_messages() {
-    let mut cfg = KompactConfig::new();
+    let mut cfg = KompactConfig::default();
     cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
     let system = cfg.build().expect("system");
     let comp = system.create(SelfCaller::new);

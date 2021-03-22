@@ -88,8 +88,9 @@ impl Actor for Counter {
 
 pub fn main() {
     // ANCHOR: system
+    use kompact::config_keys::system;
     let mut conf = KompactConfig::default();
-    conf.threads(1usize);
+    conf.set_config_value(&system::THREADS, 1usize);
     let system = conf.build().expect("system");
     // ANCHOR_END: system
     let counter = system.create(Counter::new);

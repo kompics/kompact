@@ -8,7 +8,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 
 We will first change just the pool size for the "counter"-example, since that is easily done. 
 
-The number of threads in Kompact's thread pool is configured with the `threads(usize)` function on a `KompactConfig` instance. We will simply pass in `1usize` there, before constructing our Kompact system.
+The number of threads in Kompact's thread pool is configured with the config value at [system::THREADS](https://docs.rs/kompact/latest/kompact/config_keys/system/constant.THREADS.html) using the `set_config_value` function on a `KompactConfig` instance. We will simply pass in `1usize` there, before constructing our Kompact system.
 
 That we change this line
 
@@ -21,6 +21,8 @@ to this:
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/counters_pool.rs:system}}
 ```
+
+The same effect could be achieved via a [configuration](configuration.md) file by setting `kompact.runtime.threads = 1`.
 
 If we run this, we will see exactly (modulo event timing) the same output as when running on the larger pool with Kompact's default settings.
 

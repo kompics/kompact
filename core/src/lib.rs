@@ -72,9 +72,6 @@
 #![cfg_attr(nightly, feature(async_closure))]
 #![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
-// TODO: Remove
-//#![feature(trace_macros)]
-
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{get_core_ids, CoreId};
 
@@ -106,6 +103,9 @@ use std::convert::{From, Into};
 mod actors;
 /// Traits and structs for component API and internals
 pub mod component;
+/// Utilities for working with Kompact configuration keys and values
+#[macro_use]
+pub mod config;
 mod dedicated_scheduler;
 /// Default implementations for system components
 pub mod default_components;
@@ -156,6 +156,11 @@ pub type KompactLogger = Logger<std::sync::Arc<Fuse<Async>>>;
 /// Useful Kompact constants are re-exported in this module
 pub mod constants {
     pub use crate::actors::{BROADCAST_MARKER, PATH_SEP, SELECT_MARKER, UNIQUE_PATH_SEP};
+}
+
+/// All Kompact configuration keys
+pub mod config_keys {
+    pub use crate::runtime::keys as system;
 }
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
@@ -526,7 +531,6 @@ mod tests {
 
     #[test]
     fn default_settings() {
-        //let pool = ThreadPool::new(2);
         let system = KompactConfig::default().build().expect("KompactSystem");
 
         test_with_system(system);
@@ -534,10 +538,24 @@ mod tests {
 
     #[test]
     fn custom_settings() {
-        //let pool = ThreadPool::new(2);
-        let mut settings = KompactConfig::new();
+        let mut settings = KompactConfig::default();
+        settings.set_config_value(
+            &crate::config_keys::system::LABEL,
+            "custom-system".to_string(),
+        );
+        settings.set_config_value(&crate::config_keys::system::THROUGHPUT, 10);
+        settings.set_config_value(&crate::config_keys::system::MESSAGE_PRIORITY, 0.1);
+        let system = settings.build().expect("KompactSystem");
+        assert_eq!(10, system.throughput());
+        assert_eq!(1, system.max_messages());
+        test_with_system(system);
+    }
+
+    #[test]
+    fn custom_executor() {
+        let mut settings = KompactConfig::default();
         settings
-            .threads(4)
+            .set_config_value(&crate::config_keys::system::THREADS, 2)
             .executor(executors::crossbeam_channel_pool::ThreadPool::new);
         let system = settings.build().expect("KompactSystem");
         test_with_system(system);
@@ -545,9 +563,8 @@ mod tests {
 
     #[test]
     fn custom_scheduler() {
-        //let pool = ThreadPool::new(2);
-        let mut settings = KompactConfig::new();
-        settings.threads(2).scheduler(move |t| {
+        let mut settings = KompactConfig::default();
+        settings.scheduler(move |t| {
             crate::runtime::ExecutorScheduler::from(
                 executors::crossbeam_channel_pool::ThreadPool::new(t),
             )
