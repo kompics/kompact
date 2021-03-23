@@ -22,12 +22,12 @@ use mio::{
     Poll,
     Token,
 };
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::{
     cell::{RefCell, RefMut},
     collections::VecDeque,
     io,
-    net::{Shutdown, SocketAddr},
+    net::{IpAddr, Shutdown, SocketAddr},
     ops::DerefMut,
     rc::Rc,
     sync::Arc,
@@ -150,6 +150,7 @@ impl NetworkThreadBuilder {
             retry_queue: VecDeque::new(),
             out_of_buffers: false,
             encode_buffer,
+            block_list: AdressSet::default(), // TODO: extend NetworkConfig to build NetworkThread with a blocklist
         }
     }
 }
@@ -173,6 +174,7 @@ pub struct NetworkThread {
     retry_queue: VecDeque<EventWithRetries>,
     out_of_buffers: bool,
     encode_buffer: EncodeBuffer,
+    block_list: AdressSet,
 }
 
 impl NetworkThread {
@@ -288,6 +290,11 @@ impl NetworkThread {
                 self.kill();
             }
             DispatchEvent::Connect(addr) => {
+                if self.block_list.contains_ip_addr(&addr.ip())
+                    || self.block_list.contains_socket_addr(&addr)
+                {
+                    return;
+                }
                 self.request_stream(addr);
             }
             DispatchEvent::ClosedAck(addr) => {
@@ -295,6 +302,18 @@ impl NetworkThread {
             }
             DispatchEvent::Close(addr) => {
                 self.close_connection(addr);
+            }
+            DispatchEvent::BlockSocket(addr) => {
+                self.block_socket_addr(addr, true);
+            }
+            DispatchEvent::BlockIpAddr(ip_addr) => {
+                self.block_ip_addr(ip_addr);
+            }
+            DispatchEvent::UnblockSocket(addr) => {
+                self.unblock_socket_addr(addr, true);
+            }
+            DispatchEvent::UnblockIpAddr(ip_addr) => {
+                self.unblock_ip_addr(ip_addr);
             }
         }
     }
@@ -539,8 +558,12 @@ impl NetworkThread {
     }
 
     fn handle_hello(&mut self, channel: &mut TcpChannel, hello: &Hello) {
-        self.reregister_channel_address(channel.address(), hello.addr);
-        channel.handle_hello(hello);
+        if self.block_list.contains_socket_addr(&hello.addr) {
+            self.drop_channel(channel);
+        } else {
+            self.reregister_channel_address(channel.address(), hello.addr);
+            channel.handle_hello(hello);
+        }
     }
 
     /// During channel initialization the threeway handshake to establish connections culminates with this function
@@ -552,6 +575,12 @@ impl NetworkThread {
     ///     The connection has already started, in which case this channel must be killed.
     ///     The connection has a known UUID but is not connected: Use the UUID as a tie breaker for which to kill and which to keep.
     fn handle_start(&mut self, event: &EventWithRetries, channel: &mut TcpChannel, start: &Start) {
+        if self.block_list.contains_ip_addr(&start.addr.ip())
+            || self.block_list.contains_socket_addr(&start.addr)
+        {
+            self.drop_channel(channel);
+            return;
+        }
         if let Some(other_channel_rc) = self.get_channel_by_address(&start.addr) {
             debug!(
                 self.log,
@@ -674,7 +703,9 @@ impl NetworkThread {
 
     fn receive_stream(&mut self) -> io::Result<()> {
         while let Ok((stream, address)) = self.tcp_listener.accept() {
-            if let Some(buffer) = self.get_buffer() {
+            if self.block_list.contains_ip_addr(&address.ip()) {
+                stream.shutdown(Shutdown::Both)?; // TODO: shutdown or just don't do anything?
+            } else if let Some(buffer) = self.get_buffer() {
                 trace!(self.log, "Accepting connection from {}", &address);
                 self.store_stream(stream, address, ChannelState::Initialising, buffer);
             } else {
@@ -792,6 +823,68 @@ impl NetworkThread {
             _ => data.into_serialised(&mut self.encode_buffer.get_buffer_encoder()?),
         }
     }
+
+    fn block_ip_addr(&mut self, ip_addr: IpAddr) {
+        if self.block_list.insert_ip_addr(ip_addr) {
+            debug!(self.log, "Blocking ip: {:?}", ip_addr);
+            let trigger_status_port = false; // don't trigger NetworkStatusPort per blocked socket, one event for ip_addr is enough
+            let block_sockets: Vec<SocketAddr> = self
+                .address_map
+                .keys()
+                .filter(|socket_addr| socket_addr.ip() == ip_addr)
+                .copied()
+                .collect();
+            for socket_addr in block_sockets {
+                self.block_socket_addr(socket_addr, trigger_status_port);
+            }
+        }
+        self.notify_network_event(NetworkEvent::BlockedIp(ip_addr));
+    }
+
+    fn block_socket_addr(&mut self, socket_addr: SocketAddr, trigger_status_port: bool) {
+        if self.block_list.insert_socket_addr(socket_addr) {
+            debug!(self.log, "Blocking socket: {:?}", socket_addr);
+            if let Some(channel_rc) = self.get_channel_by_address(&socket_addr) {
+                debug!(
+                    self.log,
+                    "Dropping channel to blocked socket: {:?}", socket_addr
+                );
+                let mut channel = channel_rc.borrow_mut();
+                self.drop_channel(&mut channel);
+            }
+        }
+        self.notify_network_event(NetworkEvent::BlockedSocket(
+            socket_addr,
+            trigger_status_port,
+        ));
+    }
+
+    fn unblock_ip_addr(&mut self, ip_addr: IpAddr) {
+        if self.block_list.remove_ip_addr(&ip_addr) {
+            debug!(self.log, "Unblocking ip: {:?}", ip_addr);
+            let trigger_status_port = false; // don't trigger NetworkStatusPort per unblocked socket, one event for ip_addr is enough
+            let unblock_sockets = self.block_list.get_sockets_with_ip(ip_addr);
+            for socket_addr in unblock_sockets {
+                self.unblock_socket_addr(socket_addr, trigger_status_port);
+            }
+        }
+        self.notify_network_event(NetworkEvent::UnblockedIp(ip_addr));
+    }
+
+    fn unblock_socket_addr(&mut self, socket_addr: SocketAddr, trigger_status_port: bool) {
+        if self.block_list.remove_socket_addr(&socket_addr) {
+            debug!(self.log, "Unblocking socket: {:?}", socket_addr);
+            self.notify_network_event(NetworkEvent::UnblockedSocket(
+                socket_addr,
+                trigger_status_port,
+            ));
+        }
+    }
+
+    fn notify_network_event(&self, event: NetworkEvent) {
+        self.dispatcher_ref
+            .tell(DispatchEnvelope::Event(EventEnvelope::Network(event)));
+    }
 }
 
 fn bind_with_retries(
@@ -852,6 +945,46 @@ impl EventWithRetries {
             writeable: self.writeable,
             retries: self.retries + 1,
         }
+    }
+}
+
+#[derive(Default)]
+pub struct AdressSet {
+    ip_addr: FxHashSet<IpAddr>,
+    socket_addr: FxHashSet<SocketAddr>,
+}
+
+impl AdressSet {
+    fn insert_ip_addr(&mut self, ip_addr: IpAddr) -> bool {
+        self.ip_addr.insert(ip_addr)
+    }
+
+    fn insert_socket_addr(&mut self, socket_addr: SocketAddr) -> bool {
+        self.socket_addr.insert(socket_addr)
+    }
+
+    fn contains_ip_addr(&self, ip_addr: &IpAddr) -> bool {
+        self.ip_addr.contains(ip_addr)
+    }
+
+    fn contains_socket_addr(&self, socket_addr: &SocketAddr) -> bool {
+        self.socket_addr.contains(socket_addr)
+    }
+
+    fn remove_ip_addr(&mut self, ip_addr: &IpAddr) -> bool {
+        self.ip_addr.remove(ip_addr)
+    }
+
+    fn remove_socket_addr(&mut self, socket_addr: &SocketAddr) -> bool {
+        self.socket_addr.remove(&socket_addr)
+    }
+
+    fn get_sockets_with_ip(&self, ip_addr: IpAddr) -> Vec<SocketAddr> {
+        self.socket_addr
+            .iter()
+            .filter(|socket_addr| socket_addr.ip() == ip_addr)
+            .copied()
+            .collect()
     }
 }
 

@@ -1308,6 +1308,173 @@ fn network_status_port_open_close_open() {
 }
 
 #[test]
+fn network_status_port_block_unblock_system() {
+    let ping_period = Duration::from_millis(100);
+    let delay = Duration::from_millis(1500);
+
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_max_connection_retry_attempts(2);
+    net_cfg.set_connection_retry_interval(1000);
+    let local_system = system_from_network_config(net_cfg.clone());
+    let remote_system = system_from_network_config(net_cfg);
+
+    // Create a status_counter which will listen to the status port and count messages received
+    let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
+    local_status_counter.on_definition(|c| {
+        local_system.connect_network_status_port(&mut c.network_status_port);
+    });
+
+    let (ponger, pof) = local_system.create_and_register(PongerAct::new_eager);
+    let ponger_path = local_system.actor_path_for(&ponger);
+    let (pinger, pif) = remote_system
+        .create_and_register(move || PingStream::new(ponger_path.clone(), ping_period));
+    let pinger_path = remote_system.actor_path_for(&pinger);
+
+    pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+    local_system.start(&local_status_counter);
+    local_system.start(&ponger);
+    remote_system.start(&pinger);
+
+    thread::sleep(delay); // ping-pong for a while...
+
+    pinger.on_definition(|pinger| {
+        pinger.stop_pinging();
+    });
+
+    thread::sleep(delay);
+
+    let before_block_count = ponger.on_definition(|ponger| ponger.count);
+    let pinger_sys_path = pinger_path.system().clone();
+    local_status_counter.on_definition(|sc| {
+        sc.send_status_request(NetworkStatusRequest::BlockSystem(pinger_sys_path.clone()));
+    });
+
+    thread::sleep(delay);
+
+    pinger.on_definition(|pinger| {
+        pinger.start_pinging(); // try pinging after getting blocked
+    });
+
+    thread::sleep(delay);
+
+    ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
+    local_status_counter.on_definition(|sc| {
+        assert!(sc.blocked_systems.contains(&pinger_sys_path));
+        sc.send_status_request(NetworkStatusRequest::UnblockSystem(pinger_sys_path.clone()));
+    });
+
+    thread::sleep(delay); // should receive pings again after unblocking
+
+    ponger.on_definition(|ponger| {
+        assert!(
+            before_block_count < ponger.count,
+            "Should have received more pings after unblocking: before; {}, after: {}",
+            before_block_count,
+            ponger.count
+        );
+    });
+    local_status_counter
+        .on_definition(|sc| assert_eq!(sc.blocked_systems.contains(&pinger_sys_path), false));
+
+    let pingf = remote_system.kill_notify(pinger);
+    let pongf = local_system.kill_notify(ponger);
+    pingf
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Pinger never stopped!");
+    pongf
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Ponger never died!");
+
+    let _ = local_system.shutdown();
+    let _ = remote_system.shutdown();
+}
+
+#[test]
+fn network_status_port_block_unblock_ip() {
+    let ping_period = Duration::from_millis(100);
+    let delay = Duration::from_millis(1500);
+
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_max_connection_retry_attempts(2);
+    net_cfg.set_connection_retry_interval(1000);
+    let local_system = system_from_network_config(net_cfg.clone());
+    let remote_system = system_from_network_config(net_cfg);
+
+    // Create a status_counter which will listen to the status port and count messages received
+    let (local_status_counter, _lscf) = local_system.create_and_register(NetworkStatusCounter::new);
+    local_status_counter.on_definition(|c| {
+        local_system.connect_network_status_port(&mut c.network_status_port);
+    });
+
+    let (ponger, pof) = local_system.create_and_register(PongerAct::new_eager);
+    let ponger_path = local_system.actor_path_for(&ponger);
+    let (pinger, pif) = remote_system
+        .create_and_register(move || PingStream::new(ponger_path.clone(), ping_period));
+    let pinger_path = remote_system.actor_path_for(&pinger);
+
+    pof.wait_expect(Duration::from_millis(1000), "Ponger failed to register!");
+    pif.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
+
+    local_system.start(&local_status_counter);
+    local_system.start(&ponger);
+    remote_system.start(&pinger);
+
+    thread::sleep(delay); // ping-pong for a while...
+
+    pinger.on_definition(|pinger| {
+        pinger.stop_pinging();
+    });
+
+    thread::sleep(delay);
+
+    let before_block_count = ponger.on_definition(|ponger| ponger.count);
+    let pinger_ip = pinger_path.address();
+    local_status_counter.on_definition(|sc| {
+        sc.send_status_request(NetworkStatusRequest::BlockIp(*pinger_ip));
+    });
+
+    thread::sleep(delay);
+
+    pinger.on_definition(|pinger| {
+        pinger.start_pinging(); // try pinging after getting blocked
+    });
+
+    thread::sleep(delay);
+
+    ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
+    local_status_counter.on_definition(|sc| {
+        assert!(sc.blocked_ip.contains(pinger_ip));
+        sc.send_status_request(NetworkStatusRequest::UnblockIp(*pinger_ip));
+    });
+
+    thread::sleep(delay); // should receive pings again after unblocking
+
+    ponger.on_definition(|ponger| {
+        assert!(
+            before_block_count < ponger.count,
+            "Should have received more pings after unblocking: before; {}, after: {}",
+            before_block_count,
+            ponger.count
+        );
+    });
+    local_status_counter.on_definition(|sc| assert_eq!(sc.blocked_ip.contains(pinger_ip), false));
+
+    let pingf = remote_system.kill_notify(pinger);
+    let pongf = local_system.kill_notify(ponger);
+    pingf
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Pinger never stopped!");
+    pongf
+        .wait_timeout(Duration::from_millis(1000))
+        .expect("Ponger never died!");
+
+    let _ = local_system.shutdown();
+    let _ = remote_system.shutdown();
+}
+
+#[test]
 // Sets up three KompactSystems: One with a BigPonger, one with a BigPinger with big pings
 // and one with a BigPinger with small pings. The big Pings are sent first and occupies
 // all buffers of the BigPonger system. The small pings are then sent but can not be received

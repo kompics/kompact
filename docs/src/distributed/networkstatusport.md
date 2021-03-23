@@ -36,7 +36,11 @@ The Event is an `enum` with the following variants:
   signalled by a `ConnectionDropped` message.
 * `ConnectionDropped(SystemPath)` Indicates that a connection has been dropped and no more automatic retries to 
   re-establish the connection will be attempted and all queued messages have been dropped.
-* `ConnectionClosed(SystemPath)` Indicates that a connection has been gracefully closed.
+* `BlockedSystem(SystemPath)` Indicates that a system has been blocked.
+* `BlockedIp(IpAddr)` Indicates that an IpAddr has been blocked.
+* `UnblockedSystem(SystemPath)` Indicates that a system has been unblocked after previously being blocked.
+* `UnblockedIp(IpAddr)` Indicates that an IpAddr has been unblocked after previously being blocked. Unblocking an IpAddr also unblocks
+all systems with that IpAddr.
 
 The Networking layer distinguishes between gracefully closed connections and lost connections. 
 A lost connection will trigger reconnection attempts for a configurable amount of times, before it is completely dropped. 
@@ -51,3 +55,17 @@ The event is an `enum` with the following variants:
   `NetworkDispatcher`will immediately start a graceful shutdown of the channel if it is currently active.
 * `ConnectSystem(SystemPath)` Request that a connection is (re-)established to the given system. Sending this message is
 the only way a connection may be re-established between systems previously disconnected by a `DisconnectSystem` request.
+* `BlockSystem(SystemPath)` Request that a SystemPath to be blocked from this system. An established connection
+will be dropped and future attempts to establish a connection by that given SystemPath will be dropped.
+* `BlockIp(IpAddr)` Request an IpAddr to be blocked. An established connection
+will be dropped and future attempts to establish a connection by that given IpAddr will be dropped.
+* `UnblockSystem(SystemPath)` Request a System to be unblocked after previously being blocked.
+* `UnblockIp(IpAddr)` Request an IpAddr to be unblocked after previously being blocked.
+
+## Blocking and Unblocking
+
+A component that requires `NetworkStatusPort` can block a specific IP address or system. 
+By triggering the request `BlockIp(IpAddr)` on `NetworkStatusPort`, all connections to `IpAddr` will be dropped and future attempts to establish a connection will also be ignored.
+To only block a single system, one can use `BlockSystem(SystemPath)` which results in the same behavior but only targets the given `SystemPath` rather than all systems from a specific IP address.
+If we later want to unblock an IP address or a system that was previously blocked, the corresponding `UnblockIp` or `UnblockSystem` requests can be triggered on `NetworkStatusPort`.
+When the network thread has successfully blocked or unblocked an IP address or a system, a `BlockedIp`/`BlockedSystem` or `UnblockedIp`/`UnblockedSystem` indication will be triggered on the `NetworkStatusPort`.
