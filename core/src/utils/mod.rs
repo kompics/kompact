@@ -273,7 +273,7 @@ pub trait Fulfillable<T> {
     fn fulfil(self, t: T) -> Result<(), PromiseErr>;
 }
 
-/// Anything that can be completeed without providing a value.
+/// Anything that can be completed without providing a value.
 pub trait Completable {
     /// Complete self
     ///
