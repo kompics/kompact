@@ -991,7 +991,7 @@ impl ComponentLifecycle for NetworkDispatcher {
         info!(self.ctx.log(), "Started network just fine.");
         if let Some(promise) = self.notify_ready.take() {
             promise
-                .fulfil(())
+                .complete()
                 .unwrap_or_else(|e| error!(self.ctx.log(), "Could not start network! {:?}", e))
         }
         Handled::Ok

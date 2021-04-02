@@ -273,6 +273,14 @@ pub trait Fulfillable<T> {
     fn fulfil(self, t: T) -> Result<(), PromiseErr>;
 }
 
+/// Anything that can be completed without providing a value.
+pub trait Completable {
+    /// Complete self
+    ///
+    /// Returns a [PromiseErr](PromiseErr) if unsuccessful.
+    fn complete(self) -> Result<(), PromiseErr>;
+}
+
 /// A custom promise implementation, that can be used to fulfil its paired future.
 #[derive(Debug)]
 pub struct KPromise<T: Send + Sized> {
@@ -284,6 +292,12 @@ impl<T: Send + Sized> Fulfillable<T> for KPromise<T> {
         self.result_channel
             .send(t)
             .map_err(|_| PromiseErr::ChannelBroken)
+    }
+}
+
+impl<T: Send + Sized + Default> Completable for KPromise<T> {
+    fn complete(self) -> Result<(), PromiseErr> {
+        self.fulfil(Default::default())
     }
 }
 

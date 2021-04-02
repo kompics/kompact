@@ -194,7 +194,7 @@ impl NetworkThread {
                 self.handle_event(event);
 
                 if self.stopped {
-                    if let Err(e) = self.shutdown_promise.fulfil(()) {
+                    if let Err(e) = self.shutdown_promise.complete() {
                         error!(self.log, "Error, shutting down sender: {:?}", e);
                     };
                     trace!(self.log, "Stopped");

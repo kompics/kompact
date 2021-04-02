@@ -197,7 +197,7 @@ impl ComponentLifecycle for DeadletterBox {
     fn on_start(&mut self) -> Handled {
         debug!(self.ctx.log(), "Starting DeadletterBox");
         if let Some(promise) = self.notify_ready.take() {
-            promise.fulfil(()).unwrap_or(())
+            promise.complete().unwrap_or(())
         }
         Handled::Ok
     }
@@ -272,7 +272,7 @@ impl ComponentLifecycle for LocalDispatcher {
     fn on_start(&mut self) -> Handled {
         debug!(self.ctx.log(), "Starting LocalDispatcher");
         if let Some(promise) = self.notify_ready.take() {
-            promise.fulfil(()).unwrap_or(())
+            promise.complete().unwrap_or(())
         }
         Handled::Ok
     }
