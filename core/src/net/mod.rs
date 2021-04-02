@@ -374,7 +374,7 @@ fn run_network_thread(
             if let Err(e) = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 let network_thread = builder.build();
                 let _ = started_promise
-                    .fulfil(())
+                    .complete()
                     .expect("NetworkThread started but failed to fulfil promise");
                 network_thread.run()
             })) {

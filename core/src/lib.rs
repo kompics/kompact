@@ -285,6 +285,7 @@ pub mod prelude {
             on_dual_definition,
             promise,
             Ask,
+            Completable,
             Fulfillable,
             FutureCollection,
             FutureResultCollection,

@@ -1,7 +1,7 @@
 use super::prelude::*;
 use crate::{
     component::ContextSystemHandle,
-    utils::{Fulfillable, KPromise},
+    utils::{Completable, KPromise},
     ControlEvent,
     KompactLogger,
 };
@@ -195,12 +195,8 @@ impl ComponentSupervisor {
         if let Some(l) = self.listeners.get_mut(id) {
             let (mut selected, mut unselected) = l.drain(..).partition(|entry| selector(&entry.0));
             std::mem::swap(l, &mut unselected);
-            // requires #![feature(drain_filter)]
-            // let mut selected = l
-            //     .drain_filter(|entry| selector(&entry.0))
-            //     .collect::<Vec<_>>();
             for (_, p) in selected.drain(..) {
-                p.fulfil(()).unwrap_or_else(|e| {
+                p.complete().unwrap_or_else(|e| {
                     error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
                 });
             }
@@ -220,7 +216,7 @@ impl ComponentSupervisor {
                 );
                 let promise = self.shutdown.take().unwrap();
                 promise
-                    .fulfil(())
+                    .complete()
                     .expect("Could not fulfill shutdown promise!");
                 self.listeners.clear(); // we won't be fulfilling these anyway
             } else {
@@ -340,7 +336,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                     if self.children.is_empty() {
                         trace!(self.ctx.log(), "Supervisor has no children!");
                         promise
-                            .fulfil(())
+                            .complete()
                             .expect("Could not fulfill shutdown promise!");
                         self.listeners.clear(); // we won't be fulfilling these anyway
                     } else {
