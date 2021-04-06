@@ -361,6 +361,7 @@ mod tests {
     use crate::prelude::*;
     use hocon::HoconLoader;
     use std::time::Duration;
+    const START_ACTOR_TIMEOUT: Duration = Duration::from_millis(1000);
 
     // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
@@ -402,12 +403,14 @@ mod tests {
     struct BufferTestActor {
         ctx: ComponentContext<BufferTestActor>,
         custom_buf: bool,
+        started_promise: Option<KPromise<()>>,
     }
     impl BufferTestActor {
         fn with_custom_buffer() -> BufferTestActor {
             BufferTestActor {
                 ctx: ComponentContext::uninitialised(),
                 custom_buf: true,
+                started_promise: None,
             }
         }
 
@@ -415,7 +418,14 @@ mod tests {
             BufferTestActor {
                 ctx: ComponentContext::uninitialised(),
                 custom_buf: false,
+                started_promise: None,
             }
+        }
+
+        fn get_started_future(&mut self) -> KFuture<()> {
+            let (promise, future) = promise();
+            self.started_promise = Some(promise);
+            future
         }
     }
     impl Actor for BufferTestActor {
@@ -442,6 +452,9 @@ mod tests {
             }
             // Use the Buffer
             let _ = self.ctx.actor_path().tell_serialised(120, self);
+            if let Some(promise) = self.started_promise.take() {
+                promise.complete().expect("Failed to fulfil promise");
+            }
             Handled::Ok
         }
 
@@ -485,12 +498,16 @@ mod tests {
     #[test]
     fn buffer_config_init_buffers_overrides_hocon_and_default() {
         let system = buffer_config_testing_system();
-        let (dummy, _df) = system.create_and_register(BufferTestActor::with_custom_buffer);
+        let mut dummy_actor = BufferTestActor::with_custom_buffer();
+        let future = dummy_actor.get_started_future();
+        let (dummy, _df) = system.create_and_register(|| dummy_actor);
         let dummy_f = system.register_by_alias(&dummy, "dummy");
-        let _ = dummy_f.wait_expect(Duration::from_millis(1000), "dummy failed");
+        let _ = dummy_f.wait_expect(START_ACTOR_TIMEOUT, "dummy failed");
         system.start(&dummy);
-        // TODO maybe we could do this a bit more reliable?
-        thread::sleep(Duration::from_millis(100));
+
+        future
+            .wait_timeout(START_ACTOR_TIMEOUT)
+            .expect("actor never started");
 
         // Read the buffer_len
         let mut buffer_len = 0;
@@ -510,12 +527,15 @@ mod tests {
     #[test]
     fn buffer_config_hocon_overrides_default() {
         let system = buffer_config_testing_system();
-        let (dummy, _df) = system.create_and_register(BufferTestActor::without_custom_buffer);
+        let mut dummy_actor = BufferTestActor::without_custom_buffer();
+        let future = dummy_actor.get_started_future();
+        let (dummy, _df) = system.create_and_register(|| dummy_actor);
         let dummy_f = system.register_by_alias(&dummy, "dummy");
-        let _ = dummy_f.wait_expect(Duration::from_millis(1000), "dummy failed");
+        let _ = dummy_f.wait_expect(START_ACTOR_TIMEOUT, "dummy failed");
         system.start(&dummy);
-        // TODO maybe we could do this a bit more reliable?
-        thread::sleep(Duration::from_millis(100));
+        future
+            .wait_timeout(START_ACTOR_TIMEOUT)
+            .expect("actor never started");
 
         // Read the buffer_len
         let mut buffer_len = 0;

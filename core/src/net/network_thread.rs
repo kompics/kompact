@@ -421,11 +421,10 @@ impl NetworkThread {
                 Ok(_) => {
                     if let ChannelState::CloseReceived(addr, id) = channel.state {
                         channel.state = ChannelState::Closed(addr, id);
-                        debug!(
-                            self.log,
-                            "Connection shutdown gracefully, awaiting dispatcher Ack"
-                        );
+                        debug!(self.log, "Connection to {} shutdown gracefully", &addr);
+                        self.deregister_channel(&mut *channel);
                         self.notify_connection_state(channel.address(), ConnectionState::Closed);
+                        self.reject_outbound_for_channel(&mut channel);
                     }
                 }
                 Err(e) => {
@@ -587,15 +586,21 @@ impl NetworkThread {
                 "Merging channels for remote system {}", &start.addr
             );
             let mut other_channel = other_channel_rc.borrow_mut();
-            if let Some(other_id) = other_channel.get_id() {
-                if other_channel.connected() || other_id > start.id {
-                    // The other channel should be kept and this one should be discarded.
-                    let _ = channel.send_bye();
+            match other_channel.read_state() {
+                ChannelState::Connected(_, _) => {
                     self.drop_channel(channel);
                     return;
-                } else {
+                }
+                ChannelState::Requested(_, other_id) if other_id > &start.id => {
+                    self.drop_channel(channel);
+                    return;
+                }
+                ChannelState::Initialised(_, other_id) if other_id > &start.id => {
+                    self.drop_channel(channel);
+                    return;
+                }
+                _ => {
                     self.drop_channel(other_channel.deref_mut());
-                    self.reregister_channel_address(channel.address(), start.addr);
                 }
             }
         }
@@ -608,9 +613,10 @@ impl NetworkThread {
     fn handle_bye(&mut self, channel: &mut TcpChannel) -> () {
         match channel.state {
             ChannelState::Closed(_, _) => {
-                trace!(self.log, "Connection shutdown gracefully");
+                debug!(self.log, "Connection shutdown gracefully");
+                self.deregister_channel(channel);
                 self.notify_connection_state(channel.address(), ConnectionState::Closed);
-                self.drop_channel(channel);
+                self.reject_outbound_for_channel(channel);
             }
             ChannelState::CloseReceived(_, _) => {}
             _ => {
@@ -636,13 +642,17 @@ impl NetworkThread {
     }
 
     fn drop_channel(&mut self, channel: &mut TcpChannel) {
-        let _ = self.poll.registry().deregister(channel.stream_mut());
-        self.token_map.remove(&channel.token);
+        self.deregister_channel(channel);
         self.address_map.remove(&channel.address());
         channel.shutdown();
         let mut buffer = BufferChunk::new(0);
         channel.swap_buffer(&mut buffer);
         self.return_buffer(buffer);
+    }
+
+    fn deregister_channel(&mut self, channel: &mut TcpChannel) {
+        let _ = self.poll.registry().deregister(channel.stream_mut());
+        self.token_map.remove(&channel.token);
     }
 
     fn request_stream(&mut self, address: SocketAddr) {
@@ -704,7 +714,7 @@ impl NetworkThread {
     fn receive_stream(&mut self) -> io::Result<()> {
         while let Ok((stream, address)) = self.tcp_listener.accept() {
             if self.block_list.contains_ip_addr(&address.ip()) {
-                stream.shutdown(Shutdown::Both)?; // TODO: shutdown or just don't do anything?
+                stream.shutdown(Shutdown::Both)?;
             } else if let Some(buffer) = self.get_buffer() {
                 trace!(self.log, "Accepting connection from {}", &address);
                 self.store_stream(stream, address, ChannelState::Initialising, buffer);
@@ -759,7 +769,14 @@ impl NetworkThread {
     fn lost_connection(&mut self, mut channel: RefMut<TcpChannel>) -> () {
         trace!(self.log, "Lost connection to address {}", channel.address());
         self.notify_connection_state(channel.address(), ConnectionState::Lost);
+        self.reject_outbound_for_channel(&mut channel);
+        // Try to inform the other end that we're closing the channel
+        let _ = channel.send_bye();
+        self.deregister_channel(&mut *channel);
         channel.shutdown();
+    }
+
+    fn reject_outbound_for_channel(&mut self, channel: &mut TcpChannel) -> () {
         for rejected_frame in channel.take_outbound() {
             self.reject_dispatch_data(channel.address(), DispatchData::Serialised(rejected_frame));
         }

@@ -37,6 +37,8 @@ pub(crate) enum ChannelState {
     CloseReceived(SocketAddr, Uuid),
     /// The channel is closing, will be dropped once the local `NetworkDispatcher` Acks the closing.
     Closed(SocketAddr, Uuid),
+    /// There has been a fatal error on the Channel
+    Error(Error),
 }
 
 pub(crate) struct TcpChannel {
@@ -104,13 +106,18 @@ impl TcpChannel {
         }
     }
 
-    pub fn get_id(&self) -> Option<Uuid> {
-        match self.state {
-            ChannelState::Connected(_, uuid) => Some(uuid),
-            ChannelState::Requested(_, uuid) => Some(uuid),
-            ChannelState::Initialised(_, uuid) => Some(uuid),
-            _ => None,
+    /// Checks the socket for errors and returns the current state
+    pub fn read_state(&mut self) -> &ChannelState {
+        match self.stream.take_error() {
+            Ok(Some(error)) => {
+                self.state = ChannelState::Error(error);
+            }
+            Err(error) => {
+                self.state = ChannelState::Error(error);
+            }
+            _ => (), // ignore
         }
+        &self.state
     }
 
     pub fn initialise(&mut self, addr: &SocketAddr) -> () {
@@ -394,47 +401,19 @@ impl std::fmt::Debug for TcpChannel {
 
 impl std::fmt::Debug for ChannelState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut ds = f.debug_struct("ChannelState");
+        ds.field("State", &0);
         match self {
-            ChannelState::Initialising => {
-                f.debug_struct("ChannelState").field("State", &0).finish()
-            }
-            ChannelState::Initialised(addr, id) => f
-                .debug_struct("ChannelState")
-                .field("State", &0)
-                .field("addr", addr)
-                .field("id", id)
-                .finish(),
-            ChannelState::Requested(addr, id) => f
-                .debug_struct("ChannelState")
-                .field("State", &0)
-                .field("addr", addr)
-                .field("id", id)
-                .finish(),
-            ChannelState::Connected(addr, id) => f
-                .debug_struct("ChannelState")
-                .field("State", &1)
-                .field("addr", addr)
-                .field("id", id)
-                .finish(),
-            ChannelState::Closed(addr, id) => f
-                .debug_struct("ChannelState")
-                .field("State", &1)
-                .field("addr", addr)
-                .field("id", id)
-                .finish(),
-            ChannelState::CloseRequested(addr, id) => f
-                .debug_struct("ChannelState")
-                .field("State", &1)
-                .field("addr", addr)
-                .field("id", id)
-                .finish(),
-            ChannelState::CloseReceived(addr, id) => f
-                .debug_struct("ChannelState")
-                .field("State", &1)
-                .field("addr", addr)
-                .field("id", id)
-                .finish(),
+            ChannelState::Initialised(addr, id) => ds.field("Address", addr).field("Id", id),
+            ChannelState::Requested(addr, id) => ds.field("Address", addr).field("Id", id),
+            ChannelState::Connected(addr, id) => ds.field("Address", addr).field("Id", id),
+            ChannelState::Closed(addr, id) => ds.field("Address", addr).field("Id", id),
+            ChannelState::CloseRequested(addr, id) => ds.field("Address", addr).field("Id", id),
+            ChannelState::CloseReceived(addr, id) => ds.field("Address", addr).field("Id", id),
+            ChannelState::Error(error) => ds.field("Error", error),
+            ChannelState::Initialising => &mut ds,
         }
+        .finish()
     }
 }
 
