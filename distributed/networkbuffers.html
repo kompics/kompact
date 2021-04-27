@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Configuring Buffers - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html" class="active"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html" class="active"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,39 +170,40 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#network-buffers" id="network-buffers">Network Buffers</a></h1>
-<p>Kompact uses a BufferPool system to serialize network messages. This section will describe the BufferPools briefly and how they can be configured with different parameters.</p>
+                        <h1 id="network-buffers"><a class="header" href="#network-buffers">Network Buffers</a></h1>
+<p>Kompact uses a BufferPool system to serialize network messages. This section describes the BufferPools briefly and how they can be configured with different parameters.</p>
 <p>Before we begin describing the Network Buffers we remind the reader that there are two different methods for sending messages over the network in Kompact:</p>
 <ol>
 <li><strong>Lazy serialisation</strong> <code>dst.tell(msg: M, from: S);</code></li>
-<li><strong>Eager serialisation</strong> <code>dst.tell_serialised(msg: M, from: &amp;self)?;</code></li>
+<li><strong>Eager serialisation</strong> <code>dst.tell_serialised(msg: M, from: &amp;self);</code></li>
 </ol>
-<p>With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the <code>NetworkDispatcher</code>, which later serialises the message into its (the <code>NetworkDispatcher's</code>) own buffers.<br />
-Eager serialisation serialises the data immediately into the Actors Buffers, and then transfers ownership of the serialised the data to the <code>NetworkDispatcher</code>.</p>
-<h2><a class="header" href="#how-the-bufferpools-work" id="how-the-bufferpools-work">How the BufferPools work</a></h2>
-<h3><a class="header" href="#bufferpool-locations" id="bufferpool-locations">BufferPool locations</a></h3>
-<p>In a Kompact system where many actors use eager serialisation there will be many <code>BufferPools</code>. Ìf the actors in the system only use lazy serialisation there will be two pools, one used by the <code>NetworkDispatcher</code> for serialising outbound data, and one used by the <code>NetworkThread</code> for receiving incoming data.</p>
-<h3><a class="header" href="#bufferpool-bufferchunk-chunklease" id="bufferpool-bufferchunk-chunklease">BufferPool, BufferChunk, ChunkLease</a></h3>
-<p>Each <code>BufferPool</code> (pool) consists of more than one <code>BufferChunks</code> (chunks). A chunk is the concrete memory area used for serialising data into. There may be many messages serialised into a single chunk, and discrete slices of the chunks (i.e. individual messages) can be extracted and sent to other threads/actors through the smart-pointer <code>ChunkLease</code> (lease). When a chunk runs out of space it will be locked and returned to the pool. If and only if all outstanding leases created from a chunk have been dropped may the chunk be unlocked and reused, or deallocated.</p>
+<p>With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the <code>NetworkDispatcher</code>, which later serialises the message into its (the <code>NetworkDispatcher</code>‘s) own buffers.<br />
+Eager serialisation serialises the data immediately into the Actor’s buffers, and then transfers ownership of the serialised the data to the <code>NetworkDispatcher</code>.</p>
+<p>Lazy serialisation may fail due to two reasons: A serialisation error, or there are no available buffers. Both will be
+unnoticeable to the actor initiating the message sending, and both will lead to the message being lost.</p>
+<h2 id="how-the-buffer-pools-work"><a class="header" href="#how-the-buffer-pools-work">How the Buffer Pools work</a></h2>
+<h3 id="buffer-pool-locations"><a class="header" href="#buffer-pool-locations">Buffer Pool locations</a></h3>
+<p>In a Kompact system where many actors use eager serialisation there will be many <code>BufferPool</code> instances. If the actors in the system only use lazy serialisation there will be a single pool, owned by the <code>NetworkThread</code> for serialising and receiving data.</p>
+<h3 id="bufferpool-bufferchunk-and-chunklease"><a class="header" href="#bufferpool-bufferchunk-and-chunklease">BufferPool, BufferChunk, and ChunkLease</a></h3>
+<p>Each <code>BufferPool</code> (pool) consists of more than one <code>BufferChunk</code> (chunks). A chunk is the concrete memory area used for serialising data into. There may be many messages serialised into a single chunk, and discrete slices of the chunks (i.e. individual messages) can be extracted and sent to other threads/actors through the smart-pointer <code>ChunkLease</code> (lease). When a chunk runs out of space it will be locked and returned to the pool. If and only if all outstanding leases created from a chunk have been dropped may the chunk be unlocked and reused, or deallocated.</p>
 <p>When a pool is created it will pre-allocate a configurable amount of chunks, and will attempt to reuse those as long as possible, and only when it needs to will it allocate more chunks, up to a configurable maximum number of chunks. </p>
-<p><strong>Note: In the current version, behaviour is unstable when a pool runs out of chunks and is unable to allocate more and will often cause a panic, similar to out-of-memory exception.</strong> </p>
-<h3><a class="header" href="#bufferpool-interface" id="bufferpool-interface">BufferPool interface</a></h3>
+<h3 id="bufferpool-interface"><a class="header" href="#bufferpool-interface">BufferPool interface</a></h3>
 <p>Actors access their pool through the <code>EncodeBuffer</code> wrapper which maintains a single active chunk at a time, and automatically swaps the active buffer with the local <code>BufferPool</code> when necessary.</p>
-<p>The method <code>tell_serialised(msg, &amp;self)?;</code> automatically uses the <code>EncodeBuffer</code> interface such that users of Kompact do not need to use the interfaces of the pool (why the method requires the <code>self</code> reference). Currently, a serialised message may not be greater than the size of the <code>BufferChunk</code>.</p>
-<h3><a class="header" href="#bufferpool-initialization" id="bufferpool-initialization">BufferPool initialization</a></h3>
+<p>The method <code>tell_serialised(msg, &amp;self)</code> automatically uses the <code>EncodeBuffer</code> interface such that users of Kompact do not need to use the interfaces of the pool (which is why the method requires a <code>self</code> reference). </p>
+<h3 id="bufferpool-initialization"><a class="header" href="#bufferpool-initialization">BufferPool initialization</a></h3>
 <p>Actors initialize their local buffers automatically when the first invocation of <code>tell_serialised(...)</code> occurs. If an Actor never invokes the method it will not allocate any buffers.</p>
 <p>An actor may call the initialization method through the call <code>self.ctx.borrow().init_buffers(None, None);</code><sup class="footnote-reference"><a href="#1">1</a></sup> to explicitly initialize the local <code>BufferPool</code> without sending a message.</p>
-<h2><a class="header" href="#bufferconfig" id="bufferconfig">BufferConfig</a></h2>
-<h3><a class="header" href="#parameters" id="parameters">Parameters</a></h3>
+<h2 id="bufferconfig"><a class="header" href="#bufferconfig">BufferConfig</a></h2>
+<h3 id="parameters"><a class="header" href="#parameters">Parameters</a></h3>
 <p>There are four configurable parameters in the BufferConfig:</p>
 <ol>
-<li><code>chunk_size</code>: the size (in bytes) of the <code>BufferChunks</code>, and thereby dictating the maximum serialised message size. Default value is 128KB.</li>
-<li><code>initial_chunk_count</code>: how many <code>BufferChunks</code> the <code>BufferPool</code> will pre-allocate. Default value is 2.</li>
-<li><code>max_chunk_count</code>: the maximum number of <code>BufferChunks</code> the <code>BufferPool</code> may have allocated simultaneously. Default value is 1000.</li>
-<li><code>encode_buf_min_free_space</code>: When an Actor begins serialising a message the <code>EncodeBuffer</code> will compare how much space (in bytes) is left in the active chunk and compare it to this parameter, if there is less free space the active chunk will be replaced with a new one from the pool before continuing the serialisation. Default value is 64.</li>
+<li><code>chunk_size</code>: The size (in bytes) of the <code>BufferChunks</code>. Default value is 128KB.</li>
+<li><code>initial_chunk_count</code>: How many <code>BufferChunks</code> the <code>BufferPool</code> will pre-allocate. Default value is 2.</li>
+<li><code>max_chunk_count</code>: The maximum number of <code>BufferChunks</code> the <code>BufferPool</code> may have allocated simultaneously. Default value is 1000.</li>
+<li><code>encode_buf_min_free_space</code>: When an Actor begins serialising a message the <code>EncodeBuffer</code> will compare how much space (in bytes) is left in the active chunk and compare it to this parameter, if there is less free space the active chunk will be replaced with a new one from the pool before continuing the serialisation. Default value is 64 bytes.</li>
 </ol>
-<h3><a class="header" href="#configuring-the-buffers" id="configuring-the-buffers">Configuring the Buffers</a></h3>
-<h4><a class="header" href="#individual-actor-configuration" id="individual-actor-configuration">Individual Actor Configuration</a></h4>
+<h3 id="configuring-the-buffers"><a class="header" href="#configuring-the-buffers">Configuring the Buffers</a></h3>
+<h4 id="individual-actor-configuration"><a class="header" href="#individual-actor-configuration">Individual Actor Configuration</a></h4>
 <p>If no <code>BufferConfig</code> is specified Kompact will use the default settings for all <code>BufferPools</code>. Actors may be configured with individual <code>BufferConfigs</code> through the <code>init_buffer(Some(config), None)</code><sup class="footnote-reference"><a href="#1">1</a></sup> config. It is important that the call is made before any calls to <code>tell_serialised(...)</code>. For example, the <code>on_start()</code> function of the <code>ComponentLifecycle</code> may be used to ensure this, as in the following example:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">impl ComponentLifecycle for CustomBufferConfigActor {
     fn on_start(&amp;mut self) -&gt; Handled {
@@ -194,7 +211,7 @@ Eager serialisation serialises the data immediately into the Actors Buffers, and
         buffer_config.encode_buf_min_free_space(128);
         buffer_config.max_chunk_count(5);
         buffer_config.initial_chunk_count(4);
-        buffer_config.chunk_size(256000);
+        buffer_config.chunk_size(256*1024);
         
         self.ctx.borrow().init_buffers(Some(buffer_config), None);
         Handled::Ok
@@ -202,24 +219,24 @@ Eager serialisation serialises the data immediately into the Actors Buffers, and
     ...
 }
 </code></pre>
-<h4><a class="header" href="#configuring-all-actors" id="configuring-all-actors">Configuring All Actors</a></h4>
+<h4 id="configuring-all-actors"><a class="header" href="#configuring-all-actors">Configuring All Actors</a></h4>
 <p>If a programmer wishes for all actors to use the same <code>BufferConfig</code> configuration, a Hocon string can be inserted into the <code>KompactConfig</code> or loaded from a Hocon-file (<a href="./../local/configuration.html">see configuration chapter on loading configurations</a>), for example: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen">let mut cfg = KompactConfig::new();
 cfg.load_config_str(
     r#&quot;{
         buffer_config {
-            chunk_size: 256000,
+            chunk_size: &quot;256KB&quot;,
             initial_chunk_count: 3,
             max_chunk_count: 4,
-            encode_min_remaining: 20,
-            }
+            encode_min_remaining: &quot;20B&quot;,
+        }
         }&quot;#,
 );
 ...
 let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <p>If a <code>BufferConfig</code> is loaded into the systems <code>KompactConfig</code> then all actors will use that configuration instead of the default <code>BufferConfig</code>, however individual actors may still override the configuration by using the <code>init_buffers(...)</code> method.</p>
-<h4><a class="header" href="#configuring-the-networkdispatcher-and-networkthread" id="configuring-the-networkdispatcher-and-networkthread">Configuring the NetworkDispatcher and NetworkThread</a></h4>
+<h4 id="configuring-the-networkdispatcher-and-networkthread"><a class="header" href="#configuring-the-networkdispatcher-and-networkthread">Configuring the NetworkDispatcher and NetworkThread</a></h4>
 <p>The <code>NetworkDispatcher</code> and <code>NetworkThread</code> are configured separately from the Actors and use their buffers for lazy serialisation and receiving data from the network. To configure their buffers the <code>NetworkConfig</code> may be created using the method <code>::with_buffer_config(...)</code> as in the example below:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">let mut cfg = KompactConfig::new();
 let mut network_buffer_config = BufferConfig::default();
@@ -236,14 +253,16 @@ cfg.system_components(DeadletterBox::new, {
 });
 let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </code></pre>
-<h4><a class="header" href="#bufferconfig-validation" id="bufferconfig-validation">BufferConfig Validation</a></h4>
-<p><code>BufferConfig</code> implements the method <code>validate()</code> which causes a panic if any of the parameters are valid. It is invoked whenever a <code>BufferPool</code> is created from the given configuration. The validation checks the following conditions hold true:<br />
-<code>chunk_size</code> &gt; <code>encode_buf_min_free_space</code><br />
-<code>chunk_size</code> &gt; 127<br />
-<code>max_chunk_count</code> &gt;= <code>initial_chunk_count</code></p>
+<h4 id="bufferconfig-validation"><a class="header" href="#bufferconfig-validation">BufferConfig Validation</a></h4>
+<p><code>BufferConfig</code> implements the method <code>validate()</code> which causes a panic if the set of parameters is invalid. It is invoked whenever a <code>BufferPool</code> is created from the given configuration. The validation checks that the following conditions hold true:</p>
+<ul>
+<li><code>chunk_size &gt; encode_buf_min_free_space</code></li>
+<li><code>chunk_size &gt; 127</code></li>
+<li><code>max_chunk_count &gt;= initial_chunk_count</code></li>
+</ul>
 <hr />
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>The method <code>init_buffers(...)</code> takes two <code>Option</code> arguments, of which the second argument has not been covered. The second argument allows users of Kompact to specify a <code>CustomAllocator</code>, an untested experimental feature which is left undocumented for now. </p>
+<p>The method <code>init_buffers(...)</code> takes two <code>Option</code> arguments, of which the second argument has not been covered. The second argument allows users of Kompact to specify a <code>CustomAllocator</code>: a poorly tested, experimental feature which is left undocumented for the time being. </p>
 </div>
 
                     </main>
@@ -257,7 +276,7 @@ let system = cfg.build().expect(&quot;KompactSystem&quot;);
                         
 
                         
-                            <a rel="next" href="../async/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../distributed/networkstatusport.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -275,7 +294,7 @@ let system = cfg.build().expect(&quot;KompactSystem&quot;);
                 
 
                 
-                    <a rel="next" href="../async/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../distributed/networkstatusport.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -288,10 +307,10 @@ let system = cfg.build().expect(&quot;KompactSystem&quot;);
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

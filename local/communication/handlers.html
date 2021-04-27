@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Handlers - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../../favicon.png">
+        
         <link rel="stylesheet" href="../../css/variables.css">
         <link rel="stylesheet" href="../../css/general.css">
         <link rel="stylesheet" href="../../css/chrome.css">
+        
         <link rel="stylesheet" href="../../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../../local/communication/handlers.html" class="active"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../../local/communication/handlers.html" class="active"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,10 +170,10 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#handlers" id="handlers">Handlers</a></h1>
+                        <h1 id="handlers"><a class="header" href="#handlers">Handlers</a></h1>
 <p>Now that we have set up all the messages, events, and the state, we need to actually implement the behaviours of the <code>Manager</code> and the <code>Worker</code>. That means we need to implement the <code>Actor</code> trait for both components, to handle the messages we are sending, and we also need to implement the appropriate event handling traits: <code>ComponentLifecycle</code> and <code>Require&lt;WorkerPort&gt;</code> for the <code>Manager</code>, and <code>Provide&lt;ControlPort&gt;</code> and <code>Provide&lt;WorkerPort&gt;</code> for the <code>Worker</code>.</p>
-<h2><a class="header" href="#worker" id="worker">Worker</a></h2>
-<h3><a class="header" href="#actor" id="actor">Actor</a></h3>
+<h2 id="worker"><a class="header" href="#worker">Worker</a></h2>
+<h3 id="actor"><a class="header" href="#actor">Actor</a></h3>
 <p>Since the worker is stateless, its implementation is really simple. It’s basically just a francy wrapper around a slice <code>fold</code>. That is, whenever we get a <code>WorkPart</code> message on our <code>receive_local(...)</code> function from the <code>Actor</code> trait, we simply take a slice of the range we were allocated to work on, and then call <code>fold(msg.neutral, msg.merger)</code> on it to produce the desired <code>u64</code> result. And then we simply wrap the result into a <code>WorkResult</code>, which we trigger on our instance of <code>WorkerPort</code> so it gets back to the manager.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -408,7 +424,7 @@
 </span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
 </span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
 </span><span class="boring">    println!(&quot;Sending request...&quot;);
-</span><span class="boring">    let res = manager_ref.ask(Ask::of(work)).wait();
+</span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
@@ -432,7 +448,7 @@
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#ports" id="ports">Ports</a></h3>
+<h3 id="ports"><a class="header" href="#ports">Ports</a></h3>
 <p>We also need to provide implementations for <code>ComponentLifecycle</code> and <code>WorkerPort</code>, because they are expected by Kompact. However, we don’t actually want to do anything interesting with them. So we are going to use the <code>ignore_lifecycle!(Worker)</code> macro to generate an empty <code>ComponentLifecycle</code> implementation, and similarly use the <code>ignore_requests!(WorkerPort, Worker)</code> macro to generate an empty <code>Provide&lt;WorkerPort&gt;</code> implementation.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -683,7 +699,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
 </span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
 </span><span class="boring">    println!(&quot;Sending request...&quot;);
-</span><span class="boring">    let res = manager_ref.ask(Ask::of(work)).wait();
+</span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
@@ -707,10 +723,10 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h2><a class="header" href="#manager" id="manager">Manager</a></h2>
+<h2 id="manager"><a class="header" href="#manager">Manager</a></h2>
 <p>The manager needs to do three things: 1) Manage the worker pool, 2) split up work requests and send chunks to workers, and 3) collect the results from the workers, combine them, and reply with the final result.</p>
 <p>We will deal with 1) in a <code>ComponentLifecycle</code> handler, and with 3) in the handler for <code>WorkerPort</code>, of course. For 2), however, we want to use the “ask”-pattern again, so we will look at that in the next section.</p>
-<h3><a class="header" href="#componentlifecycle" id="componentlifecycle">ComponentLifecycle</a></h3>
+<h3 id="componentlifecycle"><a class="header" href="#componentlifecycle">ComponentLifecycle</a></h3>
 <p>Whenever the manager is started (or restarted after being paused) we must populate our pool of workers and connect them appropriately. We can create new components from within an actor by using the <code>system()</code> reference from the <code>ComponentContext</code>. Of course, we must also remember to actually start the new components, or nothing will happen when we send messages to them later. Additionally, we must fill the appropriate state with component instances and actor references, as we discussed in the previous section.</p>
 <blockquote>
 <p><strong>Note:</strong> As opposed to many other Actor or Component frameworks, Kompact does <strong>not</strong> produce a hierarchical structure when calling <code>create(...)</code> from within a component. This is because Kompact doesn’t have such a strong focus on error handling and supervision as other systems, and maintaining a hierarchical structure is more complicated than maintaining a flat one.</p>
@@ -965,7 +981,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
 </span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
 </span><span class="boring">    println!(&quot;Sending request...&quot;);
-</span><span class="boring">    let res = manager_ref.ask(Ask::of(work)).wait();
+</span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
@@ -992,7 +1008,7 @@ ignore_requests!(WorkerPort, Worker);
 <blockquote>
 <p><strong>Note:</strong> We are getting the required <code>ActorRefStrong&lt;WorkPart&gt;</code> by first calling <code>actor_ref()</code> on a worker instance and then upgrading the result via <code>hold()</code> from an <code>ActorRef&lt;WorkPart&gt;</code> to <code>ActorRefStrong&lt;WorkPart&gt;</code>. This returns a <code>Result</code>, as upgrading is impossible if the component is already deallocated. However, since we are holding on to the actual instance of the component here as well, we <em>know</em> it’s not deallocated, yet, and <code>hold()</code> cannot fail, so we simply call <code>expect(...)</code> to unwrap it.</p>
 </blockquote>
-<h3><a class="header" href="#worker-port" id="worker-port">Worker Port</a></h3>
+<h3 id="worker-port"><a class="header" href="#worker-port">Worker Port</a></h3>
 <p>Whenever we get a <code>WorkResult</code> from a worker, we will temporarily store it in <code>self.result_accumulator</code>, as long we have an outstanding request. After every new addition to the accumulator, we check if we have gotten all responses with <code>self.result_accumulator.len() == (self.num_workers + 1)</code> (again, more on the <code>+ 1</code> later). If that is so, we will do the final aggregation on the accumulator via <code>fold(work.neutral, work.merger)</code> and then <code>reply(...)</code> to the outstanding request. Of course, we must also clean up after ourselves, i.e. reset the <code>self.outstanding_request</code> to <code>None</code> and clear out <code>self.result_accumulator</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -1243,7 +1259,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let data: Vec&lt;u64&gt; = (1..=data_size).map(|v| v as u64).collect();
 </span><span class="boring">    let work = Work::with(data, overflowing_sum, 0u64);
 </span><span class="boring">    println!(&quot;Sending request...&quot;);
-</span><span class="boring">    let res = manager_ref.ask(Ask::of(work)).wait();
+</span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
@@ -1310,10 +1326,10 @@ ignore_requests!(WorkerPort, Worker);
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

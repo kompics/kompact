@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Serialisation - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html" class="active"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html" class="active"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,9 +170,9 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#serialisation" id="serialisation">Serialisation</a></h1>
+                        <h1 id="serialisation"><a class="header" href="#serialisation">Serialisation</a></h1>
 <p>In this section we are going take a closer look at the various serialisation options offered by Kompact. In particular, we will look at how to write different kinds of custom serialiser implementations, as well how to handle messages that are all but guaranteed to actually go over the network more efficiently.</p>
-<h2><a class="header" href="#custom-serialisation" id="custom-serialisation">Custom Serialisation</a></h2>
+<h2 id="custom-serialisation"><a class="header" href="#custom-serialisation">Custom Serialisation</a></h2>
 <p>At the centre of Kompact’s serialisation mechanisms are the <code>Serialisable</code> and <code>Deserialiser</code> traits, the signature of which looks roughtly like this:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">pub trait Serialisable: Send + Debug {
     /// The serialisation id for this serialisable
@@ -181,12 +197,12 @@
     fn deserialise(buf: &amp;mut dyn Buf) -&gt; Result&lt;T, SerError&gt;;
 }
 </code></pre>
-<h3><a class="header" href="#outgoing-path" id="outgoing-path">Outgoing Path</a></h3>
+<h3 id="outgoing-path"><a class="header" href="#outgoing-path">Outgoing Path</a></h3>
 <p>When <code>ActorPath::tell(...)</code> is invoked with a type that is <code>Serialisable</code>, it will create a boxed trait object from the given instance and send it to the network layer. Only when the network layer has the determind that the destination must be accessed via a network channel, will the runtime serialise the instance into the network channel’s buffer. If it turns out the destination is on the same actor system as the source, it will simply call <code>Serialisable::local(...)</code> to get a boxed instance of the <code>Any</code> trait and then send it directly to the target component, without ever serialising. This approach is called <strong>lazy serialisation</strong>. For the vast majority of <code>Serialisable</code> implementations, <code>Serialisable::local(...)</code> is implemented simply as <code>Ok(self)</code>. However, for some more advanced usages (e.g., serialisation proxies) the implementation may have to call some additional code.</p>
 <p>Once it is determined that an instance does indeed need to be serialised, the runtime will reserve some buffer memory for it to be serialised into. It does so by querying the <code>Serialisable::size_hint(...)</code> function for an estimate of how much space the type is likely going to take. For some types this is easy to know statically, but others it is not so clear. In any case, this is just an optimisation. Serialisation will proceed correctly even if the estimate is terribly wrong or no estimate is given at all.</p>
 <p>The first thing in the new serialisation buffer is typically the serialisation id obtained via <code>Serialisable::ser_id(...)</code>. Typically, Kompact will only require a single serialisation id for the message to be written into the buffer, even if the message uses other serialisers internally, as long as all the internal types are statically known. This top-level serialisation id must match the <code>Deserialiser::SER_ID</code> for the deserialiser to be used for this instance. For types that implement both <code>Serialisable</code> and <code>Deserialiser</code>, as most do, it is recommended to simply use is <code>Self::SER_ID</code> as the implementation for <code>Serialisable::ser_id(...)</code> to make sure the ids match later.</p>
 <p>The actual serialisation of the instance is handled by <code>Serialisable::serialise(...)</code>, which should use the functions provided by <a href="https://docs.rs/bytes/latest/bytes/trait.BufMut.html">BufMut</a> to serialise the individual parts of the instance into the buffer.</p>
-<h4><a class="header" href="#serialiser" id="serialiser">Serialiser</a></h4>
+<h4 id="serialiser"><a class="header" href="#serialiser">Serialiser</a></h4>
 <p>Instead of implementing <code>Serialisable</code> we can also implement the <code>Serialiser</code> trait:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">pub trait Serialiser&lt;T&gt;: Send {
     /// The serialisation id for this serialiser
@@ -210,11 +226,11 @@
 </span><span class="boring">    time::Duration,
 </span><span class="boring">};
 </span><span class="boring">
-</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">struct ZstSerialiser&lt;T&gt;(T)
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -231,7 +247,7 @@
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -249,7 +265,7 @@
 </span><span class="boring">    const SER_ID: SerId = 2345;
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug, Clone)]
 </span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
@@ -323,7 +339,7 @@
 </span><span class="boring">ignore_lifecycle!(BootstrapServer);
 </span><span class="boring">
 </span><span class="boring">impl NetworkActor for BootstrapServer {
-</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
@@ -457,20 +473,22 @@
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
-</span><span class="boring">                self.candidates.insert(sender);
-</span><span class="boring">            },
-</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
-</span><span class="boring">                let UpdateProcesses(processes) = update;
-</span><span class="boring">                info!(
-</span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
-</span><span class="boring">                    processes.len()
-</span><span class="boring">                );
-</span><span class="boring">                self.processes = processes.into_boxed_slice();
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(_heartbeat): Heartbeat [using Serde] =&gt; {
+</span><span class="boring">                    self.candidates.insert(sender);
+</span><span class="boring">                },
+</span><span class="boring">                msg(update): UpdateProcesses =&gt; {
+</span><span class="boring">                    let UpdateProcesses(processes) = update;
+</span><span class="boring">                    info!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                        processes.len()
+</span><span class="boring">                    );
+</span><span class="boring">                    self.processes = processes.into_boxed_slice();
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -499,7 +517,7 @@
 </span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
@@ -526,7 +544,7 @@
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
@@ -536,7 +554,7 @@
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
-</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        Transport::Tcp,
 </span><span class="boring">        bootstrap_socket,
 </span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
 </span><span class="boring">    )
@@ -580,12 +598,12 @@
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#incoming-path" id="incoming-path">Incoming Path</a></h3>
+<h3 id="incoming-path"><a class="header" href="#incoming-path">Incoming Path</a></h3>
 <p>For any incoming network message the Kompact framework will buffer all data, and once it is complete, it will read out the serialisation id and create a <code>NetMessage</code> from it and the remaining buffer. It will then send the <code>NetMessage</code> directly to the destination component without any further processing. This approach is called <strong>lazy deserialisation</strong> and is quite different from most other actor/component frameworks, which tend to deserialise eagerly and then type match later at the destination component. However, in Rust the lazy approach is more efficient as it avoids unnecessary heap allocations for the deserialised instance.</p>
 <p>When the <code>NetMessage::try_deserialise</code> function is called on the destination component, the serialisation ids of the message and the given <code>Deserialiser</code> will be checked and if they match up the <code>Deserialiser::deserialise(...)</code> function is called with the message’s data. For custom deserialisers, this method must use the <a href="https://docs.rs/bytes/latest/bytes/trait.Buf.html">Buf</a> API to implement essentially the inverse path of what the serialisable did before.</p>
-<h3><a class="header" href="#example" id="example">Example</a></h3>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
 <p>To show how custom serialisers can be implemented, we will show two examples re-using the bootstrapping leader election from the previous sections.</p>
-<h4><a class="header" href="#serialiser-1" id="serialiser-1">Serialiser</a></h4>
+<h4 id="serialiser-1"><a class="header" href="#serialiser-1">Serialiser</a></h4>
 <p>In our example, <code>CheckIn</code> is a <em>zero-sized type</em> (ZST), since we don’t really care about the message, only about the sender. Since ZSTs have no content, we can uniquely identify them by their serialisation id alone and all the serialisers for them are basically identical, in that their <code>serialise(...)</code> function consists simply of <code>Ok(())</code>. For this example, instead of using <code>Serde</code> for <code>CheckIn</code>, we will write our own <code>Serialiser</code> implementation for ZSTs and then use it for <code>CheckIn</code>. We could also use it for <code>Heartbeat</code>, but we won’t, so as to leave it as a reference for the other approach.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -597,11 +615,11 @@
 </span><span class="boring">    time::Duration,
 </span><span class="boring">};
 </span><span class="boring">
-</span>struct ZSTSerialiser&lt;T&gt;(T)
+</span>struct ZstSerialiser&lt;T&gt;(T)
 where
     T: Send + Sync + Default + Copy + SerialisationId;
 
-impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZstSerialiser&lt;T&gt;
 where
     T: Send + Sync + Default + Copy + SerialisationId,
 {
@@ -618,7 +636,7 @@ where
     }
 }
 
-impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+impl&lt;T&gt; Deserialiser&lt;T&gt; for ZstSerialiser&lt;T&gt;
 where
     T: Send + Sync + Default + Copy + SerialisationId,
 {
@@ -636,7 +654,7 @@ impl SerialisationId for CheckIn {
     const SER_ID: SerId = 2345;
 }
 
-static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 <span class="boring">
 </span><span class="boring">#[derive(Debug, Clone)]
 </span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
@@ -710,7 +728,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">ignore_lifecycle!(BootstrapServer);
 </span><span class="boring">
 </span><span class="boring">impl NetworkActor for BootstrapServer {
-</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
@@ -844,20 +862,22 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
-</span><span class="boring">                self.candidates.insert(sender);
-</span><span class="boring">            },
-</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
-</span><span class="boring">                let UpdateProcesses(processes) = update;
-</span><span class="boring">                info!(
-</span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
-</span><span class="boring">                    processes.len()
-</span><span class="boring">                );
-</span><span class="boring">                self.processes = processes.into_boxed_slice();
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(_heartbeat): Heartbeat [using Serde] =&gt; {
+</span><span class="boring">                    self.candidates.insert(sender);
+</span><span class="boring">                },
+</span><span class="boring">                msg(update): UpdateProcesses =&gt; {
+</span><span class="boring">                    let UpdateProcesses(processes) = update;
+</span><span class="boring">                    info!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                        processes.len()
+</span><span class="boring">                    );
+</span><span class="boring">                    self.processes = processes.into_boxed_slice();
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -886,7 +906,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
@@ -913,7 +933,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
@@ -923,7 +943,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
-</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        Transport::Tcp,
 </span><span class="boring">        bootstrap_socket,
 </span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
 </span><span class="boring">    )
@@ -967,9 +987,9 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<p>We continue using the <code>SerialisationId</code> trait like we did for Serde, because we need to write id of the ZST not of the <code>ZSTSerialiser</code>, which can serialise and deserialise many different ZSTs.</p>
+<p>We continue using the <code>SerialisationId</code> trait like we did for Serde, because we need to write id of the ZST not of the <code>ZstSerialiser</code>, which can serialise and deserialise many different ZSTs.</p>
 <p>In order to create the correct type instance during deserialisation, we use the <code>Default</code> trait, which can be trivially derived for ZSTs.</p>
-<p>It is clear that this serialiser is basically trivial. We can use it by creating a pair of <code>Checkin</code> with a reference to our static instance <code>CHECK_IN_SER</code>, which simply specialises the <code>ZSTSerialiser</code> for <code>CheckIn</code>, as we did before: </p>
+<p>It is clear that this serialiser is basically trivial. We can use it by creating a pair of <code>Checkin</code> with a reference to our static instance <code>CHECK_IN_SER</code>, which simply specialises the <code>ZstSerialiser</code> for <code>CheckIn</code>, as we did before: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use kompact_examples::trusting::*;
@@ -980,11 +1000,11 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    time::Duration,
 </span><span class="boring">};
 </span><span class="boring">
-</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">struct ZstSerialiser&lt;T&gt;(T)
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -1001,7 +1021,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -1019,7 +1039,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    const SER_ID: SerId = 2345;
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug, Clone)]
 </span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
@@ -1093,7 +1113,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">ignore_lifecycle!(BootstrapServer);
 </span><span class="boring">
 </span><span class="boring">impl NetworkActor for BootstrapServer {
-</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
@@ -1227,20 +1247,22 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
-</span><span class="boring">                self.candidates.insert(sender);
-</span><span class="boring">            },
-</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
-</span><span class="boring">                let UpdateProcesses(processes) = update;
-</span><span class="boring">                info!(
-</span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
-</span><span class="boring">                    processes.len()
-</span><span class="boring">                );
-</span><span class="boring">                self.processes = processes.into_boxed_slice();
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(_heartbeat): Heartbeat [using Serde] =&gt; {
+</span><span class="boring">                    self.candidates.insert(sender);
+</span><span class="boring">                },
+</span><span class="boring">                msg(update): UpdateProcesses =&gt; {
+</span><span class="boring">                    let UpdateProcesses(processes) = update;
+</span><span class="boring">                    info!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                        processes.len()
+</span><span class="boring">                    );
+</span><span class="boring">                    self.processes = processes.into_boxed_slice();
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1269,7 +1291,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
@@ -1296,7 +1318,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
@@ -1306,7 +1328,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
-</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        Transport::Tcp,
 </span><span class="boring">        bootstrap_socket,
 </span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
 </span><span class="boring">    )
@@ -1350,7 +1372,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h4><a class="header" href="#serialisable" id="serialisable">Serialisable</a></h4>
+<h4 id="serialisable"><a class="header" href="#serialisable">Serialisable</a></h4>
 <p>Since the previous example was somewhat trivial, we will do a slightly trickier one for the <code>Serialisable</code> example. We will make the <code>UpdateProcesses</code> type both <code>Serialisable</code> and <code>Deserialiser&lt;UpdateProcesses&gt;</code>. This type contains a vector of <code>ActorPath</code> instances, which we must handle correctly. We will reuse the <code>Serialisable</code> and <code>Deserialiser&lt;ActorPath&gt;</code> implementations that are already provided for the <code>ActorPath</code> type.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -1362,11 +1384,11 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    time::Duration,
 </span><span class="boring">};
 </span><span class="boring">
-</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">struct ZstSerialiser&lt;T&gt;(T)
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -1383,7 +1405,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -1401,7 +1423,7 @@ static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
 </span><span class="boring">    const SER_ID: SerId = 2345;
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span>#[derive(Debug, Clone)]
 struct UpdateProcesses(Vec&lt;ActorPath&gt;);
@@ -1475,7 +1497,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">ignore_lifecycle!(BootstrapServer);
 </span><span class="boring">
 </span><span class="boring">impl NetworkActor for BootstrapServer {
-</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
@@ -1609,20 +1631,22 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
-</span><span class="boring">                self.candidates.insert(sender);
-</span><span class="boring">            },
-</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
-</span><span class="boring">                let UpdateProcesses(processes) = update;
-</span><span class="boring">                info!(
-</span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
-</span><span class="boring">                    processes.len()
-</span><span class="boring">                );
-</span><span class="boring">                self.processes = processes.into_boxed_slice();
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(_heartbeat): Heartbeat [using Serde] =&gt; {
+</span><span class="boring">                    self.candidates.insert(sender);
+</span><span class="boring">                },
+</span><span class="boring">                msg(update): UpdateProcesses =&gt; {
+</span><span class="boring">                    let UpdateProcesses(processes) = update;
+</span><span class="boring">                    info!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                        processes.len()
+</span><span class="boring">                    );
+</span><span class="boring">                    self.processes = processes.into_boxed_slice();
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1651,7 +1675,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
@@ -1678,7 +1702,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
@@ -1688,7 +1712,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
-</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        Transport::Tcp,
 </span><span class="boring">        bootstrap_socket,
 </span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
 </span><span class="boring">    )
@@ -1734,9 +1758,9 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span></code></pre>
 <p>It would be easy to just iterate through the vector during serialisation and write one path at a time using its own <code>serialise(...)</code> implementation. But during deserialisation we need to know how many paths we have to take out of the buffer. We could simply try taking until the buffer refuses us, but this kind of approach often makes it difficult to detect bugs in one’s serialiser implementations. We will instead write the length of the vector before we serialise the actor paths, and during deserialisation we will read it first and allocate a vector of appropriate size. If we are concerned about the space the length wastes, we could try to use some better integer encoding like Protocol Buffers do, for example. But for now we don’t care so much and simply write a full <code>u64</code>. Those extra 8 bytes make little different compared to the sizes of a bunch of actor paths.</p>
 <p>We don’t really have a good idea for <code>size_hint(...)</code> here. It’s basically 8 plus the sum of the size hints for each actor path. In this case, we actually know we are pretty much just going to send unique actor paths in this set, so we can assume each one is 23 bytes long. If that assumption turns out to be wrong in practice, it will simply cause some additional allocations during serialisation. In general, as a developer we have to decide on a trade-off between how much time we want to spend calculating accurate size hints, and how much time we want to spend on potential reallocations. We could also simply return a large number such as 1024 and accept that we may may often waste much of that allocated space. Application requirements (read: benchmarking) will determine which is the best choice in a particular scenario.</p>
-<h2><a class="header" href="#eager-serialisation" id="eager-serialisation">Eager Serialisation</a></h2>
+<h2 id="eager-serialisation"><a class="header" href="#eager-serialisation">Eager Serialisation</a></h2>
 <p>As mentioned above, using <code>ActorPath::tell(...)</code> may cause a stack-to-heap move of the data, as it is being converted into a boxed trait object for lazy serialisation. This approach optimises for avoiding expensive serialisations in the case where the <code>ActorPath</code> turns out to be local. However, this may not always be the appropriate approach, in particular if serialisation is quick compared to allocation, or most actor paths are not going to be local anyway. For these cases, Kompact also allows <strong>eager serialisation</strong>. To force an instance to be serialised eagerly, on the sending component’s thread, you can use <code>ActorPath::tell_serialised(...)</code>. It works essentially the same as <code>ActorPath::tell(...)</code> but uses a buffer pool local to the sending component to serialise the data into, before sending it off to the dispatcher. If then in the dispatcher it turns out that the actor path was actually local, the data simply has to be deserialised again, as if it had arrived remotely. If the target is remote, however, the data can be written directly into the appropriate channel.</p>
-<h3><a class="header" href="#example-1" id="example-1">Example</a></h3>
+<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
 <p>To show an easy usage for this approach, we use eager serialisation in the <code>BootstrapServer::broadcast_processess</code> function: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -1748,11 +1772,11 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    time::Duration,
 </span><span class="boring">};
 </span><span class="boring">
-</span><span class="boring">struct ZSTSerialiser&lt;T&gt;(T)
+</span><span class="boring">struct ZstSerialiser&lt;T&gt;(T)
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId;
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Serialiser&lt;T&gt; for &amp;ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -1769,7 +1793,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZSTSerialiser&lt;T&gt;
+</span><span class="boring">impl&lt;T&gt; Deserialiser&lt;T&gt; for ZstSerialiser&lt;T&gt;
 </span><span class="boring">where
 </span><span class="boring">    T: Send + Sync + Default + Copy + SerialisationId,
 </span><span class="boring">{
@@ -1787,7 +1811,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    const SER_ID: SerId = 2345;
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">static CHECK_IN_SER: ZSTSerialiser&lt;CheckIn&gt; = ZSTSerialiser(CheckIn);
+</span><span class="boring">static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug, Clone)]
 </span><span class="boring">struct UpdateProcesses(Vec&lt;ActorPath&gt;);
@@ -1861,7 +1885,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">ignore_lifecycle!(BootstrapServer);
 </span><span class="boring">
 </span><span class="boring">impl NetworkActor for BootstrapServer {
-</span><span class="boring">    type Deserialiser = ZSTSerialiser&lt;CheckIn&gt;;
+</span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
@@ -1995,20 +2019,22 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            _heartbeat: Heartbeat [Serde] =&gt; {
-</span><span class="boring">                self.candidates.insert(sender);
-</span><span class="boring">            },
-</span><span class="boring">            update: UpdateProcesses [UpdateProcesses] =&gt; {
-</span><span class="boring">                let UpdateProcesses(processes) = update;
-</span><span class="boring">                info!(
-</span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Received new process set with {} processes&quot;,
-</span><span class="boring">                    processes.len()
-</span><span class="boring">                );
-</span><span class="boring">                self.processes = processes.into_boxed_slice();
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(_heartbeat): Heartbeat [using Serde] =&gt; {
+</span><span class="boring">                    self.candidates.insert(sender);
+</span><span class="boring">                },
+</span><span class="boring">                msg(update): UpdateProcesses =&gt; {
+</span><span class="boring">                    let UpdateProcesses(processes) = update;
+</span><span class="boring">                    info!(
+</span><span class="boring">                        self.log(),
+</span><span class="boring">                        &quot;Received new process set with {} processes&quot;,
+</span><span class="boring">                        processes.len()
+</span><span class="boring">                    );
+</span><span class="boring">                    self.processes = processes.into_boxed_slice();
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2037,7 +2063,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">const BOOTSTRAP_PATH: &amp;str = &quot;bootstrap&quot;;
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
@@ -2064,7 +2090,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
@@ -2074,7 +2100,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
-</span><span class="boring">        Transport::TCP,
+</span><span class="boring">        Transport::Tcp,
 </span><span class="boring">        bootstrap_socket,
 </span><span class="boring">        vec![BOOTSTRAP_PATH.into()],
 </span><span class="boring">    )
@@ -2162,10 +2188,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

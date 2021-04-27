@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Path Routing - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html" class="active"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html" class="active"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,15 +170,15 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#path-routing" id="path-routing">Path Routing</a></h1>
+                        <h1 id="path-routing"><a class="header" href="#path-routing">Path Routing</a></h1>
 <p>In the previous section on <a href="namedservices.html">Named Services</a> we have seen that we can register components to named paths, such as <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap</code>. These paths look very much like a <a href="https://en.wikipedia.org/wiki/URL">URL</a>, and indeed, just like in REST APIs, Kompact named paths form a tree-like hierarchy. For example <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap/server1</code> would be a sub-path of <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap</code>. This hierarchy is reflected in the way Kompact stores these actor aliases internally, which from a structure like a directory tree.</p>
 <p>This approach to named paths opens up the possibility of exploiting the hierarchy for implicit and explicit <em>routing</em> of messages over sub-trees (directories, in a sense), which we explore in this section.</p>
-<h2><a class="header" href="#routing-policies" id="routing-policies">Routing Policies</a></h2>
+<h2 id="routing-policies"><a class="header" href="#routing-policies">Routing Policies</a></h2>
 <p>In general, a routing policy is something that takes a message and set of references and selects one or more references that the message will be sent to. In the concrete case of routing within the named path tree, the type of the message must be <code>NetMessage</code> and the references are <code>DynActorRef</code>. The  set of references we give to a policy is going to be the set of all registered nodes under a particular prefix in the named actor tree, which we will call the <em>routing path</em>. </p>
 <blockquote>
 <p><strong>Example:</strong> If <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap</code> is a routing path with some policy P, then whenever we send something to it, we will pass the set containing the actor ref registered at <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap/server1</code> to P. If there were another registration at <code>tcp://127.0.0.1:&lt;port&gt;/bootstrap/servers/server1</code> we would add that to the set as well.</p>
 </blockquote>
-<h3><a class="header" href="#types-of-routing-paths" id="types-of-routing-paths">Types of Routing Paths</a></h3>
+<h3 id="types-of-routing-paths"><a class="header" href="#types-of-routing-paths">Types of Routing Paths</a></h3>
 <p>Kompact supports two different types of routing paths: <strong>explicit</strong> paths and <strong>implicit</strong> paths.</p>
 <p>In order to explain this in the following paragraphs, consider a system where the following three actors are registered:</p>
 <ol>
@@ -170,27 +186,27 @@
 <li><code>tcp::127.0.0.1:1234/parent/child2</code></li>
 <li><code>tcp::127.0.0.1:1234/parent/child1/grandchild</code></li>
 </ol>
-<h4><a class="header" href="#implicit-routing" id="implicit-routing">Implicit Routing</a></h4>
+<h4 id="implicit-routing"><a class="header" href="#implicit-routing">Implicit Routing</a></h4>
 <p>Routing in Kompact can be used without any (routing specific) setup at all. If we simply construct an <code>ActorPath</code> of the form <code>tcp::127.0.0.1:1234/parent/*</code> and send a message there, Kompact will automatically broadcast this message to all three nodes registered above, since all of them have <code>tcp::127.0.0.1:1234/parent</code> as their prefix. This kind of implicit routing path is called a <strong>broadcast path</strong>. The other type of implicit routing supported by Kompact is called a <strong>select path</strong> and takes the form <code>tcp::127.0.0.1:1234/parent/?</code>. Sending a message to this select path will cause the message to be sent to exactly one of the actors. Which node exactly is subject to the routing policy at <code>tcp::127.0.0.1:1234/parent</code>, which is not guaranteed to be stable by the runtime. The current default policy for select is based on hash buckets over the messages sender field.</p>
 <blockquote>
 <p><strong>Warning:</strong> In certain deployments allowing implicit routing can become a security risk with respect to <a href="https://en.wikipedia.org/wiki/Denial-of-service_attack">DoS attacks</a>, since an attacker can basically force the system to broadcast a message to every registered node, which can cause a lot unnecessary load.</p>
 <p>If this is a concern for your deployment scenario, you can compile Kompact without default features, which will remove implicit routing completely.</p>
 </blockquote>
-<h4><a class="header" href="#explicit-routing" id="explicit-routing">Explicit Routing</a></h4>
+<h4 id="explicit-routing"><a class="header" href="#explicit-routing">Explicit Routing</a></h4>
 <p>If implicit routing is not a good match for your use case, Kompact allows you explicitly set a policy at a particular point in the named tree via the <code>KompactSystem::set_routing_policy(...)</code> method. Not only does this allow you to customise the behaviour of routing for a particular sub-tree, it also enables you to hide the fact that a tree is routing at all, as with an explicit policy both <code>tcp::127.0.0.1:1234/parent</code> (where the routing policy is set) and one of <code>tcp::127.0.0.1:1234/parent/*</code> and <code>tcp::127.0.0.1:1234/parent/?</code> (depending on whether your police is of broadcast or select type) will exhibit the same behaviour.</p>
 <p>Explicit routing works even if implicit routing is disabled.</p>
-<h3><a class="header" href="#provided-policies" id="provided-policies">Provided Policies</a></h3>
+<h3 id="provided-policies"><a class="header" href="#provided-policies">Provided Policies</a></h3>
 <p>Kompact comes with three routing policies built in:</p>
 <ol>
 <li><code>kompact::routing::groups::BroadcastRouting</code> is the default policy for broadcast paths. As the name implies, it will simply send a copy of each message to every member of the routing set. In order to improve the efficiency of broadcasting, you may want to override the default implementation of <code>Serialisable::cloned()</code> for the types you are broadcasting, at least when you know that local delivery can happen.</li>
 <li><code>kompact::routing::groups::SenderDefaultHashBucketRouting</code> is the default policy for select paths. It will use the hash of the messages sender field to determine a member to send the message to. Changing the member set in any way will thus also change the assignments. <code>SenderDefaultHashBucketRouting</code> is actually just a type alias for a more customisable hash-based routing policy called <code>kompact::routing::groups::FieldHashBucketRouting</code>, which lets you decide the field(s) to use for hashing and the actual hashing algorithm.</li>
 <li><code>kompact::routing::groups::RoundRobinRouting</code> uses a mutable index (an <code>AtomicUsize</code> to be exact) to select exactly one member in a round-robin manner.</li>
 </ol>
-<h3><a class="header" href="#custom-policies" id="custom-policies">Custom Policies</a></h3>
+<h3 id="custom-policies"><a class="header" href="#custom-policies">Custom Policies</a></h3>
 <p>In addition to the already provided routing policies, users can easily implement their own by implementing <code>RoutingPolicy&lt;DynActorRef, NetMessage&gt;</code> for their custom type. It is important to note that policy lookups happen concurrently in the store and hence routing must be implemented with a <code>&amp;self</code> reference instead of <code>&amp;mut self</code>. Thus, routing protocols that must update manage state for each message must rely on atomics or—if really necessary—on mutexes or similar concurrent structures as appropriate for their access pattern.</p>
-<h2><a class="header" href="#example" id="example">Example</a></h2>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>To show-case the path routing feature of Kompact, we will sketch a simple client-server application, where the server holds a “database” (just a large slice of strings in our case) and the client sends “queries” against this database. The queries are simply going to be shorter strings, which we will try to find as substrings in the database and return all matching strings. Since our database is actually immutable, we will share it among multiple server components and use <strong>select routing</strong> with the round-robin policy to spread out the load. Since the queries are expensive, we will also cache the results on the clients. To provide an example of broadcast routing we will cache the responses for <em>any</em> client at <em>every</em> client via broadcast. For simplicity, this example is going to be completely local within a single Kompact system, but the mechanisms involved are really designed for remote use primarily, with local paths only an optimisation normally.</p>
-<h3><a class="header" href="#messages" id="messages">Messages</a></h3>
+<h3 id="messages"><a class="header" href="#messages">Messages</a></h3>
 <p>We only have two messages, the <code>Query</code> with a unique request id and the actual pattern we want to match against, and the <code>QueryResponse</code> which has all the fields of the <code>Query</code> plus a vector of strings that matched the pattern. For convenience, we will use <code>Serde</code> as serialisation mechanism again.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -261,14 +277,16 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -357,22 +375,24 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -407,7 +427,8 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -507,7 +528,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#state-and-behaviour" id="state-and-behaviour">State and Behaviour</a></h3>
+<h3 id="state-and-behaviour"><a class="header" href="#state-and-behaviour">State and Behaviour</a></h3>
 <p>As for this example the exact implementation of the servers and clients is not really crucial, we won’t describe it in detail here. The important things to note are that the <code>Client</code> uses the path <code>server_path</code> field to send requests, which we will initialise later with a select path of the form <code>tcp://127.0.0.1:&lt;port&gt;/server/?</code>. It also replaces its unique response path with a <code>broadcast_path</code>, which we will initialise later with a broadcast path of the form <code>tcp://127.0.0.1:&lt;port&gt;/client/*</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -578,14 +599,16 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -674,22 +697,24 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -724,7 +749,8 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -824,7 +850,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#system-setup" id="system-setup">System Setup</a></h3>
+<h3 id="system-setup"><a class="header" href="#system-setup">System Setup</a></h3>
 <p>When setting up the Kompact system in the main, we will use the following constants, which essentially represent configuration of our scenario:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -895,14 +921,16 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -991,22 +1019,24 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1041,7 +1071,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -1211,14 +1242,16 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1307,22 +1340,24 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1357,7 +1392,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -1458,7 +1494,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span></code></pre>
 <p>We will then create and register both the servers and the clients, making sure to register either with a unique name (based on their index) under the correct path prefix.</p>
-<h4><a class="header" href="#servers" id="servers">Servers</a></h4>
+<h4 id="servers"><a class="header" href="#servers">Servers</a></h4>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
@@ -1528,14 +1564,16 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1624,22 +1662,24 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1674,7 +1714,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -1774,7 +1815,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h4><a class="header" href="#clients" id="clients">Clients</a></h4>
+<h4 id="clients"><a class="header" href="#clients">Clients</a></h4>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
@@ -1844,14 +1885,16 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1940,22 +1983,24 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1990,7 +2035,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -2090,7 +2136,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#running" id="running">Running</a></h3>
+<h3 id="running"><a class="header" href="#running">Running</a></h3>
 <p>Finally, we simply start the servers and the clients, then run them for a few seconds, and shut them down again, before shutting down the system itself.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -2161,14 +2207,16 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
-</span><span class="boring">        match_deser!(msg.data; {
-</span><span class="boring">            query: Query [Serde] =&gt; {
-</span><span class="boring">                let matches = self.find_matches(&amp;query.pattern);
-</span><span class="boring">                let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
-</span><span class="boring">                sender.tell((response, Serde), self);
-</span><span class="boring">                self.handled_requests += 1;
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            (msg.data) {
+</span><span class="boring">                msg(query): Query [using Serde] =&gt; {
+</span><span class="boring">                    let matches = self.find_matches(&amp;query.pattern);
+</span><span class="boring">                    let response = QueryResponse { id: query.id, pattern: query.pattern, matches };
+</span><span class="boring">                    sender.tell((response, Serde), self);
+</span><span class="boring">                    self.handled_requests += 1;
+</span><span class="boring">                }
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2257,22 +2305,24 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        match_deser!(msg; {
-</span><span class="boring">            response: QueryResponse [Serde] =&gt; {
-</span><span class="boring">                trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
-</span><span class="boring">                if let Some(current_query) = self.current_query.take() {
-</span><span class="boring">                    if current_query.id == response.id {
-</span><span class="boring">                        debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
-</span><span class="boring">                        self.send_request();
-</span><span class="boring">                    } else {
-</span><span class="boring">                        // wrong id, put it back
-</span><span class="boring">                        self.current_query = Some(current_query);
+</span><span class="boring">        match_deser! {
+</span><span class="boring">            msg {
+</span><span class="boring">                msg(response): QueryResponse [using Serde] =&gt; {
+</span><span class="boring">                    trace!(self.log(), &quot;Got response for query id={}: {:?}&quot;, response.id, response.matches);
+</span><span class="boring">                    if let Some(current_query) = self.current_query.take() {
+</span><span class="boring">                        if current_query.id == response.id {
+</span><span class="boring">                            debug!(self.log(), &quot;Got response with {} matches for query: {}&quot;, response.matches.len(), current_query.pattern);
+</span><span class="boring">                            self.send_request();
+</span><span class="boring">                        } else {
+</span><span class="boring">                            // wrong id, put it back
+</span><span class="boring">                            self.current_query = Some(current_query);
+</span><span class="boring">                        }
 </span><span class="boring">                    }
-</span><span class="boring">                }
-</span><span class="boring">                // in any case, put it in the cache
-</span><span class="boring">                self.cache.put(response.pattern, response.matches);
-</span><span class="boring">            },
-</span><span class="boring">        });
+</span><span class="boring">                    // in any case, put it in the cache
+</span><span class="boring">                    self.cache.put(response.pattern, response.matches);
+</span><span class="boring">                },
+</span><span class="boring">            }
+</span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2307,7 +2357,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let mut cfg = KompactConfig::new();
+</span><span class="boring">    let mut cfg = KompactConfig::default();
+</span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
@@ -2473,10 +2524,10 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

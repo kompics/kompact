@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Components - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html" class="active"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html" class="active"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,7 +170,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#components" id="components">Components</a></h1>
+                        <h1 id="components"><a class="header" href="#components">Components</a></h1>
 <p>In the Kompics component model, the term for a <em>light-weight process with internal state</em> is a “component”.
 This notion can be further subdivided into the process-part of a component, a <em>component core</em>, and the state-part of a component, which is called a <em>component definition</em>. The <em>core</em> basically just interacts with the runtime of the system, while the <em>definition</em> contains the state variables and behaviours, in the form of <em>ports</em> and <em>event handlers</em>, which we will discuss below.</p>
 <p>The execution model of a component model always ensures that the state variables of a component definition can be accessed safely without any synchronisation.</p>
@@ -238,7 +254,7 @@ struct HelloWorldComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h2><a class="header" href="#events-and-ports" id="events-and-ports">Events and Ports</a></h2>
+<h2 id="events-and-ports"><a class="header" href="#events-and-ports">Events and Ports</a></h2>
 <p>Components communicate via <em>events</em> that are propagated along channels to a set of target components. The Kompics model is very strict about which events may travel on which channels, which it formalises with the concept of a <em>port</em>. Ports basically just state which events may travel in which way through the channels connected to it. You can think of a port as an API specification. If a component <em>C</em> <em>provides</em> the API of a port <em>P</em>, then it will accept all events of types that are marked as <em>request</em> in <em>P</em>, and it will only send events of the types that are marked as <em>indication</em> in <em>P</em>. Since components communicate with each other, the dual notion to providing a port is <em>requiring</em> it, and channels may only connect opposite variants of ports. That is, if one end of a channel is connected to a <em>provided</em> port of type <em>P</em> then the other side <strong>must</strong> be connected to a <em>required</em> port of type <em>P</em>. This setup ensures that messages which are sent through the channel are also accepted on the other side.</p>
 <p>In Kompact each port is limited to a single <em>indication</em> and a single <em>request</em> type. If more types are needed in either direction, they must be wrapped into an enum, which is facilitated easily in Rust using the <code>From</code> and <code>Into</code> traits. </p>
 <p>For example, a simplified version of Kompact’s internal <code>ControlPort</code>, which could be defined something like this:</p>
@@ -312,7 +328,7 @@ impl Port for ControlPort {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#channels" id="channels">Channels</a></h3>
+<h3 id="channels"><a class="header" href="#channels">Channels</a></h3>
 <p>We haven’t seen an example of channels, yet, but we will get there, when we are talking about local Kompact execution. Suffice to say here, that channels do not actually have a corresponding Rust struct in Kompact, but are simply a mental concept to think about how ports are connected to each other. Each port really just maintains a list of other ports it is connected to, and broadcasts all outgoing events to all of the connected ports. This is also why Kompact requires all events to implement the <code>Clone</code> trait. If cloning of an event for each connected component would be too expensive, it can often be a good alternative to simply share it immutably behind an <code>Arc</code>. Sharing events mutably behind an <code>Arc&lt;Mutex&lt;_&gt;&gt;</code> is of course also possible, but generally discouraged, as contention on the <code>Mutex</code> could drag down system performance significantly.</p>
 <p>These “broadcast by default”-semantics are probably the most fundamental difference between the Kompics component model, and the Actor model we will talk about in the next section.</p>
 
@@ -358,10 +374,10 @@ impl Port for ControlPort {
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Async/Await Interaction - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html" class="active"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html" class="active"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,7 +170,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#asyncawait-interaction" id="asyncawait-interaction">Async/Await Interaction</a></h1>
+                        <h1 id="asyncawait-interaction"><a class="header" href="#asyncawait-interaction">Async/Await Interaction</a></h1>
 <p>In addition to providing its own asynchronous APIs as described in the previous sections, Kompact also allows components to interact with Rust’s async/await features in a variety of manners.
 In particular, Kompact provides three different semantics for this interaction:</p>
 <ol>
@@ -163,9 +179,9 @@ In particular, Kompact provides three different semantics for this interaction:<
 <li>A component or Kompact system can spawn futures to run on its executor pool.</li>
 </ol>
 <p>The third variant is unremarkable and works like any other futures executor. It is invoked via <code>KompactSystem::spawn(...)</code> or via <code>ComponentDefinition::spawn_off(...)</code>. Variants 1 and 2, however, provide novel interactions between an asychronous API and an actor/component system, and so we will describe in more detail using an example below.</p>
-<h2><a class="header" href="#example" id="example">Example</a></h2>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>In order to show off interaction between Kompact components and asynchronous calls, we use the asynchronous DNS resolution API provided by the <a href="https://crates.io/crates/async-std-resolver">async-std-resolver</a> crate to build a DNS lookup component. In order to tell the component what to look up, we will read domain names from stdin, send them via <code>ask(...)</code> to the component and wait for the result to come in, which we then print out. In fact, we will allow multiple concurrent queries to be specified as comma-separated list, to show off concurrent future interaction in Kompact components.</p>
-<h3><a class="header" href="#messages" id="messages">Messages</a></h3>
+<h3 id="messages"><a class="header" href="#messages">Messages</a></h3>
 <p>The messages we need a very simple, we simply pass a <code>String</code> representing a single domain name as a request, and we return an already preformatted string with the resolved IPs as a response.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
@@ -174,25 +190,25 @@ In particular, Kompact provides three different semantics for this interaction:<
 </span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span>#[derive(Debug)]
-struct DNSRequest(String);
+struct DnsRequest(String);
 #[derive(Debug)]
-struct DNSResponse(String);
+struct DnsResponse(String);
 <span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
-</span><span class="boring">struct DNSComponent {
+</span><span class="boring">struct DnsComponent {
 </span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
 </span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
 </span><span class="boring">}
-</span><span class="boring">impl DNSComponent {
+</span><span class="boring">impl DnsComponent {
 </span><span class="boring">    pub fn new() -&gt; Self {
-</span><span class="boring">        DNSComponent {
+</span><span class="boring">        DnsComponent {
 </span><span class="boring">            ctx: ComponentContext::uninitialised(),
 </span><span class="boring">            resolver: None,
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
@@ -217,8 +233,8 @@ struct DNSResponse(String);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl Actor for DNSComponent {
-</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">impl Actor for DnsComponent {
+</span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
@@ -240,7 +256,7 @@ struct DNSResponse(String);
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
-</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
 </span><span class="boring">            Handled::Ok
@@ -256,7 +272,7 @@ struct DNSResponse(String);
 </span><span class="boring">
 </span><span class="boring">fn main() {
 </span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
-</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
 </span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
@@ -270,7 +286,7 @@ struct DNSResponse(String);
 </span><span class="boring">                    for domain in s.split(',') {
 </span><span class="boring">                        let domain = domain.trim();
 </span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
-</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(DnsRequest(domain.to_string()));
 </span><span class="boring">                        outstanding.push(query_f);
 </span><span class="boring">                    }
 </span><span class="boring">                    for query_f in outstanding {
@@ -286,7 +302,7 @@ struct DNSResponse(String);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#state" id="state">State</a></h3>
+<h3 id="state"><a class="header" href="#state">State</a></h3>
 <p>The component’s state is almost as simple, we simply require the usual component context and an instance of the asynchronous dns resolver. Since creation of that instance is performed asynchronously by the async-std-resolver library, we won’t have the instance we need available during component creation, and thus use an option indicating whether our component has already been properly initialised or not.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
@@ -295,25 +311,25 @@ struct DNSResponse(String);
 </span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">struct DnsRequest(String);
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">struct DnsResponse(String);
 </span><span class="boring">
 </span>#[derive(ComponentDefinition)]
-struct DNSComponent {
+struct DnsComponent {
     ctx: ComponentContext&lt;Self&gt;,
     resolver: Option&lt;AsyncStdResolver&gt;,
 }
-impl DNSComponent {
+impl DnsComponent {
     pub fn new() -&gt; Self {
-        DNSComponent {
+        DnsComponent {
             ctx: ComponentContext::uninitialised(),
             resolver: None,
         }
     }
 }
 <span class="boring">
-</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
@@ -338,8 +354,8 @@ impl DNSComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl Actor for DNSComponent {
-</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">impl Actor for DnsComponent {
+</span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
@@ -361,7 +377,7 @@ impl DNSComponent {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
-</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
 </span><span class="boring">            Handled::Ok
@@ -377,7 +393,7 @@ impl DNSComponent {
 </span><span class="boring">
 </span><span class="boring">fn main() {
 </span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
-</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
 </span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
@@ -391,7 +407,7 @@ impl DNSComponent {
 </span><span class="boring">                    for domain in s.split(',') {
 </span><span class="boring">                        let domain = domain.trim();
 </span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
-</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(DnsRequest(domain.to_string()));
 </span><span class="boring">                        outstanding.push(query_f);
 </span><span class="boring">                    }
 </span><span class="boring">                    for query_f in outstanding {
@@ -407,7 +423,7 @@ impl DNSComponent {
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#setup" id="setup">Setup</a></h3>
+<h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
 <p>When we create a resolver instance via <code>async_std_resolver::resolver</code>, we actually get a future back that we need to wait for. But our DNS component can’t perform any lookups until this future completed. Normally, we would have to manually queue up all requests received during that period until the future completed and then replay them. Instead, we can “block” on the provided future, causing the component itself to enter into a <code>blocked</code> lifecycle state, during which it handles no messages or events. Only when the future’s result is available will the component enter the <code>active</code> state and process other events and messages as normal again.</p>
 <p>In order to enter the <code>blocked</code> state, we must return a a special variant of the <code>Handled</code> enum, which is obtained from the <code>Handled::block_on(...)</code> method. This method takes the <code>self</code> reference to the component and an asynchronous closure, that is a closure that produces a future when invoked. This closure is given a single parameter by the Kompact API, which is an access guard object to a mutable component reference. In order words, a special owned struct that can be mutably dereferenced to the current component definition type. This guard object ensures safe mutable access to the current component instance, whenever the resulting future is polled, but prevents holding on to actual references over <code>await</code> calls (which are illegal). It is very important that this guard object is <strong>never</strong> sent to another thread from within the future. The async closure can not directly close over the component’s <code>self</code> reference, as the correct lifetime for it can not be guaranteed. Only the references obtained from the special guard object are safe in between <code>await</code> calls.</p>
 <p>Having said all that, in our case the async closure very simply <code>await</code>s the result of the resolver creation and then stores it locally, after which the component unblocks.</p>
@@ -418,25 +434,25 @@ impl DNSComponent {
 </span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">struct DnsRequest(String);
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">struct DnsResponse(String);
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
-</span><span class="boring">struct DNSComponent {
+</span><span class="boring">struct DnsComponent {
 </span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
 </span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
 </span><span class="boring">}
-</span><span class="boring">impl DNSComponent {
+</span><span class="boring">impl DnsComponent {
 </span><span class="boring">    pub fn new() -&gt; Self {
-</span><span class="boring">        DNSComponent {
+</span><span class="boring">        DnsComponent {
 </span><span class="boring">            ctx: ComponentContext::uninitialised(),
 </span><span class="boring">            resolver: None,
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span>impl ComponentLifecycle for DNSComponent {
+</span>impl ComponentLifecycle for DnsComponent {
     fn on_start(&amp;mut self) -&gt; Handled {
         debug!(self.log(), &quot;Starting...&quot;);
         Handled::block_on(self, move |mut async_self| async move {
@@ -461,8 +477,8 @@ impl DNSComponent {
     }
 }
 <span class="boring">
-</span><span class="boring">impl Actor for DNSComponent {
-</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">impl Actor for DnsComponent {
+</span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
@@ -484,7 +500,7 @@ impl DNSComponent {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
-</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
 </span><span class="boring">            Handled::Ok
@@ -500,7 +516,7 @@ impl DNSComponent {
 </span><span class="boring">
 </span><span class="boring">fn main() {
 </span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
-</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
 </span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
@@ -514,7 +530,7 @@ impl DNSComponent {
 </span><span class="boring">                    for domain in s.split(',') {
 </span><span class="boring">                        let domain = domain.trim();
 </span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
-</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(DnsRequest(domain.to_string()));
 </span><span class="boring">                        outstanding.push(query_f);
 </span><span class="boring">                    }
 </span><span class="boring">                    for query_f in outstanding {
@@ -533,7 +549,7 @@ impl DNSComponent {
 <blockquote>
 <p><strong>Note:</strong> The complicated looking <code>move |async_self| async move {...}</code> syntax is currently only necessary on stable Rust. On nightly, the much easier <code>async move |async_self| {...}</code> syntax is already available.</p>
 </blockquote>
-<h3><a class="header" href="#queries" id="queries">Queries</a></h3>
+<h3 id="queries"><a class="header" href="#queries">Queries</a></h3>
 <p>To handle queries we must call <code>lookup(...)</code> on the resolver, which returns a future of a dns lookup result, which we must await before replying to the actual request. As we want to handle multiple such outstanding lookups in parallel, we can’t simply block on this future as we did before. Instead we want to spawn the future, to run locally on the component whenever it is polled, via <code>ComponentDefinition::spawn_local(...)</code>. In this way, we have the same advantages as during blocking, but we can handle mutliple outstanding requests in parallel. Technically, except for some logging, we do not really need access to the component’s state in this particular case, but we will use it anyway to showcase the API.</p>
 <p>Since the result of a DNS query can consist of multiple IP addresses, we construct a single string by formatting them together with the domain into an enumerated list. We then return that string a reply to the original request.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -543,25 +559,25 @@ impl DNSComponent {
 </span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">struct DnsRequest(String);
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">struct DnsResponse(String);
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
-</span><span class="boring">struct DNSComponent {
+</span><span class="boring">struct DnsComponent {
 </span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
 </span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
 </span><span class="boring">}
-</span><span class="boring">impl DNSComponent {
+</span><span class="boring">impl DnsComponent {
 </span><span class="boring">    pub fn new() -&gt; Self {
-</span><span class="boring">        DNSComponent {
+</span><span class="boring">        DnsComponent {
 </span><span class="boring">            ctx: ComponentContext::uninitialised(),
 </span><span class="boring">            resolver: None,
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
@@ -586,8 +602,8 @@ impl DNSComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span>impl Actor for DNSComponent {
-    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span>impl Actor for DnsComponent {
+    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 
     fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
         debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
@@ -609,7 +625,7 @@ impl DNSComponent {
                     results.push(format!(&quot;{}. {:?}&quot;, index, ip));
                 }
                 let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
-                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
                 Handled::Ok
             });
             Handled::Ok
@@ -625,7 +641,7 @@ impl DNSComponent {
 <span class="boring">
 </span><span class="boring">fn main() {
 </span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
-</span><span class="boring">    let dns_comp = system.create(DNSComponent::new);
+</span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
 </span><span class="boring">    println!(&quot;System is ready, enter your queries.&quot;);
@@ -639,7 +655,7 @@ impl DNSComponent {
 </span><span class="boring">                    for domain in s.split(',') {
 </span><span class="boring">                        let domain = domain.trim();
 </span><span class="boring">                        info!(system.logger(), &quot;Sending request for {}&quot;, domain);
-</span><span class="boring">                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+</span><span class="boring">                        let query_f = dns_comp_ref.ask(DnsRequest(domain.to_string()));
 </span><span class="boring">                        outstanding.push(query_f);
 </span><span class="boring">                    }
 </span><span class="boring">                    for query_f in outstanding {
@@ -655,7 +671,7 @@ impl DNSComponent {
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#running" id="running">Running</a></h3>
+<h3 id="running"><a class="header" href="#running">Running</a></h3>
 <p>In our <code>main</code> function we want to set up the component, and then read from the command line over and over until the user enters <code>&quot;stop&quot;</code> to end the loop. For each line we read that is not <code>&quot;stop&quot;</code>, we will simply assume that it a comma-separated list of domain names. We split them apart, remove unnecessary spaces and then send them one by one to the <code>DNSComponent</code> via <code>ask(...)</code>. Instead of waiting for each future immediately, we store the response futures until all requests have been sent, and only <em>then</em> do we wait for each of them in order. We could also have waited for them in the order they are replied to, instead, it doesn’t really matter in this case. Only when the last of them has been completed, do we read input again.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
@@ -664,25 +680,25 @@ impl DNSComponent {
 </span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSRequest(String);
+</span><span class="boring">struct DnsRequest(String);
 </span><span class="boring">#[derive(Debug)]
-</span><span class="boring">struct DNSResponse(String);
+</span><span class="boring">struct DnsResponse(String);
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
-</span><span class="boring">struct DNSComponent {
+</span><span class="boring">struct DnsComponent {
 </span><span class="boring">    ctx: ComponentContext&lt;Self&gt;,
 </span><span class="boring">    resolver: Option&lt;AsyncStdResolver&gt;,
 </span><span class="boring">}
-</span><span class="boring">impl DNSComponent {
+</span><span class="boring">impl DnsComponent {
 </span><span class="boring">    pub fn new() -&gt; Self {
-</span><span class="boring">        DNSComponent {
+</span><span class="boring">        DnsComponent {
 </span><span class="boring">            ctx: ComponentContext::uninitialised(),
 </span><span class="boring">            resolver: None,
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl ComponentLifecycle for DNSComponent {
+</span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
@@ -707,8 +723,8 @@ impl DNSComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
-</span><span class="boring">impl Actor for DNSComponent {
-</span><span class="boring">    type Message = Ask&lt;DNSRequest, DNSResponse&gt;;
+</span><span class="boring">impl Actor for DnsComponent {
+</span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
@@ -730,7 +746,7 @@ impl DNSComponent {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
-</span><span class="boring">                msg.reply(DNSResponse(result_string)).expect(&quot;reply&quot;);
+</span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
 </span><span class="boring">            Handled::Ok
@@ -746,7 +762,7 @@ impl DNSComponent {
 </span><span class="boring">
 </span>fn main() {
     let system = KompactConfig::default().build().expect(&quot;system&quot;);
-    let dns_comp = system.create(DNSComponent::new);
+    let dns_comp = system.create(DnsComponent::new);
     let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
     system.start_notify(&amp;dns_comp).wait();
     println!(&quot;System is ready, enter your queries.&quot;);
@@ -760,7 +776,7 @@ impl DNSComponent {
                     for domain in s.split(',') {
                         let domain = domain.trim();
                         info!(system.logger(), &quot;Sending request for {}&quot;, domain);
-                        let query_f = dns_comp_ref.ask(Ask::of(DNSRequest(domain.to_string())));
+                        let query_f = dns_comp_ref.ask(DnsRequest(domain.to_string()));
                         outstanding.push(query_f);
                     }
                     for query_f in outstanding {
@@ -787,7 +803,7 @@ impl DNSComponent {
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../distributed/networkbuffers.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../distributed/networkstatusport.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -805,7 +821,7 @@ impl DNSComponent {
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="../distributed/networkbuffers.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../distributed/networkstatusport.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
@@ -824,10 +840,10 @@ impl DNSComponent {
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

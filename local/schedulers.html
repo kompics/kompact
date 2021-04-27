@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Schedulers - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html" class="active"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html" class="active"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,13 +170,13 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#schedulers" id="schedulers">Schedulers</a></h1>
+                        <h1 id="schedulers"><a class="header" href="#schedulers">Schedulers</a></h1>
 <p>Kompact allows the core component scheduler to be exchanged, in order to support different kinds of workloads.
 The default <code>crossbeam_workstealing_pool</code> scheduler from the <a href="https://docs.rs/executors/latest/executors/crossbeam_workstealing_pool/index.html">executors</a> crate, for example, is designed for fork-join type workloads. That is, workloads where a small number of (pool) external events spawns a large number of (pool) internal events. 
 But not all workloads are of this type. Sometimes the majority of events are (pool) external, and there is little communication between components running on the thread pool. Our somewhat contrived “counter”-example from the <a href="../introduction/state.html">introduction</a> was of this nature, for example. We were sending events and messages from the main-thread to the <code>Counter</code>, which was running on Kompact’s thread-pool. But we never sent any messages or events to any other component on that pool. In fact, we also only had a single component, and running it a large thread pool seems rather silly. (Kompact’s default thread pool has one thread for each CPU core, as reported by <a href="https://crates.io/crates/num_cpus">num_cpus</a>.)</p>
-<h2><a class="header" href="#changing-pool-size" id="changing-pool-size">Changing Pool Size</a></h2>
+<h2 id="changing-pool-size"><a class="header" href="#changing-pool-size">Changing Pool Size</a></h2>
 <p>We will first change just the pool size for the “counter”-example, since that is easily done. </p>
-<p>The number of threads in Kompact’s thread pool is configured with the <code>threads(usize)</code> function on a <code>KompactConfig</code> instance. We will simply pass in <code>1usize</code> there, before constructing our Kompact system.</p>
+<p>The number of threads in Kompact’s thread pool is configured with the config value at <a href="https://docs.rs/kompact/latest/kompact/config_keys/system/constant.THREADS.html">system::THREADS</a> using the <code>set_config_value</code> function on a <code>KompactConfig</code> instance. We will simply pass in <code>1usize</code> there, before constructing our Kompact system.</p>
 <p>That we change this line</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -259,7 +275,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    let actor_ref = counter.actor_ref();
 </span><span class="boring">    let port_ref: ProvidedRef&lt;CounterPort&gt; = counter.provided_ref();
 </span><span class="boring">    for _i in 0..100 {
-</span><span class="boring">        let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+</span><span class="boring">        let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">        info!(system.logger(), &quot;The current count is: {:?}&quot;, current_count);
 </span><span class="boring">    }
 </span><span class="boring">    for _i in 0..100 {
@@ -267,7 +283,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        // Where do the answers go?
 </span><span class="boring">    }
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">    let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+</span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
@@ -374,15 +390,16 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span>    let mut conf = KompactConfig::default();
-    conf.threads(1usize);
+</span>    use kompact::config_keys::system;
+    let mut conf = KompactConfig::default();
+    conf.set_config_value(&amp;system::THREADS, 1usize);
     let system = conf.build().expect(&quot;system&quot;);
 <span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
 </span><span class="boring">    let port_ref: ProvidedRef&lt;CounterPort&gt; = counter.provided_ref();
 </span><span class="boring">    for _i in 0..100 {
-</span><span class="boring">        let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+</span><span class="boring">        let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">        info!(system.logger(), &quot;The current count is: {:?}&quot;, current_count);
 </span><span class="boring">    }
 </span><span class="boring">    for _i in 0..100 {
@@ -390,7 +407,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        // Where do the answers go?
 </span><span class="boring">    }
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">    let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+</span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
@@ -407,13 +424,14 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
+<p>The same effect could be achieved via a <a href="configuration.html">configuration</a> file by setting <code>kompact.runtime.threads = 1</code>.</p>
 <p>If we run this, we will see exactly (modulo event timing) the same output as when running on the larger pool with Kompact’s default settings.</p>
 <blockquote>
 <p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
 <pre><code class="language-bash">cargo run --release --bin counters_pool
 </code></pre>
 </blockquote>
-<h2><a class="header" href="#changing-scheduler-implementation" id="changing-scheduler-implementation">Changing Scheduler Implementation</a></h2>
+<h2 id="changing-scheduler-implementation"><a class="header" href="#changing-scheduler-implementation">Changing Scheduler Implementation</a></h2>
 <p>Ok, so now we’ll switch to a pool that is designed for external events: <code>crossbeam_channel_pool</code>, also from the <a href="https://docs.rs/executors/latest/executors/crossbeam_channel_pool/index.html">executors</a> crate. </p>
 <p>We can set the scheduler implementation to be used by our Kompact system using the <code>executor(...)</code> function on a <code>KompactConfig</code> instance. That function expects a closure from the number of threads (<code>usize</code>) to something that implements the <code>executors::FuturesExecutor</code> <a href="https://docs.rs/executors/latest/executors/trait.FuturesExecutor.html">trait</a>.</p>
 <blockquote>
@@ -512,8 +530,9 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
+</span><span class="boring">    use kompact::config_keys::system;
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.threads(1usize);
+</span><span class="boring">    conf.set_config_value(&amp;system::THREADS, 1usize);
 </span>    conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
 <span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
@@ -521,7 +540,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    let actor_ref = counter.actor_ref();
 </span><span class="boring">    let port_ref: ProvidedRef&lt;CounterPort&gt; = counter.provided_ref();
 </span><span class="boring">    for _i in 0..100 {
-</span><span class="boring">        let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+</span><span class="boring">        let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">        info!(system.logger(), &quot;The current count is: {:?}&quot;, current_count);
 </span><span class="boring">    }
 </span><span class="boring">    for _i in 0..100 {
@@ -529,7 +548,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        // Where do the answers go?
 </span><span class="boring">    }
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">    let current_count = actor_ref.ask(Ask::of(CountMe)).wait();
+</span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
@@ -595,10 +614,10 @@ But not all workloads are of this type. Sometimes the majority of events are (po
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

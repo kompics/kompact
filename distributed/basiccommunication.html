@@ -5,22 +5,36 @@
         <meta charset="UTF-8">
         <title>Basic Communication - The Kompact Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A User Guide, Manual, and Tutorial for the Kompact actor-component-hybrid systems.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -84,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html" class="active"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../foreword.html">Foreword</a></li><li class="chapter-item expanded affix "><a href="../getting-started.html">Getting Started</a></li><li class="chapter-item expanded "><a href="../introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../introduction/components.html"><strong aria-hidden="true">1.1.</strong> Components</a></li><li class="chapter-item expanded "><a href="../introduction/actors.html"><strong aria-hidden="true">1.2.</strong> Actors</a></li><li class="chapter-item expanded "><a href="../introduction/state.html"><strong aria-hidden="true">1.3.</strong> Internal State</a></li></ol></li><li class="chapter-item expanded "><a href="../local/index.html"><strong aria-hidden="true">2.</strong> Local Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/index.html"><strong aria-hidden="true">2.1.</strong> Communication</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../local/communication/messagesandevents.html"><strong aria-hidden="true">2.1.1.</strong> Messages and Events</a></li><li class="chapter-item expanded "><a href="../local/communication/state.html"><strong aria-hidden="true">2.1.2.</strong> State</a></li><li class="chapter-item expanded "><a href="../local/communication/handlers.html"><strong aria-hidden="true">2.1.3.</strong> Handlers</a></li><li class="chapter-item expanded "><a href="../local/communication/ask.html"><strong aria-hidden="true">2.1.4.</strong> Ask</a></li><li class="chapter-item expanded "><a href="../local/communication/system.html"><strong aria-hidden="true">2.1.5.</strong> System</a></li><li class="chapter-item expanded "><a href="../local/communication/senders.html"><strong aria-hidden="true">2.1.6.</strong> Senders</a></li></ol></li><li class="chapter-item expanded "><a href="../local/timers.html"><strong aria-hidden="true">2.2.</strong> Timers</a></li><li class="chapter-item expanded "><a href="../local/schedulers.html"><strong aria-hidden="true">2.3.</strong> Schedulers</a></li><li class="chapter-item expanded "><a href="../local/logging.html"><strong aria-hidden="true">2.4.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../local/configuration.html"><strong aria-hidden="true">2.5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../local/faultrecovery.html"><strong aria-hidden="true">2.6.</strong> Fault Recovery</a></li><li class="chapter-item expanded "><a href="../local/dynamic-components.html"><strong aria-hidden="true">2.7.</strong> Dynamic Components</a></li></ol></li><li class="chapter-item expanded "><a href="../distributed/index.html"><strong aria-hidden="true">3.</strong> Distributed Kompact</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../distributed/basiccommunication.html" class="active"><strong aria-hidden="true">3.1.</strong> Basic Communication</a></li><li class="chapter-item expanded "><a href="../distributed/namedservices.html"><strong aria-hidden="true">3.2.</strong> Named Services</a></li><li class="chapter-item expanded "><a href="../distributed/pathrouting.html"><strong aria-hidden="true">3.3.</strong> Path Routing</a></li><li class="chapter-item expanded "><a href="../distributed/serialisation.html"><strong aria-hidden="true">3.4.</strong> Serialisation</a></li><li class="chapter-item expanded "><a href="../distributed/networkbuffers.html"><strong aria-hidden="true">3.5.</strong> Configuring Buffers</a></li><li class="chapter-item expanded "><a href="../distributed/networkstatusport.html"><strong aria-hidden="true">3.6.</strong> Network Status Port</a></li></ol></li><li class="chapter-item expanded "><a href="../async/index.html"><strong aria-hidden="true">4.</strong> Async/Await Interaction</a></li><li class="chapter-item expanded affix "><a href="../project.html">Project Info</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -119,9 +133,11 @@
                     <h1 class="menu-title">The Kompact Book</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                         <a href="https://github.com/kompics/kompact" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
@@ -154,14 +170,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#basic-communication" id="basic-communication">Basic Communication</a></h1>
+                        <h1 id="basic-communication"><a class="header" href="#basic-communication">Basic Communication</a></h1>
 <p>In order to use remote communication with Kompact we need to replace the default <code>Dispatcher</code> implementation, with the provided <code>NetworkDispatcher</code>. Custom dispatchers in general are set with the <code>KompactConfig::system_components(...)</code> function, which also allows replacement of the system’s deadletter box, that is the component that handles messages where no recipient could be resolved. An instance of the <code>NetworkDispatcher</code> should be created via its configuration struct using <code>NetworkConfig::build()</code>. This type also allows to specify the listening socket for the system via <code>KompactConfig::with_socket(...)</code>. The default implementation will bind to <code>127.0.0.1</code> on a random free port. Attempting to bind on an occupied port, or without appropriate rights on a reserved port such as 80 will cause the creation of the <code>KompactSystem</code> instance to fail.</p>
 <p>Once a Kompact system with a network dispatcher is created, we need to acquire actor paths for each component we want to be addressable. Kompact requires components to be explicitly registered with a dispatcher and returns an appropriate actor path as the result of a successful registration. The easiest way to acquire a registered component and a unique actor path for it, is to call <code>KompactSystem::create_and_register(...)</code> instead of <code>KompactSystem::create(...)</code> when creating it. This will return both the component and a future with the actor path, which completes once registration was successful. It is typically recommended not to start a component before registration is complete, as messages it sends with its unique path as source might not be answerable until registration is completed.</p>
 <p>Sending messages is achieved by calling <code>ActorPath::tell(...)</code> with something that is serialisable (i.e. implements the <code>Serialisable</code> trait) and something that can produce a source address as well as a reference to the <code>Dispatcher</code>, typically just <code>self</code> from within a component.</p>
 <p>In order to receive messages, a component must implement (some variant of) the <code>Actor</code> trait, and in particular its <code>receive_network(...)</code> function. Deserialisation happens lazily in Kompact, that means components are passed serialised data and a serialisation identifier in the form of a <code>NetworkMessage</code> message. They must then decide based on the identifier if they want to try and deserialise the content into a message. This can be done using the <code>NetworkMessage::try_deserialise::&lt;TargetType, Deserialiser&gt;()</code> function, or more conveniently for multiple messages via the <code>match_deser!</code> macro. We will get back to serialisation in more detail <a href="serialisation.html">later</a>.</p>
-<h2><a class="header" href="#example" id="example">Example</a></h2>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>In this section we will go through a concrete example of a distributed service in Kompact. In particular, we are going to develop a distributed leader election abstraction, which internally uses heartbeats to establish a “candidate set” of live nodes, and then deterministically picks one node from the set to be the “leader”.</p>
-<h3><a class="header" href="#local-abstraction" id="local-abstraction">Local Abstraction</a></h3>
+<h3 id="local-abstraction"><a class="header" href="#local-abstraction">Local Abstraction</a></h3>
 <p>Locally we want to expose a port abstraction called <code>EventualLeaderDetection</code>, which has no requests and only a single indication: The <code>Trust</code> event indicates the selection of a new leader.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">use kompact::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -246,7 +262,7 @@ impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
     }
 }
 </code></pre>
-<h3><a class="header" href="#messages" id="messages">Messages</a></h3>
+<h3 id="messages"><a class="header" href="#messages">Messages</a></h3>
 <p>We have two ways to interact with our leader election implementation: Different instances will send <code>Heartbeat</code> message over the network among themselves. For simplicity we will use <a href="https://crates.io/crates/serde">Serde</a> as a serialisation mechanism for now. For Serde serialisation to work correctly with Kompact we have assign a serialisation id to <code>Heartbeat</code>, that is a unique number that can be used to identify it during deserialisation. It’s very similar to a <code>TypeId</code>, except that it’s guaranteed to be same in any binary generated with the code included since the constant is hardcoded. For the example, we’ll simply use <code>1234</code> since that isn’t taken, yet. In a larger project, however, it’s important to keep track of these ids to prevent duplicates.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">use kompact::prelude::*;
 </span>use serde::{Deserialize, Serialize};
@@ -436,7 +452,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">pub fn run_systems(num_systems: usize) {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
-</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
@@ -489,7 +505,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#state" id="state">State</a></h3>
+<h3 id="state"><a class="header" href="#state">State</a></h3>
 <p>There is a bit of state we need to keep track of in our <code>EventualLeaderElector</code> component:</p>
 <ul>
 <li>First me must provide the <code>EventualLeaderDetection</code> port, of course. </li>
@@ -644,7 +660,7 @@ struct EventualLeaderElector {
 </span><span class="boring">pub fn run_systems(num_systems: usize) {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
-</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
@@ -703,7 +719,7 @@ struct EventualLeaderElector {
 	delta = 1 ms
 }
 </code></pre>
-<p>And the we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
+<p>And then we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use kompact_examples::trusting::*;
@@ -850,7 +866,7 @@ struct EventualLeaderElector {
 </span><span class="boring">pub fn run_systems(num_systems: usize) {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
-</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
@@ -903,7 +919,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#leader-election-algorithm" id="leader-election-algorithm">Leader Election Algorithm</a></h3>
+<h3 id="leader-election-algorithm"><a class="header" href="#leader-election-algorithm">Leader Election Algorithm</a></h3>
 <p>This part isn’t very specific to networking, but basically the election algorithm works as follows: Every time the timeout fires we clear out the current candidate set into a temporary vector. We then sort the vector and take the last element, if any, as the potential new leader. If that new leader is not the same as the current one then either our current leader has failed, or the timeout is wrong. For simplicity we will assume both is true and replace the leader and update the scheduled timeout by adding the <code>delta</code> to the current <code>period</code>. We then announce our new leader choice via a trigger on the <code>EventualLeaderDetection</code> port. Whether or not we replaced the leader, we always send heartbeats to everyone in the process set.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -1051,7 +1067,7 @@ struct EventualLeaderElector {
 </span><span class="boring">pub fn run_systems(num_systems: usize) {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
-</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
@@ -1104,7 +1120,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#sending-network-messages" id="sending-network-messages">Sending Network Messages</a></h3>
+<h3 id="sending-network-messages"><a class="header" href="#sending-network-messages">Sending Network Messages</a></h3>
 <p>The only place in this example where we are sending remote messages is when we are sending heartbeats:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
@@ -1252,7 +1268,7 @@ struct EventualLeaderElector {
 </span><span class="boring">pub fn run_systems(num_systems: usize) {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
-</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
@@ -1306,7 +1322,7 @@ struct EventualLeaderElector {
 </span><span class="boring">}
 </span></code></pre>
 <p>We invoke the <code>ActorPath::tell(...)</code> method with a tuple of the actual <code>Heartbeat</code> together with the serialiser with want to use, which is <code>kompact::serde_serialisers::Serde</code>. We also pass a reference to <code>self</code> which will automatically insert our unique actor path into the message as the source and send everything to our system’s dispatcher, which will take care of serialisation, as well as network channel creation and selection for us.</p>
-<h3><a class="header" href="#handling-network-messages" id="handling-network-messages">Handling Network Messages</a></h3>
+<h3 id="handling-network-messages"><a class="header" href="#handling-network-messages">Handling Network Messages</a></h3>
 <p>In order to handle (network) messages we must implement the Actor trait as described <a href="../local/communication/messagesandevents.html">previously</a>. The local message type we are handling is <code>UpdateProcesses</code> and whenever we get it, we simply replace our current <code>processes</code> with the new value.</p>
 <p>For network messages, on the other hand, we don’t know what are being given, generally, so we get <code>NetworkMessage</code>. This is basically a wrapper around a sender <code>ActorPath</code>, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to <code>Heartbeat</code>. We also know we need to use <code>Serde</code> as a deserialiser, since that’s what we used for serialisation in the first place. Thus, we use <code>NetMessage::try_deserialise::&lt;Heartbeat, Serde&gt;()</code> to attempt to deserialise a <code>Heartbeat</code> from the buffer using the <code>Serde</code> deserialiser. This call will automatically check if the serialisation id matches <code>Heartbeat::SER_ID</code> and if yes, attempt to deserialise it using <code>Serde</code>. If it doesn’t work, we’ll get a <code>Result::Err</code> instead. If it does work, however, we don’t actually care about the Hearbeat itself, but we insert the sender from the <code>NetMessage</code> into <code>self.candidates</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -1455,7 +1471,7 @@ struct EventualLeaderElector {
 </span><span class="boring">pub fn run_systems(num_systems: usize) {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
-</span><span class="boring">            let mut cfg = KompactConfig::new();
+</span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
@@ -1508,7 +1524,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<h3><a class="header" href="#system-setup" id="system-setup">System Setup</a></h3>
+<h3 id="system-setup"><a class="header" href="#system-setup">System Setup</a></h3>
 <p>In this example we need to set up multiple systems in the same process for the first time, since we want them to communicate via the network instead of directly, as a preparation for actually running distributed. We are going to take the number of systems (and thus leader election components) as a command line argument. We start each system with the same configuration file and give them each a <code>NetworkDispatcher</code> with default settings. This way we don’t have to manually pick a bunch of ports and hope they happen to be free. On the other hand that means, of course, that we can’t predict what system addresses are going to look like. So in order to give everyone a set of processes to talk to, we need to wait until all systems are set up and all the leader elector components started and registered, collect all the registrations into a vector and then send an update to every component with the complete set.</p>
 <p>At this point the system is running just fine and we give it some time to settle on timeouts and elect a leader. We will see the result in the logging messages eventually. Now to see the leader election responding to actual changes, we are going to kill one system at a time and always give it a second to settle. This way we can watch the elector on the remaining systems updating the trust values one by one.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -1657,7 +1673,7 @@ struct EventualLeaderElector {
 pub fn run_systems(num_systems: usize) {
     let mut systems: Vec&lt;KompactSystem&gt; = {
         let system = || {
-            let mut cfg = KompactConfig::new();
+            let mut cfg = KompactConfig::default();
             cfg.load_config_file(&quot;./application.conf&quot;);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
             cfg.build().expect(&quot;KompactSystem&quot;)
@@ -1759,10 +1775,10 @@ pub fn run_systems(num_systems: usize) {
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 
