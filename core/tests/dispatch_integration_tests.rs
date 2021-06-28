@@ -6,7 +6,7 @@ const REGISTRATION_TIMEOUT: Duration = Duration::from_millis(1000);
 const STOP_COMPONENT_TIMEOUT: Duration = Duration::from_millis(1000);
 const PINGPONG_TIMEOUT: Duration = Duration::from_millis(10_000);
 const PING_INTERVAL: Duration = Duration::from_millis(500);
-const CONNECTION_STATUS_TIMEOUT: Duration = Duration::from_millis(2000);
+const CONNECTION_STATUS_TIMEOUT: Duration = Duration::from_millis(5000);
 
 const CONNECTION_RETRY_INTERVAL: u64 = 500;
 const CONNECTION_RETRY_ATTEMPTS: u8 = 10;
