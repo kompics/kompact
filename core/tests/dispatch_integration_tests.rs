@@ -767,6 +767,8 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
 // and finally boots a new system 2b with an identical networkconfig and named actor registration
 // The final ping pong round should then complete as system1 automatically reconnects to system2 and
 // transfers the enqueued messages.
+// Also checks that `session` of received messages are incremented and matches up with NetworkStatus
+// messages.
 #[ignore]
 fn remote_lost_and_continued_connection() {
     let mut net_cfg = NetworkConfig::default();
@@ -775,7 +777,7 @@ fn remote_lost_and_continued_connection() {
     let pinger_system = system_from_network_config(net_cfg);
     let ponger_system_1 = system_from_network_config(NetworkConfig::default());
     let ponger_system_port = ponger_system_1.system_path().port();
-    let (_, status_receiver) = start_status_counter(&pinger_system);
+    let (status_counter, status_receiver) = start_status_counter(&pinger_system);
 
     let (ponger_named, _) = start_ponger(&ponger_system_1, PongerAct::new_lazy());
     ponger_system_1
@@ -825,6 +827,18 @@ fn remote_lost_and_continued_connection() {
     all_pongs_received_future_2
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
+
+    let (first_session, second_session) = {
+        status_counter.on_definition(|c| {
+            assert_eq!(c.connected_systems[0].session(), c.disconnected_systems[0].session());
+            assert_ne!(c.connected_systems[0].session(), c.connected_systems[1].session());
+            return (c.connected_systems[0].session(), c.connected_systems[1].session())
+        })
+    };
+    ping_stream.on_definition(|c| {
+        assert_eq!(first_session, c.pong_system_paths[0].session());
+        assert_eq!(second_session, c.pong_system_paths[1].session());
+    });
 
     pinger_system
         .stop_notify(&ping_stream)
@@ -1348,6 +1362,8 @@ fn network_status_port_open_close_open() {
     status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 2);
         assert_eq!(sc.connection_closed, 1);
+        assert_eq!(sc.connected_systems[0], sc.disconnected_systems[0]);
+        assert_ne!(sc.connected_systems[0], sc.connected_systems[1]);
     });
 
     initiator_system

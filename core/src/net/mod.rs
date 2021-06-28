@@ -1269,9 +1269,9 @@ pub mod net_test_helpers {
         pub connection_dropped: u32,
         /// Counts the number of connection_closed messages received
         pub connection_closed: u32,
-        /// Counts the number of connected_systems messages received
+        /// Contains all `SystemPath`'s received in a `ConnectionEstablished`
         pub connected_systems: Vec<SystemPath>,
-        /// Counts the number of disconnected_systems messages received
+        /// Contains all `SystemPath`'s received in a `ConnectionLost` or `ConnectionClosed` message
         pub disconnected_systems: Vec<SystemPath>,
         /// The blocked SystemPaths
         pub blocked_systems: Vec<SystemPath>,
@@ -1366,10 +1366,21 @@ pub mod net_test_helpers {
                     .expect("StatusCounter to send NetworkStatus");
             }
             match event {
-                NetworkStatus::ConnectionEstablished(_) => self.connection_established += 1,
-                NetworkStatus::ConnectionLost(_) => self.connection_lost += 1,
-                NetworkStatus::ConnectionDropped(_) => self.connection_dropped += 1,
-                NetworkStatus::ConnectionClosed(_) => self.connection_closed += 1,
+                NetworkStatus::ConnectionEstablished(system_path) => {
+                    self.connection_established += 1;
+                    self.connected_systems.push(system_path);
+                },
+                NetworkStatus::ConnectionLost(system_path) => {
+                    self.connection_lost += 1;
+                    self.disconnected_systems.push(system_path);
+                }
+                NetworkStatus::ConnectionDropped(_) => {
+                    self.connection_dropped += 1;
+                }
+                NetworkStatus::ConnectionClosed(system_path) => {
+                    self.connection_closed += 1;
+                    self.disconnected_systems.push(system_path);
+                }
                 NetworkStatus::BlockedSystem(sys_path) => self.blocked_systems.push(sys_path),
                 NetworkStatus::BlockedIp(ip_addr) => self.blocked_ip.push(ip_addr),
                 NetworkStatus::UnblockedSystem(sys_path) => {
@@ -1389,6 +1400,8 @@ pub mod net_test_helpers {
         target: ActorPath,
         period: Duration,
         timer: Option<ScheduledTimer>,
+        /// Contains all unique system_paths the PingStream has received Pong's from
+        pub pong_system_paths: Vec<SystemPath>,
         ping_count: u64,
         pong_count: u64,
     }
@@ -1404,6 +1417,7 @@ pub mod net_test_helpers {
                 timer: None,
                 ping_count: 0,
                 pong_count: 0,
+                pong_system_paths: Vec::new(),
             }
         }
 
@@ -1447,10 +1461,14 @@ pub mod net_test_helpers {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            let sender = msg.sender.clone();
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.pong_count += 1;
+                    if !self.pong_system_paths.contains(sender.system()) {
+                        self.pong_system_paths.push(sender.system().clone())
+                    }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
