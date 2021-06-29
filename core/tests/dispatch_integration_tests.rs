@@ -100,7 +100,7 @@ struct NetworkStatusReceiver {
 impl NetworkStatusReceiver {
     fn expect_connection_established(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionEstablished(_)) => {}
+            Ok(NetworkStatus::ConnectionEstablished(_, _)) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for ConnectionEstablished",
@@ -115,7 +115,7 @@ impl NetworkStatusReceiver {
 
     fn expect_connection_lost(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionLost(_)) => {}
+            Ok(NetworkStatus::ConnectionLost(_, _)) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for ConnectionLost",
@@ -145,7 +145,7 @@ impl NetworkStatusReceiver {
 
     fn expect_connection_closed(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionClosed(_)) => {}
+            Ok(NetworkStatus::ConnectionClosed(_, _)) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for ConnectionClosed",
@@ -830,14 +830,14 @@ fn remote_lost_and_continued_connection() {
 
     let (first_session, second_session) = {
         status_counter.on_definition(|c| {
-            assert_eq!(c.connected_systems[0].session(), c.disconnected_systems[0].session());
-            assert_ne!(c.connected_systems[0].session(), c.connected_systems[1].session());
-            return (c.connected_systems[0].session(), c.connected_systems[1].session())
+            assert_eq!(c.connected_systems[0].1, c.disconnected_systems[0].1);
+            assert_ne!(c.connected_systems[0].1, c.connected_systems[1].1);
+            return (c.connected_systems[0].1, c.connected_systems[1].1)
         })
     };
     ping_stream.on_definition(|c| {
-        assert_eq!(first_session, c.pong_system_paths[0].session());
-        assert_eq!(second_session, c.pong_system_paths[1].session());
+        assert_eq!(first_session, c.pong_system_paths[0].1);
+        assert_eq!(second_session, c.pong_system_paths[1].1);
     });
 
     pinger_system

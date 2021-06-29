@@ -41,6 +41,7 @@ use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
 use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
 use std::{collections::VecDeque, net::IpAddr, time::Duration};
+use crate::prelude::SessionId;
 
 pub mod lookup;
 pub mod queue_manager;
@@ -231,16 +232,16 @@ impl Port for NetworkStatusPort {
 #[derive(Clone, Debug)]
 pub enum NetworkStatus {
     /// Indicates that a connection has been established to the remote system
-    ConnectionEstablished(SystemPath),
+    ConnectionEstablished(SystemPath, SessionId),
     /// Indicates that a connection has been lost to the remote system.
     /// The system will automatically try to recover the connection for a configurable amount of
     /// retries. The end of the automatic retries is signalled by a `ConnectionDropped` message.
-    ConnectionLost(SystemPath),
+    ConnectionLost(SystemPath, SessionId),
     /// Indicates that a connection has been dropped and no more automatic retries to re-establish
     /// the connection will be attempted and all queued messages have been dropped.
     ConnectionDropped(SystemPath),
     /// Indicates that a connection has been gracefully closed.
-    ConnectionClosed(SystemPath),
+    ConnectionClosed(SystemPath, SessionId),
     /// Indicates that a system has been blocked
     BlockedSystem(SystemPath),
     /// Indicates that an IpAddr has been blocked
@@ -569,6 +570,7 @@ impl NetworkDispatcher {
                 self.network_status_port
                     .trigger(NetworkStatus::ConnectionEstablished(
                         SystemPath::with_socket(Transport::Tcp, addr),
+                        SessionId::default(), // TODO
                     ));
                 let _ = self.retry_map.remove(&addr);
                 if self.queue_manager.has_data(&addr) {
@@ -583,10 +585,13 @@ impl NetworkDispatcher {
             }
             Closed => {
                 self.network_status_port
-                    .trigger(NetworkStatus::ConnectionClosed(SystemPath::with_socket(
+                    .trigger(NetworkStatus::ConnectionClosed(
+                        SystemPath::with_socket(
                         Transport::Tcp,
                         addr,
-                    )));
+                        ),
+                        SessionId::default(), // TODO
+                    ));
                 // Ack the closing
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
@@ -601,7 +606,9 @@ impl NetworkDispatcher {
                     .trigger(NetworkStatus::ConnectionLost(SystemPath::with_socket(
                         Transport::Tcp,
                         addr,
-                    )));
+                    ),
+                       SessionId::default(), // TODO
+                    ));
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
                 }

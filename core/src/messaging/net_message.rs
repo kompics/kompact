@@ -27,6 +27,35 @@ pub struct NetMessage {
     pub receiver: ActorPath,
     /// The actual data of the message
     pub data: NetData,
+    /// When a connection is lost/closed and then re-established, new received messages will have an
+    /// incremented session.
+    ///
+    /// The field is only modified by the Network-layer in incoming messages, and in
+    /// `NetworkStatus`-messages.
+    ///
+    /// For any sequence of two messages received from a remote actor:
+    ///     If the session of the messages differs, an intermediate message *may* have been lost.
+    ///     Conversely, if the session does not differ no intermediate message was lost.
+    pub session: SessionId,
+}
+
+/// Session identifier, part of the `NetMessage` struct. Managed by Kompact internally, may be read
+/// by users to detect session loss, indicated by different SessionId's of NetMessage `Sender` fields.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SessionId {
+    session: u8,
+}
+
+impl SessionId {
+    /// Creates a new incremented SessionId from self.
+    pub(crate) fn increment(&self) -> SessionId {
+        SessionId{session: self.session+1}
+    }
+
+    /// Creates a new default SessionId (0)
+    pub(crate) fn default() -> SessionId {
+        SessionId{session: 0}
+    }
 }
 
 /// The data part of an incoming message from the networking subsystem
@@ -80,6 +109,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::Boxed(data)),
+            session: SessionId::default(),
         }
     }
 
@@ -94,6 +124,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::Serialised(data)),
+            session: SessionId::default(),
         }
     }
 
@@ -109,6 +140,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::ChunkLease(data)),
+            session: SessionId::default(),
         }
     }
 
@@ -124,6 +156,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::ChunkRef(data)),
+            session: SessionId::default(),
         }
     }
 
@@ -131,6 +164,12 @@ impl NetMessage {
     pub fn sender(&self) -> &ActorPath {
         &self.sender
     }
+
+    /// Returns the session of the `SystemPath`
+    pub fn session(&self) -> SessionId { self.session }
+
+    /// Sets the `session` of the `NetMessage`
+    pub(crate) fn set_session(&mut self, session: SessionId) -> () { self.session = session; }
 
     /// Try to deserialise the data into a value of type `T` wrapped into a message
     ///
@@ -180,6 +219,7 @@ impl NetMessage {
             sender,
             receiver,
             data,
+            session
         } = self;
         match data.try_deserialise::<T, D>() {
             Ok(t) => Ok(DeserialisedMessage::with(sender, receiver, t)),
@@ -188,6 +228,7 @@ impl NetMessage {
                     sender,
                     receiver,
                     data,
+                    session
                 }),
                 UnpackError::NoCast(data) => UnpackError::NoCast(data),
                 UnpackError::DeserError(e) => UnpackError::DeserError(e),
@@ -302,6 +343,7 @@ impl NetMessage {
             sender,
             receiver,
             data,
+            session
         } = self;
         data.try_deserialise_unchecked::<T, D>()
             .map_err(|e| match e {
@@ -309,6 +351,7 @@ impl NetMessage {
                     sender,
                     receiver,
                     data,
+                    session
                 }),
                 UnpackError::NoCast(data) => UnpackError::NoCast(data),
                 UnpackError::DeserError(e) => UnpackError::DeserError(e),
@@ -327,6 +370,7 @@ impl TryClone for NetMessage {
             sender: self.sender.clone(),
             receiver: self.receiver.clone(),
             data,
+            session: self.session,
         })
     }
 }

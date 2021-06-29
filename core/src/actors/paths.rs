@@ -144,35 +144,6 @@ pub struct SystemPath {
     // TODO address could be IPv4, IPv6, or a domain name (not supported yet)
     address: IpAddr,
     port: u16,
-    /// When a connection is lost/closed and then re-established, new received messages will have an
-    /// incremented session.
-    ///
-    /// The field is only modified by the Network-layer in incoming messages, and for
-    /// `NetworkStatus`-messages.
-    ///
-    /// For any sequence of two messages received from a remote system:
-    ///     If the session of the sender of the messages differs, a message *may* have been lost.
-    ///     Conversely, if the session does not differ no intermediate message was lost.
-    session: SessionId,
-}
-
-/// Session identifier, part of the SystemPath struct. Managed by Kompact internally, may be read
-/// by users to detect session loss, indicated by different SessionId's of NetMessage `Sender` fields.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct SessionId {
-    session: u8,
-}
-
-impl SessionId {
-    /// Creates a new incremented SessionId from self.
-    pub(crate) fn increment(&self) -> SessionId {
-        SessionId{session: self.session+1}
-    }
-
-    /// Creates a new default SessionId (0)
-    pub(crate) fn default() -> SessionId {
-        SessionId{session: 0}
-    }
 }
 
 impl SystemPath {
@@ -182,7 +153,6 @@ impl SystemPath {
             protocol,
             address,
             port,
-            session: SessionId::default(),
         }
     }
 
@@ -192,7 +162,6 @@ impl SystemPath {
             protocol,
             address: socket.ip(),
             port: socket.port(),
-            session: SessionId::default(),
         }
     }
 
@@ -210,12 +179,6 @@ impl SystemPath {
     pub fn port(&self) -> u16 {
         self.port
     }
-
-    /// Returns the session of the `SystemPath`
-    pub fn session(&self) -> SessionId { self.session }
-
-    /// Sets the `session` to the specified `u8`
-    pub(crate) fn set_session(&mut self, session: SessionId) -> () { self.session = session; }
 
     /// Create a named path starting with this system path and ending with the given string
     ///
