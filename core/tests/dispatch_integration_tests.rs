@@ -832,7 +832,7 @@ fn remote_lost_and_continued_connection() {
         status_counter.on_definition(|c| {
             assert_eq!(c.connected_systems[0].1, c.disconnected_systems[0].1);
             assert_ne!(c.connected_systems[0].1, c.connected_systems[1].1);
-            return (c.connected_systems[0].1, c.connected_systems[1].1);
+            (c.connected_systems[0].1, c.connected_systems[1].1)
         })
     };
     ping_stream.on_definition(|c| {
@@ -1433,8 +1433,7 @@ fn network_status_port_block_unblock_system() {
             ponger.count
         );
     });
-    status_counter
-        .on_definition(|sc| assert_eq!(sc.blocked_systems.contains(&pinger_sys_path), false));
+    status_counter.on_definition(|sc| assert!(!sc.blocked_systems.contains(&pinger_sys_path)));
 
     pinger_system
         .kill_notify(pinger)
@@ -1500,7 +1499,7 @@ fn network_status_port_block_unblock_ip() {
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
 
-    status_counter.on_definition(|sc| assert_eq!(sc.blocked_ip.contains(&pinger_ip), false));
+    status_counter.on_definition(|sc| assert!(!sc.blocked_ip.contains(&pinger_ip)));
 
     let _ = ponger_system.shutdown();
     let _ = pinger_system.shutdown();

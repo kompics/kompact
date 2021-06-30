@@ -420,7 +420,7 @@ mod tests {
     // string multiple times such that the Buffer is exhausted.
     fn encode_chain_overload_reuse(buffer_config: &BufferConfig, data_len: usize) -> EncodeBuffer {
         // Instantiate an encode buffer with the given buffer_config.
-        let mut encode_buffer = EncodeBuffer::with_config(&buffer_config, &None);
+        let mut encode_buffer = EncodeBuffer::with_config(buffer_config, &None);
         // Create a string that's bigger than the ENCODEBUFFER_MIN_REMAINING
         // This should produce at least one Chained ChunkLease during our testing
         let mut test_string = "".to_string();

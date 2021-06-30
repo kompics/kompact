@@ -340,9 +340,8 @@ mod tests {
         assert!(trie.insert(&["test", "me", "further"], 4).is_none());
         assert!(trie.insert(&["test", "you", "not"], 5).is_none());
 
-        let values: Vec<usize> = trie.values().copied().collect();
         for i in 0..=5 {
-            assert!(values.contains(&i));
+            assert!(trie.values().copied().any(|v| { v == i }));
         }
     }
 }
