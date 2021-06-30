@@ -234,7 +234,10 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        net::buffers::{BufferConfig, ChunkLease, ChunkRef},
+        net::{
+            buffers::{BufferConfig, ChunkLease, ChunkRef},
+            SessionId,
+        },
         ports::{
             Channel,
             DisconnectError,
@@ -270,7 +273,6 @@ pub mod prelude {
             RegistrationError,
             RegistrationResult,
             Serialised,
-            SessionId,
             UnpackError,
         },
         timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},

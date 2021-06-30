@@ -5,6 +5,7 @@ use crate::{
         buffers::{BufferChunk, BufferPool, DecodeBuffer},
         frames::{Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
     },
+    prelude::SessionId,
 };
 use bytes::{Buf, BytesMut};
 use mio::{net::TcpStream, Token};
@@ -51,6 +52,7 @@ pub(crate) struct TcpChannel {
     pub messages: u32,
     own_addr: SocketAddr,
     nodelay: bool,
+    session_id: SessionId,
 }
 
 impl TcpChannel {
@@ -62,6 +64,7 @@ impl TcpChannel {
         state: ChannelState,
         own_addr: SocketAddr,
         network_config: &NetworkConfig,
+        session_id: SessionId,
     ) -> Self {
         let input_buffer = DecodeBuffer::new(buffer_chunk, network_config.get_buffer_config());
         TcpChannel {
@@ -74,6 +77,7 @@ impl TcpChannel {
             messages: 0,
             own_addr,
             nodelay: network_config.get_tcp_nodelay(),
+            session_id,
         }
     }
 
@@ -89,6 +93,11 @@ impl TcpChannel {
 
     pub fn connected(&self) -> bool {
         matches!(self.state, ChannelState::Connected(_, _))
+    }
+
+    /// Returns the session of the `TcpChannel`
+    pub fn session_id(&self) -> SessionId {
+        self.session_id
     }
 
     /// Internal helper function for special frames

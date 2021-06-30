@@ -832,7 +832,7 @@ fn remote_lost_and_continued_connection() {
         status_counter.on_definition(|c| {
             assert_eq!(c.connected_systems[0].1, c.disconnected_systems[0].1);
             assert_ne!(c.connected_systems[0].1, c.connected_systems[1].1);
-            return (c.connected_systems[0].1, c.connected_systems[1].1)
+            return (c.connected_systems[0].1, c.connected_systems[1].1);
         })
     };
     ping_stream.on_definition(|c| {

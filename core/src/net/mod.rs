@@ -11,6 +11,7 @@ use crate::{
 };
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
+use rustc_hash::FxHashMap;
 pub use std::net::SocketAddr;
 use std::{io, net::IpAddr, panic, sync::Arc, thread, time::Duration};
 
@@ -25,19 +26,32 @@ pub(crate) mod udp_state;
 #[derive(Clone, Debug)]
 pub enum ConnectionState {
     /// Newly created
-    New,
+    New(SessionId),
     /// Initialising the connection
-    Initializing,
+    Initializing(SessionId),
     /// Connected
-    Connected,
+    Connected(SessionId),
     /// Closed gracefully, by request on either side
-    Closed,
+    Closed(SessionId),
     /// Unexpected lost connection
-    Lost,
+    Lost(SessionId),
     /// Blocked by request from component through NetworkStatusPort
-    Blocked,
+    Blocked(SessionId),
     // Threw an error
     // Error(std::io::Error),
+}
+
+impl ConnectionState {
+    pub(crate) fn session_id(&self) -> SessionId {
+        match self {
+            ConnectionState::New(session_id) => *session_id,
+            ConnectionState::Initializing(session_id) => *session_id,
+            ConnectionState::Connected(session_id) => *session_id,
+            ConnectionState::Closed(session_id) => *session_id,
+            ConnectionState::Lost(session_id) => *session_id,
+            ConnectionState::Blocked(session_id) => *session_id,
+        }
+    }
 }
 
 pub(crate) enum Protocol {
@@ -54,6 +68,27 @@ impl From<Transport> for Protocol {
     }
 }
 
+/// Session identifier, part of the `NetMessage` struct. Managed by Kompact internally, may be read
+/// by users to detect session loss, indicated by different SessionId's of NetMessage `Sender` fields.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SessionId {
+    session: u8,
+}
+
+impl SessionId {
+    /// Creates a new incremented SessionId from self.
+    pub(crate) fn increment(&self) -> SessionId {
+        SessionId {
+            session: self.session + 1,
+        }
+    }
+
+    /// Creates a new default SessionId (0)
+    pub(crate) fn default() -> SessionId {
+        SessionId { session: 0 }
+    }
+}
+
 /// Events on the network level
 pub mod events {
 
@@ -61,6 +96,7 @@ pub mod events {
     use crate::{
         messaging::DispatchData,
         net::{frames::*, SocketAddr},
+        prelude::SessionId,
     };
     use std::net::IpAddr;
 
@@ -97,7 +133,7 @@ pub mod events {
         /// Tells the network thread to Die as soon as possible, without graceful shutdown.
         Kill,
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
-        Connect(SocketAddr),
+        Connect(SocketAddr, SessionId),
         /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
         ClosedAck(SocketAddr),
         /// Tells the `NetworkThread` to gracefully close the channel to the `SocketAddr`
@@ -207,6 +243,7 @@ impl Bridge {
             shutdown_p,
             dispatcher_ref.clone(),
             network_config.clone(),
+            FxHashMap::default(),
         ) {
             Ok(mut network_thread_builder) => {
                 let bound_address = network_thread_builder.address;
@@ -302,11 +339,16 @@ impl Bridge {
     ///
     /// # Errors
     /// If the provided protocol is not supported
-    pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+    pub fn connect(
+        &self,
+        proto: Transport,
+        addr: SocketAddr,
+        session: SessionId,
+    ) -> Result<(), NetworkBridgeErr> {
         match proto {
             Transport::Tcp => {
                 self.network_input_queue
-                    .send(events::DispatchEvent::Connect(addr))?;
+                    .send(events::DispatchEvent::Connect(addr, session))?;
                 self.waker.wake()?;
                 Ok(())
             }
@@ -1369,7 +1411,7 @@ pub mod net_test_helpers {
                 NetworkStatus::ConnectionEstablished(system_path, session) => {
                     self.connection_established += 1;
                     self.connected_systems.push((system_path, session));
-                },
+                }
                 NetworkStatus::ConnectionLost(system_path, session) => {
                     self.connection_lost += 1;
                     self.disconnected_systems.push((system_path, session));
@@ -1467,8 +1509,12 @@ pub mod net_test_helpers {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.pong_count += 1;
-                    if !self.pong_system_paths.contains(&(sender.system().clone(), session)) {
-                        self.pong_system_paths.push((sender.system().clone(), session))
+                    if !self
+                        .pong_system_paths
+                        .contains(&(sender.system().clone(), session))
+                    {
+                        self.pong_system_paths
+                            .push((sender.system().clone(), session))
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),

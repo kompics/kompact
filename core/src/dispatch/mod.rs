@@ -30,6 +30,7 @@ use crate::{
         Protocol,
         SocketAddr,
     },
+    prelude::SessionId,
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
@@ -41,7 +42,6 @@ use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
 use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
 use std::{collections::VecDeque, net::IpAddr, time::Duration};
-use crate::prelude::SessionId;
 
 pub mod lookup;
 pub mod queue_manager;
@@ -463,6 +463,13 @@ impl NetworkDispatcher {
         });
     }
 
+    fn get_session_id(&self, addr: &SocketAddr) -> SessionId {
+        if let Some(connection_state) = self.connections.get(addr) {
+            return connection_state.session_id();
+        }
+        SessionId::default()
+    }
+
     fn schedule_retries(&mut self) {
         // First check the retry_map if we should re-request connections
         let drain = self.retry_map.clone();
@@ -480,7 +487,9 @@ impl NetworkDispatcher {
                         retry,
                         self.cfg.max_connection_retry_attempts
                     );
-                    bridge.connect(Transport::Tcp, addr).unwrap();
+                    bridge
+                        .connect(Transport::Tcp, addr, self.get_session_id(&addr).increment())
+                        .unwrap();
                 }
             } else {
                 // Too many retries, give up on the connection.
@@ -527,8 +536,10 @@ impl NetworkDispatcher {
                 }
                 NetworkEvent::BlockedSocket(socket_addr, trigger_status_port) => {
                     let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
-                    self.connections
-                        .insert(socket_addr, ConnectionState::Blocked);
+                    self.connections.insert(
+                        socket_addr,
+                        ConnectionState::Blocked(self.get_session_id(&socket_addr)),
+                    );
                     if trigger_status_port {
                         self.network_status_port
                             .trigger(NetworkStatus::BlockedSystem(sys_path));
@@ -540,8 +551,10 @@ impl NetworkDispatcher {
                 }
                 NetworkEvent::UnblockedSocket(socket_addr, trigger_status_port) => {
                     let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
-                    self.connections
-                        .insert(socket_addr, ConnectionState::Closed);
+                    self.connections.insert(
+                        socket_addr,
+                        ConnectionState::Closed(self.get_session_id(&socket_addr)),
+                    );
                     if trigger_status_port {
                         self.network_status_port
                             .trigger(NetworkStatus::UnblockedSystem(sys_path));
@@ -562,7 +575,7 @@ impl NetworkDispatcher {
     ) -> Result<(), NetworkBridgeErr> {
         use self::ConnectionState::*;
         match state {
-            Connected => {
+            Connected(session) => {
                 info!(
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
@@ -570,7 +583,7 @@ impl NetworkDispatcher {
                 self.network_status_port
                     .trigger(NetworkStatus::ConnectionEstablished(
                         SystemPath::with_socket(Transport::Tcp, addr),
-                        SessionId::default(), // TODO
+                        session,
                     ));
                 let _ = self.retry_map.remove(&addr);
                 if self.queue_manager.has_data(&addr) {
@@ -583,31 +596,26 @@ impl NetworkDispatcher {
                     }
                 }
             }
-            Closed => {
+            Closed(session) => {
                 self.network_status_port
                     .trigger(NetworkStatus::ConnectionClosed(
-                        SystemPath::with_socket(
-                        Transport::Tcp,
-                        addr,
-                        ),
-                        SessionId::default(), // TODO
+                        SystemPath::with_socket(Transport::Tcp, addr),
+                        session,
                     ));
                 // Ack the closing
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
                 }
             }
-            Lost => {
+            Lost(session) => {
                 if self.retry_map.get(&addr).is_none() {
                     warn!(self.ctx().log(), "connection lost to {:?}", addr);
                     self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
                 }
                 self.network_status_port
-                    .trigger(NetworkStatus::ConnectionLost(SystemPath::with_socket(
-                        Transport::Tcp,
-                        addr,
-                    ),
-                       SessionId::default(), // TODO
+                    .trigger(NetworkStatus::ConnectionLost(
+                        SystemPath::with_socket(Transport::Tcp, addr),
+                        session,
                     ));
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
@@ -676,10 +684,12 @@ impl NetworkDispatcher {
         addr: SocketAddr,
         data: DispatchData,
     ) -> Result<(), NetworkBridgeErr> {
-        let state: &mut ConnectionState =
-            self.connections.entry(addr).or_insert(ConnectionState::New);
+        let state: &mut ConnectionState = self
+            .connections
+            .entry(addr)
+            .or_insert(ConnectionState::New(SessionId::default()));
         let next: Option<ConnectionState> = match *state {
-            ConnectionState::New => {
+            ConnectionState::New(session) => {
                 debug!(
                     self.ctx.log(),
                     "No connection found; establishing and queuing frame"
@@ -689,14 +699,14 @@ impl NetworkDispatcher {
                 if let Some(ref mut bridge) = self.net_bridge {
                     debug!(self.ctx.log(), "Establishing new connection to {:?}", addr);
                     self.retry_map.insert(addr, 0); // Make sure we will re-request connection later
-                    bridge.connect(Transport::Tcp, addr).unwrap();
-                    Some(ConnectionState::Initializing)
+                    bridge.connect(Transport::Tcp, addr, session).unwrap();
+                    Some(ConnectionState::Initializing(session))
                 } else {
                     error!(self.ctx.log(), "No network bridge found; dropping message");
-                    Some(ConnectionState::Closed)
+                    Some(ConnectionState::Closed(session))
                 }
             }
-            ConnectionState::Connected => {
+            ConnectionState::Connected(_) => {
                 if self.queue_manager.has_data(&addr) {
                     self.queue_manager.enqueue_data(data, addr);
 
@@ -714,23 +724,24 @@ impl NetworkDispatcher {
                     None
                 }
             }
-            ConnectionState::Initializing => {
+            ConnectionState::Initializing(_) => {
                 self.queue_manager.enqueue_data(data, addr);
                 None
             }
-            ConnectionState::Closed => {
+            ConnectionState::Closed(session) => {
+                let next_session = session.increment();
                 self.queue_manager.enqueue_data(data, addr);
                 if let Some(bridge) = &self.net_bridge {
-                    bridge.connect(Tcp, addr)?;
+                    bridge.connect(Tcp, addr, next_session)?;
                 }
-                Some(ConnectionState::Initializing)
+                Some(ConnectionState::Initializing(next_session))
             }
-            ConnectionState::Lost => {
+            ConnectionState::Lost(_) => {
                 // May be recovered...
                 self.queue_manager.enqueue_data(data, addr);
                 None
             }
-            ConnectionState::Blocked => {
+            ConnectionState::Blocked(_) => {
                 warn!(
                     self.ctx.log(),
                     "Tried sending a message to a blocked connection: {:?}. Dropping message.",
@@ -895,11 +906,12 @@ impl NetworkDispatcher {
     fn close_channel(&mut self, addr: SocketAddr) -> () {
         if let Some(state) = self.connections.get_mut(&addr) {
             match state {
-                ConnectionState::Connected => {
+                ConnectionState::Connected(session) => {
                     trace!(
                         self.ctx.log(),
-                        "Closing channel to connected system {}",
-                        addr
+                        "Closing channel to connected system {}, session {:?}",
+                        addr,
+                        session
                     );
                     if let Some(bridge) = &self.net_bridge {
                         while self.queue_manager.has_data(&addr) {
@@ -1031,8 +1043,15 @@ impl Provide<NetworkStatusPort> for NetworkDispatcher {
             }
             NetworkStatusRequest::ConnectSystem(system_path) => {
                 if let Some(bridge) = &self.net_bridge {
+                    let session_id = self
+                        .get_session_id(&system_path.socket_address())
+                        .increment();
                     bridge
-                        .connect(system_path.protocol(), system_path.socket_address())
+                        .connect(
+                            system_path.protocol(),
+                            system_path.socket_address(),
+                            session_id,
+                        )
                         .unwrap();
                 }
             }
