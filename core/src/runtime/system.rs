@@ -1772,7 +1772,7 @@ impl KompactRuntime {
             "Requesting policy registration at {:?}", path
         );
         let (promise, future) = utils::promise();
-        let parsed_path = crate::actors::parse_path(&path);
+        let parsed_path = crate::actors::parse_path(path);
         match crate::actors::validate_insert_path(&parsed_path) {
             Ok(_) => {
                 let dispatcher = self.dispatcher_ref();

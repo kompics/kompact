@@ -362,7 +362,7 @@ impl Serialisable for ActorPath {
     /// Serializes a Unique or Named actor path.
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
         // System Path
-        let header = SystemPathHeader::from_path(&self);
+        let header = SystemPathHeader::from_path(self);
         header.put_into(buf);
         system_path_put_into_buf(self.system(), buf);
 

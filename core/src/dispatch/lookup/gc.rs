@@ -94,7 +94,7 @@ impl ActorRefReaper {
     pub fn run(&self, table: &ArcSwap<ActorStore>) -> usize {
         let mut removed = 0;
         table.rcu(|current| {
-            let mut next = ActorStore::clone(&current);
+            let mut next = ActorStore::clone(current);
             removed = next.cleanup();
             next
         });

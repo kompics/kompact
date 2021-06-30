@@ -66,6 +66,7 @@ pub struct NetworkThreadBuilder {
 }
 
 impl NetworkThreadBuilder {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         log: KompactLogger,
         address: SocketAddr,
@@ -123,12 +124,12 @@ impl NetworkThreadBuilder {
             .expect("failed to register UDP SOCKET");
 
         let mut buffer_pool = BufferPool::with_config(
-            &self.network_config.get_buffer_config(),
-            &self.network_config.get_custom_allocator(),
+            self.network_config.get_buffer_config(),
+            self.network_config.get_custom_allocator(),
         );
         let encode_buffer = EncodeBuffer::with_config(
-            &self.network_config.get_buffer_config(),
-            &self.network_config.get_custom_allocator(),
+            self.network_config.get_buffer_config(),
+            self.network_config.get_custom_allocator(),
         );
         let udp_buffer = buffer_pool
             .get_buffer()
@@ -618,7 +619,7 @@ impl NetworkThread {
             }
         }
         self.reregister_channel_address(channel.address(), start.addr);
-        channel.handle_start(&start);
+        channel.handle_start(start);
         self.retry_event(event);
         self.notify_connection_state(start.addr, ConnectionState::Connected(channel.session_id()));
     }
@@ -1032,7 +1033,7 @@ impl AdressSet {
     }
 
     fn remove_socket_addr(&mut self, socket_addr: &SocketAddr) -> bool {
-        self.socket_addr.remove(&socket_addr)
+        self.socket_addr.remove(socket_addr)
     }
 
     fn get_sockets_with_ip(&self, ip_addr: IpAddr) -> Vec<SocketAddr> {

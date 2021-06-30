@@ -395,7 +395,7 @@ impl NetworkDispatcher {
 
         let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
         self.lookup.rcu(|current| {
-            let mut next = ActorStore::clone(&current);
+            let mut next = ActorStore::clone(current);
             next.insert(PathResolvable::System, deadletter.clone())
                 .expect("Deadletter shouldn't error");
             next
@@ -687,7 +687,7 @@ impl NetworkDispatcher {
         let state: &mut ConnectionState = self
             .connections
             .entry(addr)
-            .or_insert(ConnectionState::New(SessionId::default()));
+            .or_insert_with(|| ConnectionState::New(SessionId::default()));
         let next: Option<ConnectionState> = match *state {
             ConnectionState::New(session) => {
                 debug!(
@@ -825,7 +825,7 @@ impl NetworkDispatcher {
                     drop(lease);
                     let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
-                        let mut next = ActorStore::clone(&current);
+                        let mut next = ActorStore::clone(current);
                         result = next.insert(path.clone(), actor.clone());
                         next
                     });
@@ -880,7 +880,7 @@ impl NetworkDispatcher {
                     let_irrefutable!(path, PathResolvable::Segments(path) = path_res);
                     let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
-                        let mut next = ActorStore::clone(&current);
+                        let mut next = ActorStore::clone(current);
                         result = next.set_routing_policy(&path, policy.clone());
                         next
                     });
@@ -988,7 +988,7 @@ impl Dispatcher for NetworkDispatcher {
             Some(ref path) => path.clone(),
             None => {
                 let bound_addr = match self.net_bridge {
-                    Some(ref net_bridge) => net_bridge.local_addr().clone().expect("If net bridge is ready, port should be as well!"),
+                    Some(ref net_bridge) => (*net_bridge.local_addr()).expect("If net bridge is ready, port should be as well!"),
                     None => panic!("You must wait until the socket is bound before attempting to create a system path!"),
                 };
                 let sp = SystemPath::new(self.cfg.transport, bound_addr.ip(), bound_addr.port());

@@ -121,7 +121,7 @@ impl ActorLookup for ActorStore {
                 ActorPath::Named(ref np) => {
                     let keys = np.path_ref();
                     debug_assert!(
-                        kompact::prelude_bench::validate_lookup_path(&keys).is_ok(),
+                        kompact::prelude_bench::validate_lookup_path(keys).is_ok(),
                         "Path contains illegal characters: {:?}",
                         keys
                     );

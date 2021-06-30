@@ -56,6 +56,7 @@ pub(crate) struct TcpChannel {
 }
 
 impl TcpChannel {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         stream: TcpStream,
         token: Token,

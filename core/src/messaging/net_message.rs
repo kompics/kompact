@@ -29,10 +29,10 @@ pub struct NetMessage {
     /// The actual data of the message
     pub data: NetData,
     /// When a connection is lost/closed and then re-established, new received messages will have an
-    /// incremented session.
+    /// incremented session. The Session-number for connections is local, not negotiated between two
+    /// systems, meaning two systems may use different `SessionId`s for the same session.
     ///
-    /// The field is only modified by the Network-layer in incoming messages, and in
-    /// `NetworkStatus`-messages.
+    /// The field is only modified by the Network-layer in incoming messages.
     ///
     /// For any sequence of two messages received from a remote actor:
     ///     If the session of the messages differs, an intermediate message *may* have been lost.
