@@ -35,7 +35,6 @@ use std::{
     time::Duration,
     usize,
 };
-use uuid::Uuid;
 
 // Used for identifying connections
 const TCP_SERVER: Token = Token(0);
@@ -62,11 +61,9 @@ pub struct NetworkThreadBuilder {
     dispatcher_ref: DispatcherRef,
     network_config: NetworkConfig,
     tcp_listener: TcpListener,
-    session_ids: FxHashMap<SocketAddr, SessionId>,
 }
 
 impl NetworkThreadBuilder {
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         log: KompactLogger,
         address: SocketAddr,
@@ -75,7 +72,6 @@ impl NetworkThreadBuilder {
         shutdown_promise: KPromise<()>,
         dispatcher_ref: DispatcherRef,
         network_config: NetworkConfig,
-        session_ids: FxHashMap<SocketAddr, SessionId>,
     ) -> Result<NetworkThreadBuilder, NetworkBridgeErr> {
         let poll = Poll::new().expect("failed to create Poll instance in NetworkThread");
         let waker =
@@ -93,7 +89,6 @@ impl NetworkThreadBuilder {
             shutdown_promise,
             dispatcher_ref,
             network_config,
-            session_ids,
         })
     }
 
@@ -156,7 +151,6 @@ impl NetworkThreadBuilder {
             out_of_buffers: false,
             encode_buffer,
             block_list: AdressSet::default(), // TODO: extend NetworkConfig to build NetworkThread with a blocklist
-            session_ids: self.session_ids,
         }
     }
 }
@@ -170,7 +164,6 @@ pub struct NetworkThread {
     poll: Poll,
     address_map: FxHashMap<SocketAddr, Rc<RefCell<TcpChannel>>>,
     token_map: FxHashMap<Token, Rc<RefCell<TcpChannel>>>,
-    session_ids: FxHashMap<SocketAddr, SessionId>,
     token: Token,
     input_queue: Recv<DispatchEvent>,
     dispatcher_ref: DispatcherRef,
@@ -296,13 +289,13 @@ impl NetworkThread {
             DispatchEvent::Kill => {
                 self.kill();
             }
-            DispatchEvent::Connect(addr, session_id) => {
+            DispatchEvent::Connect(addr) => {
                 if self.block_list.contains_ip_addr(&addr.ip())
                     || self.block_list.contains_socket_addr(&addr)
                 {
                     return;
                 }
-                self.request_stream(addr, session_id);
+                self.request_stream(addr);
             }
             DispatchEvent::ClosedAck(addr) => {
                 self.handle_closed_ack(addr);
@@ -538,8 +531,7 @@ impl NetworkThread {
 
     fn handle_data_frame(&self, data: Data, session: SessionId) -> () {
         let buf = data.payload();
-        let mut envelope = deserialise_chunk_lease(buf).expect("s11n errors");
-        envelope.set_session(session);
+        let envelope = deserialise_chunk_lease(buf, session).expect("s11n errors");
         self.deliver_net_message(envelope);
     }
 
@@ -672,7 +664,7 @@ impl NetworkThread {
         self.token_map.remove(&channel.token);
     }
 
-    fn request_stream(&mut self, address: SocketAddr, session_id: SessionId) {
+    fn request_stream(&mut self, address: SocketAddr) {
         if let Some(channel_rc) = self.get_channel_by_address(&address) {
             let mut channel = channel_rc.borrow_mut();
             match channel.state {
@@ -706,9 +698,8 @@ impl NetworkThread {
                     self.store_stream(
                         stream,
                         address,
-                        ChannelState::Requested(address, Uuid::new_v4()),
+                        ChannelState::Requested(address, SessionId::new()),
                         buffer,
-                        session_id,
                     );
                 }
                 Err(e) => {
@@ -738,26 +729,12 @@ impl NetworkThread {
                 stream.shutdown(Shutdown::Both)?;
             } else if let Some(buffer) = self.get_buffer() {
                 trace!(self.log, "Accepting connection from {}", &address);
-                self.store_stream(
-                    stream,
-                    address,
-                    ChannelState::Initialising,
-                    buffer,
-                    self.get_session_id(&address),
-                );
+                self.store_stream(stream, address, ChannelState::Initialising, buffer);
             } else {
                 stream.shutdown(Shutdown::Both)?;
             }
         }
         Ok(())
-    }
-
-    fn get_session_id(&self, address: &SocketAddr) -> SessionId {
-        if let Some(session_id) = self.session_ids.get(address) {
-            session_id.increment()
-        } else {
-            SessionId::default()
-        }
     }
 
     fn store_stream(
@@ -766,7 +743,6 @@ impl NetworkThread {
         address: SocketAddr,
         state: ChannelState,
         buffer: BufferChunk,
-        session_id: SessionId,
     ) {
         let mut channel = TcpChannel::new(
             stream,
@@ -776,7 +752,6 @@ impl NetworkThread {
             state,
             self.addr,
             &self.network_config,
-            session_id,
         );
         channel.initialise(&self.addr);
         if let Err(e) = self.poll.registry().register(
@@ -1092,7 +1067,6 @@ mod tests {
             dispatch_shutdown_sender1,
             dispatcher_ref.clone(),
             NetworkConfig::default(),
-            FxHashMap::default(),
         )
         .expect("Should work")
         .build();
@@ -1105,7 +1079,6 @@ mod tests {
             dispatch_shutdown_sender2,
             dispatcher_ref,
             NetworkConfig::default(),
-            FxHashMap::default(),
         )
         .expect("Should work")
         .build();
@@ -1125,8 +1098,8 @@ mod tests {
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
         // Tell both to connect to each-other before they start running:
-        input_queue_1_sender.send(DispatchEvent::Connect(addr2, SessionId::default()));
-        input_queue_2_sender.send(DispatchEvent::Connect(addr1, SessionId::default()));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2));
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1));
 
         // Let both handle the connect event:
         thread1.receive_dispatch();
@@ -1197,7 +1170,7 @@ mod tests {
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
         // 2 Requests connection to 1 and sends Hello
-        input_queue_2_sender.send(DispatchEvent::Connect(addr1, SessionId::default()));
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1));
         thread2.receive_dispatch();
         thread::sleep(Duration::from_millis(100));
 
@@ -1212,7 +1185,7 @@ mod tests {
 
         // 1 Receives Request Connection Event, this is the tricky part
         // 1 Requests connection to 2 and sends Hello
-        input_queue_1_sender.send(DispatchEvent::Connect(addr2, SessionId::default()));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2));
         thread1.receive_dispatch();
         thread::sleep(Duration::from_millis(100));
 
@@ -1295,7 +1268,6 @@ mod tests {
             dispatch_shutdown_sender1,
             dispatcher_ref,
             network_config,
-            FxHashMap::default(),
         )
         .expect("Should work")
         .build();

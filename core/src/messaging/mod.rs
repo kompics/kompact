@@ -45,6 +45,7 @@ pub enum EventEnvelope {
 
 /// A message that is accepted by an actor's mailbox
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum MsgEnvelope<M: MessageBounds> {
     /// A message of the actor's `Message` type
     Typed(M),

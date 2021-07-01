@@ -11,9 +11,9 @@ use crate::{
 };
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
-use rustc_hash::FxHashMap;
 pub use std::net::SocketAddr;
 use std::{io, net::IpAddr, panic, sync::Arc, thread, time::Duration};
+use uuid::Uuid;
 
 #[allow(missing_docs)]
 pub mod buffers;
@@ -26,9 +26,9 @@ pub(crate) mod udp_state;
 #[derive(Clone, Debug)]
 pub enum ConnectionState {
     /// Newly created
-    New(SessionId),
+    New,
     /// Initialising the connection
-    Initializing(SessionId),
+    Initializing,
     /// Connected
     Connected(SessionId),
     /// Closed gracefully, by request on either side
@@ -36,22 +36,9 @@ pub enum ConnectionState {
     /// Unexpected lost connection
     Lost(SessionId),
     /// Blocked by request from component through NetworkStatusPort
-    Blocked(SessionId),
+    Blocked,
     // Threw an error
     // Error(std::io::Error),
-}
-
-impl ConnectionState {
-    pub(crate) fn session_id(&self) -> SessionId {
-        match self {
-            ConnectionState::New(session_id) => *session_id,
-            ConnectionState::Initializing(session_id) => *session_id,
-            ConnectionState::Connected(session_id) => *session_id,
-            ConnectionState::Closed(session_id) => *session_id,
-            ConnectionState::Lost(session_id) => *session_id,
-            ConnectionState::Blocked(session_id) => *session_id,
-        }
-    }
 }
 
 pub(crate) enum Protocol {
@@ -72,20 +59,40 @@ impl From<Transport> for Protocol {
 /// by users to detect session loss, indicated by different SessionId's of NetMessage `Sender` fields.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SessionId {
-    session: u8,
+    session: Uuid,
 }
 
 impl SessionId {
-    /// Creates a new incremented SessionId from self.
-    pub(crate) fn increment(&self) -> SessionId {
+    /// Special SessionId which should never be received by an actor
+    pub const FAULTY_SESSION: SessionId = SessionId {
+        session: Uuid::from_u128(u128::MAX),
+    };
+    /// Special SessionId used for messages routed locally through the Dispatcher
+    pub const LOCAL_SESSION: SessionId = SessionId {
+        session: Uuid::from_u128(1),
+    };
+    /// Special SessionId used for messages received over UDP
+    pub const UDP_SESSION: SessionId = SessionId {
+        session: Uuid::from_u128(2),
+    };
+
+    /// Generates a new SessionId
+    pub(crate) fn new() -> SessionId {
         SessionId {
-            session: self.session + 1,
+            session: Uuid::new_v4(),
         }
     }
 
-    /// Creates a new default SessionId (0)
-    pub(crate) fn default() -> SessionId {
-        SessionId { session: 0 }
+    /// For Serialisation of SessionId's
+    pub fn as_u128(&self) -> u128 {
+        self.session.as_u128()
+    }
+
+    /// For Deserialisation of SessionId's
+    pub fn from_u128(v: u128) -> SessionId {
+        SessionId {
+            session: Uuid::from_u128(v),
+        }
     }
 }
 
@@ -96,7 +103,6 @@ pub mod events {
     use crate::{
         messaging::DispatchData,
         net::{frames::*, SocketAddr},
-        prelude::SessionId,
     };
     use std::net::IpAddr;
 
@@ -133,7 +139,7 @@ pub mod events {
         /// Tells the network thread to Die as soon as possible, without graceful shutdown.
         Kill,
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
-        Connect(SocketAddr, SessionId),
+        Connect(SocketAddr),
         /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
         ClosedAck(SocketAddr),
         /// Tells the `NetworkThread` to gracefully close the channel to the `SocketAddr`
@@ -243,7 +249,6 @@ impl Bridge {
             shutdown_p,
             dispatcher_ref.clone(),
             network_config.clone(),
-            FxHashMap::default(),
         ) {
             Ok(mut network_thread_builder) => {
                 let bound_address = network_thread_builder.address;
@@ -339,16 +344,11 @@ impl Bridge {
     ///
     /// # Errors
     /// If the provided protocol is not supported
-    pub fn connect(
-        &self,
-        proto: Transport,
-        addr: SocketAddr,
-        session: SessionId,
-    ) -> Result<(), NetworkBridgeErr> {
+    pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         match proto {
             Transport::Tcp => {
                 self.network_input_queue
-                    .send(events::DispatchEvent::Connect(addr, session))?;
+                    .send(events::DispatchEvent::Connect(addr))?;
                 self.waker.wake()?;
                 Ok(())
             }

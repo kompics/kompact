@@ -28,13 +28,15 @@ pub struct NetMessage {
     pub receiver: ActorPath,
     /// The actual data of the message
     pub data: NetData,
-    /// When a connection is lost/closed and then re-established, new received messages will have an
-    /// incremented session. The Session-number for connections is local, not negotiated between two
-    /// systems, meaning two systems may use different `SessionId`s for the same session.
+    /// Each physical end-to-end TCP connection between two systems is assigned a unique identifier.
+    /// When a connection is lost/closed and then re-established, the connection will have a
+    /// new unique identifier. The unique identifier is negotiated and is the same on both
+    /// ends of the connection.
     ///
-    /// The field is only modified by the Network-layer in incoming messages.
+    /// The field is only modified by the Network-layer in incoming messages and is never used to
+    /// resolve routing of messages.
     ///
-    /// For any sequence of two messages received from a remote actor:
+    /// For any sequence of two messages received from a remote actor over TCP:
     ///     If the session of the messages differs, an intermediate message *may* have been lost.
     ///     Conversely, if the session does not differ no intermediate message was lost.
     pub session: SessionId,
@@ -86,12 +88,13 @@ impl NetMessage {
         sender: ActorPath,
         receiver: ActorPath,
         data: Box<dyn Serialisable>,
+        session: SessionId,
     ) -> NetMessage {
         NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::Boxed(data)),
-            session: SessionId::default(),
+            session,
         }
     }
 
@@ -106,7 +109,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::Serialised(data)),
-            session: SessionId::default(),
+            session: SessionId::LOCAL_SESSION,
         }
     }
 
@@ -117,12 +120,13 @@ impl NetMessage {
         sender: ActorPath,
         receiver: ActorPath,
         data: ChunkLease,
+        session: SessionId,
     ) -> NetMessage {
         NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::ChunkLease(data)),
-            session: SessionId::default(),
+            session,
         }
     }
 
@@ -133,12 +137,13 @@ impl NetMessage {
         sender: ActorPath,
         receiver: ActorPath,
         data: ChunkRef,
+        session: SessionId,
     ) -> NetMessage {
         NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::ChunkRef(data)),
-            session: SessionId::default(),
+            session,
         }
     }
 
@@ -150,11 +155,6 @@ impl NetMessage {
     /// Returns the session of the `NetMessage`
     pub fn session(&self) -> SessionId {
         self.session
-    }
-
-    /// Sets the `session` of the `NetMessage`
-    pub(crate) fn set_session(&mut self, session: SessionId) -> () {
-        self.session = session;
     }
 
     /// Try to deserialise the data into a value of type `T` wrapped into a message

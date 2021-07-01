@@ -5,7 +5,6 @@ use crate::{
         buffers::{BufferChunk, BufferPool, DecodeBuffer},
         frames::{Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
     },
-    prelude::SessionId,
 };
 use bytes::{Buf, BytesMut};
 use mio::{net::TcpStream, Token};
@@ -19,27 +18,41 @@ use std::{
     io::{Error, ErrorKind, Read, Write},
     net::{Shutdown::Both, SocketAddr},
 };
-use uuid::Uuid;
 
 /// Received connection: Initialising -> Say Hello, Receive Start -> Connected, Send Ack
 /// Requested connection: Requested -> Receive Hello -> Initialised -> Send Start, Receive Ack -> Connected
 pub(crate) enum ChannelState {
     /// Requester state: outgoing request sent, await Hello(addr). SocketAddr is remote addr
-    Requested(SocketAddr, Uuid),
-    /// Receiver state: Hello(addr) must be sent on the channel, await Start(addr, Uuid)
+    Requested(SocketAddr, SessionId),
+    /// Receiver state: Hello(addr) must be sent on the channel, await Start(addr, SessionId)
     Initialising,
-    /// Requester: Has received Hello(addr), must send Start(addr, Uuid) and await ack
-    Initialised(SocketAddr, Uuid),
+    /// Requester: Has received Hello(addr), must send Start(addr, SessionId) and await ack
+    Initialised(SocketAddr, SessionId),
     /// The channel is ready to be used. Ack must be sent before anything else is sent
-    Connected(SocketAddr, Uuid),
+    Connected(SocketAddr, SessionId),
     /// Local system initiated a graceful Channel Close, a Bye message must be sent and received
-    CloseRequested(SocketAddr, Uuid),
+    CloseRequested(SocketAddr, SessionId),
     /// Remote system has initiated a graceful Channel Close, a Bye message must be sent
-    CloseReceived(SocketAddr, Uuid),
+    CloseReceived(SocketAddr, SessionId),
     /// The channel is closing, will be dropped once the local `NetworkDispatcher` Acks the closing.
-    Closed(SocketAddr, Uuid),
+    Closed(SocketAddr, SessionId),
     /// There has been a fatal error on the Channel
     Error(Error),
+}
+
+impl ChannelState {
+    fn session_id(&self) -> SessionId {
+        match self {
+            ChannelState::Requested(_, session) => *session,
+            ChannelState::Initialising => SessionId::FAULTY_SESSION,
+            ChannelState::Initialised(_, session) => *session,
+            ChannelState::Connected(_, session) => *session,
+            ChannelState::CloseRequested(_, session) => *session,
+            ChannelState::CloseReceived(_, session) => *session,
+            ChannelState::Closed(_, session) => *session,
+            ChannelState::Error(_) => SessionId::FAULTY_SESSION,
+        }
+    }
 }
 
 pub(crate) struct TcpChannel {
@@ -52,11 +65,9 @@ pub(crate) struct TcpChannel {
     pub messages: u32,
     own_addr: SocketAddr,
     nodelay: bool,
-    session_id: SessionId,
 }
 
 impl TcpChannel {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         stream: TcpStream,
         token: Token,
@@ -65,7 +76,6 @@ impl TcpChannel {
         state: ChannelState,
         own_addr: SocketAddr,
         network_config: &NetworkConfig,
-        session_id: SessionId,
     ) -> Self {
         let input_buffer = DecodeBuffer::new(buffer_chunk, network_config.get_buffer_config());
         TcpChannel {
@@ -78,7 +88,6 @@ impl TcpChannel {
             messages: 0,
             own_addr,
             nodelay: network_config.get_tcp_nodelay(),
-            session_id,
         }
     }
 
@@ -96,9 +105,8 @@ impl TcpChannel {
         matches!(self.state, ChannelState::Connected(_, _))
     }
 
-    /// Returns the session of the `TcpChannel`
     pub fn session_id(&self) -> SessionId {
-        self.session_id
+        self.state.session_id()
     }
 
     /// Internal helper function for special frames
@@ -141,7 +149,7 @@ impl TcpChannel {
     /// Must be called when a Hello frame is received on the channel.
     pub fn handle_hello(&mut self, hello: &Hello) -> () {
         if let ChannelState::Requested(_, id) = self.state {
-            // Has now received Hello(addr), must send Start(addr, uuid) and await ack
+            // Has now received Hello(addr), must send Start(addr, SessionId) and await ack
             let start = Frame::Start(Start::new(self.own_addr, id));
             self.send_frame(start);
             self.state = ChannelState::Initialised(hello.addr, id);

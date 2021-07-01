@@ -6,9 +6,8 @@ use bytes::{Buf, BufMut};
 //use bytes::IntoBuf;
 use std::{self, fmt::Debug};
 
-use crate::net::buffers::ChunkLease;
+use crate::{net::buffers::ChunkLease, prelude::SessionId};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use uuid::Uuid;
 
 //use stream::StreamId;
 /// Used to identify start of a frame head
@@ -136,7 +135,7 @@ pub struct Start {
     /// The Cannonical Address of the host sending the Start message
     pub addr: SocketAddr,
     /// "Channel ID", used as a tie-breaker in mutual connection requests
-    pub id: Uuid,
+    pub id: SessionId,
 }
 
 /// Byte-mappings for frame types
@@ -241,7 +240,7 @@ impl Hello {
 
 impl Start {
     /// Create a new hello message
-    pub fn new(addr: SocketAddr, id: Uuid) -> Self {
+    pub fn new(addr: SocketAddr, id: SessionId) -> Self {
         Start { addr, id }
     }
 
@@ -251,7 +250,7 @@ impl Start {
     }
 
     /// Get the address sent in the Start message
-    pub fn id(&self) -> Uuid {
+    pub fn id(&self) -> SessionId {
         self.id
     }
 }
@@ -350,15 +349,15 @@ impl FrameExt for Start {
                 let ip = Ipv4Addr::from(src.get_u32());
                 let port = src.get_u16();
                 let addr = SocketAddr::new(IpAddr::V4(ip), port);
-                let uuid = Uuid::from_u128(src.get_u128());
-                Ok(Frame::Start(Start::new(addr, uuid)))
+                let id = SessionId::from_u128(src.get_u128());
+                Ok(Frame::Start(Start::new(addr, id)))
             }
             6 => {
                 let ip = Ipv6Addr::from(src.get_u128());
                 let port = src.get_u16();
                 let addr = SocketAddr::new(IpAddr::V6(ip), port);
-                let uuid = Uuid::from_u128(src.get_u128());
-                Ok(Frame::Start(Start::new(addr, uuid)))
+                let id = SessionId::from_u128(src.get_u128());
+                Ok(Frame::Start(Start::new(addr, id)))
             }
             _ => {
                 panic!("Faulty Hello Message!");
