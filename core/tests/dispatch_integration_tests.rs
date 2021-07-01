@@ -884,10 +884,10 @@ fn remote_lost_and_dropped_connection() {
         vec!["custom_name".into()],
     ));
 
+    let (_, status_receiver) = start_status_counter(&pinger_system);
+
     // PingStream ensures that the network layer detects failures
     let _ = start_ping_stream(&pinger_system, &named_path);
-
-    let (_, status_receiver) = start_status_counter(&pinger_system);
 
     let (pinger_named, all_pongs_received_future) =
         start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
