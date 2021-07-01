@@ -600,12 +600,7 @@ mod deser_macro_tests {
     {
         let ap = ActorPath::from_str(crate::test_helpers::TEST_PATH).expect("an ActorPath");
 
-        let msg = NetMessage::with_bytes(
-            MsgA::SERID,
-            ap.clone(),
-            ap,
-            Bytes::default(),
-        );
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap, Bytes::default());
 
         f(msg);
     }
@@ -616,12 +611,7 @@ mod deser_macro_tests {
     {
         let ap = ActorPath::from_str(crate::test_helpers::TEST_PATH).expect("an ActorPath");
 
-        let msg = NetMessage::with_bytes(
-            MsgA::SERID,
-            ap.clone(),
-            ap,
-            Bytes::default(),
-        );
+        let msg = NetMessage::with_bytes(MsgA::SERID, ap.clone(), ap, Bytes::default());
 
         f(msg);
     }

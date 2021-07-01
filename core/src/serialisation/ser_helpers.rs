@@ -28,12 +28,7 @@ pub fn serialise_to_msg(
         let mut buf = BytesMut::with_capacity(size);
         match msg.serialise(&mut buf) {
             Ok(_) => {
-                let envelope = NetMessage::with_bytes(
-                    msg.ser_id(),
-                    src,
-                    dst,
-                    buf.freeze(),
-                );
+                let envelope = NetMessage::with_bytes(msg.ser_id(), src, dst, buf.freeze());
                 Ok(envelope)
             }
             Err(ser_err) => Err(ser_err),
