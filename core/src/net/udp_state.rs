@@ -136,7 +136,7 @@ impl UdpState {
             Ok(Frame::Data(frame)) => {
                 use serialisation::ser_helpers::deserialise_chunk_lease;
                 let buf = frame.payload();
-                match deserialise_chunk_lease(buf, SessionId::UDP_SESSION) {
+                match deserialise_chunk_lease(buf) {
                     Ok(envelope) => self.incoming_messages.push_back(envelope),
                     Err(e) => {
                         warn!(

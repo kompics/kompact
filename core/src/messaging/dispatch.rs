@@ -1,5 +1,5 @@
 use super::*;
-use crate::{prelude::SessionId, serialisation::ser_helpers::deserialise_bytes};
+use crate::serialisation::ser_helpers::deserialise_bytes;
 
 /// An abstraction over lazy or eagerly serialised data sent to the dispatcher
 #[derive(Debug)]
@@ -22,31 +22,19 @@ impl DispatchData {
         match self {
             DispatchData::Lazy(ser, src, dst) => {
                 let ser_id = ser.ser_id();
-                Ok(NetMessage::with_box(
-                    ser_id,
-                    src,
-                    dst,
-                    ser,
-                    SessionId::LOCAL_SESSION,
-                ))
+                Ok(NetMessage::with_box(ser_id, src, dst, ser))
             }
             DispatchData::Serialised(SerialisedFrame::ChunkLease(mut chunk_lease)) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
                 chunk_lease.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(
-                    deserialise_chunk_lease(chunk_lease, SessionId::LOCAL_SESSION)
-                        .expect("s11n errors"),
-                )
+                Ok(deserialise_chunk_lease(chunk_lease).expect("s11n errors"))
             }
             DispatchData::Serialised(SerialisedFrame::ChunkRef(mut chunk_ref)) => {
                 // The chunk contains the full frame, deserialize_msg does not deserialize FrameHead so we advance the read_pointer first
                 chunk_ref.advance(FRAME_HEAD_LEN as usize);
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
-                Ok(
-                    deserialise_chunk_ref(chunk_ref, SessionId::LOCAL_SESSION)
-                        .expect("s11n errors"),
-                )
+                Ok(deserialise_chunk_ref(chunk_ref).expect("s11n errors"))
             }
             DispatchData::Serialised(SerialisedFrame::Bytes(mut bytes)) => {
                 bytes.advance(FRAME_HEAD_LEN as usize);

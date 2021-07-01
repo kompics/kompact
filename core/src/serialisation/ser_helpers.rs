@@ -9,7 +9,6 @@ use crate::{
         buffers::{BufferEncoder, ChunkLease, ChunkRef},
         frames::{FrameHead, FrameType, FRAME_HEAD_LEN},
     },
-    prelude::SessionId,
     serialisation::*,
 };
 use bytes::{buf::BufMut, Bytes, BytesMut};
@@ -234,10 +233,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkRef, S
 /// Extracts a [NetMessage](NetMessage) from the provided buffer
 ///
 /// This expects the format from [serialise_msg](serialise_msg).
-pub fn deserialise_chunk_lease(
-    mut buffer: ChunkLease,
-    session: SessionId,
-) -> Result<NetMessage, SerError> {
+pub fn deserialise_chunk_lease(mut buffer: ChunkLease) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
     //     return Err(SerError::InvalidData("Not enough bytes available".into()));
     // }
@@ -247,7 +243,7 @@ pub fn deserialise_chunk_lease(
     let dst = ActorPath::deserialise(&mut buffer)?;
     let ser_id = buffer.get_ser_id();
 
-    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer.into_chunk_ref(), session);
+    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer.into_chunk_ref());
 
     Ok(envelope)
 }
@@ -255,10 +251,7 @@ pub fn deserialise_chunk_lease(
 /// Extracts a [NetMessage](NetMessage) from the provided buffer
 ///
 /// This expects the format from [serialise_msg](serialise_msg).
-pub fn deserialise_chunk_ref(
-    mut buffer: ChunkRef,
-    session: SessionId,
-) -> Result<NetMessage, SerError> {
+pub fn deserialise_chunk_ref(mut buffer: ChunkRef) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
     //     return Err(SerError::InvalidData("Not enough bytes available".into()));
     // }
@@ -268,7 +261,7 @@ pub fn deserialise_chunk_ref(
     let dst = ActorPath::deserialise(&mut buffer)?;
     let ser_id = buffer.get_ser_id();
 
-    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer, session);
+    let envelope = NetMessage::with_chunk_ref(ser_id, src, dst, buffer);
 
     Ok(envelope)
 }

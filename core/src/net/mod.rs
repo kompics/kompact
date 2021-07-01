@@ -56,26 +56,13 @@ impl From<Transport> for Protocol {
 }
 
 /// Session identifier, part of the `NetMessage` struct. Managed by Kompact internally, may be read
-/// by users to detect session loss, indicated by different SessionId's of NetMessage `Sender` fields.
+/// by users to detect session loss, indicated by different SessionId's of NetMessages.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SessionId {
     session: Uuid,
 }
 
 impl SessionId {
-    /// Special SessionId which should never be received by an actor
-    pub const FAULTY_SESSION: SessionId = SessionId {
-        session: Uuid::from_u128(u128::MAX),
-    };
-    /// Special SessionId used for messages routed locally through the Dispatcher
-    pub const LOCAL_SESSION: SessionId = SessionId {
-        session: Uuid::from_u128(1),
-    };
-    /// Special SessionId used for messages received over UDP
-    pub const UDP_SESSION: SessionId = SessionId {
-        session: Uuid::from_u128(2),
-    };
-
     /// Generates a new SessionId
     pub(crate) fn new() -> SessionId {
         SessionId {
@@ -1509,12 +1496,14 @@ pub mod net_test_helpers {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.pong_count += 1;
-                    if !self
-                        .pong_system_paths
-                        .contains(&(sender.system().clone(), session))
-                    {
-                        self.pong_system_paths
-                            .push((sender.system().clone(), session))
+                    if let Some(session_id) = session {
+                        if !self
+                            .pong_system_paths
+                            .contains(&(sender.system().clone(), session_id))
+                        {
+                            self.pong_system_paths
+                                .push((sender.system().clone(), session_id))
+                        }
                     }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),

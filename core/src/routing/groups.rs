@@ -357,7 +357,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -372,7 +371,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg2, system.logger());
         let msg3 = NetMessage::with_box(
@@ -380,7 +378,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg3, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -395,7 +392,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg4, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -411,7 +407,6 @@ mod tests {
                 source_ref.clone(),
                 group_ref.clone(),
                 Box::new(CountMe),
-                SessionId::LOCAL_SESSION,
             );
             group.route(msg, system.logger());
         }
@@ -446,7 +441,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -457,7 +451,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg2, system.logger());
         let msg3 = NetMessage::with_box(
@@ -465,7 +458,6 @@ mod tests {
             source_ref,
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg3, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -484,7 +476,6 @@ mod tests {
             other_source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg4, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -501,7 +492,6 @@ mod tests {
                 other_source_ref.clone(),
                 group_ref.clone(),
                 Box::new(CountMe),
-                SessionId::LOCAL_SESSION,
             );
             group.route(msg, system.logger());
         }
@@ -541,7 +531,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -556,7 +545,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg2, system.logger());
         let msg3 = NetMessage::with_box(
@@ -564,7 +552,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg3, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -579,7 +566,6 @@ mod tests {
             source_ref.clone(),
             group_ref.clone(),
             Box::new(CountMe),
-            SessionId::LOCAL_SESSION,
         );
         group.route(msg4, system.logger());
         std::thread::sleep(SLEEP_TIME);
@@ -595,7 +581,6 @@ mod tests {
                 source_ref.clone(),
                 group_ref.clone(),
                 Box::new(CountMe),
-                SessionId::LOCAL_SESSION,
             );
             group.route(msg, system.logger());
         }

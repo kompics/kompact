@@ -41,16 +41,16 @@ pub(crate) enum ChannelState {
 }
 
 impl ChannelState {
-    fn session_id(&self) -> SessionId {
+    fn session_id(&self) -> Option<SessionId> {
         match self {
-            ChannelState::Requested(_, session) => *session,
-            ChannelState::Initialising => SessionId::FAULTY_SESSION,
-            ChannelState::Initialised(_, session) => *session,
-            ChannelState::Connected(_, session) => *session,
-            ChannelState::CloseRequested(_, session) => *session,
-            ChannelState::CloseReceived(_, session) => *session,
-            ChannelState::Closed(_, session) => *session,
-            ChannelState::Error(_) => SessionId::FAULTY_SESSION,
+            ChannelState::Requested(_, session) => Some(*session),
+            ChannelState::Initialising => None,
+            ChannelState::Initialised(_, session) => Some(*session),
+            ChannelState::Connected(_, session) => Some(*session),
+            ChannelState::CloseRequested(_, session) => Some(*session),
+            ChannelState::CloseReceived(_, session) => Some(*session),
+            ChannelState::Closed(_, session) => Some(*session),
+            ChannelState::Error(_) => None,
         }
     }
 }
@@ -105,7 +105,7 @@ impl TcpChannel {
         matches!(self.state, ChannelState::Connected(_, _))
     }
 
-    pub fn session_id(&self) -> SessionId {
+    pub fn session_id(&self) -> Option<SessionId> {
         self.state.session_id()
     }
 

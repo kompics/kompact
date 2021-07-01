@@ -345,7 +345,12 @@ impl NetworkThread {
                         return;
                     }
                     Ok(Some(Frame::Data(data))) => {
-                        self.handle_data_frame(data, channel.session_id());
+                        self.handle_data_frame(
+                            data,
+                            channel
+                                .session_id()
+                                .expect("Connected Channel must have a SessionId"),
+                        );
                     }
                     Ok(Some(Frame::Start(start))) => {
                         self.handle_start(event, &mut channel, &start);
@@ -357,7 +362,11 @@ impl NetworkThread {
                     Ok(Some(Frame::Ack())) => {
                         self.notify_connection_state(
                             channel.address(),
-                            Connected(channel.session_id()),
+                            Connected(
+                                channel
+                                    .session_id()
+                                    .expect("Connected Channel must have a SessionId"),
+                            ),
                         );
                     }
                     Ok(Some(Frame::Bye())) => {
@@ -428,7 +437,7 @@ impl NetworkThread {
                         self.deregister_channel(&mut *channel);
                         self.notify_connection_state(
                             channel.address(),
-                            ConnectionState::Closed(channel.session_id()),
+                            ConnectionState::Closed(id),
                         );
                         self.reject_outbound_for_channel(&mut channel);
                     }
@@ -531,7 +540,8 @@ impl NetworkThread {
 
     fn handle_data_frame(&self, data: Data, session: SessionId) -> () {
         let buf = data.payload();
-        let envelope = deserialise_chunk_lease(buf, session).expect("s11n errors");
+        let mut envelope = deserialise_chunk_lease(buf).expect("s11n errors");
+        envelope.set_session(session);
         self.deliver_net_message(envelope);
     }
 
@@ -613,18 +623,15 @@ impl NetworkThread {
         self.reregister_channel_address(channel.address(), start.addr);
         channel.handle_start(start);
         self.retry_event(event);
-        self.notify_connection_state(start.addr, ConnectionState::Connected(channel.session_id()));
+        self.notify_connection_state(start.addr, ConnectionState::Connected(start.id));
     }
 
     fn handle_bye(&mut self, channel: &mut TcpChannel) -> () {
         match channel.state {
-            ChannelState::Closed(_, _) => {
+            ChannelState::Closed(_, id) => {
                 debug!(self.log, "Connection shutdown gracefully");
                 self.deregister_channel(channel);
-                self.notify_connection_state(
-                    channel.address(),
-                    ConnectionState::Closed(channel.session_id()),
-                );
+                self.notify_connection_state(channel.address(), ConnectionState::Closed(id));
                 self.reject_outbound_for_channel(channel);
             }
             ChannelState::CloseReceived(_, _) => {}
@@ -672,10 +679,6 @@ impl NetworkThread {
                     debug!(
                         self.log,
                         "Asked to request connection to already connected host {}", &address
-                    );
-                    self.notify_connection_state(
-                        address,
-                        ConnectionState::Connected(channel.session_id()),
                     );
                     return;
                 }
@@ -780,10 +783,9 @@ impl NetworkThread {
     /// Handles all logic necessary to shutdown a channel for which the connection has been lost.
     fn lost_connection(&mut self, mut channel: RefMut<TcpChannel>) -> () {
         trace!(self.log, "Lost connection to address {}", channel.address());
-        self.notify_connection_state(
-            channel.address(),
-            ConnectionState::Lost(channel.session_id()),
-        );
+        if let Some(id) = channel.session_id() {
+            self.notify_connection_state(channel.address(), ConnectionState::Lost(id));
+        }
         self.reject_outbound_for_channel(&mut channel);
         // Try to inform the other end that we're closing the channel
         let _ = channel.send_bye();
