@@ -58,28 +58,22 @@ impl From<Transport> for Protocol {
 /// Session identifier, part of the `NetMessage` struct. Managed by Kompact internally, may be read
 /// by users to detect session loss, indicated by different SessionId's of NetMessages.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct SessionId {
-    session: Uuid,
-}
+pub struct SessionId(Uuid);
 
 impl SessionId {
     /// Generates a new SessionId
-    pub(crate) fn new() -> SessionId {
-        SessionId {
-            session: Uuid::new_v4(),
-        }
+    pub fn new_unique() -> SessionId {
+        SessionId(Uuid::new_v4())
     }
 
     /// For Serialisation of SessionId's
     pub fn as_u128(&self) -> u128 {
-        self.session.as_u128()
+        self.0.as_u128()
     }
 
     /// For Deserialisation of SessionId's
     pub fn from_u128(v: u128) -> SessionId {
-        SessionId {
-            session: Uuid::from_u128(v),
-        }
+        SessionId(Uuid::from_u128(v))
     }
 }
 

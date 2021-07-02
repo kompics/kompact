@@ -792,10 +792,10 @@ fn remote_lost_and_continued_connection() {
     let ping_stream = start_ping_stream(&pinger_system, &named_path);
     ponger_system_1.start(&ponger_named);
 
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+
     let (pinger_1, all_pongs_received_future_1) =
         start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
-
-    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
     all_pongs_received_future_1
         .wait_timeout(PINGPONG_TIMEOUT)
@@ -819,10 +819,10 @@ fn remote_lost_and_continued_connection() {
         .register_by_alias(&ponger_named, "custom_name")
         .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
 
+    status_receiver.expect_connection_established(DROP_CONNECTION_TIMEOUT);
+
     let (pinger_2, all_pongs_received_future_2) =
         start_pinger(&pinger_system, PingerAct::new_lazy(named_path));
-
-    status_receiver.expect_connection_established(DROP_CONNECTION_TIMEOUT);
 
     all_pongs_received_future_2
         .wait_timeout(PINGPONG_TIMEOUT)

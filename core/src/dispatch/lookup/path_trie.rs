@@ -341,7 +341,7 @@ mod tests {
         assert!(trie.insert(&["test", "you", "not"], 5).is_none());
 
         for i in 0..=5 {
-            assert!(trie.values().copied().any(|v| { v == i }));
+            assert!(trie.values().any(|v| { *v == i }));
         }
     }
 }

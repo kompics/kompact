@@ -701,7 +701,7 @@ impl NetworkThread {
                     self.store_stream(
                         stream,
                         address,
-                        ChannelState::Requested(address, SessionId::new()),
+                        ChannelState::Requested(address, SessionId::new_unique()),
                         buffer,
                     );
                 }

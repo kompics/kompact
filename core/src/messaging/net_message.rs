@@ -28,17 +28,17 @@ pub struct NetMessage {
     pub receiver: ActorPath,
     /// The actual data of the message
     pub data: NetData,
-    /// Each physical end-to-end TCP connection between two systems is assigned a unique identifier.
+    /// Each physical end-to-end session between two systems is assigned a unique identifier.
     /// When a connection is lost/closed and then re-established, the connection will have a
     /// new unique identifier. The unique identifier is negotiated and is the same on both
     /// ends of the connection.
     ///
-    /// The field is only set by the Network-layer in incoming TCP messages.
+    /// The field is only set by the Network-layer in incoming messages.
     /// All other messages will have the field set to `None`.
     ///
-    /// For any sequence of two messages received from a remote actor over TCP:
-    ///     If the session of the messages differs, an intermediate message *may* have been lost.
-    ///     Conversely, if the session does not differ no intermediate message was lost.
+    /// For any sequence of two messages received from a remote actor over a session:
+    /// - If the session of the messages differs, an intermediate message *may* have been lost.
+    /// - Conversely, if the session does not differ no intermediate message was lost.
     pub session: Option<SessionId>,
 }
 
@@ -155,7 +155,7 @@ impl NetMessage {
     }
 
     /// Sets the SessionId of the `NetMessage`
-    pub(crate) fn set_session(&mut self, session: SessionId) -> () {
+    pub fn set_session(&mut self, session: SessionId) -> () {
         self.session = Some(session);
     }
 
