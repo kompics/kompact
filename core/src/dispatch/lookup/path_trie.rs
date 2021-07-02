@@ -330,6 +330,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_iter() {
         let mut trie: PathTrie<usize> = PathTrie::new();
 
@@ -340,8 +341,9 @@ mod tests {
         assert!(trie.insert(&["test", "me", "further"], 4).is_none());
         assert!(trie.insert(&["test", "you", "not"], 5).is_none());
 
+        let values: Vec<usize> = trie.values().copied().collect();
         for i in 0..=5 {
-            assert!(trie.values().any(|v| { *v == i }));
+            assert!(values.contains(&i));
         }
     }
 }
