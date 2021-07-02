@@ -155,7 +155,7 @@ impl NetMessage {
     }
 
     /// Sets the SessionId of the `NetMessage`
-    pub fn set_session(&mut self, session: SessionId) -> () {
+    pub(crate) fn set_session(&mut self, session: SessionId) -> () {
         self.session = Some(session);
     }
 
