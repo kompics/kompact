@@ -607,11 +607,11 @@ impl NetworkThread {
                     self.drop_channel(channel);
                     return;
                 }
-                ChannelState::Requested(_, other_id) if other_id > &start.id => {
+                ChannelState::Requested(_, other_id) if other_id.0 > start.id.0 => {
                     self.drop_channel(channel);
                     return;
                 }
-                ChannelState::Initialised(_, other_id) if other_id > &start.id => {
+                ChannelState::Initialised(_, other_id) if other_id.0 > start.id.0 => {
                     self.drop_channel(channel);
                     return;
                 }
