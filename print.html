@@ -16295,11 +16295,11 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    // Start everything
 </span><span class="boring">    servers
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .map(|s| system.start_notify(s))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
 </span><span class="boring">    clients
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .map(|c| system.start_notify(c))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
 </span><span class="boring">
 </span><span class="boring">    // Let them work for a while
@@ -16617,11 +16617,11 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    // Start everything
 </span><span class="boring">    servers
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .map(|s| system.start_notify(s))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
 </span><span class="boring">    clients
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .map(|c| system.start_notify(c))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
 </span><span class="boring">
 </span><span class="boring">    // Let them work for a while
@@ -16939,11 +16939,11 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    // Start everything
 </span><span class="boring">    servers
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .map(|s| system.start_notify(s))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
 </span><span class="boring">    clients
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .map(|c| system.start_notify(c))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
 </span><span class="boring">
 </span><span class="boring">    // Let them work for a while
@@ -17260,11 +17260,11 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    // Start everything
 </span><span class="boring">    servers
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .map(|s| system.start_notify(s))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
 </span><span class="boring">    clients
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .map(|c| system.start_notify(c))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
 </span><span class="boring">
 </span><span class="boring">    // Let them work for a while
@@ -17582,11 +17582,11 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    // Start everything
 </span><span class="boring">    servers
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .map(|s| system.start_notify(s))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
 </span><span class="boring">    clients
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .map(|c| system.start_notify(c))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
 </span><span class="boring">
 </span><span class="boring">    // Let them work for a while
@@ -17903,11 +17903,11 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    // Start everything
 </span><span class="boring">    servers
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|s| system.start_notify(&amp;s))
+</span><span class="boring">        .map(|s| system.start_notify(s))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server start&quot;);
 </span><span class="boring">    clients
 </span><span class="boring">        .iter()
-</span><span class="boring">        .map(|c| system.start_notify(&amp;c))
+</span><span class="boring">        .map(|c| system.start_notify(c))
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;client start&quot;);
 </span><span class="boring">
 </span><span class="boring">    // Let them work for a while
@@ -18225,11 +18225,11 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span>    // Start everything
     servers
         .iter()
-        .map(|s| system.start_notify(&amp;s))
+        .map(|s| system.start_notify(s))
         .expect_completion(TIMEOUT, &quot;server start&quot;);
     clients
         .iter()
-        .map(|c| system.start_notify(&amp;c))
+        .map(|c| system.start_notify(c))
         .expect_completion(TIMEOUT, &quot;client start&quot;);
 
     // Let them work for a while
