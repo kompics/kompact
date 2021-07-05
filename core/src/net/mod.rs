@@ -110,6 +110,9 @@ pub mod events {
         UnblockedSocket(SocketAddr, bool),
         /// The NetworkThread has unblocked `IpAddr`
         UnblockedIp(IpAddr),
+        /// The Channel Limit has been exceeded and the NetworkThread will close
+        /// the least recently used channel(s).
+        ConnectionLimitExceeded(),
     }
 
     /// BridgeEvents emitted to the network `Bridge`
@@ -1305,7 +1308,7 @@ pub mod net_test_helpers {
         /// The blocked ip addresses
         pub blocked_ip: Vec<IpAddr>,
         /// Counts the number of max_channels_reached messages received
-        pub max_channels_reached: u32,
+        pub connection_limit_exceeded: u32,
         /// Counts the number of network_out_of_buffers messages received
         pub network_out_of_buffers: u32,
         network_status_queue_sender: Option<Sender<NetworkStatus>>,
@@ -1326,7 +1329,7 @@ pub mod net_test_helpers {
                 disconnected_systems: Vec::new(),
                 blocked_systems: Vec::new(),
                 blocked_ip: Vec::new(),
-                max_channels_reached: 0,
+                connection_limit_exceeded: 0,
                 network_out_of_buffers: 0,
                 network_status_queue_sender: None,
                 started_promise: None,
@@ -1414,6 +1417,7 @@ pub mod net_test_helpers {
                     self.blocked_systems.retain(|s| s != &sys_path)
                 }
                 NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
+                NetworkStatus::ConnectionLimitExceeded() => self.connection_limit_exceeded += 1,
             }
             Handled::Ok
         }

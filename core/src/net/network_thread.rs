@@ -16,6 +16,7 @@ use crate::{
     serialisation::ser_helpers::deserialise_chunk_lease,
 };
 use crossbeam_channel::Receiver as Recv;
+use lru::LruCache;
 use mio::{
     event::Event,
     net::{TcpListener, TcpStream, UdpSocket},
@@ -139,7 +140,7 @@ impl NetworkThreadBuilder {
             udp_state: Some(udp_state),
             poll: self.poll,
             address_map: FxHashMap::default(),
-            token_map: FxHashMap::default(),
+            token_map: LruCache::unbounded(),
             token: START_TOKEN,
             input_queue: self.input_queue,
             buffer_pool: RefCell::new(buffer_pool),
@@ -163,7 +164,7 @@ pub struct NetworkThread {
     udp_state: Option<UdpState>,
     poll: Poll,
     address_map: FxHashMap<SocketAddr, Rc<RefCell<TcpChannel>>>,
-    token_map: FxHashMap<Token, Rc<RefCell<TcpChannel>>>,
+    token_map: LruCache<Token, Rc<RefCell<TcpChannel>>>,
     token: Token,
     input_queue: Recv<DispatchEvent>,
     dispatcher_ref: DispatcherRef,
@@ -318,7 +319,7 @@ impl NetworkThread {
         }
     }
 
-    fn get_channel_by_token(&self, token: &Token) -> Option<Rc<RefCell<TcpChannel>>> {
+    fn get_channel_by_token(&mut self, token: &Token) -> Option<Rc<RefCell<TcpChannel>>> {
         self.token_map.get(token).cloned()
     }
 
@@ -466,6 +467,7 @@ impl NetworkThread {
     fn send_tcp_message(&mut self, address: SocketAddr, data: DispatchData) {
         if let Some(channel_rc) = self.get_channel_by_address(&address) {
             let mut channel = channel_rc.borrow_mut();
+            let _ = self.get_channel_by_token(&channel.token);
             if channel.connected() {
                 match self.serialise_dispatch_data(data) {
                     Ok(frame) => {
@@ -668,7 +670,7 @@ impl NetworkThread {
 
     fn deregister_channel(&mut self, channel: &mut TcpChannel) {
         let _ = self.poll.registry().deregister(channel.stream_mut());
-        self.token_map.remove(&channel.token);
+        self.token_map.pop(&channel.token);
     }
 
     fn request_stream(&mut self, address: SocketAddr) {
@@ -769,14 +771,46 @@ impl NetworkThread {
         }
         let rc = Rc::new(RefCell::new(channel));
         self.address_map.insert(address, rc.clone());
-        self.token_map.insert(self.token, rc);
+        self.token_map.put(self.token, rc);
+        self.check_connection_limit();
         self.next_token();
     }
 
-    /// Initiates a graceful closing sequence
+    /// Checks the current channel-count and initiates a graceful shutdown of the channel.
+    fn check_connection_limit(&mut self) -> () {
+        let channel_count = self.token_map.len() as i32;
+        let mut exceeded = channel_count - self.network_config.get_connection_limit() as i32;
+        while exceeded > 0 {
+            let mut lru_iter = self.token_map.iter().rev();
+            let addr;
+            if let Some((_, channel)) = lru_iter.next() {
+                warn!(
+                    self.log,
+                    "Connection Limit exceeded! {} concurrent channels, limit = {}. \
+                Closing channel {:?}",
+                    channel_count,
+                    self.network_config.get_connection_limit(),
+                    channel.borrow(),
+                );
+                self.notify_network_event(NetworkEvent::ConnectionLimitExceeded());
+                addr = channel.borrow().address();
+                self.close_connection(addr);
+                exceeded -= 1;
+            }
+        }
+    }
+
+    /// Initiates a graceful closing sequence if the channel is connected or
     fn close_connection(&mut self, addr: SocketAddr) -> () {
         if let Some(channel) = self.get_channel_by_address(&addr) {
-            let _ = channel.borrow_mut().initiate_graceful_shutdown();
+            let mut channel_mut = channel.borrow_mut();
+            if channel_mut.connected() {
+                channel_mut.initiate_graceful_shutdown();
+                // Update LRU position
+                let _ = self.get_channel_by_token(&channel_mut.token);
+            } else {
+                self.drop_channel(&mut *channel_mut);
+            }
         }
     }
 
@@ -947,6 +981,7 @@ fn bind_with_retries(
     }
 }
 
+#[derive(Clone)]
 struct EventWithRetries {
     token: Token,
     readable: bool,
@@ -1027,6 +1062,7 @@ impl AdressSet {
 mod tests {
     use super::*;
     use crate::{dispatch::NetworkConfig, net::buffers::BufferConfig};
+    use std::str::FromStr;
 
     // Cleaner test-cases for manually running the thread
     fn poll_and_handle(thread: &mut NetworkThread) -> () {
@@ -1037,66 +1073,53 @@ mod tests {
         for event in events.iter() {
             thread.handle_event(EventWithRetries::from(event));
         }
+        while let Some(event) = thread.retry_queue.pop_front() {
+            thread.handle_event(event);
+        }
     }
 
     #[allow(unused_must_use)]
-    fn setup_two_threads() -> (
-        NetworkThread,
-        Sender<DispatchEvent>,
-        NetworkThread,
-        Sender<DispatchEvent>,
-    ) {
+    fn setup_network_thread(
+        network_config: &NetworkConfig,
+    ) -> (NetworkThread, Sender<DispatchEvent>) {
         let mut cfg = KompactConfig::default();
-        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+        cfg.system_components(DeadletterBox::new, network_config.clone().build());
         let system = cfg.build().expect("KompactSystem");
 
         // Set-up the the threads arguments
         let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
         //network_thread_registration.set_readiness(Interest::empty());
-        let (input_queue_1_sender, input_queue_1_receiver) = channel();
-        let (input_queue_2_sender, input_queue_2_receiver) = channel();
-        let (dispatch_shutdown_sender1, _) = promise();
-        let (dispatch_shutdown_sender2, _) = promise();
+        let (input_queue_sender, input_queue_receiver) = channel();
+        let (dispatch_shutdown_sender, _) = promise();
         let logger = system.logger().clone();
         let dispatcher_ref = system.dispatcher_ref();
 
-        // Set up the two network threads
-        let network_thread1 = NetworkThreadBuilder::new(
-            logger.clone(),
-            "127.0.0.1:0".parse().expect("Address should work"),
-            lookup.clone(),
-            input_queue_1_receiver,
-            dispatch_shutdown_sender1,
-            dispatcher_ref.clone(),
-            NetworkConfig::default(),
-        )
-        .expect("Should work")
-        .build();
-
-        let network_thread2 = NetworkThreadBuilder::new(
+        let network_thread = NetworkThreadBuilder::new(
             logger,
             "127.0.0.1:0".parse().expect("Address should work"),
             lookup,
-            input_queue_2_receiver,
-            dispatch_shutdown_sender2,
+            input_queue_receiver,
+            dispatch_shutdown_sender,
             dispatcher_ref,
-            NetworkConfig::default(),
+            network_config.clone(),
         )
         .expect("Should work")
         .build();
-        (
-            network_thread1,
-            input_queue_1_sender,
-            network_thread2,
-            input_queue_2_sender,
-        )
+        (network_thread, input_queue_sender)
+    }
+
+    const PATH: &str = "local://127.0.0.1:0/test_actor";
+
+    fn empty_message() -> DispatchData {
+        let path = ActorPath::from_str(PATH).expect("a proper path");
+        DispatchData::Lazy(Box::new(()), path.clone(), path)
     }
 
     #[test]
     fn merge_connections_basic() -> () {
         // Sets up two NetworkThreads and does mutual connection request
-        let (mut thread1, input_queue_1_sender, mut thread2, input_queue_2_sender) =
-            setup_two_threads();
+        let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::default());
+        let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::default());
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
         // Tell both to connect to each-other before they start running:
@@ -1167,8 +1190,8 @@ mod tests {
     fn merge_connections_tricky() -> () {
         // Sets up two NetworkThreads and does mutual connection request
         // This test uses a different order of events than basic
-        let (mut thread1, input_queue_1_sender, mut thread2, input_queue_2_sender) =
-            setup_two_threads();
+        let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::default());
+        let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::default());
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
         // 2 Requests connection to 1 and sends Hello
@@ -1248,31 +1271,7 @@ mod tests {
         buffer_config.initial_chunk_count(13);
         buffer_config.encode_buf_min_free_space(10);
         let network_config = NetworkConfig::with_buffer_config(addr, buffer_config);
-        let mut cfg = KompactConfig::default();
-        cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = cfg.build().expect("KompactSystem");
-
-        // Set-up the the threads arguments
-        // TODO: Mock this properly instead
-        let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));
-        //network_thread_registration.set_readiness(Interest::empty());
-        let (_, input_queue_1_receiver) = channel();
-        let (dispatch_shutdown_sender1, _) = promise();
-        let logger = system.logger().clone();
-        let dispatcher_ref = system.dispatcher_ref();
-
-        // Set up the network threads
-        let mut network_thread = NetworkThreadBuilder::new(
-            logger,
-            addr,
-            lookup,
-            input_queue_1_receiver,
-            dispatch_shutdown_sender1,
-            dispatcher_ref,
-            network_config,
-        )
-        .expect("Should work")
-        .build();
+        let (mut network_thread, _) = setup_network_thread(&network_config);
         // Assert that the buffer_pool is created correctly
         let (pool_size, _) = network_thread.buffer_pool.borrow_mut().get_pool_sizes();
         assert_eq!(pool_size, 13); // initial_pool_size
@@ -1286,5 +1285,123 @@ mod tests {
             128
         );
         network_thread.stop();
+    }
+
+    // Creates 5 different network_threads, connects "1" to 2, 3, and 4 properly, then the 5th,
+    // asserts that the 2nd is disconnected, sends something on 3rd
+    // then the 2nd connects to 1, and we asserts that 4 is dropped by 1.
+    #[test]
+    fn channel_limit() -> () {
+        let mut network_config = NetworkConfig::default();
+        network_config.set_connection_limit(3);
+        let (mut thread1, input_queue_1_sender) = setup_network_thread(&network_config);
+        let (mut thread2, input_queue_2_sender) = setup_network_thread(&network_config);
+        let (mut thread3, _) = setup_network_thread(&network_config);
+        let (mut thread4, _) = setup_network_thread(&network_config);
+        let (mut thread5, _) = setup_network_thread(&network_config);
+        let addr1 = thread1.addr;
+        let addr2 = thread2.addr;
+        let addr3 = thread3.addr;
+        let addr4 = thread4.addr;
+        let addr5 = thread5.addr;
+
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr3));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr4));
+
+        // Initiate connection attempts
+        thread1.receive_dispatch();
+        thread::sleep(Duration::from_millis(100));
+        // Receive connection attempts, say hello
+        poll_and_handle(&mut thread2);
+        poll_and_handle(&mut thread3);
+        poll_and_handle(&mut thread4);
+        thread::sleep(Duration::from_millis(100));
+        // Handle hello's, send start
+        poll_and_handle(&mut thread1);
+        thread::sleep(Duration::from_millis(100));
+        // Receive start, send ack
+        poll_and_handle(&mut thread2);
+        poll_and_handle(&mut thread3);
+        poll_and_handle(&mut thread4);
+        thread::sleep(Duration::from_millis(100));
+        // Handle the acks
+        poll_and_handle(&mut thread1);
+
+        // Assert that 2, 3, 4 is connected to 1
+        assert!(thread1
+            .address_map
+            .get(&addr2)
+            .expect("")
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr3)
+            .expect("")
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr4)
+            .expect("")
+            .borrow_mut()
+            .connected());
+
+        // Send something to 3 and 4, to ensure that 2 is LRU
+        input_queue_1_sender.send(DispatchEvent::SendTcp(addr3, empty_message()));
+        input_queue_1_sender.send(DispatchEvent::SendTcp(addr4, empty_message()));
+        thread1.receive_dispatch();
+        poll_and_handle(&mut thread1);
+        thread::sleep(Duration::from_millis(100));
+
+        // Initiate connection to 5, should initiate graceful close to 2
+        input_queue_1_sender.send(DispatchEvent::Connect(addr5));
+        thread1.receive_dispatch();
+        thread::sleep(Duration::from_millis(100));
+
+        // Assert that 2 is no longer connected to 1
+        assert!(!thread1
+            .address_map
+            .get(&addr2)
+            .expect("")
+            .borrow_mut()
+            .connected());
+
+        // Receive and send bye
+        poll_and_handle(&mut thread2);
+        thread::sleep(Duration::from_millis(100));
+        // Receive bye
+        poll_and_handle(&mut thread1);
+        thread::sleep(Duration::from_millis(100));
+        input_queue_1_sender.send(DispatchEvent::ClosedAck(addr2));
+        thread1.receive_dispatch();
+
+        // Assert that 2 is dropped
+        assert!(thread1.address_map.get(&addr2).is_none());
+
+        // Ack the closed connection on 2
+        input_queue_2_sender.send(DispatchEvent::ClosedAck(addr1));
+        thread2.receive_dispatch();
+
+        // Initiate new connection to 1 from 2
+        input_queue_2_sender.send(DispatchEvent::Connect(addr1));
+        thread2.receive_dispatch();
+        thread::sleep(Duration::from_millis(100));
+
+        // Receive the incoming connection and assert that 3 (LRU) is no longer connected
+        poll_and_handle(&mut thread1);
+        assert!(!thread1
+            .address_map
+            .get(&addr3)
+            .expect("")
+            .borrow_mut()
+            .connected());
+
+        thread1.stop();
+        thread2.stop();
+        thread3.stop();
+        thread4.stop();
+        thread5.stop();
     }
 }

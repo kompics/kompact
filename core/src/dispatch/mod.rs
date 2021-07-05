@@ -50,6 +50,7 @@ pub mod queue_manager;
 const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
 const BOOT_TIMEOUT: u64 = 5000;
 const MAX_RETRY_ATTEMPTS: u8 = 10;
+const CONNECTION_LIMIT: u32 = 1000;
 
 type NetHashMap<K, V> = FxHashMap<K, V>;
 
@@ -77,6 +78,7 @@ pub struct NetworkConfig {
     max_connection_retry_attempts: u8,
     connection_retry_interval: u64,
     boot_timeout: u64,
+    connection_limit: u32,
 }
 
 impl NetworkConfig {
@@ -92,6 +94,7 @@ impl NetworkConfig {
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
             boot_timeout: BOOT_TIMEOUT,
+            connection_limit: CONNECTION_LIMIT,
         }
     }
 
@@ -121,6 +124,7 @@ impl NetworkConfig {
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
             boot_timeout: BOOT_TIMEOUT,
+            connection_limit: CONNECTION_LIMIT,
         }
     }
 
@@ -203,6 +207,20 @@ impl NetworkConfig {
     pub fn get_boot_timeout(&self) -> u64 {
         self.boot_timeout
     }
+
+    /// Configures how many concurrent Network-connections may be active at any point in time
+    ///
+    /// When the limit is exceeded the system will gracefully close the least recently used channel.
+    ///
+    /// Default value is 1000 Connections.
+    pub fn set_connection_limit(&mut self, limit: u32) {
+        self.connection_limit = limit;
+    }
+
+    /// How many Network-connections the system will allow before it starts closing least recently used
+    pub fn get_connection_limit(&self) -> u32 {
+        self.connection_limit
+    }
 }
 
 /// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::Tcp)
@@ -217,6 +235,7 @@ impl Default for NetworkConfig {
             max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
             connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
             boot_timeout: BOOT_TIMEOUT,
+            connection_limit: CONNECTION_LIMIT,
         }
     }
 }
@@ -250,6 +269,9 @@ pub enum NetworkStatus {
     UnblockedSystem(SystemPath),
     /// Indicates that an IpAddr has been allowed after previously being blocked
     UnblockedIp(IpAddr),
+    /// The Connection Limit has been exceeded and the NetworkThread will close
+    /// the least recently used connection(s).
+    ConnectionLimitExceeded(),
 }
 
 /// Sent by Actors and Components to request information about the Network
@@ -550,6 +572,9 @@ impl NetworkDispatcher {
                     self.network_status_port
                         .trigger(NetworkStatus::UnblockedIp(ip_addr));
                 }
+                NetworkEvent::ConnectionLimitExceeded() => self
+                    .network_status_port
+                    .trigger(NetworkStatus::ConnectionLimitExceeded()),
             },
         }
     }

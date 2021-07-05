@@ -217,6 +217,21 @@ impl NetworkStatusReceiver {
             }
         }
     }
+
+    fn expect_connection_limit_exceeded(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::ConnectionLimitExceeded()) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for UnblockedIp",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for UnblockedIp")
+            }
+        }
+    }
 }
 
 #[test]
@@ -1582,6 +1597,105 @@ fn remote_delivery_overflow_network_thread_buffers() {
         .shutdown()
         .expect("Kompact didn't shut down properly");
     small_pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+}
+
+#[test]
+// Sets up four KompactSystems with Channel Limit of 3.
+// Starts a Ponger on system1, then Pingers on system2, then on system3, then on system4.
+// Asserts that system2 connection is dropped by system1
+fn connection_limit_exceeded() {
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_connection_limit(2);
+
+    let system1 = system_from_network_config(net_cfg.clone());
+    let system2 = system_from_network_config(net_cfg.clone());
+    let system3 = system_from_network_config(net_cfg.clone());
+    let system4 = system_from_network_config(net_cfg);
+
+    let (_, status_receiver1) = start_status_counter(&system1);
+    let (_, status_receiver2) = start_status_counter(&system2);
+    let (_, status_receiver3) = start_status_counter(&system3);
+
+    let (_, ponger1_path) = start_ponger(&system1, PongerAct::new_lazy());
+    let (_, ponger2_path) = start_ponger(&system2, PongerAct::new_lazy());
+
+    let (_, pinger2_future) = start_pinger(&system2, PingerAct::new_lazy(ponger1_path.clone()));
+    status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger2_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    let (_, pinger3_future) = start_pinger(&system3, PingerAct::new_lazy(ponger1_path.clone()));
+    status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver3.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger3_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    let (_, pinger3_future) = start_pinger(&system4, PingerAct::new_lazy(ponger1_path));
+
+    status_receiver1.expect_connection_limit_exceeded(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+    // Two equally valid orderings of status messages at this point:
+    match status_receiver1
+        .receiver
+        .recv_timeout(CONNECTION_STATUS_TIMEOUT)
+    {
+        Ok(NetworkStatus::ConnectionClosed(systempath, _)) => {
+            assert_eq!(systempath, system2.system_path());
+            status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+        }
+        Ok(NetworkStatus::ConnectionEstablished(systempath, _)) => {
+            assert_eq!(systempath, system4.system_path());
+            status_receiver1.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+        }
+        _ => {
+            panic!("Unexpected status messages")
+        }
+    }
+    pinger3_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    // Create a pinger on system1 to ponger on system2
+    let (_, pinger1_future) = start_pinger(&system1, PingerAct::new_lazy(ponger2_path));
+
+    status_receiver1.expect_connection_limit_exceeded(CONNECTION_STATUS_TIMEOUT);
+    match status_receiver1
+        .receiver
+        .recv_timeout(CONNECTION_STATUS_TIMEOUT)
+    {
+        Ok(NetworkStatus::ConnectionClosed(systempath, _)) => {
+            assert_eq!(systempath, system3.system_path());
+            status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+        }
+        Ok(NetworkStatus::ConnectionEstablished(systempath, _)) => {
+            assert_eq!(systempath, system2.system_path());
+            status_receiver1.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+        }
+        _ => {
+            panic!("Unexpected status messages")
+        }
+    }
+    status_receiver3.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger1_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    system1
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system2
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system3
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system4
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
