@@ -234,7 +234,10 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        net::buffers::{BufferConfig, ChunkLease, ChunkRef},
+        net::{
+            buffers::{BufferConfig, ChunkLease, ChunkRef},
+            SessionId,
+        },
         ports::{
             Channel,
             DisconnectError,

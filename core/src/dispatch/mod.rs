@@ -30,6 +30,7 @@ use crate::{
         Protocol,
         SocketAddr,
     },
+    prelude::SessionId,
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;
@@ -231,16 +232,16 @@ impl Port for NetworkStatusPort {
 #[derive(Clone, Debug)]
 pub enum NetworkStatus {
     /// Indicates that a connection has been established to the remote system
-    ConnectionEstablished(SystemPath),
+    ConnectionEstablished(SystemPath, SessionId),
     /// Indicates that a connection has been lost to the remote system.
     /// The system will automatically try to recover the connection for a configurable amount of
     /// retries. The end of the automatic retries is signalled by a `ConnectionDropped` message.
-    ConnectionLost(SystemPath),
+    ConnectionLost(SystemPath, SessionId),
     /// Indicates that a connection has been dropped and no more automatic retries to re-establish
     /// the connection will be attempted and all queued messages have been dropped.
     ConnectionDropped(SystemPath),
     /// Indicates that a connection has been gracefully closed.
-    ConnectionClosed(SystemPath),
+    ConnectionClosed(SystemPath, SessionId),
     /// Indicates that a system has been blocked
     BlockedSystem(SystemPath),
     /// Indicates that an IpAddr has been blocked
@@ -394,7 +395,7 @@ impl NetworkDispatcher {
 
         let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
         self.lookup.rcu(|current| {
-            let mut next = ActorStore::clone(&current);
+            let mut next = ActorStore::clone(current);
             next.insert(PathResolvable::System, deadletter.clone())
                 .expect("Deadletter shouldn't error");
             next
@@ -539,8 +540,7 @@ impl NetworkDispatcher {
                 }
                 NetworkEvent::UnblockedSocket(socket_addr, trigger_status_port) => {
                     let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
-                    self.connections
-                        .insert(socket_addr, ConnectionState::Closed);
+                    self.connections.remove(&socket_addr);
                     if trigger_status_port {
                         self.network_status_port
                             .trigger(NetworkStatus::UnblockedSystem(sys_path));
@@ -561,7 +561,7 @@ impl NetworkDispatcher {
     ) -> Result<(), NetworkBridgeErr> {
         use self::ConnectionState::*;
         match state {
-            Connected => {
+            Connected(session) => {
                 info!(
                     self.ctx().log(),
                     "registering newly connected conn at {:?}", addr
@@ -569,6 +569,7 @@ impl NetworkDispatcher {
                 self.network_status_port
                     .trigger(NetworkStatus::ConnectionEstablished(
                         SystemPath::with_socket(Transport::Tcp, addr),
+                        session,
                     ));
                 let _ = self.retry_map.remove(&addr);
                 if self.queue_manager.has_data(&addr) {
@@ -581,27 +582,27 @@ impl NetworkDispatcher {
                     }
                 }
             }
-            Closed => {
+            Closed(session) => {
                 self.network_status_port
-                    .trigger(NetworkStatus::ConnectionClosed(SystemPath::with_socket(
-                        Transport::Tcp,
-                        addr,
-                    )));
+                    .trigger(NetworkStatus::ConnectionClosed(
+                        SystemPath::with_socket(Transport::Tcp, addr),
+                        session,
+                    ));
                 // Ack the closing
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
                 }
             }
-            Lost => {
+            Lost(session) => {
                 if self.retry_map.get(&addr).is_none() {
                     warn!(self.ctx().log(), "connection lost to {:?}", addr);
                     self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
                 }
                 self.network_status_port
-                    .trigger(NetworkStatus::ConnectionLost(SystemPath::with_socket(
-                        Transport::Tcp,
-                        addr,
-                    )));
+                    .trigger(NetworkStatus::ConnectionLost(
+                        SystemPath::with_socket(Transport::Tcp, addr),
+                        session,
+                    ));
                 if let Some(bridge) = &self.net_bridge {
                     bridge.ack_closed(addr)?;
                 }
@@ -686,10 +687,10 @@ impl NetworkDispatcher {
                     Some(ConnectionState::Initializing)
                 } else {
                     error!(self.ctx.log(), "No network bridge found; dropping message");
-                    Some(ConnectionState::Closed)
+                    None
                 }
             }
-            ConnectionState::Connected => {
+            ConnectionState::Connected(_) => {
                 if self.queue_manager.has_data(&addr) {
                     self.queue_manager.enqueue_data(data, addr);
 
@@ -711,14 +712,14 @@ impl NetworkDispatcher {
                 self.queue_manager.enqueue_data(data, addr);
                 None
             }
-            ConnectionState::Closed => {
+            ConnectionState::Closed(_) => {
                 self.queue_manager.enqueue_data(data, addr);
                 if let Some(bridge) = &self.net_bridge {
                     bridge.connect(Tcp, addr)?;
                 }
                 Some(ConnectionState::Initializing)
             }
-            ConnectionState::Lost => {
+            ConnectionState::Lost(_) => {
                 // May be recovered...
                 self.queue_manager.enqueue_data(data, addr);
                 None
@@ -807,7 +808,7 @@ impl NetworkDispatcher {
                     drop(lease);
                     let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
-                        let mut next = ActorStore::clone(&current);
+                        let mut next = ActorStore::clone(current);
                         result = next.insert(path.clone(), actor.clone());
                         next
                     });
@@ -862,7 +863,7 @@ impl NetworkDispatcher {
                     let_irrefutable!(path, PathResolvable::Segments(path) = path_res);
                     let mut result: Result<InsertResult, PathParseError> = Ok(InsertResult::None);
                     self.lookup.rcu(|current| {
-                        let mut next = ActorStore::clone(&current);
+                        let mut next = ActorStore::clone(current);
                         result = next.set_routing_policy(&path, policy.clone());
                         next
                     });
@@ -888,11 +889,12 @@ impl NetworkDispatcher {
     fn close_channel(&mut self, addr: SocketAddr) -> () {
         if let Some(state) = self.connections.get_mut(&addr) {
             match state {
-                ConnectionState::Connected => {
+                ConnectionState::Connected(session) => {
                     trace!(
                         self.ctx.log(),
-                        "Closing channel to connected system {}",
-                        addr
+                        "Closing channel to connected system {}, session {:?}",
+                        addr,
+                        session
                     );
                     if let Some(bridge) = &self.net_bridge {
                         while self.queue_manager.has_data(&addr) {
@@ -969,7 +971,7 @@ impl Dispatcher for NetworkDispatcher {
             Some(ref path) => path.clone(),
             None => {
                 let bound_addr = match self.net_bridge {
-                    Some(ref net_bridge) => net_bridge.local_addr().clone().expect("If net bridge is ready, port should be as well!"),
+                    Some(ref net_bridge) => net_bridge.local_addr().expect("If net bridge is ready, port should be as well!"),
                     None => panic!("You must wait until the socket is bound before attempting to create a system path!"),
                 };
                 let sp = SystemPath::new(self.cfg.transport, bound_addr.ip(), bound_addr.port());

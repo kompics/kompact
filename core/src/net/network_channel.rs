@@ -18,27 +18,41 @@ use std::{
     io::{Error, ErrorKind, Read, Write},
     net::{Shutdown::Both, SocketAddr},
 };
-use uuid::Uuid;
 
 /// Received connection: Initialising -> Say Hello, Receive Start -> Connected, Send Ack
 /// Requested connection: Requested -> Receive Hello -> Initialised -> Send Start, Receive Ack -> Connected
 pub(crate) enum ChannelState {
     /// Requester state: outgoing request sent, await Hello(addr). SocketAddr is remote addr
-    Requested(SocketAddr, Uuid),
-    /// Receiver state: Hello(addr) must be sent on the channel, await Start(addr, Uuid)
+    Requested(SocketAddr, SessionId),
+    /// Receiver state: Hello(addr) must be sent on the channel, await Start(addr, SessionId)
     Initialising,
-    /// Requester: Has received Hello(addr), must send Start(addr, Uuid) and await ack
-    Initialised(SocketAddr, Uuid),
+    /// Requester: Has received Hello(addr), must send Start(addr, SessionId) and await ack
+    Initialised(SocketAddr, SessionId),
     /// The channel is ready to be used. Ack must be sent before anything else is sent
-    Connected(SocketAddr, Uuid),
+    Connected(SocketAddr, SessionId),
     /// Local system initiated a graceful Channel Close, a Bye message must be sent and received
-    CloseRequested(SocketAddr, Uuid),
+    CloseRequested(SocketAddr, SessionId),
     /// Remote system has initiated a graceful Channel Close, a Bye message must be sent
-    CloseReceived(SocketAddr, Uuid),
+    CloseReceived(SocketAddr, SessionId),
     /// The channel is closing, will be dropped once the local `NetworkDispatcher` Acks the closing.
-    Closed(SocketAddr, Uuid),
+    Closed(SocketAddr, SessionId),
     /// There has been a fatal error on the Channel
     Error(Error),
+}
+
+impl ChannelState {
+    fn session_id(&self) -> Option<SessionId> {
+        match self {
+            ChannelState::Requested(_, session) => Some(*session),
+            ChannelState::Initialising => None,
+            ChannelState::Initialised(_, session) => Some(*session),
+            ChannelState::Connected(_, session) => Some(*session),
+            ChannelState::CloseRequested(_, session) => Some(*session),
+            ChannelState::CloseReceived(_, session) => Some(*session),
+            ChannelState::Closed(_, session) => Some(*session),
+            ChannelState::Error(_) => None,
+        }
+    }
 }
 
 pub(crate) struct TcpChannel {
@@ -91,6 +105,10 @@ impl TcpChannel {
         matches!(self.state, ChannelState::Connected(_, _))
     }
 
+    pub fn session_id(&self) -> Option<SessionId> {
+        self.state.session_id()
+    }
+
     /// Internal helper function for special frames
     fn send_frame(&mut self, mut frame: Frame) -> () {
         let len = frame.encoded_len() + FRAME_HEAD_LEN as usize;
@@ -131,7 +149,7 @@ impl TcpChannel {
     /// Must be called when a Hello frame is received on the channel.
     pub fn handle_hello(&mut self, hello: &Hello) -> () {
         if let ChannelState::Requested(_, id) = self.state {
-            // Has now received Hello(addr), must send Start(addr, uuid) and await ack
+            // Has now received Hello(addr), must send Start(addr, SessionId) and await ack
             let start = Frame::Start(Start::new(self.own_addr, id));
             self.send_frame(start);
             self.state = ChannelState::Initialised(hello.addr, id);

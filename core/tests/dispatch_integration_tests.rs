@@ -6,7 +6,7 @@ const REGISTRATION_TIMEOUT: Duration = Duration::from_millis(1000);
 const STOP_COMPONENT_TIMEOUT: Duration = Duration::from_millis(1000);
 const PINGPONG_TIMEOUT: Duration = Duration::from_millis(10_000);
 const PING_INTERVAL: Duration = Duration::from_millis(500);
-const CONNECTION_STATUS_TIMEOUT: Duration = Duration::from_millis(2000);
+const CONNECTION_STATUS_TIMEOUT: Duration = Duration::from_millis(5000);
 
 const CONNECTION_RETRY_INTERVAL: u64 = 500;
 const CONNECTION_RETRY_ATTEMPTS: u8 = 10;
@@ -100,7 +100,7 @@ struct NetworkStatusReceiver {
 impl NetworkStatusReceiver {
     fn expect_connection_established(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionEstablished(_)) => {}
+            Ok(NetworkStatus::ConnectionEstablished(_, _)) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for ConnectionEstablished",
@@ -115,7 +115,7 @@ impl NetworkStatusReceiver {
 
     fn expect_connection_lost(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionLost(_)) => {}
+            Ok(NetworkStatus::ConnectionLost(_, _)) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for ConnectionLost",
@@ -145,7 +145,7 @@ impl NetworkStatusReceiver {
 
     fn expect_connection_closed(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionClosed(_)) => {}
+            Ok(NetworkStatus::ConnectionClosed(_, _)) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for ConnectionClosed",
@@ -767,6 +767,8 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
 // and finally boots a new system 2b with an identical networkconfig and named actor registration
 // The final ping pong round should then complete as system1 automatically reconnects to system2 and
 // transfers the enqueued messages.
+// Also checks that `session` of received messages are incremented and matches up with NetworkStatus
+// messages.
 #[ignore]
 fn remote_lost_and_continued_connection() {
     let mut net_cfg = NetworkConfig::default();
@@ -775,7 +777,7 @@ fn remote_lost_and_continued_connection() {
     let pinger_system = system_from_network_config(net_cfg);
     let ponger_system_1 = system_from_network_config(NetworkConfig::default());
     let ponger_system_port = ponger_system_1.system_path().port();
-    let (_, status_receiver) = start_status_counter(&pinger_system);
+    let (status_counter, status_receiver) = start_status_counter(&pinger_system);
 
     let (ponger_named, _) = start_ponger(&ponger_system_1, PongerAct::new_lazy());
     ponger_system_1
@@ -790,10 +792,10 @@ fn remote_lost_and_continued_connection() {
     let ping_stream = start_ping_stream(&pinger_system, &named_path);
     ponger_system_1.start(&ponger_named);
 
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+
     let (pinger_1, all_pongs_received_future_1) =
         start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
-
-    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
     all_pongs_received_future_1
         .wait_timeout(PINGPONG_TIMEOUT)
@@ -817,14 +819,26 @@ fn remote_lost_and_continued_connection() {
         .register_by_alias(&ponger_named, "custom_name")
         .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
 
+    status_receiver.expect_connection_established(DROP_CONNECTION_TIMEOUT);
+
     let (pinger_2, all_pongs_received_future_2) =
         start_pinger(&pinger_system, PingerAct::new_lazy(named_path));
-
-    status_receiver.expect_connection_established(DROP_CONNECTION_TIMEOUT);
 
     all_pongs_received_future_2
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
+
+    let (first_session, second_session) = {
+        status_counter.on_definition(|c| {
+            assert_eq!(c.connected_systems[0].1, c.disconnected_systems[0].1);
+            assert_ne!(c.connected_systems[0].1, c.connected_systems[1].1);
+            (c.connected_systems[0].1, c.connected_systems[1].1)
+        })
+    };
+    ping_stream.on_definition(|c| {
+        assert_eq!(first_session, c.pong_system_paths[0].1);
+        assert_eq!(second_session, c.pong_system_paths[1].1);
+    });
 
     pinger_system
         .stop_notify(&ping_stream)
@@ -870,10 +884,10 @@ fn remote_lost_and_dropped_connection() {
         vec!["custom_name".into()],
     ));
 
+    let (_, status_receiver) = start_status_counter(&pinger_system);
+
     // PingStream ensures that the network layer detects failures
     let _ = start_ping_stream(&pinger_system, &named_path);
-
-    let (_, status_receiver) = start_status_counter(&pinger_system);
 
     let (pinger_named, all_pongs_received_future) =
         start_pinger(&pinger_system, PingerAct::new_lazy(named_path.clone()));
@@ -1348,6 +1362,8 @@ fn network_status_port_open_close_open() {
     status_counter.on_definition(|sc| {
         assert_eq!(sc.connection_established, 2);
         assert_eq!(sc.connection_closed, 1);
+        assert_eq!(sc.connected_systems[0], sc.disconnected_systems[0]);
+        assert_ne!(sc.connected_systems[0], sc.connected_systems[1]);
     });
 
     initiator_system
@@ -1417,8 +1433,7 @@ fn network_status_port_block_unblock_system() {
             ponger.count
         );
     });
-    status_counter
-        .on_definition(|sc| assert_eq!(sc.blocked_systems.contains(&pinger_sys_path), false));
+    status_counter.on_definition(|sc| assert!(!sc.blocked_systems.contains(&pinger_sys_path)));
 
     pinger_system
         .kill_notify(pinger)
@@ -1484,7 +1499,7 @@ fn network_status_port_block_unblock_ip() {
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
 
-    status_counter.on_definition(|sc| assert_eq!(sc.blocked_ip.contains(&pinger_ip), false));
+    status_counter.on_definition(|sc| assert!(!sc.blocked_ip.contains(&pinger_ip)));
 
     let _ = ponger_system.shutdown();
     let _ = pinger_system.shutdown();

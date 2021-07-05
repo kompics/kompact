@@ -292,11 +292,11 @@ pub fn main() {
     // Start everything
     servers
         .iter()
-        .map(|s| system.start_notify(&s))
+        .map(|s| system.start_notify(s))
         .expect_completion(TIMEOUT, "server start");
     clients
         .iter()
-        .map(|c| system.start_notify(&c))
+        .map(|c| system.start_notify(c))
         .expect_completion(TIMEOUT, "client start");
 
     // Let them work for a while

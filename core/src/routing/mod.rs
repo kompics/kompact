@@ -110,13 +110,10 @@ mod tests {
         let group_ref = system
             .set_routing_policy(RoundRobinRouting::default(), "routing-group", false)
             .wait_expect(SLEEP_TIME, "Could not register policy");
-        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
+        let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
             .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
-            .collect();
-        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
-            .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -165,13 +162,10 @@ mod tests {
                 false,
             )
             .wait_expect(SLEEP_TIME, "Could not register policy");
-        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
+        let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
             .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
-            .collect();
-        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
-            .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -233,13 +227,10 @@ mod tests {
             .into_named_with_string("routing-group/?")
             .expect("actor path")
             .into();
-        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
+        let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
             .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
-            .collect();
-        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
-            .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -297,13 +288,10 @@ mod tests {
         let group_ref = system
             .set_routing_policy(BroadcastRouting::default(), "routing-group", false)
             .wait_expect(SLEEP_TIME, "Could not register policy");
-        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
+        let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
             .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
-            .collect();
-        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
-            .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -361,13 +349,10 @@ mod tests {
             .into_named_with_string("routing-group/*")
             .expect("actor path")
             .into();
-        let receiver_reg_fs: Vec<KFuture<RegistrationResult>> = receivers
+        let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
             .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
-            .collect();
-        let receiver_refs: Vec<ActorPath> = receiver_reg_fs
-            .into_iter()
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));

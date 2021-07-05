@@ -21,7 +21,7 @@ where
 pub struct IntBox(u64);
 
 pub fn do_with_any_box(a: Box<dyn Any>) -> u64 {
-    if let Some(ref ib) = a.downcast_ref::<IntBox>() {
+    if let Some(ib) = a.downcast_ref::<IntBox>() {
         ib.0
     } else {
         unimplemented!();
@@ -29,7 +29,7 @@ pub fn do_with_any_box(a: Box<dyn Any>) -> u64 {
 }
 
 pub fn do_with_any_box_ref(a: &Box<dyn Any>) -> u64 {
-    if let Some(ref ib) = a.downcast_ref::<IntBox>() {
+    if let Some(ib) = a.downcast_ref::<IntBox>() {
         ib.0
     } else {
         unimplemented!();
@@ -37,7 +37,7 @@ pub fn do_with_any_box_ref(a: &Box<dyn Any>) -> u64 {
 }
 
 pub fn do_with_any_ref(a: &dyn Any) -> u64 {
-    if let Some(ref ib) = a.downcast_ref::<IntBox>() {
+    if let Some(ib) = a.downcast_ref::<IntBox>() {
         ib.0
     } else {
         unimplemented!();

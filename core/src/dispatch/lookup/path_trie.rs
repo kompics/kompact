@@ -330,6 +330,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_iter() {
         let mut trie: PathTrie<usize> = PathTrie::new();
 

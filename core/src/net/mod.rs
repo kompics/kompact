@@ -13,6 +13,7 @@ use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
 use mio::{Interest, Waker};
 pub use std::net::SocketAddr;
 use std::{io, net::IpAddr, panic, sync::Arc, thread, time::Duration};
+use uuid::Uuid;
 
 #[allow(missing_docs)]
 pub mod buffers;
@@ -29,11 +30,11 @@ pub enum ConnectionState {
     /// Initialising the connection
     Initializing,
     /// Connected
-    Connected,
+    Connected(SessionId),
     /// Closed gracefully, by request on either side
-    Closed,
+    Closed(SessionId),
     /// Unexpected lost connection
-    Lost,
+    Lost(SessionId),
     /// Blocked by request from component through NetworkStatusPort
     Blocked,
     // Threw an error
@@ -51,6 +52,32 @@ impl From<Transport> for Protocol {
             Transport::Udp => Protocol::Udp,
             _ => unimplemented!("Unsupported Protocol"),
         }
+    }
+}
+
+/// Session identifier, part of the `NetMessage` struct. Managed by Kompact internally, may be read
+/// by users to detect session loss, indicated by different SessionId's of NetMessages.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SessionId(Uuid);
+
+impl SessionId {
+    /// Generates a new SessionId
+    pub fn new_unique() -> SessionId {
+        SessionId(Uuid::new_v4())
+    }
+
+    /// For Serialisation of SessionId's
+    ///
+    /// **Note: User code should not rely on the internal representation of SessionId's**
+    pub fn as_u128(&self) -> u128 {
+        self.0.as_u128()
+    }
+
+    /// For Deserialisation of SessionId's
+    ///
+    /// **Note: User code should not rely on the internal representation of SessionId's**
+    pub fn from_u128(v: u128) -> SessionId {
+        SessionId(Uuid::from_u128(v))
     }
 }
 
@@ -1269,10 +1296,10 @@ pub mod net_test_helpers {
         pub connection_dropped: u32,
         /// Counts the number of connection_closed messages received
         pub connection_closed: u32,
-        /// Counts the number of connected_systems messages received
-        pub connected_systems: Vec<SystemPath>,
-        /// Counts the number of disconnected_systems messages received
-        pub disconnected_systems: Vec<SystemPath>,
+        /// Contains all `SystemPath`'s received in a `ConnectionEstablished`
+        pub connected_systems: Vec<(SystemPath, SessionId)>,
+        /// Contains all `SystemPath`'s received in a `ConnectionLost` or `ConnectionClosed` message
+        pub disconnected_systems: Vec<(SystemPath, SessionId)>,
         /// The blocked SystemPaths
         pub blocked_systems: Vec<SystemPath>,
         /// The blocked ip addresses
@@ -1366,10 +1393,21 @@ pub mod net_test_helpers {
                     .expect("StatusCounter to send NetworkStatus");
             }
             match event {
-                NetworkStatus::ConnectionEstablished(_) => self.connection_established += 1,
-                NetworkStatus::ConnectionLost(_) => self.connection_lost += 1,
-                NetworkStatus::ConnectionDropped(_) => self.connection_dropped += 1,
-                NetworkStatus::ConnectionClosed(_) => self.connection_closed += 1,
+                NetworkStatus::ConnectionEstablished(system_path, session) => {
+                    self.connection_established += 1;
+                    self.connected_systems.push((system_path, session));
+                }
+                NetworkStatus::ConnectionLost(system_path, session) => {
+                    self.connection_lost += 1;
+                    self.disconnected_systems.push((system_path, session));
+                }
+                NetworkStatus::ConnectionDropped(_) => {
+                    self.connection_dropped += 1;
+                }
+                NetworkStatus::ConnectionClosed(system_path, session) => {
+                    self.connection_closed += 1;
+                    self.disconnected_systems.push((system_path, session));
+                }
                 NetworkStatus::BlockedSystem(sys_path) => self.blocked_systems.push(sys_path),
                 NetworkStatus::BlockedIp(ip_addr) => self.blocked_ip.push(ip_addr),
                 NetworkStatus::UnblockedSystem(sys_path) => {
@@ -1389,6 +1427,8 @@ pub mod net_test_helpers {
         target: ActorPath,
         period: Duration,
         timer: Option<ScheduledTimer>,
+        /// Contains all unique `(SystemPath, SessionId)`'s the PingStream has received Pong's from
+        pub pong_system_paths: Vec<(SystemPath, SessionId)>,
         ping_count: u64,
         pong_count: u64,
     }
@@ -1404,6 +1444,7 @@ pub mod net_test_helpers {
                 timer: None,
                 ping_count: 0,
                 pong_count: 0,
+                pong_system_paths: Vec::new(),
             }
         }
 
@@ -1447,10 +1488,21 @@ pub mod net_test_helpers {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            let sender = msg.sender.clone();
+            let session = msg.session;
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.pong_count += 1;
+                    if let Some(session_id) = session {
+                        if !self
+                            .pong_system_paths
+                            .contains(&(sender.system().clone(), session_id))
+                        {
+                            self.pong_system_paths
+                                .push((sender.system().clone(), session_id))
+                        }
+                    }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }

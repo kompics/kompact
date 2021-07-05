@@ -1,4 +1,5 @@
 use super::*;
+use crate::prelude::SessionId;
 
 /// An incoming message from the networking subsystem
 ///
@@ -27,6 +28,18 @@ pub struct NetMessage {
     pub receiver: ActorPath,
     /// The actual data of the message
     pub data: NetData,
+    /// Each physical end-to-end session between two systems is assigned a unique identifier.
+    /// When a connection is lost/closed and then re-established, the connection will have a
+    /// new unique identifier. The unique identifier is negotiated and is the same on both
+    /// ends of the connection.
+    ///
+    /// The field is only set by the Network-layer in incoming messages.
+    /// All other messages will have the field set to `None`.
+    ///
+    /// For any sequence of two messages received from a remote actor over a session:
+    /// - If the session of the messages differs, an intermediate message *may* have been lost.
+    /// - Conversely, if the session does not differ no intermediate message was lost.
+    pub session: Option<SessionId>,
 }
 
 /// The data part of an incoming message from the networking subsystem
@@ -80,6 +93,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::Boxed(data)),
+            session: None,
         }
     }
 
@@ -94,6 +108,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::Serialised(data)),
+            session: None,
         }
     }
 
@@ -109,6 +124,7 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::ChunkLease(data)),
+            session: None,
         }
     }
 
@@ -124,12 +140,23 @@ impl NetMessage {
             sender,
             receiver,
             data: NetData::with(ser_id, HeapOrSer::ChunkRef(data)),
+            session: None,
         }
     }
 
     /// Return a reference to the `sender` field
     pub fn sender(&self) -> &ActorPath {
         &self.sender
+    }
+
+    /// Returns the session of the `NetMessage`
+    pub fn session(&self) -> Option<SessionId> {
+        self.session
+    }
+
+    /// Sets the SessionId of the `NetMessage`
+    pub fn set_session(&mut self, session: SessionId) -> () {
+        self.session = Some(session);
     }
 
     /// Try to deserialise the data into a value of type `T` wrapped into a message
@@ -180,6 +207,7 @@ impl NetMessage {
             sender,
             receiver,
             data,
+            session,
         } = self;
         match data.try_deserialise::<T, D>() {
             Ok(t) => Ok(DeserialisedMessage::with(sender, receiver, t)),
@@ -188,6 +216,7 @@ impl NetMessage {
                     sender,
                     receiver,
                     data,
+                    session,
                 }),
                 UnpackError::NoCast(data) => UnpackError::NoCast(data),
                 UnpackError::DeserError(e) => UnpackError::DeserError(e),
@@ -302,6 +331,7 @@ impl NetMessage {
             sender,
             receiver,
             data,
+            session,
         } = self;
         data.try_deserialise_unchecked::<T, D>()
             .map_err(|e| match e {
@@ -309,6 +339,7 @@ impl NetMessage {
                     sender,
                     receiver,
                     data,
+                    session,
                 }),
                 UnpackError::NoCast(data) => UnpackError::NoCast(data),
                 UnpackError::DeserError(e) => UnpackError::DeserError(e),
@@ -327,6 +358,7 @@ impl TryClone for NetMessage {
             sender: self.sender.clone(),
             receiver: self.receiver.clone(),
             data,
+            session: self.session,
         })
     }
 }

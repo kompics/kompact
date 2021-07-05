@@ -228,7 +228,7 @@ pub trait SystemField {
 
     /// Returns the address used in the system path
     fn address(&self) -> &IpAddr {
-        &self.system().address()
+        self.system().address()
     }
 
     /// Returns the port used in the system path
@@ -400,7 +400,7 @@ impl ActorPath {
             dispatch.ctx().with_buffer(|buffer| {
                 let mut buf = buffer.get_buffer_encoder()?;
                 let msg =
-                    crate::serialisation::ser_helpers::serialise_msg(&from, &self, &m, &mut buf)?;
+                    crate::serialisation::ser_helpers::serialise_msg(&from, self, &m, &mut buf)?;
                 let env = DispatchEnvelope::Msg {
                     src: from,
                     dst: self.clone(),
@@ -443,7 +443,7 @@ impl ActorPath {
         dispatch.ctx().with_buffer(|buffer| {
             let mut buf = buffer.get_buffer_encoder()?;
             let msg = crate::serialisation::ser_helpers::serialise_msg_with_preserialised(
-                &from, &self, content, &mut buf,
+                &from, self, content, &mut buf,
             )?;
             let env = DispatchEnvelope::Msg {
                 src: from,
