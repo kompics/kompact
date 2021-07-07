@@ -9,10 +9,8 @@ use crate::{
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
-        ConnectionState,
-        ConnectionState::Connected,
     },
-    prelude::SessionId,
+    prelude::{NetworkStatus, SessionId},
     serialisation::ser_helpers::deserialise_chunk_lease,
 };
 use crossbeam_channel::Receiver as Recv;
@@ -365,14 +363,10 @@ impl NetworkThread {
                         self.handle_hello(&mut *channel, &hello);
                     }
                     Ok(Some(Frame::Ack())) => {
-                        self.notify_connection_state(
-                            channel.address(),
-                            Connected(
-                                channel
-                                    .session_id()
-                                    .expect("Connected Channel must have a SessionId"),
-                            ),
-                        );
+                        self.notify_network_status(NetworkStatus::ConnectionEstablished(
+                            SystemPath::with_socket(Transport::Tcp, channel.address()),
+                            channel.session_id().unwrap(),
+                        ))
                     }
                     Ok(Some(Frame::Bye())) => {
                         self.handle_bye(&mut channel);
@@ -440,10 +434,10 @@ impl NetworkThread {
                         channel.state = ChannelState::Closed(addr, id);
                         debug!(self.log, "Connection to {} shutdown gracefully", &addr);
                         self.deregister_channel(&mut *channel);
-                        self.notify_connection_state(
-                            channel.address(),
-                            ConnectionState::Closed(id),
-                        );
+                        self.notify_network_status(NetworkStatus::ConnectionClosed(
+                            SystemPath::with_socket(Transport::Tcp, channel.address()),
+                            id,
+                        ));
                         self.reject_outbound_for_channel(&mut channel);
                     }
                 }
@@ -629,15 +623,21 @@ impl NetworkThread {
         self.reregister_channel_address(channel.address(), start.addr);
         channel.handle_start(start);
         self.retry_event(event);
-        self.notify_connection_state(start.addr, ConnectionState::Connected(start.id));
+        self.notify_network_status(NetworkStatus::ConnectionEstablished(
+            SystemPath::with_socket(Transport::Tcp, start.addr),
+            start.id,
+        ));
     }
 
     fn handle_bye(&mut self, channel: &mut TcpChannel) -> () {
         match channel.state {
-            ChannelState::Closed(_, id) => {
+            ChannelState::Closed(addr, id) => {
                 debug!(self.log, "Connection shutdown gracefully");
                 self.deregister_channel(channel);
-                self.notify_connection_state(channel.address(), ConnectionState::Closed(id));
+                self.notify_network_status(NetworkStatus::ConnectionClosed(
+                    SystemPath::with_socket(Transport::Tcp, addr),
+                    id,
+                ));
                 self.reject_outbound_for_channel(channel);
             }
             ChannelState::CloseReceived(_, _) => {}
@@ -796,7 +796,7 @@ impl NetworkThread {
                     self.network_config.get_connection_limit(),
                     channel.borrow(),
                 );
-                self.notify_network_event(NetworkEvent::ConnectionLimitExceeded);
+                self.notify_network_status(NetworkStatus::ConnectionLimitExceeded);
                 addr = channel.borrow().address();
                 self.close_connection(addr);
                 exceeded -= 1;
@@ -821,7 +821,10 @@ impl NetworkThread {
     fn lost_connection(&mut self, mut channel: RefMut<TcpChannel>) -> () {
         trace!(self.log, "Lost connection to address {}", channel.address());
         if let Some(id) = channel.session_id() {
-            self.notify_connection_state(channel.address(), ConnectionState::Lost(id));
+            self.notify_network_status(NetworkStatus::ConnectionLost(
+                SystemPath::with_socket(Transport::Tcp, channel.address()),
+                id,
+            ));
         }
         self.reject_outbound_for_channel(&mut channel);
         // Try to inform the other end that we're closing the channel
@@ -869,17 +872,15 @@ impl NetworkThread {
         self.stop();
     }
 
-    fn notify_connection_state(&self, address: SocketAddr, state: ConnectionState) {
+    fn notify_network_status(&self, status: NetworkStatus) {
         self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                NetworkEvent::Connection(address, state),
-            )));
+            .tell(DispatchEnvelope::Event(EventEnvelope::Network(status)))
     }
 
     fn reject_dispatch_data(&self, address: SocketAddr, data: DispatchData) {
         self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                NetworkEvent::RejectedData(address, data),
+            .tell(DispatchEnvelope::Event(EventEnvelope::RejectedData(
+                (address, Box::new(data)),
             )));
     }
 
@@ -909,7 +910,7 @@ impl NetworkThread {
                 self.block_socket_addr(socket_addr, trigger_status_port);
             }
         }
-        self.notify_network_event(NetworkEvent::BlockedIp(ip_addr));
+        self.notify_network_status(NetworkStatus::BlockedIp(ip_addr));
     }
 
     fn block_socket_addr(&mut self, socket_addr: SocketAddr, trigger_status_port: bool) {
@@ -924,10 +925,12 @@ impl NetworkThread {
                 self.drop_channel(&mut channel);
             }
         }
-        self.notify_network_event(NetworkEvent::BlockedSocket(
-            socket_addr,
-            trigger_status_port,
-        ));
+        if trigger_status_port {
+            self.notify_network_status(NetworkStatus::BlockedSystem(SystemPath::with_socket(
+                Transport::Tcp,
+                socket_addr,
+            )));
+        }
     }
 
     fn unblock_ip_addr(&mut self, ip_addr: IpAddr) {
@@ -939,22 +942,18 @@ impl NetworkThread {
                 self.unblock_socket_addr(socket_addr, trigger_status_port);
             }
         }
-        self.notify_network_event(NetworkEvent::UnblockedIp(ip_addr));
+        self.notify_network_status(NetworkStatus::UnblockedIp(ip_addr));
     }
 
     fn unblock_socket_addr(&mut self, socket_addr: SocketAddr, trigger_status_port: bool) {
         if self.block_list.remove_socket_addr(&socket_addr) {
             debug!(self.log, "Unblocking socket: {:?}", socket_addr);
-            self.notify_network_event(NetworkEvent::UnblockedSocket(
-                socket_addr,
-                trigger_status_port,
-            ));
+            if trigger_status_port {
+                self.notify_network_status(NetworkStatus::UnblockedSystem(
+                    SystemPath::with_socket(Transport::Tcp, socket_addr),
+                ));
+            }
         }
-    }
-
-    fn notify_network_event(&self, event: NetworkEvent) {
-        self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::Network(event)));
     }
 }
 

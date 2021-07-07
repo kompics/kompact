@@ -2,7 +2,6 @@ use super::*;
 use actors::Transport;
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
-use net::events::NetworkEvent;
 
 use crate::{
     messaging::DispatchData,
@@ -84,37 +83,11 @@ impl SessionId {
 /// Events on the network level
 pub mod events {
 
-    use super::ConnectionState;
     use crate::{
         messaging::DispatchData,
-        net::{frames::*, SocketAddr},
+        net::SocketAddr,
     };
     use std::net::IpAddr;
-
-    /// Network events emitted by the network `Bridge`
-    #[derive(Debug)]
-    pub enum NetworkEvent {
-        /// The state of a connection changed
-        Connection(SocketAddr, ConnectionState),
-        /// Data was received
-        Data(Frame),
-        /// The NetworkThread lost connection to the remote host and rejects the frame
-        RejectedData(SocketAddr, DispatchData),
-        /// The NetworkThread has blocked `SocketAddr` and dropped its corresponding channel.
-        /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
-        BlockedSocket(SocketAddr, bool),
-        /// The NetworkThread has blocked `IpAddr` and dropped all channels to it
-        BlockedIp(IpAddr),
-        /// The NetworkThread has unblocked `SocketAddr`
-        /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
-        UnblockedSocket(SocketAddr, bool),
-        /// The NetworkThread has unblocked `IpAddr`
-        UnblockedIp(IpAddr),
-        /// The Channel Limit has been exceeded and the NetworkThread will close
-        /// the least recently used channel(s).
-        ConnectionLimitExceeded,
-    }
-
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
