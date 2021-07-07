@@ -220,7 +220,7 @@ impl NetworkStatusReceiver {
 
     fn expect_connection_limit_exceeded(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
-            Ok(NetworkStatus::ConnectionLimitExceeded()) => {}
+            Ok(NetworkStatus::ConnectionLimitExceeded) => {}
             Ok(other_status) => {
                 panic!(
                     "unexpected network status {:?} waiting for UnblockedIp",

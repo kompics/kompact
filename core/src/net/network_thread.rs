@@ -323,6 +323,10 @@ impl NetworkThread {
         self.token_map.get(token).cloned()
     }
 
+    fn update_lru(&mut self, token: &Token) -> () {
+        let _ = self.token_map.get(token);
+    }
+
     fn get_channel_by_address(&self, address: &SocketAddr) -> Option<Rc<RefCell<TcpChannel>>> {
         self.address_map.get(address).cloned()
     }
@@ -467,7 +471,7 @@ impl NetworkThread {
     fn send_tcp_message(&mut self, address: SocketAddr, data: DispatchData) {
         if let Some(channel_rc) = self.get_channel_by_address(&address) {
             let mut channel = channel_rc.borrow_mut();
-            let _ = self.get_channel_by_token(&channel.token);
+            self.update_lru(&channel.token);
             if channel.connected() {
                 match self.serialise_dispatch_data(data) {
                     Ok(frame) => {
@@ -778,8 +782,8 @@ impl NetworkThread {
 
     /// Checks the current channel-count and initiates a graceful shutdown of the channel.
     fn check_connection_limit(&mut self) -> () {
-        let channel_count = self.token_map.len() as i32;
-        let mut exceeded = channel_count - self.network_config.get_connection_limit() as i32;
+        let channel_count = self.token_map.len() as i64;
+        let mut exceeded = channel_count - self.network_config.get_connection_limit() as i64;
         while exceeded > 0 {
             let mut lru_iter = self.token_map.iter().rev();
             let addr;
@@ -792,7 +796,7 @@ impl NetworkThread {
                     self.network_config.get_connection_limit(),
                     channel.borrow(),
                 );
-                self.notify_network_event(NetworkEvent::ConnectionLimitExceeded());
+                self.notify_network_event(NetworkEvent::ConnectionLimitExceeded);
                 addr = channel.borrow().address();
                 self.close_connection(addr);
                 exceeded -= 1;
@@ -806,8 +810,7 @@ impl NetworkThread {
             let mut channel_mut = channel.borrow_mut();
             if channel_mut.connected() {
                 channel_mut.initiate_graceful_shutdown();
-                // Update LRU position
-                let _ = self.get_channel_by_token(&channel_mut.token);
+                self.update_lru(&channel_mut.token);
             } else {
                 self.drop_channel(&mut *channel_mut);
             }
@@ -1332,19 +1335,19 @@ mod tests {
         assert!(thread1
             .address_map
             .get(&addr2)
-            .expect("")
+            .unwrap()
             .borrow_mut()
             .connected());
         assert!(thread1
             .address_map
             .get(&addr3)
-            .expect("")
+            .unwrap()
             .borrow_mut()
             .connected());
         assert!(thread1
             .address_map
             .get(&addr4)
-            .expect("")
+            .unwrap()
             .borrow_mut()
             .connected());
 
@@ -1364,7 +1367,7 @@ mod tests {
         assert!(!thread1
             .address_map
             .get(&addr2)
-            .expect("")
+            .unwrap()
             .borrow_mut()
             .connected());
 
@@ -1394,7 +1397,7 @@ mod tests {
         assert!(!thread1
             .address_map
             .get(&addr3)
-            .expect("")
+            .unwrap()
             .borrow_mut()
             .connected());
 

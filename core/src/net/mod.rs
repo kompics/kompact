@@ -112,7 +112,7 @@ pub mod events {
         UnblockedIp(IpAddr),
         /// The Channel Limit has been exceeded and the NetworkThread will close
         /// the least recently used channel(s).
-        ConnectionLimitExceeded(),
+        ConnectionLimitExceeded,
     }
 
     /// BridgeEvents emitted to the network `Bridge`
@@ -1417,7 +1417,7 @@ pub mod net_test_helpers {
                     self.blocked_systems.retain(|s| s != &sys_path)
                 }
                 NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
-                NetworkStatus::ConnectionLimitExceeded() => self.connection_limit_exceeded += 1,
+                NetworkStatus::ConnectionLimitExceeded => self.connection_limit_exceeded += 1,
             }
             Handled::Ok
         }

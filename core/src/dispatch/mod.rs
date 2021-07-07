@@ -47,10 +47,12 @@ pub mod lookup;
 pub mod queue_manager;
 
 // Default values for network config.
-const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
-const BOOT_TIMEOUT: u64 = 5000;
-const MAX_RETRY_ATTEMPTS: u8 = 10;
-const CONNECTION_LIMIT: u32 = 1000;
+mod defaults {
+    pub(crate) const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
+    pub(crate) const BOOT_TIMEOUT: u64 = 5000;
+    pub(crate) const MAX_RETRY_ATTEMPTS: u8 = 10;
+    pub(crate) const CONNECTION_LIMIT: u32 = 1000;
+}
 
 type NetHashMap<K, V> = FxHashMap<K, V>;
 
@@ -91,10 +93,10 @@ impl NetworkConfig {
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-            boot_timeout: BOOT_TIMEOUT,
-            connection_limit: CONNECTION_LIMIT,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            connection_limit: defaults::CONNECTION_LIMIT,
         }
     }
 
@@ -121,10 +123,10 @@ impl NetworkConfig {
             buffer_config,
             custom_allocator: Some(custom_allocator),
             tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-            boot_timeout: BOOT_TIMEOUT,
-            connection_limit: CONNECTION_LIMIT,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            connection_limit: defaults::CONNECTION_LIMIT,
         }
     }
 
@@ -232,10 +234,10 @@ impl Default for NetworkConfig {
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-            boot_timeout: BOOT_TIMEOUT,
-            connection_limit: CONNECTION_LIMIT,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            connection_limit: defaults::CONNECTION_LIMIT,
         }
     }
 }
@@ -271,7 +273,7 @@ pub enum NetworkStatus {
     UnblockedIp(IpAddr),
     /// The Connection Limit has been exceeded and the NetworkThread will close
     /// the least recently used connection(s).
-    ConnectionLimitExceeded(),
+    ConnectionLimitExceeded,
 }
 
 /// Sent by Actors and Components to request information about the Network
@@ -572,9 +574,9 @@ impl NetworkDispatcher {
                     self.network_status_port
                         .trigger(NetworkStatus::UnblockedIp(ip_addr));
                 }
-                NetworkEvent::ConnectionLimitExceeded() => self
+                NetworkEvent::ConnectionLimitExceeded => self
                     .network_status_port
-                    .trigger(NetworkStatus::ConnectionLimitExceeded()),
+                    .trigger(NetworkStatus::ConnectionLimitExceeded),
             },
         }
     }
