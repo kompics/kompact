@@ -83,10 +83,7 @@ impl SessionId {
 /// Events on the network level
 pub mod events {
 
-    use crate::{
-        messaging::DispatchData,
-        net::SocketAddr,
-    };
+    use crate::{messaging::DispatchData, net::SocketAddr};
     use std::net::IpAddr;
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
@@ -1280,8 +1277,10 @@ pub mod net_test_helpers {
         pub blocked_systems: Vec<SystemPath>,
         /// The blocked ip addresses
         pub blocked_ip: Vec<IpAddr>,
-        /// Counts the number of max_channels_reached messages received
-        pub connection_limit_exceeded: u32,
+        /// Counts the number of `SoftConnectionLimitExceeded` messages received
+        pub soft_connection_limit_exceeded: u32,
+        /// Counts the number of `HardConnectionLimitReached` messages received
+        pub hard_connection_limit_reached: u32,
         /// Counts the number of network_out_of_buffers messages received
         pub network_out_of_buffers: u32,
         network_status_queue_sender: Option<Sender<NetworkStatus>>,
@@ -1302,7 +1301,8 @@ pub mod net_test_helpers {
                 disconnected_systems: Vec::new(),
                 blocked_systems: Vec::new(),
                 blocked_ip: Vec::new(),
-                connection_limit_exceeded: 0,
+                soft_connection_limit_exceeded: 0,
+                hard_connection_limit_reached: 0,
                 network_out_of_buffers: 0,
                 network_status_queue_sender: None,
                 started_promise: None,
@@ -1390,7 +1390,12 @@ pub mod net_test_helpers {
                     self.blocked_systems.retain(|s| s != &sys_path)
                 }
                 NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
-                NetworkStatus::ConnectionLimitExceeded => self.connection_limit_exceeded += 1,
+                NetworkStatus::SoftConnectionLimitExceeded => {
+                    self.soft_connection_limit_exceeded += 1
+                }
+                NetworkStatus::HardConnectionLimitReached => {
+                    self.hard_connection_limit_reached += 1
+                }
             }
             Handled::Ok
         }

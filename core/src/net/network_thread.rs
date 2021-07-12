@@ -342,6 +342,7 @@ impl NetworkThread {
     fn read_tcp(&mut self, event: &EventWithRetries) -> () {
         if let Some(channel_rc) = self.get_channel_by_token(&event.token) {
             let mut channel = channel_rc.borrow_mut();
+            let active = channel.connected();
             loop {
                 match channel.read_frame(&self.buffer_pool) {
                     Ok(None) => {
@@ -363,12 +364,14 @@ impl NetworkThread {
                         self.handle_hello(&mut *channel, &hello);
                     }
                     Ok(Some(Frame::Ack())) => {
+                        self.check_soft_connection_limit();
                         self.notify_network_status(NetworkStatus::ConnectionEstablished(
                             SystemPath::with_socket(Transport::Tcp, channel.address()),
                             channel.session_id().unwrap(),
                         ))
                     }
                     Ok(Some(Frame::Bye())) => {
+                        if active {}
                         self.handle_bye(&mut channel);
                         return;
                     }
@@ -385,6 +388,7 @@ impl NetworkThread {
                             "Connection lost, reset by peer {}",
                             channel.address()
                         );
+                        if active {}
                         self.lost_connection(channel);
                         return;
                     }
@@ -623,6 +627,7 @@ impl NetworkThread {
         self.reregister_channel_address(channel.address(), start.addr);
         channel.handle_start(start);
         self.retry_event(event);
+        self.check_soft_connection_limit();
         self.notify_network_status(NetworkStatus::ConnectionEstablished(
             SystemPath::with_socket(Transport::Tcp, start.addr),
             start.id,
@@ -700,6 +705,15 @@ impl NetworkThread {
                 }
             }
         }
+        if self.check_hard_connection_limit() {
+            warn!(
+                self.log,
+                "Hard Connection limit reached, rejecting request to connect to remote \
+                host {}",
+                &address
+            );
+            return;
+        }
         if let Some(buffer) = self.get_buffer() {
             trace!(self.log, "Requesting connection to {}", &address);
             match TcpStream::connect(address) {
@@ -735,11 +749,30 @@ impl NetworkThread {
     fn receive_stream(&mut self) -> io::Result<()> {
         while let Ok((stream, address)) = self.tcp_listener.accept() {
             if self.block_list.contains_ip_addr(&address.ip()) {
+                trace!(
+                    self.log,
+                    "Rejecting connection request from blocked source: {}",
+                    &address
+                );
+                stream.shutdown(Shutdown::Both)?;
+            } else if self.check_hard_connection_limit() {
+                warn!(
+                    self.log,
+                    "Hard Connection limit reached, rejecting incoming connection \
+                request from {}",
+                    &address
+                );
                 stream.shutdown(Shutdown::Both)?;
             } else if let Some(buffer) = self.get_buffer() {
                 trace!(self.log, "Accepting connection from {}", &address);
                 self.store_stream(stream, address, ChannelState::Initialising, buffer);
             } else {
+                warn!(
+                    self.log,
+                    "Network Thread out of buffers, rejecting incoming connection \
+                request from {}",
+                    &address
+                );
                 stream.shutdown(Shutdown::Both)?;
             }
         }
@@ -776,32 +809,53 @@ impl NetworkThread {
         let rc = Rc::new(RefCell::new(channel));
         self.address_map.insert(address, rc.clone());
         self.token_map.put(self.token, rc);
-        self.check_connection_limit();
         self.next_token();
     }
 
-    /// Checks the current channel-count and initiates a graceful shutdown of the channel.
-    fn check_connection_limit(&mut self) -> () {
-        let channel_count = self.token_map.len() as i64;
-        let mut exceeded = channel_count - self.network_config.get_connection_limit() as i64;
-        while exceeded > 0 {
-            let mut lru_iter = self.token_map.iter().rev();
-            let addr;
-            if let Some((_, channel)) = lru_iter.next() {
-                warn!(
-                    self.log,
-                    "Connection Limit exceeded! {} concurrent channels, limit = {}. \
-                Closing channel {:?}",
-                    channel_count,
-                    self.network_config.get_connection_limit(),
-                    channel.borrow(),
-                );
-                self.notify_network_status(NetworkStatus::ConnectionLimitExceeded);
-                addr = channel.borrow().address();
-                self.close_connection(addr);
-                exceeded -= 1;
+    /// Checks the current active channel count and initiates a graceful shutdown of the LRU channel.
+    fn check_soft_connection_limit(&mut self) -> () {
+        let limit = self.network_config.get_soft_connection_limit() as usize;
+        // First condition allows for early returns without doing the count
+        if self.token_map.len() > limit && self.count_active_connections() > limit {
+            // Find the LRU ACTIVE connection
+            for (_, channel) in self.token_map.iter().rev() {
+                if channel.borrow().connected() {
+                    let addr = channel.borrow().address();
+                    warn!(
+                        self.log,
+                        "Soft Connection Limit exceeded! limit = {}. Closing channel {:?}",
+                        self.network_config.get_soft_connection_limit(),
+                        &addr,
+                    );
+                    self.notify_network_status(NetworkStatus::SoftConnectionLimitExceeded);
+                    self.close_connection(addr);
+                    return;
+                }
             }
         }
+    }
+
+    /// Returns true if the limit is reached, and notifies the NetworkDispatcher that it is reached.
+    fn check_hard_connection_limit(&self) -> bool {
+        if self.token_map.len() >= self.network_config.get_hard_connection_limit() as usize {
+            self.notify_network_status(NetworkStatus::HardConnectionLimitReached);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn count_active_connections(&self) -> usize {
+        self.token_map
+            .iter()
+            .filter(|(_, connection)| {
+                if let Ok(con) = connection.try_borrow() {
+                    con.connected()
+                } else {
+                    true
+                } // If we fail to borrow the connection it's active.
+            })
+            .count()
     }
 
     /// Initiates a graceful closing sequence if the channel is connected or
@@ -879,9 +933,10 @@ impl NetworkThread {
 
     fn reject_dispatch_data(&self, address: SocketAddr, data: DispatchData) {
         self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::RejectedData(
-                (address, Box::new(data)),
-            )));
+            .tell(DispatchEnvelope::Event(EventEnvelope::RejectedData((
+                address,
+                Box::new(data),
+            ))));
     }
 
     fn next_token(&mut self) -> () {
@@ -1110,6 +1165,21 @@ mod tests {
         (network_thread, input_queue_sender)
     }
 
+    fn run_handshake_sequence(requester: &mut NetworkThread, acceptor: &mut NetworkThread) {
+        requester.receive_dispatch();
+        thread::sleep(Duration::from_millis(100));
+        poll_and_handle(acceptor);
+        thread::sleep(Duration::from_millis(100));
+        poll_and_handle(requester);
+        thread::sleep(Duration::from_millis(100));
+        poll_and_handle(acceptor);
+        thread::sleep(Duration::from_millis(100));
+        poll_and_handle(requester);
+        thread::sleep(Duration::from_millis(100));
+        poll_and_handle(acceptor);
+        thread::sleep(Duration::from_millis(100));
+    }
+
     const PATH: &str = "local://127.0.0.1:0/test_actor";
 
     fn empty_message() -> DispatchData {
@@ -1293,9 +1363,9 @@ mod tests {
     // asserts that the 2nd is disconnected, sends something on 3rd
     // then the 2nd connects to 1, and we asserts that 4 is dropped by 1.
     #[test]
-    fn channel_limit() -> () {
+    fn soft_channel_limit() -> () {
         let mut network_config = NetworkConfig::default();
-        network_config.set_connection_limit(3);
+        network_config.set_soft_connection_limit(3);
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&network_config);
         let (mut thread2, input_queue_2_sender) = setup_network_thread(&network_config);
         let (mut thread3, _) = setup_network_thread(&network_config);
@@ -1311,24 +1381,10 @@ mod tests {
         input_queue_1_sender.send(DispatchEvent::Connect(addr3));
         input_queue_1_sender.send(DispatchEvent::Connect(addr4));
 
-        // Initiate connection attempts
-        thread1.receive_dispatch();
-        thread::sleep(Duration::from_millis(100));
-        // Receive connection attempts, say hello
-        poll_and_handle(&mut thread2);
-        poll_and_handle(&mut thread3);
-        poll_and_handle(&mut thread4);
-        thread::sleep(Duration::from_millis(100));
-        // Handle hello's, send start
-        poll_and_handle(&mut thread1);
-        thread::sleep(Duration::from_millis(100));
-        // Receive start, send ack
-        poll_and_handle(&mut thread2);
-        poll_and_handle(&mut thread3);
-        poll_and_handle(&mut thread4);
-        thread::sleep(Duration::from_millis(100));
-        // Handle the acks
-        poll_and_handle(&mut thread1);
+        // Run the handhsake sequences
+        run_handshake_sequence(&mut thread1, &mut thread2);
+        run_handshake_sequence(&mut thread1, &mut thread3);
+        run_handshake_sequence(&mut thread1, &mut thread4);
 
         // Assert that 2, 3, 4 is connected to 1
         assert!(thread1
@@ -1357,10 +1413,9 @@ mod tests {
         poll_and_handle(&mut thread1);
         thread::sleep(Duration::from_millis(100));
 
-        // Initiate connection to 5, should initiate graceful close to 2
+        // Initiate connection to 5, execute handshake
         input_queue_1_sender.send(DispatchEvent::Connect(addr5));
-        thread1.receive_dispatch();
-        thread::sleep(Duration::from_millis(100));
+        run_handshake_sequence(&mut thread1, &mut thread5);
 
         // Assert that 2 is no longer connected to 1
         assert!(!thread1
@@ -1386,16 +1441,143 @@ mod tests {
         input_queue_2_sender.send(DispatchEvent::ClosedAck(addr1));
         thread2.receive_dispatch();
 
-        // Initiate new connection to 1 from 2
+        // Initiate new connection to 1 from 2 and execute handshake
         input_queue_2_sender.send(DispatchEvent::Connect(addr1));
-        thread2.receive_dispatch();
-        thread::sleep(Duration::from_millis(100));
+        run_handshake_sequence(&mut thread2, &mut thread1);
 
         // Receive the incoming connection and assert that 3 (LRU) is no longer connected
         poll_and_handle(&mut thread1);
         assert!(!thread1
             .address_map
             .get(&addr3)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+
+        thread1.stop();
+        thread2.stop();
+        thread3.stop();
+        thread4.stop();
+        thread5.stop();
+    }
+
+    // Creates 5 different network_threads, connects "1" to 2, 3, and 4 properly, then the 5th,
+    // asserts that the 5th is refused.
+    // Then attempts to connect 5 to 1 and asserts that it's refused again
+    #[test]
+    fn hard_channel_limit() -> () {
+        let mut network_config = NetworkConfig::default();
+        network_config.set_hard_connection_limit(3);
+        let (mut thread1, input_queue_1_sender) = setup_network_thread(&network_config);
+        let (mut thread2, _) = setup_network_thread(&network_config);
+        let (mut thread3, _) = setup_network_thread(&network_config);
+        let (mut thread4, _) = setup_network_thread(&network_config);
+        let (mut thread5, input_queue_5_sender) = setup_network_thread(&network_config);
+        let addr1 = thread1.addr;
+        let addr2 = thread2.addr;
+        let addr3 = thread3.addr;
+        let addr4 = thread4.addr;
+        let addr5 = thread5.addr;
+
+        input_queue_1_sender.send(DispatchEvent::Connect(addr2));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr3));
+        input_queue_1_sender.send(DispatchEvent::Connect(addr4));
+
+        // Run the handhsake sequences
+        run_handshake_sequence(&mut thread1, &mut thread2);
+        run_handshake_sequence(&mut thread1, &mut thread3);
+        run_handshake_sequence(&mut thread1, &mut thread4);
+
+        // Assert that 2, 3, 4 is connected to 1
+        assert!(thread1
+            .address_map
+            .get(&addr2)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr3)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr4)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+
+        // Initiate connection to 5, execute handshake
+        input_queue_1_sender.send(DispatchEvent::Connect(addr5));
+        thread1.receive_dispatch();
+        // That it was immediately discarded
+        assert!(thread1
+            .address_map
+            .get(&addr5)
+            .is_none());
+
+        // This should do nothing...
+        run_handshake_sequence(&mut thread1, &mut thread5);
+
+        // Assert channels are unchanged
+        assert!(thread1
+            .address_map
+            .get(&addr5)
+            .is_none());
+        assert!(thread1
+            .address_map
+            .get(&addr2)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr3)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr4)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+
+        // Initiate new connection to 1 from 2 and execute handshake
+        input_queue_5_sender.send(DispatchEvent::Connect(addr1));
+        thread5.receive_dispatch();
+        thread::sleep(Duration::from_millis(100));
+        poll_and_handle(&mut thread1);
+        // Should have been rejected immediately
+        assert!(thread1
+            .address_map
+            .get(&addr5)
+            .is_none());
+
+        // This should do nothing
+        run_handshake_sequence(&mut thread5, &mut thread1);
+
+        // Assert channels are unchanged
+        assert!(thread1
+            .address_map
+            .get(&addr5)
+            .is_none());
+        assert!(thread1
+            .address_map
+            .get(&addr2)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr3)
+            .unwrap()
+            .borrow_mut()
+            .connected());
+        assert!(thread1
+            .address_map
+            .get(&addr4)
             .unwrap()
             .borrow_mut()
             .connected());
