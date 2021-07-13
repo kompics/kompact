@@ -1778,3 +1778,44 @@ fn hard_connection_limit_exceeded() {
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
+
+#[test]
+// Sets up one KompactSystem with one Ponger, specific NetworkConfig,
+// Then creates many different KompactSystems with Pingers each pinging the ponger
+// Eventually all Pings and Pongs should be received as the Connections are always gracefully closed
+// and messages are retained while they wait for connections to be re-established
+fn hard_and_soft_connection_limit() {
+    let mut net_cfg = NetworkConfig::default();
+    let hard_limit = 6;
+    let soft_limit = 4;
+    let connection_retry_interval = 500;
+    let max_connection_retry_attempts = 50; // 500ms*50 = 25 Sec
+    let number_of_pingers = hard_limit * 5; // Kind of an arbitrary amount
+    let timeout =
+        Duration::from_millis(connection_retry_interval * max_connection_retry_attempts as u64)
+            + PINGPONG_TIMEOUT;
+
+    net_cfg.set_hard_connection_limit(hard_limit);
+    net_cfg.set_soft_connection_limit(soft_limit);
+    net_cfg.set_connection_retry_interval(connection_retry_interval);
+    net_cfg.set_max_connection_retry_attempts(max_connection_retry_attempts);
+
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let (_, ponger_path) = start_ponger(&ponger_system, PongerAct::new_lazy());
+
+    let mut pinger_systems = Vec::new();
+    for _ in 0..number_of_pingers {
+        pinger_systems.push(system_from_network_config(net_cfg.clone()))
+    }
+
+    let mut pingers = Vec::new();
+    let mut pinger_futures = Vec::new();
+
+    for system in &pinger_systems {
+        let (pinger, future) = start_pinger(system, PingerAct::new_lazy(ponger_path.clone()));
+        pingers.push(pinger);
+        pinger_futures.push(future);
+    }
+
+    pinger_futures.expect_completion(timeout, "One or more systems failed to reconnect properly");
+}

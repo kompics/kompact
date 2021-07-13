@@ -593,6 +593,7 @@ impl NetworkDispatcher {
             EventEnvelope::RejectedData((addr, data)) => {
                 // These are messages which we routed to a network-thread before they lost the connection.
                 self.queue_manager.enqueue_priority_data(*data, addr);
+                self.retry_map.entry(addr).or_insert(0);
             }
         }
     }
@@ -635,6 +636,9 @@ impl NetworkDispatcher {
             }
         }
         self.connections.insert(*addr, ConnectionState::Closed(id));
+        if self.queue_manager.has_data(addr) {
+            self.retry_map.insert(*addr, 0);
+        }
     }
 
     fn connection_lost(&mut self, system_path: SystemPath, id: SessionId) {
@@ -758,6 +762,7 @@ impl NetworkDispatcher {
             ConnectionState::Closed(_) => {
                 self.queue_manager.enqueue_data(data, addr);
                 if let Some(bridge) = &self.net_bridge {
+                    self.retry_map.entry(addr).or_insert(0);
                     bridge.connect(Tcp, addr)?;
                 }
                 Some(ConnectionState::Initializing)
