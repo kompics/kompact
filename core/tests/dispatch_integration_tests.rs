@@ -1781,10 +1781,10 @@ fn hard_connection_limit_exceeded() {
 
 #[allow(dead_code)]
 #[cfg_attr(not(feature = "low_latency"), test)]
-// Sets up one KompactSystem with one Ponger, specific NetworkConfig,
-// Then creates many different KompactSystems with Pingers each pinging the ponger
-// Eventually all Pings and Pongs should be received as the Connections are always gracefully closed
-// and messages are retained while they wait for connections to be re-established
+// Sets up one KompactSystem with one Ponger, with a hard_limit of 6 and soft_limit of 4.
+// Then creates 30 KompactSystems with Pingers, each pinging the ponger.
+// Eventually all Pings and Pongs should be received. The Connections are always gracefully closed,
+// and thus messages are retained while the pinger-systems take turns achieving active connections.
 fn hard_and_soft_connection_limit() {
     let mut net_cfg = NetworkConfig::default();
     let hard_limit = 6;
