@@ -1779,7 +1779,8 @@ fn hard_connection_limit_exceeded() {
         .expect("Kompact didn't shut down properly");
 }
 
-#[test]
+#[allow(dead_code)]
+#[cfg_attr(not(feature = "low_latency"), test)]
 // Sets up one KompactSystem with one Ponger, specific NetworkConfig,
 // Then creates many different KompactSystems with Pingers each pinging the ponger
 // Eventually all Pings and Pongs should be received as the Connections are always gracefully closed
