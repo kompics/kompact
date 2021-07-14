@@ -1817,5 +1817,17 @@ fn hard_and_soft_connection_limit() {
         pinger_futures.push(future);
     }
 
-    pinger_futures.expect_completion(timeout, "One or more systems failed to reconnect properly");
+    pinger_futures.expect_completion(timeout, {
+        for pinger in pingers {
+            pinger.on_definition(|p| {
+                if p.count < 10 {
+                    info!(
+                        pinger.logger(),
+                        "Connection Limit test failed, pong count: {}", p.count
+                    );
+                }
+            });
+        }
+        "One or more pingers failed"
+    });
 }
