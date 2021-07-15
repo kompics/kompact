@@ -21,18 +21,12 @@ impl QueueManager {
         }
     }
 
-    /*
-    The queuemanager is really just a struct, no need to stop it?
-    pub fn stop(self) -> () {
-        drop(self); // doesn't need any cleanup, yet
-    }
-    */
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_data(&mut self, data: DispatchData, dst: SocketAddr) {
         self.inner
             .entry(dst)
             .or_insert_with(VecDeque::new)
-            .push_front(data);
+            .push_back(data);
     }
 
     /// Appends the given frame onto the SocketAddr's queue
@@ -40,19 +34,19 @@ impl QueueManager {
         self.priority_queue
             .entry(dst)
             .or_insert_with(VecDeque::new)
-            .push_front(data);
+            .push_back(data);
     }
 
     /// Extracts the next queue-up frame for the SocketAddr, if one exists
     ///
     /// If the SocketAddr exists but its queue is empty, the entry is removed.
     pub fn pop_data(&mut self, dst: &SocketAddr) -> Option<DispatchData> {
-        let mut res = self.priority_queue.get_mut(dst).and_then(|q| q.pop_back());
+        let mut res = self.priority_queue.get_mut(dst).and_then(|q| q.pop_front());
         if self.priority_queue.contains_key(dst) && res.is_none() {
             self.priority_queue.remove(dst);
         }
         if res.is_none() {
-            res = self.inner.get_mut(dst).and_then(|q| q.pop_back());
+            res = self.inner.get_mut(dst).and_then(|q| q.pop_front());
             if self.inner.contains_key(dst) && res.is_none() {
                 self.inner.remove(dst);
             }
@@ -64,35 +58,6 @@ impl QueueManager {
         self.priority_queue.remove(addr);
         self.inner.remove(addr);
     }
-
-    /*
-    This is turned off for the moment, since it's using pop_frame it's already adapted to the priority queue
-    /// Attempts to drain all SerializedFrame entries stored for the provided SocketAddr into the Sender
-    /// Currently unused, will be brought back into play soon...
-    #[allow(dead_code)]
-    pub fn try_drain(
-        &mut self,
-        dst: SocketAddr,
-        tx: &mut sync::mpsc::UnboundedSender<SerializedFrame>,
-    ) -> Option<ConnectionState> {
-        while let Some(frame) = self.pop_frame(&dst) {
-            if let Err(err) = tx.unbounded_send(frame) {
-                let next = Some(ConnectionState::Closed);
-
-                // Consume error and retrieve failed SerializedFrame
-                let frame = err.into_inner();
-                self.enqueue_frame(frame, dst);
-
-                // End looping, return next state
-                return next;
-            }
-        }
-        None
-    }
-    // pub fn exists(&self, dst: &SocketAddr) -> bool {
-    //     self.inner.contains_key(dst)
-    */
-    // }
 
     pub fn has_data(&self, dst: &SocketAddr) -> bool {
         if self

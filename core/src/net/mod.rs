@@ -4,7 +4,8 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 
 use crate::{
-    messaging::DispatchData,
+    dispatch::NetworkStatus,
+    messaging::{DispatchData, DispatchEnvelope, EventEnvelope},
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThreadBuilder},
     prelude::NetworkConfig,
 };
@@ -215,8 +216,13 @@ impl Bridge {
                     .expect("NetworkThread poll error");
 
                 let (started_p, started_f) = promise();
-                run_network_thread(network_thread_builder, bridge_log.clone(), started_p)
-                    .expect("Failed to spawn NetworkThread");
+                run_network_thread(
+                    network_thread_builder,
+                    bridge_log.clone(),
+                    started_p,
+                    dispatcher_ref.clone(),
+                )
+                .expect("Failed to spawn NetworkThread");
                 started_f
                     .wait_timeout(Duration::from_millis(network_config.get_boot_timeout()))
                     .expect("NetworkThread time-out during boot sequence");
@@ -367,6 +373,7 @@ fn run_network_thread(
     builder: NetworkThreadBuilder,
     logger: KompactLogger,
     started_promise: KPromise<()>,
+    dispatcher_ref: DispatcherRef,
 ) -> async_std::io::Result<()> {
     thread::Builder::new()
         .name("network_thread".to_string())
@@ -379,17 +386,20 @@ fn run_network_thread(
                 network_thread.run()
             })) {
                 if let Some(error_msg) = e.downcast_ref::<&str>() {
-                    error!(logger, "NetworkThread panicked with: {:?}", error_msg);
+                    error!(logger, "NetworkThread panicked with: {:?}", &error_msg);
                 } else if let Some(error_msg) = e.downcast_ref::<String>() {
                     error!(logger, "NetworkThread panicked with: {:?}", error_msg);
                 } else {
                     error!(
                         logger,
-                        "NetworkThread panicked with a non-string message with type id={:?}",
+                        "NetworkThread panicked with type id={:?}",
                         e.type_id()
                     );
-                };
-            };
+                }
+                dispatcher_ref.tell(DispatchEnvelope::Event(EventEnvelope::Network(
+                    NetworkStatus::CriticalNetworkFailure,
+                )))
+            }
         })
         .map(|_| ())
 }
@@ -458,15 +468,20 @@ pub(crate) fn out_of_buffers(err: &SerError) -> bool {
 
 /// A module with helper functions for testing network configurations/implementations
 pub mod net_test_helpers {
-    use crate::prelude::*;
+    use crate::{
+        messaging::{DispatchData, SerialisedFrame},
+        prelude::*,
+    };
     use crossbeam_channel::Sender;
     use std::{
+        borrow::Borrow,
         cmp::Ordering,
         collections::VecDeque,
         fmt::{Debug, Formatter},
         net::IpAddr,
         time::{Duration, SystemTime, UNIX_EPOCH},
     };
+    use uuid::Uuid;
 
     /// The number of Ping-Pong messages, used in assertions and Pingers/BigPingers
     pub const PING_COUNT: u64 = 10;
@@ -1283,6 +1298,8 @@ pub mod net_test_helpers {
         pub hard_connection_limit_reached: u32,
         /// Counts the number of network_out_of_buffers messages received
         pub network_out_of_buffers: u32,
+        /// Counts the number of `CriticalNetworkFailure` messages received
+        pub critical_network_failure: u32,
         network_status_queue_sender: Option<Sender<NetworkStatus>>,
         started_promise: Option<KPromise<()>>,
     }
@@ -1304,6 +1321,7 @@ pub mod net_test_helpers {
                 soft_connection_limit_exceeded: 0,
                 hard_connection_limit_reached: 0,
                 network_out_of_buffers: 0,
+                critical_network_failure: 0,
                 network_status_queue_sender: None,
                 started_promise: None,
             }
@@ -1325,6 +1343,41 @@ pub mod net_test_helpers {
             let (promise, future) = promise();
             self.started_promise = Some(promise);
             future
+        }
+
+        /// Creates a faulty Message which will cause the local NetworkThread to panic
+        /// when it tries to send it to the remote host.
+        ///
+        /// Fails to corrupt the network if there are no connected systems to use as receiver
+        /// for the corrupt message and returns an error instead.
+        pub fn corrupt_network(&mut self) -> Result<(), SerError> {
+            if let Some((receiving_system, _)) = self
+                .connected_systems
+                .iter()
+                .find(|connected_system| !self.disconnected_systems.contains(connected_system))
+            {
+                warn!(self.ctx.log(), "Corrupting the local Network layer");
+                let receiver = ActorPath::from((receiving_system.clone(), Uuid::new_v4()));
+                let mut corrupted_chunk = self.ctx.preserialise(&PongMsg { i: 1 }).unwrap();
+                corrupted_chunk.advance(50);
+
+                let corrupted_message =
+                    DispatchData::Serialised(SerialisedFrame::ChunkRef(corrupted_chunk));
+
+                self.ctx
+                    .borrow()
+                    .system()
+                    .dispatcher_ref()
+                    .tell(DispatchEnvelope::Msg {
+                        src: self.ctx.borrow().actor_path(),
+                        dst: receiver,
+                        msg: corrupted_message,
+                    });
+
+                Ok(())
+            } else {
+                Err(SerError::Unknown("No Valid Receivers".to_string()))
+            }
         }
     }
 
@@ -1396,6 +1449,9 @@ pub mod net_test_helpers {
                 NetworkStatus::HardConnectionLimitReached => {
                     self.hard_connection_limit_reached += 1
                 }
+                NetworkStatus::CriticalNetworkFailure => {
+                    self.critical_network_failure += 1;
+                }
             }
             Handled::Ok
         }
@@ -1411,8 +1467,10 @@ pub mod net_test_helpers {
         timer: Option<ScheduledTimer>,
         /// Contains all unique `(SystemPath, SessionId)`'s the PingStream has received Pong's from
         pub pong_system_paths: Vec<(SystemPath, SessionId)>,
-        ping_count: u64,
-        pong_count: u64,
+        /// Sent Ping messages
+        pub ping_count: u64,
+        /// Received Pong messages
+        pub pong_count: u64,
     }
 
     impl PingStream {
