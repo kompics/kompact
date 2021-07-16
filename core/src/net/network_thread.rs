@@ -138,7 +138,7 @@ impl NetworkThreadBuilder {
             udp_state: Some(udp_state),
             poll: self.poll,
             address_map: FxHashMap::default(),
-            token_map: LruCache::unbounded(),
+            token_map: LruCache::new(self.network_config.get_hard_connection_limit() as usize),
             token: START_TOKEN,
             input_queue: self.input_queue,
             buffer_pool: RefCell::new(buffer_pool),
@@ -342,7 +342,6 @@ impl NetworkThread {
     fn read_tcp(&mut self, event: &EventWithRetries) -> () {
         if let Some(channel_rc) = self.get_channel_by_token(&event.token) {
             let mut channel = channel_rc.borrow_mut();
-            let active = channel.connected();
             loop {
                 match channel.read_frame(&self.buffer_pool) {
                     Ok(None) => {
@@ -371,7 +370,6 @@ impl NetworkThread {
                         ))
                     }
                     Ok(Some(Frame::Bye())) => {
-                        if active {}
                         self.handle_bye(&mut channel);
                         return;
                     }
@@ -388,7 +386,6 @@ impl NetworkThread {
                             "Connection lost, reset by peer {}",
                             channel.address()
                         );
-                        if active {}
                         self.lost_connection(channel);
                         return;
                     }
