@@ -1006,12 +1006,11 @@ dependencies = [
 
 [[package]]
 name = "hierarchical_hash_wheel_timer"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4e7955d769eceac02bbbe3f52dde2b122e4a430b20b68f53e1b1fd8051ec6d5"
+checksum = "c58ffa8e952c33857fbaad0fab19d41ecd3a7a68c15c4e7b79c698e6379ded79"
 dependencies = [
- "arr_macro",
- "crossbeam-channel 0.4.4",
+ "crossbeam-channel 0.5.1",
  "rustc-hash",
  "uuid",
 ]
