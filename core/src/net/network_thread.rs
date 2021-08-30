@@ -1016,7 +1016,7 @@ impl std::ops::Drop for NetworkThread {
         if !self.stopped {
             while let Some((_, channel)) = self.token_map.pop_lru() {
                 trace!(self.log, "Dropping channel in crashed NetworkThread");
-                self.drop_channel(&mut *channel.borrow_mut());
+                self.drop_channel(&mut channel.borrow_mut());
             }
         }
     }

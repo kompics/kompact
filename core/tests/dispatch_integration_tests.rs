@@ -1848,13 +1848,14 @@ fn hard_and_soft_connection_limit() {
     });
 }
 
+#[allow(dead_code)]
+#[cfg_attr(not(feature = "low_latency"), test)]
 // Tests the NetworkThreads ability to recover from panics.
 // Sequence:
 //   1. Sets up a pinger and a ponger system
 //   2. Performs a successful Ping-Pong
 //   3. Corrupts the Pinger-systems Network, asserts critical network failure and connection lost
 //   4. Performs a successful Ping-Pong
-#[test]
 fn network_thread_recovery_from_panic_in_sender() {
     let net_cfg = NetworkConfig::default();
 
@@ -1886,8 +1887,9 @@ fn network_thread_recovery_from_panic_in_sender() {
     new_pinger_future.wait_timeout(PINGPONG_TIMEOUT).unwrap();
 }
 
+#[allow(dead_code)]
+#[cfg_attr(not(feature = "low_latency"), test)]
 // Same as above except the Panic is induced in the Ponger-system
-#[test]
 fn network_thread_recovery_from_panic_in_receiver() {
     let net_cfg = NetworkConfig::default();
 
@@ -1910,15 +1912,15 @@ fn network_thread_recovery_from_panic_in_receiver() {
         psc.corrupt_network().unwrap();
     });
     ponger_status_receiver.expect_critical_network_failure(CONNECTION_STATUS_TIMEOUT);
+    ponger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
 
     // Create two new pingers and we expect the first one to fail, a new connection to be established
     let (_failing_pinger, _) =
         start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path.clone()));
+    pinger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT * 5);
     let (_new_pinger, new_pinger_future) =
         start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path));
 
-    ponger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
-    pinger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT * 5);
     pinger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
     new_pinger_future.wait_timeout(PINGPONG_TIMEOUT).unwrap();
 }
