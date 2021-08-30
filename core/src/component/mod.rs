@@ -448,7 +448,7 @@ mod tests {
 
     use std::ops::Deref;
 
-    const TIMEOUT: Duration = Duration::from_millis(1000);
+    const TIMEOUT: Duration = Duration::from_millis(3000);
 
     #[derive(ComponentDefinition, Actor)]
     struct TestComponent {

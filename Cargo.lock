@@ -1170,6 +1170,7 @@ dependencies = [
  "kompact-actor-derive",
  "kompact-component-derive",
  "log",
+ "lru",
  "mio",
  "num_cpus",
  "once_cell",

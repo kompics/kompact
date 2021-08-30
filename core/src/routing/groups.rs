@@ -308,7 +308,8 @@ mod tests {
 
     const GROUP_SIZE: usize = 3;
     const NUM_MESSAGES: usize = 30;
-    const SLEEP_TIME: Duration = Duration::from_millis(100);
+    // TODO: Replace the sleeps
+    const SLEEP_TIME: Duration = Duration::from_millis(1000);
 
     #[test]
     fn router_debug() {

@@ -22,14 +22,7 @@ use crate::{
         RegistrationEvent,
         RegistrationPromise,
     },
-    net::{
-        buffers::*,
-        events::NetworkEvent,
-        ConnectionState,
-        NetworkBridgeErr,
-        Protocol,
-        SocketAddr,
-    },
+    net::{buffers::*, ConnectionState, NetworkBridgeErr, Protocol, SocketAddr},
     prelude::SessionId,
     timer::timer_manager::Timer,
 };
@@ -47,9 +40,13 @@ pub mod lookup;
 pub mod queue_manager;
 
 // Default values for network config.
-const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
-const BOOT_TIMEOUT: u64 = 5000;
-const MAX_RETRY_ATTEMPTS: u8 = 10;
+mod defaults {
+    pub(crate) const RETRY_CONNECTIONS_INTERVAL: u64 = 5000;
+    pub(crate) const BOOT_TIMEOUT: u64 = 5000;
+    pub(crate) const MAX_RETRY_ATTEMPTS: u8 = 10;
+    pub(crate) const SOFT_CONNECTION_LIMIT: u32 = 1000;
+    pub(crate) const HARD_CONNECTION_LIMIT: u32 = 1100;
+}
 
 type NetHashMap<K, V> = FxHashMap<K, V>;
 
@@ -77,6 +74,8 @@ pub struct NetworkConfig {
     max_connection_retry_attempts: u8,
     connection_retry_interval: u64,
     boot_timeout: u64,
+    soft_connection_limit: u32,
+    hard_connection_limit: u32,
 }
 
 impl NetworkConfig {
@@ -89,9 +88,11 @@ impl NetworkConfig {
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-            boot_timeout: BOOT_TIMEOUT,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            soft_connection_limit: defaults::SOFT_CONNECTION_LIMIT,
+            hard_connection_limit: defaults::HARD_CONNECTION_LIMIT,
         }
     }
 
@@ -118,9 +119,11 @@ impl NetworkConfig {
             buffer_config,
             custom_allocator: Some(custom_allocator),
             tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-            boot_timeout: BOOT_TIMEOUT,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            soft_connection_limit: defaults::SOFT_CONNECTION_LIMIT,
+            hard_connection_limit: defaults::HARD_CONNECTION_LIMIT,
         }
     }
 
@@ -203,6 +206,35 @@ impl NetworkConfig {
     pub fn get_boot_timeout(&self) -> u64 {
         self.boot_timeout
     }
+
+    /// Configures how many concurrent Network-connections may be active at any point in time
+    ///
+    /// When the limit is exceeded the system will *gracefully close* the least recently used channel.
+    ///
+    /// Default value is 1000 Connections.
+    pub fn set_soft_connection_limit(&mut self, limit: u32) {
+        self.soft_connection_limit = limit;
+    }
+
+    /// How many Active Network-connections the system will allow before it starts closing least recently used
+    pub fn get_soft_connection_limit(&self) -> u32 {
+        self.soft_connection_limit
+    }
+
+    /// Configures how many concurrent Network-connections the system may have at any point.
+    ///
+    /// When the limit is exceeded the system will reject all incoming and outgoing requests for new
+    /// connections.
+    ///
+    /// Default value is 1100 Connections.
+    pub fn set_hard_connection_limit(&mut self, limit: u32) {
+        self.hard_connection_limit = limit;
+    }
+
+    /// How many Network-connections the system will allow before it starts closing least recently used
+    pub fn get_hard_connection_limit(&self) -> u32 {
+        self.hard_connection_limit
+    }
 }
 
 /// Socket defaults to `127.0.0.1:0` (i.e. a random local port) and protocol is [TCP](Transport::Tcp)
@@ -214,9 +246,11 @@ impl Default for NetworkConfig {
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,
-            max_connection_retry_attempts: MAX_RETRY_ATTEMPTS,
-            connection_retry_interval: RETRY_CONNECTIONS_INTERVAL,
-            boot_timeout: BOOT_TIMEOUT,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            soft_connection_limit: defaults::SOFT_CONNECTION_LIMIT,
+            hard_connection_limit: defaults::HARD_CONNECTION_LIMIT,
         }
     }
 }
@@ -250,6 +284,12 @@ pub enum NetworkStatus {
     UnblockedSystem(SystemPath),
     /// Indicates that an IpAddr has been allowed after previously being blocked
     UnblockedIp(IpAddr),
+    /// The Soft Connection Limit has been exceeded and the NetworkThread will close
+    /// the least recently used connection(s).
+    SoftConnectionLimitExceeded,
+    /// The Hard Connection Limit has been reached and the NetworkThread will reject both incoming
+    /// connection requests and local requests to connect to new hosts
+    HardConnectionLimitReached,
 }
 
 /// Sent by Actors and Components to request information about the Network
@@ -509,108 +549,115 @@ impl NetworkDispatcher {
     fn on_event(&mut self, ev: EventEnvelope) {
         match ev {
             EventEnvelope::Network(ev) => match ev {
-                NetworkEvent::Connection(addr, conn_state) => {
-                    if let Err(e) = self.on_conn_state(addr, conn_state) {
-                        error!(
-                            self.ctx().log(),
-                            "Error while connecting to {}, \n{:?}", addr, e
-                        )
-                    }
+                NetworkStatus::ConnectionEstablished(system_path, session) => {
+                    self.connection_established(system_path, session)
                 }
-                NetworkEvent::Data(_) => {
-                    // TODO shouldn't be receiving these here, as they should be routed directly to the ActorRef
-                    debug!(self.ctx().log(), "Received important data!");
+                NetworkStatus::ConnectionLost(system_path, session) => {
+                    self.connection_lost(system_path, session)
                 }
-                NetworkEvent::RejectedData(addr, data) => {
-                    // These are messages which we routed to a network-thread before they lost the connection.
-                    self.queue_manager.enqueue_priority_data(data, addr);
+                NetworkStatus::ConnectionClosed(system_path, session) => {
+                    self.connection_closed(system_path, session)
                 }
-                NetworkEvent::BlockedSocket(socket_addr, trigger_status_port) => {
-                    let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
+                NetworkStatus::BlockedSystem(system_path) => {
                     self.connections
-                        .insert(socket_addr, ConnectionState::Blocked);
-                    if trigger_status_port {
-                        self.network_status_port
-                            .trigger(NetworkStatus::BlockedSystem(sys_path));
-                    }
+                        .insert(system_path.socket_address(), ConnectionState::Blocked);
+                    self.network_status_port
+                        .trigger(NetworkStatus::BlockedSystem(system_path));
                 }
-                NetworkEvent::BlockedIp(ip_addr) => {
+                NetworkStatus::BlockedIp(ip_addr) => {
                     self.network_status_port
                         .trigger(NetworkStatus::BlockedIp(ip_addr));
                 }
-                NetworkEvent::UnblockedSocket(socket_addr, trigger_status_port) => {
-                    let sys_path = SystemPath::new(Tcp, socket_addr.ip(), socket_addr.port());
-                    self.connections.remove(&socket_addr);
-                    if trigger_status_port {
-                        self.network_status_port
-                            .trigger(NetworkStatus::UnblockedSystem(sys_path));
-                    }
+                NetworkStatus::UnblockedSystem(system_path) => {
+                    self.connections.remove(&system_path.socket_address());
+                    self.network_status_port
+                        .trigger(NetworkStatus::UnblockedSystem(system_path));
                 }
-                NetworkEvent::UnblockedIp(ip_addr) => {
+                NetworkStatus::UnblockedIp(ip_addr) => {
                     self.network_status_port
                         .trigger(NetworkStatus::UnblockedIp(ip_addr));
                 }
+                NetworkStatus::SoftConnectionLimitExceeded => self
+                    .network_status_port
+                    .trigger(NetworkStatus::SoftConnectionLimitExceeded),
+                NetworkStatus::HardConnectionLimitReached => self
+                    .network_status_port
+                    .trigger(NetworkStatus::HardConnectionLimitReached),
+                _ => {
+                    error!(
+                        self.log(),
+                        "Unexpected NetworkStatus received by NetworkDispatcher"
+                    );
+                }
             },
+            EventEnvelope::RejectedData((addr, data)) => {
+                // These are messages which we routed to a network-thread before they lost the connection.
+                self.queue_manager.enqueue_priority_data(*data, addr);
+                self.retry_map.entry(addr).or_insert(0);
+            }
         }
     }
 
-    fn on_conn_state(
-        &mut self,
-        addr: SocketAddr,
-        state: ConnectionState,
-    ) -> Result<(), NetworkBridgeErr> {
-        use self::ConnectionState::*;
-        match state {
-            Connected(session) => {
-                info!(
-                    self.ctx().log(),
-                    "registering newly connected conn at {:?}", addr
-                );
-                self.network_status_port
-                    .trigger(NetworkStatus::ConnectionEstablished(
-                        SystemPath::with_socket(Transport::Tcp, addr),
-                        session,
-                    ));
-                let _ = self.retry_map.remove(&addr);
-                if self.queue_manager.has_data(&addr) {
-                    // Drain as much as possible
-                    while let Some(frame) = self.queue_manager.pop_data(&addr) {
-                        if let Some(bridge) = &self.net_bridge {
-                            //println!("Sending queued frame to newly established connection");
-                            bridge.route(addr, frame, net::Protocol::Tcp)?;
-                        }
+    fn connection_established(&mut self, system_path: SystemPath, id: SessionId) {
+        info!(
+            self.ctx().log(),
+            "registering newly connected conn at {:?}", system_path
+        );
+        let addr = &system_path.socket_address();
+        self.network_status_port
+            .trigger(NetworkStatus::ConnectionEstablished(system_path, id));
+        let _ = self.retry_map.remove(addr);
+        if self.queue_manager.has_data(addr) {
+            // Drain as much as possible
+            while let Some(frame) = self.queue_manager.pop_data(addr) {
+                if let Some(bridge) = &self.net_bridge {
+                    //println!("Sending queued frame to newly established connection");
+                    if let Err(e) = bridge.route(*addr, frame, net::Protocol::Tcp) {
+                        error!(self.ctx.log(), "Bridge error while routing {:?}", e);
                     }
                 }
             }
-            Closed(session) => {
-                self.network_status_port
-                    .trigger(NetworkStatus::ConnectionClosed(
-                        SystemPath::with_socket(Transport::Tcp, addr),
-                        session,
-                    ));
-                // Ack the closing
-                if let Some(bridge) = &self.net_bridge {
-                    bridge.ack_closed(addr)?;
-                }
-            }
-            Lost(session) => {
-                if self.retry_map.get(&addr).is_none() {
-                    warn!(self.ctx().log(), "connection lost to {:?}", addr);
-                    self.retry_map.insert(addr, 0); // Make sure we try to re-establish the connection
-                }
-                self.network_status_port
-                    .trigger(NetworkStatus::ConnectionLost(
-                        SystemPath::with_socket(Transport::Tcp, addr),
-                        session,
-                    ));
-                if let Some(bridge) = &self.net_bridge {
-                    bridge.ack_closed(addr)?;
-                }
-            }
-            ref _other => (), // Don't care
         }
-        self.connections.insert(addr, state);
-        Ok(())
+        self.connections
+            .insert(*addr, ConnectionState::Connected(id));
+    }
+
+    fn connection_closed(&mut self, system_path: SystemPath, id: SessionId) {
+        let addr = &system_path.socket_address();
+        self.network_status_port
+            .trigger(NetworkStatus::ConnectionClosed(system_path, id));
+        // Ack the closing
+        if let Some(bridge) = &self.net_bridge {
+            if let Err(e) = bridge.ack_closed(*addr) {
+                error!(
+                    self.ctx.log(),
+                    "Bridge error while acking closed connection {:?}", e
+                );
+            }
+        }
+        self.connections.insert(*addr, ConnectionState::Closed(id));
+        if self.queue_manager.has_data(addr) {
+            self.retry_map.insert(*addr, 0);
+        }
+    }
+
+    fn connection_lost(&mut self, system_path: SystemPath, id: SessionId) {
+        let addr = &system_path.socket_address();
+        if self.retry_map.get(addr).is_none() {
+            warn!(self.ctx().log(), "connection lost to {:?}", addr);
+            self.retry_map.insert(*addr, 0); // Make sure we try to re-establish the connection
+        }
+        self.network_status_port
+            .trigger(NetworkStatus::ConnectionLost(system_path, id));
+        if let Some(bridge) = &self.net_bridge {
+            if let Err(e) = bridge.ack_closed(*addr) {
+                error!(
+                    self.ctx.log(),
+                    "Bridge error while acking lost connection {:?}", e
+                );
+            }
+        }
+        self.connections.insert(*addr, ConnectionState::Lost(id));
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
@@ -715,6 +762,7 @@ impl NetworkDispatcher {
             ConnectionState::Closed(_) => {
                 self.queue_manager.enqueue_data(data, addr);
                 if let Some(bridge) = &self.net_bridge {
+                    self.retry_map.entry(addr).or_insert(0);
                     bridge.connect(Tcp, addr)?;
                 }
                 Some(ConnectionState::Initializing)

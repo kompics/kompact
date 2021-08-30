@@ -217,6 +217,36 @@ impl NetworkStatusReceiver {
             }
         }
     }
+
+    fn expect_connection_soft_limit_exceeded(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::SoftConnectionLimitExceeded) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for SoftConnectionLimitExceeded",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for SoftConnectionLimitExceeded")
+            }
+        }
+    }
+
+    fn expect_connection_hard_limit_reached(&self, timeout: Duration) {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(NetworkStatus::HardConnectionLimitReached) => {}
+            Ok(other_status) => {
+                panic!(
+                    "unexpected network status {:?} waiting for HardConnectionLimitReached",
+                    other_status
+                )
+            }
+            Err(_) => {
+                panic!("ConnectionStatus timeout waiting for HardConnectionLimitReached")
+            }
+        }
+    }
 }
 
 #[test]
@@ -1584,4 +1614,221 @@ fn remote_delivery_overflow_network_thread_buffers() {
     small_pinger_system
         .shutdown()
         .expect("Kompact didn't shut down properly");
+}
+
+#[test]
+// Sets up four KompactSystems with a Soft Channel Limit of 2.
+// Starts a Ponger on system1, then Pingers on system2, then on system3, then on system4.
+// Asserts that system2 connection is dropped by system1
+fn soft_connection_limit_exceeded() {
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_soft_connection_limit(2);
+
+    let system1 = system_from_network_config(net_cfg.clone());
+    let system2 = system_from_network_config(net_cfg.clone());
+    let system3 = system_from_network_config(net_cfg.clone());
+    let system4 = system_from_network_config(net_cfg);
+
+    let (_, status_receiver1) = start_status_counter(&system1);
+    let (_, status_receiver2) = start_status_counter(&system2);
+    let (_, status_receiver3) = start_status_counter(&system3);
+
+    let (_, ponger1_path) = start_ponger(&system1, PongerAct::new_lazy());
+    let (_, ponger2_path) = start_ponger(&system2, PongerAct::new_lazy());
+
+    let (_, pinger2_future) = start_pinger(&system2, PingerAct::new_lazy(ponger1_path.clone()));
+    status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger2_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    let (_, pinger3_future) = start_pinger(&system3, PingerAct::new_lazy(ponger1_path.clone()));
+    status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver3.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger3_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    let (_, pinger4_future) = start_pinger(&system4, PingerAct::new_lazy(ponger1_path));
+
+    status_receiver1.expect_connection_soft_limit_exceeded(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+    // Two equally valid orderings of status messages at this point:
+    match status_receiver1
+        .receiver
+        .recv_timeout(CONNECTION_STATUS_TIMEOUT)
+    {
+        Ok(NetworkStatus::ConnectionClosed(systempath, _)) => {
+            assert_eq!(systempath, system2.system_path());
+            status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+        }
+        Ok(NetworkStatus::ConnectionEstablished(systempath, _)) => {
+            assert_eq!(systempath, system4.system_path());
+            status_receiver1.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+        }
+        _ => {
+            panic!("Unexpected status messages")
+        }
+    }
+    pinger4_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    // Create a pinger on system1 to ponger on system2
+    let (_, pinger1_future) = start_pinger(&system1, PingerAct::new_lazy(ponger2_path));
+
+    status_receiver1.expect_connection_soft_limit_exceeded(CONNECTION_STATUS_TIMEOUT);
+    match status_receiver1
+        .receiver
+        .recv_timeout(CONNECTION_STATUS_TIMEOUT)
+    {
+        Ok(NetworkStatus::ConnectionClosed(systempath, _)) => {
+            assert_eq!(systempath, system3.system_path());
+            status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+        }
+        Ok(NetworkStatus::ConnectionEstablished(systempath, _)) => {
+            assert_eq!(systempath, system2.system_path());
+            status_receiver1.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+        }
+        _ => {
+            panic!("Unexpected status messages")
+        }
+    }
+    status_receiver3.expect_connection_closed(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger1_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    system1
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system2
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system3
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system4
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+}
+
+#[test]
+// Sets up four KompactSystems with a Hard Channel Limit of 2.
+// Starts a Ponger on system1, then Pingers on system2, then on system3, then on system4.
+// Asserts that system4 fails to achieve a connection
+fn hard_connection_limit_exceeded() {
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_hard_connection_limit(2);
+
+    let system1 = system_from_network_config(net_cfg.clone());
+    let system2 = system_from_network_config(net_cfg.clone());
+    let system3 = system_from_network_config(net_cfg.clone());
+    let system4 = system_from_network_config(net_cfg);
+
+    let (_, status_receiver1) = start_status_counter(&system1);
+    let (_, status_receiver2) = start_status_counter(&system2);
+    let (_, status_receiver3) = start_status_counter(&system3);
+
+    let (_, ponger1_path) = start_ponger(&system1, PongerAct::new_lazy());
+    let (_, ponger4_path) = start_ponger(&system4, PongerAct::new_lazy());
+
+    let (_, pinger2_future) = start_pinger(&system2, PingerAct::new_lazy(ponger1_path.clone()));
+    status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver2.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger2_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    let (_, pinger3_future) = start_pinger(&system3, PingerAct::new_lazy(ponger1_path.clone()));
+    status_receiver1.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    status_receiver3.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+    pinger3_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    let (_, pinger4_future) = start_pinger(&system4, PingerAct::new_lazy(ponger1_path));
+
+    status_receiver1.expect_connection_hard_limit_reached(CONNECTION_STATUS_TIMEOUT);
+
+    pinger4_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect_err("Connection attempt should fail");
+
+    // Create a pinger on system1 to ponger on system4
+    let (_, pinger1_future) = start_pinger(&system1, PingerAct::new_lazy(ponger4_path));
+
+    status_receiver1.expect_connection_hard_limit_reached(CONNECTION_STATUS_TIMEOUT);
+    pinger1_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect_err("Connection attempt should fail");
+
+    system1
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system2
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system3
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    system4
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+}
+
+#[allow(dead_code)]
+#[cfg_attr(not(feature = "low_latency"), test)]
+// Sets up one KompactSystem with one Ponger, with a hard_limit of 6 and soft_limit of 4.
+// Then creates 30 KompactSystems with Pingers, each pinging the ponger.
+// Eventually all Pings and Pongs should be received. The Connections are always gracefully closed,
+// and thus messages are retained while the pinger-systems take turns achieving active connections.
+fn hard_and_soft_connection_limit() {
+    let mut net_cfg = NetworkConfig::default();
+    let hard_limit = 6;
+    let soft_limit = 4;
+    let connection_retry_interval = 500;
+    let max_connection_retry_attempts = 50; // 500ms*50 = 25 Sec
+    let number_of_pingers = hard_limit * 5; // Kind of an arbitrary amount
+    let timeout =
+        Duration::from_millis(connection_retry_interval * max_connection_retry_attempts as u64)
+            + PINGPONG_TIMEOUT;
+
+    net_cfg.set_hard_connection_limit(hard_limit);
+    net_cfg.set_soft_connection_limit(soft_limit);
+    net_cfg.set_connection_retry_interval(connection_retry_interval);
+    net_cfg.set_max_connection_retry_attempts(max_connection_retry_attempts);
+
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let (_, ponger_path) = start_ponger(&ponger_system, PongerAct::new_lazy());
+
+    let mut pinger_systems = Vec::new();
+    for _ in 0..number_of_pingers {
+        pinger_systems.push(system_from_network_config(net_cfg.clone()))
+    }
+
+    let mut pingers = Vec::new();
+    let mut pinger_futures = Vec::new();
+
+    for system in &pinger_systems {
+        let (pinger, future) = start_pinger(system, PingerAct::new_lazy(ponger_path.clone()));
+        pingers.push(pinger);
+        pinger_futures.push(future);
+    }
+
+    pinger_futures.expect_completion(timeout, {
+        for pinger in pingers {
+            pinger.on_definition(|p| {
+                if p.count < 10 {
+                    info!(
+                        pinger.logger(),
+                        "Connection Limit test failed, pong count: {}", p.count
+                    );
+                }
+            });
+        }
+        "One or more pingers failed"
+    });
 }

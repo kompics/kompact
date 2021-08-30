@@ -2,7 +2,6 @@ use super::*;
 use actors::Transport;
 use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
-use net::events::NetworkEvent;
 
 use crate::{
     messaging::DispatchData,
@@ -84,34 +83,8 @@ impl SessionId {
 /// Events on the network level
 pub mod events {
 
-    use super::ConnectionState;
-    use crate::{
-        messaging::DispatchData,
-        net::{frames::*, SocketAddr},
-    };
+    use crate::{messaging::DispatchData, net::SocketAddr};
     use std::net::IpAddr;
-
-    /// Network events emitted by the network `Bridge`
-    #[derive(Debug)]
-    pub enum NetworkEvent {
-        /// The state of a connection changed
-        Connection(SocketAddr, ConnectionState),
-        /// Data was received
-        Data(Frame),
-        /// The NetworkThread lost connection to the remote host and rejects the frame
-        RejectedData(SocketAddr, DispatchData),
-        /// The NetworkThread has blocked `SocketAddr` and dropped its corresponding channel.
-        /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
-        BlockedSocket(SocketAddr, bool),
-        /// The NetworkThread has blocked `IpAddr` and dropped all channels to it
-        BlockedIp(IpAddr),
-        /// The NetworkThread has unblocked `SocketAddr`
-        /// Boolean flag determines if an Indication on NetworkStatusPort should be triggered.
-        UnblockedSocket(SocketAddr, bool),
-        /// The NetworkThread has unblocked `IpAddr`
-        UnblockedIp(IpAddr),
-    }
-
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
@@ -1304,8 +1277,10 @@ pub mod net_test_helpers {
         pub blocked_systems: Vec<SystemPath>,
         /// The blocked ip addresses
         pub blocked_ip: Vec<IpAddr>,
-        /// Counts the number of max_channels_reached messages received
-        pub max_channels_reached: u32,
+        /// Counts the number of `SoftConnectionLimitExceeded` messages received
+        pub soft_connection_limit_exceeded: u32,
+        /// Counts the number of `HardConnectionLimitReached` messages received
+        pub hard_connection_limit_reached: u32,
         /// Counts the number of network_out_of_buffers messages received
         pub network_out_of_buffers: u32,
         network_status_queue_sender: Option<Sender<NetworkStatus>>,
@@ -1326,7 +1301,8 @@ pub mod net_test_helpers {
                 disconnected_systems: Vec::new(),
                 blocked_systems: Vec::new(),
                 blocked_ip: Vec::new(),
-                max_channels_reached: 0,
+                soft_connection_limit_exceeded: 0,
+                hard_connection_limit_reached: 0,
                 network_out_of_buffers: 0,
                 network_status_queue_sender: None,
                 started_promise: None,
@@ -1414,6 +1390,12 @@ pub mod net_test_helpers {
                     self.blocked_systems.retain(|s| s != &sys_path)
                 }
                 NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
+                NetworkStatus::SoftConnectionLimitExceeded => {
+                    self.soft_connection_limit_exceeded += 1
+                }
+                NetworkStatus::HardConnectionLimitReached => {
+                    self.hard_connection_limit_reached += 1
+                }
             }
             Handled::Ok
         }

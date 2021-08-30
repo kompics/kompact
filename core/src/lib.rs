@@ -1044,7 +1044,7 @@ mod tests {
         let rcd_ref = rcd.actor_ref();
         rcd_ref.tell("MsgTest");
 
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(1000));
 
         rcd.on_definition(|c| {
             assert_eq!(c.last_string, String::from("MsgTest"));

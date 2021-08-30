@@ -98,7 +98,7 @@ mod tests {
 
     const GROUP_SIZE: usize = 3;
     const NUM_MESSAGES: usize = 30;
-    const SLEEP_TIME: Duration = Duration::from_millis(1000);
+    const SLEEP_TIME: Duration = Duration::from_millis(3000);
 
     #[test]
     fn test_explicit_round_robin_select() {

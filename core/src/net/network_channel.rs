@@ -302,15 +302,11 @@ impl TcpChannel {
     }
 
     /// If the channel is in connected the channel transitions to CloseRequested
-    /// and calls `clear_outbound_and_send_bye()`
-    /// If the method returns Ok() it must wait for a Bye message to be received.
-    pub fn initiate_graceful_shutdown(&mut self) -> io::Result<()> {
-        match self.state {
-            ChannelState::Connected(addr, id) => {
-                self.state = ChannelState::CloseRequested(addr, id);
-                self.send_bye()
-            }
-            _ => io::Result::Ok(()),
+    /// and sends a bye message
+    pub fn initiate_graceful_shutdown(&mut self) -> () {
+        if let ChannelState::Connected(addr, id) = self.state {
+            self.state = ChannelState::CloseRequested(addr, id);
+            let _ = self.send_bye();
         }
     }
 

@@ -4,7 +4,6 @@ use crate::{
     actors::{ActorPath, DynActorRef, MessageBounds, PathParseError},
     net::{
         buffers::{BufferChunk, BufferEncoder, ChunkLease, ChunkRef},
-        events::NetworkEvent,
         frames::FRAME_HEAD_LEN,
     },
     serialisation::{
@@ -30,6 +29,7 @@ pub use serialised::*;
 pub(crate) mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
+use crate::{net::SocketAddr, prelude::NetworkStatus};
 pub use deser_macro::*;
 
 pub mod framing;
@@ -40,7 +40,9 @@ pub mod framing;
 #[derive(Debug)]
 pub enum EventEnvelope {
     /// An event from the network
-    Network(NetworkEvent),
+    Network(NetworkStatus),
+    /// Rejected DispatchData, NetworkThread is unable to send it
+    RejectedData((SocketAddr, Box<DispatchData>)),
 }
 
 /// A message that is accepted by an actor's mailbox
