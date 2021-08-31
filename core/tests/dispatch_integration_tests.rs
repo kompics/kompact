@@ -1914,10 +1914,10 @@ fn network_thread_recovery_from_panic_in_receiver() {
     ponger_status_receiver.expect_critical_network_failure(CONNECTION_STATUS_TIMEOUT);
     ponger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT);
 
+    pinger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT * 5);
     // Create two new pingers and we expect the first one to fail, a new connection to be established
     let (_failing_pinger, _) =
         start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path.clone()));
-    pinger_status_receiver.expect_connection_lost(CONNECTION_STATUS_TIMEOUT * 5);
     let (_new_pinger, new_pinger_future) =
         start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path));
 
