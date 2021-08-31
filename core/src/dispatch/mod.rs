@@ -290,6 +290,8 @@ pub enum NetworkStatus {
     /// The Hard Connection Limit has been reached and the NetworkThread will reject both incoming
     /// connection requests and local requests to connect to new hosts
     HardConnectionLimitReached,
+    /// The Network Layer has encountered a critical failure and will restart.
+    CriticalNetworkFailure,
 }
 
 /// Sent by Actors and Components to request information about the Network
@@ -418,6 +420,20 @@ impl NetworkDispatcher {
     fn start(&mut self) -> () {
         debug!(self.ctx.log(), "Starting self and network bridge");
         self.reaper = lookup::gc::ActorRefReaper::from_config(self.ctx.config());
+        self.start_bridge(self.cfg.addr);
+
+        let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
+        self.lookup.rcu(|current| {
+            let mut next = ActorStore::clone(current);
+            next.insert(PathResolvable::System, deadletter.clone())
+                .expect("Deadletter shouldn't error");
+            next
+        });
+
+        self.schedule_retries();
+    }
+
+    fn start_bridge(&mut self, address: SocketAddr) -> () {
         let dispatcher = self
             .actor_ref()
             .hold()
@@ -428,22 +444,31 @@ impl NetworkDispatcher {
             self.lookup.clone(),
             network_thread_logger,
             bridge_logger,
-            self.cfg.addr,
+            address,
             dispatcher.clone(),
             &self.cfg,
         );
-
-        let deadletter: DynActorRef = self.ctx.system().deadletter_ref().dyn_ref();
-        self.lookup.rcu(|current| {
-            let mut next = ActorStore::clone(current);
-            next.insert(PathResolvable::System, deadletter.clone())
-                .expect("Deadletter shouldn't error");
-            next
-        });
-
         bridge.set_dispatcher(dispatcher);
-        self.schedule_retries();
         self.net_bridge = Some(bridge);
+    }
+
+    fn handle_network_failure(&mut self) -> () {
+        self.network_status_port
+            .trigger(NetworkStatus::CriticalNetworkFailure);
+        let faulty_bridge = self.net_bridge.take();
+        let connections: Vec<(SocketAddr, ConnectionState)> = self.connections.drain().collect();
+        for (address, state) in connections {
+            if let ConnectionState::Connected(id) = state {
+                self.connection_lost(SystemPath::with_socket(Transport::Tcp, address), id);
+            } else {
+                self.connections.insert(address, state);
+            }
+        }
+        // Start a new bridge, try to use the same bound IP as the old one was bound to
+        let bound_address = faulty_bridge
+            .map(|b| b.local_addr().unwrap_or(self.cfg.addr))
+            .unwrap_or(self.cfg.addr);
+        self.start_bridge(bound_address);
     }
 
     fn stop(&mut self) -> () {
@@ -583,6 +608,7 @@ impl NetworkDispatcher {
                 NetworkStatus::HardConnectionLimitReached => self
                     .network_status_port
                     .trigger(NetworkStatus::HardConnectionLimitReached),
+                NetworkStatus::CriticalNetworkFailure => self.handle_network_failure(),
                 _ => {
                     error!(
                         self.log(),

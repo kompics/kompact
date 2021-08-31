@@ -143,7 +143,7 @@ impl NetworkThreadBuilder {
             input_queue: self.input_queue,
             buffer_pool: RefCell::new(buffer_pool),
             stopped: false,
-            shutdown_promise: self.shutdown_promise,
+            shutdown_promise: Some(self.shutdown_promise),
             dispatcher_ref: self.dispatcher_ref,
             network_config: self.network_config,
             retry_queue: VecDeque::new(),
@@ -168,7 +168,7 @@ pub struct NetworkThread {
     dispatcher_ref: DispatcherRef,
     buffer_pool: RefCell<BufferPool>,
     stopped: bool,
-    shutdown_promise: KPromise<()>,
+    shutdown_promise: Option<KPromise<()>>,
     network_config: NetworkConfig,
     retry_queue: VecDeque<EventWithRetries>,
     out_of_buffers: bool,
@@ -193,7 +193,11 @@ impl NetworkThread {
                 self.handle_event(event);
 
                 if self.stopped {
-                    if let Err(e) = self.shutdown_promise.complete() {
+                    if let Some(Err(e)) = self
+                        .shutdown_promise
+                        .take()
+                        .map(|promise| promise.complete())
+                    {
                         error!(self.log, "Error, shutting down sender: {:?}", e);
                     };
                     trace!(self.log, "Stopped");
@@ -360,7 +364,7 @@ impl NetworkThread {
                         return;
                     }
                     Ok(Some(Frame::Hello(hello))) => {
-                        self.handle_hello(&mut *channel, &hello);
+                        self.handle_hello(channel.deref_mut(), &hello);
                     }
                     Ok(Some(Frame::Ack())) => {
                         self.check_soft_connection_limit();
@@ -434,7 +438,7 @@ impl NetworkThread {
                     if let ChannelState::CloseReceived(addr, id) = channel.state {
                         channel.state = ChannelState::Closed(addr, id);
                         debug!(self.log, "Connection to {} shutdown gracefully", &addr);
-                        self.deregister_channel(&mut *channel);
+                        self.deregister_channel(channel.deref_mut());
                         self.notify_network_status(NetworkStatus::ConnectionClosed(
                             SystemPath::with_socket(Transport::Tcp, channel.address()),
                             id,
@@ -598,15 +602,19 @@ impl NetworkThread {
             return;
         }
         if let Some(other_channel_rc) = self.get_channel_by_address(&start.addr) {
+            let mut other_channel = other_channel_rc.borrow_mut();
             debug!(
                 self.log,
-                "Merging channels for remote system {}", &start.addr
+                "Merging channels {:?} and {:?}", channel, other_channel
             );
-            let mut other_channel = other_channel_rc.borrow_mut();
             match other_channel.read_state() {
                 ChannelState::Connected(_, _) => {
-                    self.drop_channel(channel);
-                    return;
+                    if other_channel.messages == 0 {
+                        self.drop_channel(channel);
+                        return;
+                    } else {
+                        self.lost_connection(other_channel);
+                    }
                 }
                 ChannelState::Requested(_, other_id) if other_id.0 > start.id.0 => {
                     self.drop_channel(channel);
@@ -863,7 +871,7 @@ impl NetworkThread {
                 channel_mut.initiate_graceful_shutdown();
                 self.update_lru(&channel_mut.token);
             } else {
-                self.drop_channel(&mut *channel_mut);
+                self.drop_channel(channel_mut.deref_mut());
             }
         }
     }
@@ -880,7 +888,7 @@ impl NetworkThread {
         self.reject_outbound_for_channel(&mut channel);
         // Try to inform the other end that we're closing the channel
         let _ = channel.send_bye();
-        self.deregister_channel(&mut *channel);
+        self.deregister_channel(channel.deref_mut());
         channel.shutdown();
     }
 
@@ -898,6 +906,7 @@ impl NetworkThread {
                 "Stopping channel with message count {}", channel.messages
             );
             let _ = channel.initiate_graceful_shutdown();
+            let _ = self.token_map.pop(&channel.token);
         }
         self.poll
             .registry()
@@ -1004,6 +1013,18 @@ impl NetworkThread {
                 self.notify_network_status(NetworkStatus::UnblockedSystem(
                     SystemPath::with_socket(Transport::Tcp, socket_addr),
                 ));
+            }
+        }
+    }
+}
+
+impl std::ops::Drop for NetworkThread {
+    fn drop(&mut self) {
+        // Ensure that the channels are shutdown and buffers are deallocated on panic
+        if !self.stopped {
+            while let Some((_, channel)) = self.token_map.pop_lru() {
+                trace!(self.log, "Dropping channel in crashed NetworkThread");
+                self.drop_channel(channel.borrow_mut().deref_mut());
             }
         }
     }
