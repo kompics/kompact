@@ -603,7 +603,10 @@ impl NetworkThread {
         }
         if let Some(other_channel_rc) = self.get_channel_by_address(&start.addr) {
             let mut other_channel = other_channel_rc.borrow_mut();
-            debug!(self.log, "Merging channels {:?} and {:?}", channel, other_channel);
+            debug!(
+                self.log,
+                "Merging channels {:?} and {:?}", channel, other_channel
+            );
             match other_channel.read_state() {
                 ChannelState::Requested(_, other_id) if other_id.0 > start.id.0 => {
                     self.drop_channel(channel);
