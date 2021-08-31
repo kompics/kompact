@@ -1891,8 +1891,8 @@ fn network_thread_recovery_from_panic_in_sender() {
 #[cfg_attr(not(feature = "low_latency"), test)]
 // Same as above except the Panic is induced in the Ponger-system
 fn network_thread_recovery_from_panic_in_receiver() {
-    let net_cfg = NetworkConfig::default();
-
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_connection_retry_interval(CONNECTION_STATUS_TIMEOUT.as_millis() as u64);
     let pinger_system = system_from_network_config(net_cfg.clone());
     let ponger_system = system_from_network_config(net_cfg);
 
