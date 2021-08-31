@@ -608,6 +608,14 @@ impl NetworkThread {
                 "Merging channels {:?} and {:?}", channel, other_channel
             );
             match other_channel.read_state() {
+                ChannelState::Connected(_, _) => {
+                    if other_channel.messages == 0 {
+                        self.drop_channel(channel);
+                        return;
+                    } else {
+                        self.lost_connection(other_channel);
+                    }
+                }
                 ChannelState::Requested(_, other_id) if other_id.0 > start.id.0 => {
                     self.drop_channel(channel);
                     return;
@@ -615,10 +623,6 @@ impl NetworkThread {
                 ChannelState::Initialised(_, other_id) if other_id.0 > start.id.0 => {
                     self.drop_channel(channel);
                     return;
-                }
-                ChannelState::Connected(_, _) => {
-                    // treat this as a channel loss
-                    self.lost_connection(other_channel);
                 }
                 _ => {
                     self.drop_channel(other_channel.deref_mut());

@@ -322,7 +322,9 @@ impl TcpChannel {
     pub fn decode(&mut self) -> Result<Frame, FramingError> {
         match self.input_buffer.get_frame() {
             Ok(frame) => {
-                self.messages += 1;
+                if matches!(frame, Frame::Data(_)) {
+                    self.messages += 1;
+                }
                 Ok(frame)
             }
             Err(e) => Err(e),
