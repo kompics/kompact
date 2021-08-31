@@ -616,6 +616,10 @@ impl NetworkThread {
                     self.drop_channel(channel);
                     return;
                 }
+                ChannelState::Connected(_, _) => {
+                    // treat this as a channel loss
+                    self.lost_connection(other_channel);
+                }
                 _ => {
                     self.drop_channel(other_channel.deref_mut());
                 }
