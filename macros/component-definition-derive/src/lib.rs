@@ -31,6 +31,7 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
 
 type PortEntry<'a> = (&'a syn::Field, PortField);
 
+#[allow(clippy::map_entry)]
 fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
     let name = &ast.ident;
     let name_str = format!("{}", name);
