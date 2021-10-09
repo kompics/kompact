@@ -208,7 +208,7 @@ impl Chunk for DefaultChunk {
 /// All modifications to the Chunk goes through the get_slice method
 pub struct BufferChunk {
     chunk: *mut dyn Chunk,
-    ref_count: Arc<u8>,
+    ref_count: Arc<()>,
     locked: bool,
 }
 
@@ -238,7 +238,7 @@ impl BufferChunk {
     pub fn new(size: usize) -> Self {
         BufferChunk {
             chunk: Box::into_raw(Box::new(DefaultChunk::new(size))),
-            ref_count: Arc::new(0),
+            ref_count: Arc::new(()),
             locked: false,
         }
     }
@@ -247,7 +247,7 @@ impl BufferChunk {
     pub fn from_chunk(raw_chunk: *mut dyn Chunk) -> Self {
         BufferChunk {
             chunk: raw_chunk,
-            ref_count: Arc::new(0),
+            ref_count: Arc::new(()),
             locked: false,
         }
     }
@@ -282,7 +282,7 @@ impl BufferChunk {
     }
 
     /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated
-    pub fn get_lock(&self) -> Arc<u8> {
+    pub fn get_lock(&self) -> Arc<()> {
         self.ref_count.clone()
     }
 

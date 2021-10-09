@@ -12,7 +12,7 @@ pub struct ChunkLease {
     write_pointer: usize,
     read_pointer: usize,
     chain_head_len: usize,
-    lock: Arc<u8>,
+    lock: Arc<()>,
     chain: Option<Box<ChunkLease>>,
     /// The length of the chain from self (i.e. independent of parent(s))
     chain_len: usize,
@@ -20,7 +20,7 @@ pub struct ChunkLease {
 
 impl ChunkLease {
     /// Creates a new `ChunkLease` from a static byte-slice with already written bytes and a `lock`.
-    pub fn new(content: &'static mut [u8], lock: Arc<u8>) -> ChunkLease {
+    pub fn new(content: &'static mut [u8], lock: Arc<()>) -> ChunkLease {
         let capacity = content.len();
         let write_pointer = content.len();
         ChunkLease {
@@ -39,7 +39,7 @@ impl ChunkLease {
         unsafe {
             ChunkLease::new(
                 std::slice::from_raw_parts_mut(NonNull::dangling().as_ptr(), 0),
-                Arc::new(0),
+                Arc::new(()),
             )
         }
     }
@@ -177,6 +177,7 @@ impl ChunkLease {
                 self.content,
                 self.read_pointer,
                 self.chain_head_len,
+                self.lock,
                 chain,
                 self.chain_len,
             )
