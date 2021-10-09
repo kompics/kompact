@@ -101,6 +101,7 @@ mod tests {
     const SLEEP_TIME: Duration = Duration::from_millis(3000);
 
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_explicit_round_robin_select() {
         let system = new_kompact_system();
 
@@ -149,6 +150,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_explicit_hash_select() {
         let system = new_kompact_system();
 
@@ -216,6 +218,7 @@ mod tests {
 
     #[cfg(feature = "implicit_routes")]
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_implicit_select() {
         let system = new_kompact_system();
 
@@ -279,6 +282,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_explicit_broadcast() {
         let system = new_kompact_system();
 
@@ -338,6 +342,7 @@ mod tests {
 
     #[cfg(feature = "implicit_routes")]
     #[test]
+    #[allow(clippy::needless_collect)]
     fn test_implicit_broadcast() {
         let system = new_kompact_system();
 

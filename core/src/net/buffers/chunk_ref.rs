@@ -1,5 +1,4 @@
 use crate::prelude::Buf;
-use std::sync::Arc;
 
 /// A `ChunkRef` is created from a `ChunkLease`, or from a `ChunkRef` and a `ChunkLease`.
 /// It is immutable and may be cloned and shared and chained with many other `ChunkRefs`.
@@ -8,7 +7,6 @@ pub struct ChunkRef {
     content: &'static [u8],
     read_pointer: usize,
     chain_head_len: usize,
-    lock: Arc<u8>,
     chain: Option<Box<ChunkRef>>,
     /// The length of the chain from self (i.e. independent of parent(s))
     chain_len: usize,
@@ -19,7 +17,6 @@ impl ChunkRef {
         content: &'static [u8],
         read_pointer: usize,
         chain_head_len: usize,
-        lock: Arc<u8>,
         chain: Option<Box<ChunkRef>>,
         chain_len: usize,
     ) -> Self {
@@ -27,7 +24,6 @@ impl ChunkRef {
             content,
             read_pointer,
             chain_head_len,
-            lock,
             chain,
             chain_len,
         }

@@ -75,22 +75,18 @@ impl Serialiser<Ping> for PingSer {
 
 pub fn clone_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Clone Benches");
-    g.bench_function("bench clone ActorRef", |b| tests::bench_clone_actor_ref(b));
-    g.bench_function("bench clone Recipient", |b| tests::bench_clone_recipient(b));
-    g.bench_function("bench clone ActorPath", |b| {
-        tests::bench_clone_actor_path(b)
-    });
+    g.bench_function("bench clone ActorRef", tests::bench_clone_actor_ref);
+    g.bench_function("bench clone Recipient", tests::bench_clone_recipient);
+    g.bench_function("bench clone ActorPath", tests::bench_clone_actor_path);
     g.finish();
 }
 
 pub fn tell_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Tell/Trigger Benches");
-    g.bench_function("bench tell ActorRef", |b| tests::bench_tell_actor_ref(b));
-    g.bench_function("bench tell Recipient", |b| tests::bench_tell_recipient(b));
-    g.bench_function("bench tell ActorRef (Strong)", |b| {
-        tests::bench_tell_actor_ref_strong(b)
-    });
-    g.bench_function("bench trigger Port", |b| tests::bench_trigger_port(b));
+    g.bench_function("bench tell ActorRef", tests::bench_tell_actor_ref);
+    g.bench_function("bench tell Recipient", tests::bench_tell_recipient);
+    g.bench_function("bench tell ActorRef (Strong)", tests::bench_tell_actor_ref_strong);
+    g.bench_function("bench trigger Port", tests::bench_trigger_port);
     //g.bench_function("bench tell ActorPath", |b| tests::bench_tell_actor_path(b));
     g.finish();
 }

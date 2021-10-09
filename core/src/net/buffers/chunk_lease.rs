@@ -177,7 +177,6 @@ impl ChunkLease {
                 self.content,
                 self.read_pointer,
                 self.chain_head_len,
-                self.lock,
                 chain,
                 self.chain_len,
             )

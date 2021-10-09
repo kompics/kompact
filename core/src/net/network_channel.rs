@@ -239,11 +239,11 @@ impl TcpChannel {
     fn receive(&mut self) -> io::Result<()> {
         let mut interrupts = 0;
         loop {
-            let mut buf = self
+            let buf = self
                 .input_buffer
                 .get_writeable()
                 .ok_or_else(|| io::Error::new(ErrorKind::InvalidInput, "No Buffer Space"))?;
-            match self.stream.read(&mut buf) {
+            match self.stream.read(buf) {
                 Ok(0) => {
                     return Ok(());
                 }

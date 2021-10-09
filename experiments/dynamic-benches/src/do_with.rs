@@ -46,21 +46,13 @@ pub fn do_with_any_ref(a: &dyn Any) -> u64 {
 
 pub fn do_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Do_With Benches");
-    g.bench_function("bench Box<dyn Any>", |b| tests::bench_any_box(b));
-    g.bench_function("bench &Box<dyn Any>", |b| tests::bench_any_box_ref(b));
-    g.bench_function("bench Box<dyn Any>.as_ref()", |b| {
-        tests::bench_any_ref_from_box(b)
-    });
-    g.bench_function("bench &dyn Any", |b| tests::bench_any_ref(b));
-    g.bench_function("bench Message &'static Any", |b| {
-        tests::bench_msg_with_any_ref(b)
-    });
-    g.bench_function("bench Message Box<dyn Any>", |b| {
-        tests::bench_msg_with_any_box(b)
-    });
-    g.bench_function("bench Message Arc<dyn Any>", |b| {
-        tests::bench_msg_with_shared_any(b)
-    });
+    g.bench_function("bench Box<dyn Any>", tests::bench_any_box);
+    g.bench_function("bench &Box<dyn Any>", tests::bench_any_box_ref);
+    g.bench_function("bench Box<dyn Any>.as_ref()", tests::bench_any_ref_from_box);
+    g.bench_function("bench &dyn Any", tests::bench_any_ref);
+    g.bench_function("bench Message &'static Any", tests::bench_msg_with_any_ref);
+    g.bench_function("bench Message Box<dyn Any>", tests::bench_msg_with_any_box);
+    g.bench_function("bench Message Arc<dyn Any>",  tests::bench_msg_with_shared_any);
     g.finish();
 }
 

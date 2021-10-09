@@ -105,9 +105,7 @@ fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
         SchedulingDecision::Schedule => {
             if cfg!(feature = "use_local_executor") {
                 let res = try_execute_locally(move || maybe_reschedule(c));
-                if res.is_err() {
-                    panic!("Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
-                }
+                assert!(!res.is_err(), "Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
             } else {
                 let c2 = c.clone();
                 c.system().schedule(c2);

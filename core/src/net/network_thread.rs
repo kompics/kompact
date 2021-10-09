@@ -187,7 +187,7 @@ impl NetworkThread {
 
             for event in events
                 .iter()
-                .map(|e| (EventWithRetries::from(e)))
+                .map(EventWithRetries::from)
                 .chain(self.retry_queue.split_off(0))
             {
                 self.handle_event(event);
