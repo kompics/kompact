@@ -6,7 +6,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
-use std::iter::Iterator;
+use std::{collections::HashMap, iter::Iterator};
 
 /// A macro to derive fair [ComponentDefinition](ComponentDefinition) implementations
 ///
@@ -29,6 +29,8 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
     gen.into()
 }
 
+type PortEntry<'a> = (&'a syn::Field, PortField);
+
 fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
     let name = &ast.ident;
     let name_str = format!("{}", name);
@@ -37,7 +39,7 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
         let fields = &vdata.fields;
-        let mut ports: Vec<(&syn::Field, PortField)> = Vec::new();
+        let mut ports: Vec<PortEntry> = Vec::new();
         let mut ctx_field: Option<&syn::Field> = None;
         for field in fields.iter() {
             let cf = identify_field(field);
@@ -139,44 +141,139 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                 }
             }
         };
-        let port_ref_impls = ports
-            .iter()
-            .map(|p| {
-                let (field, port_field) = p;
-                let id = &field.ident;
-                match port_field {
-                    PortField::Required(ty) => quote! {
-                        impl #impl_generics RequireRef< #ty > for #name #ty_generics #where_clause {
-                            fn required_ref(&mut self) -> RequiredRef< #ty > {
-                                self.#id.share()
-                            }
-                            fn connect_to_provided(&mut self, prov: ProvidedRef< #ty >) -> () {
-                                self.#id.connect(prov);
-                            }
-                            fn disconnect(&mut self, prov: ProvidedRef< #ty >) -> () {
-                                self.#id.disconnect_port(prov);
-                            }
-                        }
-                    },
-                    PortField::Provided(ty) => quote! {
-                        impl #impl_generics ProvideRef< #ty > for #name #ty_generics #where_clause {
-                            fn provided_ref(&mut self) -> ProvidedRef< #ty > {
-                                self.#id.share()
-                            }
-                            fn connect_to_required(&mut self, req: RequiredRef< #ty >) -> () {
-                                self.#id.connect(req);
-                            }
-                            fn disconnect(&mut self, req: RequiredRef< #ty >) -> () {
-                                self.#id.disconnect_port(req);
-                            }
-                        }
-                    },
+
+        let mut provided_ports_unique: HashMap<syn::Type, PortEntry> = HashMap::new();
+        let mut provided_ports_non_unique: HashMap<syn::Type, Vec<PortEntry>> = HashMap::new();
+        let mut required_ports_unique: HashMap<syn::Type, PortEntry> = HashMap::new();
+        let mut required_ports_non_unique: HashMap<syn::Type, Vec<PortEntry>> = HashMap::new();
+        for port in ports {
+            let port_field = port.1.clone();
+            match port_field {
+                PortField::Required(ty) => {
+                    if let Some(port_list) = required_ports_non_unique.get_mut(&ty) {
+                        port_list.push(port);
+                    } else if required_ports_unique.contains_key(&ty) {
+                        let other_entry = required_ports_unique.remove(&ty).unwrap();
+                        required_ports_non_unique.insert(ty, vec![other_entry, port]);
+                    } else {
+                        required_ports_unique.insert(ty, port);
+                    }
                 }
-            })
+                PortField::Provided(ty) => {
+                    if let Some(port_list) = provided_ports_non_unique.get_mut(&ty) {
+                        port_list.push(port);
+                    } else if provided_ports_unique.contains_key(&ty) {
+                        let other_entry = provided_ports_unique.remove(&ty).unwrap();
+                        provided_ports_non_unique.insert(ty, vec![other_entry, port]);
+                    } else {
+                        provided_ports_unique.insert(ty, port);
+                    }
+                }
+            }
+        }
+
+        let generate_provided_ref_impl = |p: &PortEntry| {
+            let (field, port_field) = p;
+            let id = &field.ident;
+            let ty = port_field.port_type();
+            quote! {
+                impl #impl_generics ProvideRef< #ty > for #name #ty_generics #where_clause {
+                    fn provided_ref(&mut self) -> ProvidedRef< #ty > {
+                        self.#id.share()
+                    }
+                    fn connect_to_required(&mut self, req: RequiredRef< #ty >) -> () {
+                        self.#id.connect(req);
+                    }
+                    fn disconnect(&mut self, req: RequiredRef< #ty >) -> () {
+                        self.#id.disconnect_port(req);
+                    }
+                }
+            }
+        };
+        let generate_required_ref_impl = |p: &PortEntry| {
+            let (field, port_field) = p;
+            let id = &field.ident;
+            let ty = port_field.port_type();
+            quote! {
+                impl #impl_generics RequireRef< #ty > for #name #ty_generics #where_clause {
+                    fn required_ref(&mut self) -> RequiredRef< #ty > {
+                        self.#id.share()
+                    }
+                    fn connect_to_provided(&mut self, prov: ProvidedRef< #ty >) -> () {
+                        self.#id.connect(prov);
+                    }
+                    fn disconnect(&mut self, prov: ProvidedRef< #ty >) -> () {
+                        self.#id.disconnect_port(prov);
+                    }
+                }
+            }
+        };
+        let generate_ambiguous_provided_ref_impl = |ty: &syn::Type, port_entries: &[PortEntry]| {
+            let ids: Vec<String> = port_entries
+                .iter()
+                .map(|(field, _port_field)| {
+                    let id = field.ident.as_ref().unwrap();
+                    format!("{}", quote! {#id})
+                })
+                .collect();
+            let error_msg = format!("Ambiguous port type: There are multiple fields with type {} ({:?}). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.", quote!{#ty}, ids);
+            quote! {
+                impl #impl_generics ProvideRef< #ty > for #name #ty_generics #where_clause {
+                    fn provided_ref(&mut self) -> ProvidedRef< #ty > {
+                        compile_error!(#error_msg);
+                    }
+                    fn connect_to_required(&mut self, req: RequiredRef< #ty >) -> () {
+                        compile_error!(#error_msg);
+                    }
+                    fn disconnect(&mut self, req: RequiredRef< #ty >) -> () {
+                        compile_error!(#error_msg);
+                    }
+                }
+            }
+        };
+        let generate_ambiguous_required_ref_impl = |ty: &syn::Type, port_entries: &[PortEntry]| {
+            let ids: Vec<String> = port_entries
+                .iter()
+                .map(|(field, _port_field)| {
+                    let id = field.ident.as_ref().unwrap();
+                    format!("{}", quote! {#id})
+                })
+                .collect();
+            let error_msg = format!("Ambiguous port type: There are multiple fields with type {} ({:?}). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.", quote!{#ty}, ids);
+            quote! {
+                impl #impl_generics RequireRef< #ty > for #name #ty_generics #where_clause {
+                    fn provided_ref(&mut self) -> ProvidedRef< #ty > {
+                        compile_error!(#error_msg);
+                    }
+                    fn connect_to_required(&mut self, req: RequiredRef< #ty >) -> () {
+                        compile_error!(#error_msg);
+                    }
+                    fn disconnect(&mut self, req: RequiredRef< #ty >) -> () {
+                        compile_error!(#error_msg);
+                    }
+                }
+            }
+        };
+
+        let port_ref_impls = provided_ports_unique
+            .values()
+            .map(generate_provided_ref_impl)
+            .chain(
+                required_ports_unique
+                    .values()
+                    .map(generate_required_ref_impl),
+            )
+            .chain(
+                provided_ports_non_unique
+                    .iter()
+                    .map(|pair| generate_ambiguous_provided_ref_impl(pair.0, pair.1)),
+            )
+            .chain(
+                required_ports_non_unique
+                    .iter()
+                    .map(|pair| generate_ambiguous_required_ref_impl(pair.0, pair.1)),
+            )
             .collect::<Vec<_>>();
-        // if !port_ref_impls.is_empty() {
-        // println!("PortRefImpls: {}",port_ref_impls[0]);
-        // }
 
         fn make_match(f: &syn::Field, t: &syn::Type) -> TokenStream2 {
             let f = &f.ident;
@@ -186,22 +283,14 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
             }
         }
 
-        let provided_matches: Vec<_> = ports
+        let provided_matches: Vec<_> = provided_ports_unique
             .iter()
-            .filter_map(|(f, p)| match p {
-                PortField::Provided(t) => Some((*f, t)),
-                _ => None,
-            })
-            .map(|(f, t)| make_match(f, t))
+            .map(|(t, p)| make_match(p.0, t))
             .collect();
 
-        let required_matches: Vec<_> = ports
+        let required_matches: Vec<_> = required_ports_unique
             .iter()
-            .filter_map(|(f, p)| match p {
-                PortField::Required(t) => Some((*f, t)),
-                _ => None,
-            })
-            .map(|(f, t)| make_match(f, t))
+            .map(|(t, p)| make_match(p.0, t))
             .collect();
 
         quote! {
@@ -253,7 +342,7 @@ enum ComponentField {
     Other,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum PortField {
     Required(syn::Type),
     Provided(syn::Type),
@@ -264,6 +353,13 @@ impl PortField {
         match *self {
             PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
             PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
+        }
+    }
+
+    fn port_type(&self) -> &syn::Type {
+        match self {
+            PortField::Provided(ref ty) => ty,
+            PortField::Required(ref ty) => ty,
         }
     }
 }
