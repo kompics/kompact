@@ -153,6 +153,7 @@ impl fmt::Display for PromiseErr {
 
 /// A custom future implementation, that can be fulfilled via its paired promise.
 #[derive(Debug)]
+#[must_use = "Futures should not simply be dropped, as they usually indicate a delayed operation that must be awaited."]
 pub struct KFuture<T: Send + Sized> {
     result_channel: oneshot::Receiver<T>,
 }
