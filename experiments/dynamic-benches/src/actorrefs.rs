@@ -85,7 +85,10 @@ pub fn tell_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Tell/Trigger Benches");
     g.bench_function("bench tell ActorRef", tests::bench_tell_actor_ref);
     g.bench_function("bench tell Recipient", tests::bench_tell_recipient);
-    g.bench_function("bench tell ActorRef (Strong)", tests::bench_tell_actor_ref_strong);
+    g.bench_function(
+        "bench tell ActorRef (Strong)",
+        tests::bench_tell_actor_ref_strong,
+    );
     g.bench_function("bench trigger Port", tests::bench_trigger_port);
     //g.bench_function("bench tell ActorPath", |b| tests::bench_tell_actor_path(b));
     g.finish();

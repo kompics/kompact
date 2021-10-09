@@ -52,7 +52,10 @@ pub fn do_benches(c: &mut Criterion) {
     g.bench_function("bench &dyn Any", tests::bench_any_ref);
     g.bench_function("bench Message &'static Any", tests::bench_msg_with_any_ref);
     g.bench_function("bench Message Box<dyn Any>", tests::bench_msg_with_any_box);
-    g.bench_function("bench Message Arc<dyn Any>",  tests::bench_msg_with_shared_any);
+    g.bench_function(
+        "bench Message Arc<dyn Any>",
+        tests::bench_msg_with_shared_any,
+    );
     g.finish();
 }
 
