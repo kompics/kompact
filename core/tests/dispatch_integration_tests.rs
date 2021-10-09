@@ -1478,6 +1478,7 @@ fn network_status_port_block_unblock_system() {
             ponger.count
         );
     });
+
     status_counter.on_definition(|sc| assert!(!sc.blocked_systems.contains(&pinger_sys_path)));
 
     pinger_system

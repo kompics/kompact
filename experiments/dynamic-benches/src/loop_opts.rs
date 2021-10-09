@@ -35,6 +35,7 @@ fn final_clone_bench(c: &mut Criterion) {
 
 #[derive(Clone)]
 pub struct ExpensiveClone {
+    #[allow(dead_code)]
     data: Vec<u64>,
 }
 

@@ -8,7 +8,9 @@ pub struct ChunkRef {
     content: &'static [u8],
     read_pointer: usize,
     chain_head_len: usize,
-    lock: Arc<u8>,
+    /// The presence of the `lock` field prevents the parent chunk lease from unlocking, while the chunk ref is allocated.
+    #[allow(dead_code)]
+    lock: Arc<()>,
     chain: Option<Box<ChunkRef>>,
     /// The length of the chain from self (i.e. independent of parent(s))
     chain_len: usize,
@@ -19,7 +21,7 @@ impl ChunkRef {
         content: &'static [u8],
         read_pointer: usize,
         chain_head_len: usize,
-        lock: Arc<u8>,
+        lock: Arc<()>,
         chain: Option<Box<ChunkRef>>,
         chain_len: usize,
     ) -> Self {

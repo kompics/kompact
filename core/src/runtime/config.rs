@@ -222,7 +222,7 @@ impl KompactConfig {
             throughput: 0,
             msg_priority: 0.0,
             threads: 1,
-            timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
+            timer_builder: Rc::new(DefaultTimer::new_timer_component),
             scheduler_builder: Rc::new(|t| {
                 ExecutorScheduler::from(crossbeam_workstealing_pool::small_pool(t))
             }),
@@ -609,7 +609,7 @@ impl Default for KompactConfig {
             throughput: 0,
             msg_priority: 0.0,
             threads: 1,
-            timer_builder: Rc::new(|| DefaultTimer::new_timer_component()),
+            timer_builder: Rc::new(DefaultTimer::new_timer_component),
             scheduler_builder,
             sc_builder: Rc::new(|sys, dead_prom, disp_prom| {
                 Box::new(DefaultComponents::new(sys, dead_prom, disp_prom))

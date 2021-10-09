@@ -16,6 +16,7 @@ use crossbeam_utils::Backoff;
 #[derive(Clone)]
 pub(crate) struct DedicatedThreadScheduler {
     handle: Arc<thread::JoinHandle<()>>,
+    #[allow(dead_code)]
     id: thread::ThreadId,
     stop: Arc<AtomicBool>,
     stopped: Arc<AtomicBool>,

@@ -101,8 +101,8 @@ impl UdpState {
                     return Err(Error::new(io::ErrorKind::InvalidInput, "Out of Buffers"));
                 }
             }
-            if let Some(mut buf) = self.input_buffer.get_writeable() {
-                match self.socket.recv_from(&mut buf) {
+            if let Some(buf) = self.input_buffer.get_writeable() {
+                match self.socket.recv_from(buf) {
                     Ok((0, addr)) => {
                         debug!(self.logger, "Got empty UDP datagram from {}", addr);
                         return Ok(());
