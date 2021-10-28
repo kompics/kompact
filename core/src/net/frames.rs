@@ -4,7 +4,7 @@
 use bytes::{Buf, BufMut};
 
 //use bytes::IntoBuf;
-use std::{self, fmt::Debug};
+use std::{self, fmt::Debug, io};
 
 use crate::{net::buffers::ChunkLease, prelude::SessionId};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -40,6 +40,12 @@ pub enum FramingError {
 impl From<std::io::Error> for FramingError {
     fn from(src: std::io::Error) -> Self {
         FramingError::Io(src)
+    }
+}
+
+impl From<FramingError> for std::io::Error {
+    fn from(_: FramingError) -> Self {
+        io::Error::new(io::ErrorKind::InvalidData, "framing error")
     }
 }
 

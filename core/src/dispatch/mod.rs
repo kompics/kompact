@@ -31,6 +31,7 @@ use futures::{
     self,
     task::{Context, Poll},
 };
+use ipnet::IpNet;
 use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
 use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
@@ -280,10 +281,14 @@ pub enum NetworkStatus {
     BlockedSystem(SystemPath),
     /// Indicates that an IpAddr has been blocked
     BlockedIp(IpAddr),
+    /// Indicates that an IpNet has been blocked
+    BlockedIpNet(IpNet),
+    /// Indicates that an IpNet has been allowed after previously being blocked
+    AllowedIpNet(IpNet),
     /// Indicates that a system has been allowed after previously being blocked
-    UnblockedSystem(SystemPath),
+    AllowedSystem(SystemPath),
     /// Indicates that an IpAddr has been allowed after previously being blocked
-    UnblockedIp(IpAddr),
+    AllowedIp(IpAddr),
     /// The Soft Connection Limit has been exceeded and the NetworkThread will close
     /// the least recently used connection(s).
     SoftConnectionLimitExceeded,
@@ -307,10 +312,14 @@ pub enum NetworkStatusRequest {
     BlockSystem(SystemPath),
     /// Request an IpAddr to be blocked.
     BlockIp(IpAddr),
+    /// Request a Subnet (`IpNet`) to be blocked
+    BlockIpNet(IpNet),
     /// Request a System to be allowed after previously being blocked
-    UnblockSystem(SystemPath),
+    AllowSystem(SystemPath),
     /// Request an IpAddr to be allowed after previously being blocked
-    UnblockIp(IpAddr),
+    AllowIp(IpAddr),
+    /// Request an IpNet to be allowed after previously being blocked
+    AllowIpNet(IpNet),
 }
 
 /// A network-capable dispatcher for sending messages to remote actors
@@ -583,6 +592,10 @@ impl NetworkDispatcher {
                 NetworkStatus::ConnectionClosed(system_path, session) => {
                     self.connection_closed(system_path, session)
                 }
+                NetworkStatus::ConnectionDropped(system_path) => {
+                    self.network_status_port
+                        .trigger(NetworkStatus::ConnectionDropped(system_path));
+                }
                 NetworkStatus::BlockedSystem(system_path) => {
                     self.connections
                         .insert(system_path.socket_address(), ConnectionState::Blocked);
@@ -593,14 +606,22 @@ impl NetworkDispatcher {
                     self.network_status_port
                         .trigger(NetworkStatus::BlockedIp(ip_addr));
                 }
-                NetworkStatus::UnblockedSystem(system_path) => {
+                NetworkStatus::BlockedIpNet(ip_net) => {
+                    self.network_status_port
+                        .trigger(NetworkStatus::BlockedIpNet(ip_net));
+                }
+                NetworkStatus::AllowedSystem(system_path) => {
                     self.connections.remove(&system_path.socket_address());
                     self.network_status_port
-                        .trigger(NetworkStatus::UnblockedSystem(system_path));
+                        .trigger(NetworkStatus::AllowedSystem(system_path));
                 }
-                NetworkStatus::UnblockedIp(ip_addr) => {
+                NetworkStatus::AllowedIp(ip_addr) => {
                     self.network_status_port
-                        .trigger(NetworkStatus::UnblockedIp(ip_addr));
+                        .trigger(NetworkStatus::AllowedIp(ip_addr));
+                }
+                NetworkStatus::AllowedIpNet(ip_net) => {
+                    self.network_status_port
+                        .trigger(NetworkStatus::AllowedIpNet(ip_net));
                 }
                 NetworkStatus::SoftConnectionLimitExceeded => self
                     .network_status_port
@@ -609,12 +630,6 @@ impl NetworkDispatcher {
                     .network_status_port
                     .trigger(NetworkStatus::HardConnectionLimitReached),
                 NetworkStatus::CriticalNetworkFailure => self.handle_network_failure(),
-                _ => {
-                    error!(
-                        self.log(),
-                        "Unexpected NetworkStatus received by NetworkDispatcher"
-                    );
-                }
             },
             EventEnvelope::RejectedData((addr, data)) => {
                 // These are messages which we routed to a network-thread before they lost the connection.
@@ -1117,16 +1132,28 @@ impl Provide<NetworkStatusPort> for NetworkDispatcher {
                     bridge.block_socket(system_path.socket_address()).unwrap();
                 }
             }
-            NetworkStatusRequest::UnblockIp(ip_addr) => {
-                debug!(self.ctx.log(), "Got UnblockIp: {:?}", ip_addr);
+            NetworkStatusRequest::BlockIpNet(ip_net) => {
+                debug!(self.ctx.log(), "Got BlockIpNet: {:?}", ip_net);
                 if let Some(bridge) = &self.net_bridge {
-                    bridge.unblock_ip(ip_addr).unwrap();
+                    bridge.block_ip_net(ip_net).unwrap();
                 }
             }
-            NetworkStatusRequest::UnblockSystem(system_path) => {
-                debug!(self.ctx.log(), "Got UnblockSystem: {:?}", system_path);
+            NetworkStatusRequest::AllowIp(ip_addr) => {
+                debug!(self.ctx.log(), "Got AllowIp: {:?}", ip_addr);
                 if let Some(bridge) = &self.net_bridge {
-                    bridge.unblock_socket(system_path.socket_address()).unwrap();
+                    bridge.allow_ip(ip_addr).unwrap();
+                }
+            }
+            NetworkStatusRequest::AllowSystem(system_path) => {
+                debug!(self.ctx.log(), "Got AllowSystem: {:?}", system_path);
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.allow_socket(system_path.socket_address()).unwrap();
+                }
+            }
+            NetworkStatusRequest::AllowIpNet(ip_net) => {
+                debug!(self.ctx.log(), "Got AllowIpNet: {:?}", ip_net);
+                if let Some(bridge) = &self.net_bridge {
+                    bridge.allow_ip_net(ip_net).unwrap();
                 }
             }
         }

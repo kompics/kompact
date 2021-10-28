@@ -72,7 +72,8 @@ bytes 							= "1.0"
 bitfields 						= "0.2"
 mio 							= {version = "0.7.0", features = ["tcp", "os-poll", "udp"]}
 iovec 							= "0.1.1" # Match MIOs Version
-
+iprange                         = "0.6.4"
+ipnet                           = "2.3.1"
 
 [dev-dependencies]
 tempfile 		= "3"
