@@ -23,7 +23,7 @@ pub fn load_uuid_data(data_size: usize) -> Vec<Uuid> {
 pub fn load_addr_data(data_size: usize) -> Vec<SocketAddr> {
     let mut v: Vec<SocketAddr> = Vec::with_capacity(data_size);
     for i in 0..data_size {
-        let bytes: [u8; 4] = unsafe { std::mem::transmute(i as u32) };
+        let bytes: [u8; 4] = (i as u32).to_ne_bytes();
         let port_bytes = [bytes[0], bytes[1]];
         let port: u16 = unsafe { std::mem::transmute(port_bytes) };
         v.push(SocketAddr::new(
@@ -48,7 +48,7 @@ pub fn socket_to_bytes(socket: &SocketAddr) -> [u8; 6] {
         _ => panic!("Only use V4 sockets!"),
     }
 
-    let port: [u8; 2] = unsafe { std::mem::transmute(socket.port()) };
+    let port: [u8; 2] = socket.port().to_ne_bytes();
     bytes[4] = port[0];
     bytes[5] = port[1];
 
