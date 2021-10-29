@@ -174,17 +174,17 @@ impl NetworkStatusReceiver {
         }
     }
 
-    fn expect_unblocked_system(&self, timeout: Duration) {
+    fn expect_allowed_system(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
             Ok(NetworkStatus::AllowedSystem(_)) => {}
             Ok(other_status) => {
                 panic!(
-                    "unexpected network status {:?} waiting for UnblockedSystem",
+                    "unexpected network status {:?} waiting for AllowedSystem",
                     other_status
                 )
             }
             Err(_) => {
-                panic!("ConnectionStatus timeout waiting for UnblockedSystem")
+                panic!("ConnectionStatus timeout waiting for AllowedSystem")
             }
         }
     }
@@ -204,17 +204,17 @@ impl NetworkStatusReceiver {
         }
     }
 
-    fn expect_unblocked_ip(&self, timeout: Duration) {
+    fn expect_allowed_ip(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
             Ok(NetworkStatus::AllowedIp(_)) => {}
             Ok(other_status) => {
                 panic!(
-                    "unexpected network status {:?} waiting for UnblockedIp",
+                    "unexpected network status {:?} waiting for AllowedIp",
                     other_status
                 )
             }
             Err(_) => {
-                panic!("ConnectionStatus timeout waiting for UnblockedIp")
+                panic!("ConnectionStatus timeout waiting for AllowedIp")
             }
         }
     }
@@ -234,17 +234,17 @@ impl NetworkStatusReceiver {
         }
     }
 
-    fn expect_unblocked_ip_net(&self, timeout: Duration) {
+    fn expect_allowed_ip_net(&self, timeout: Duration) {
         match self.receiver.recv_timeout(timeout) {
             Ok(NetworkStatus::AllowedIpNet(_)) => {}
             Ok(other_status) => {
                 panic!(
-                    "unexpected network status {:?} waiting for UnblockedIp",
+                    "unexpected network status {:?} waiting for AllowedIpNet",
                     other_status
                 )
             }
             Err(_) => {
-                panic!("ConnectionStatus timeout waiting for UnblockedIp")
+                panic!("ConnectionStatus timeout waiting for AllowedIpNet")
             }
         }
     }
@@ -1486,10 +1486,9 @@ fn network_status_port_block_unblock_system() {
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
 
     status_counter.on_definition(|sc| {
-        assert!(sc.blocked_systems.contains(&pinger_sys_path));
         sc.send_status_request(NetworkStatusRequest::AllowSystem(pinger_sys_path.clone()));
     });
-    ponger_status_receiver.expect_unblocked_system(CONNECTION_STATUS_TIMEOUT);
+    ponger_status_receiver.expect_allowed_system(CONNECTION_STATUS_TIMEOUT);
 
     ponger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
     pinger_status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
@@ -1509,8 +1508,6 @@ fn network_status_port_block_unblock_system() {
             ponger.count
         );
     });
-
-    status_counter.on_definition(|sc| assert!(!sc.blocked_systems.contains(&pinger_sys_path)));
 
     pinger_system
         .kill_notify(pinger)
@@ -1564,11 +1561,10 @@ fn network_status_port_block_unblock_ip() {
 
     ponger.on_definition(|ponger| assert_eq!(before_block_count, ponger.count));
     status_counter.on_definition(|sc| {
-        assert!(sc.blocked_ip.contains(&pinger_ip));
         sc.send_status_request(NetworkStatusRequest::AllowIp(pinger_ip));
     });
 
-    status_receiver.expect_unblocked_ip(CONNECTION_STATUS_TIMEOUT);
+    status_receiver.expect_allowed_ip(CONNECTION_STATUS_TIMEOUT);
     status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
     let (_, all_pongs_received_future_3) =
@@ -1576,8 +1572,6 @@ fn network_status_port_block_unblock_ip() {
     all_pongs_received_future_3
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
-
-    status_counter.on_definition(|sc| assert!(!sc.blocked_ip.contains(&pinger_ip)));
 
     let _ = ponger_system.shutdown();
     let _ = pinger_system.shutdown();
@@ -1629,11 +1623,10 @@ fn network_status_port_block_ip_supernet_allow_subnet() {
 
     // Allow the super-net
     status_counter.on_definition(|sc| {
-        assert!(sc.blocked_ip_nets.contains(&pinger_ip_supernet_supernet));
         sc.send_status_request(NetworkStatusRequest::AllowIpNet(pinger_ip_supernet));
     });
 
-    status_receiver.expect_unblocked_ip_net(CONNECTION_STATUS_TIMEOUT);
+    status_receiver.expect_allowed_ip_net(CONNECTION_STATUS_TIMEOUT);
     status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
 
     let (_, all_pongs_received_future_3) =
@@ -1642,10 +1635,56 @@ fn network_status_port_block_ip_supernet_allow_subnet() {
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
 
-    status_counter.on_definition(|sc| assert!(!sc.blocked_ip.contains(&pinger_ip)));
+    let _ = ponger_system.shutdown();
+    let _ = pinger_system.shutdown();
+}
+
+#[test]
+fn network_status_port_allow_system_block_supernet() {
+    let mut net_cfg = NetworkConfig::default();
+    net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
+    net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
+    let ponger_system = system_from_network_config(net_cfg.clone());
+    let pinger_system = system_from_network_config(net_cfg.clone());
+    let blocked_pinger_system = system_from_network_config(net_cfg);
+
+    // Create a status_counter which will listen to the status port and count messages received
+    let (status_counter, status_receiver) = start_status_counter(&ponger_system);
+
+    // Allow one of the Pinger Systems and block the supernet
+    let pinger_system_path = pinger_system.system_path();
+    let pinger_supernet = IpNet::from(*pinger_system_path.address())
+        .supernet()
+        .unwrap();
+    status_counter.on_definition(|sc| {
+        sc.send_status_request(NetworkStatusRequest::AllowSystem(pinger_system_path));
+    });
+    status_receiver.expect_allowed_system(CONNECTION_STATUS_TIMEOUT);
+    status_counter.on_definition(|sc| {
+        sc.send_status_request(NetworkStatusRequest::BlockIpNet(pinger_supernet));
+    });
+    status_receiver.expect_blocked_ip_net(CONNECTION_STATUS_TIMEOUT);
+
+    // Start the Ponger and the Pingers in reliable order
+    let (_, ponger_path) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let (_, all_pongs_received_future_1) =
+        start_pinger(&pinger_system, PingerAct::new_lazy(ponger_path.clone()));
+    status_receiver.expect_connection_established(CONNECTION_STATUS_TIMEOUT);
+
+    let (_, all_pongs_received_future_2) =
+        start_pinger(&blocked_pinger_system, PingerAct::new_lazy(ponger_path));
+    all_pongs_received_future_1
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    // the connection is blocked, the second pinger fails
+    all_pongs_received_future_2
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect_err("Expecting time out waiting for ping pong to complete");
 
     let _ = ponger_system.shutdown();
     let _ = pinger_system.shutdown();
+    let _ = blocked_pinger_system.shutdown();
 }
 
 #[test]

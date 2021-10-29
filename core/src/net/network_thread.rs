@@ -1010,14 +1010,14 @@ impl NetworkThread {
     }
 
     fn allow_ip_addr(&mut self, ip_addr: IpAddr) {
-        debug!(self.log, "Unblocking ip: {:?}", ip_addr);
+        debug!(self.log, "Allowing ip: {:?}", ip_addr);
         self.block_list.allow_ip_addr(&ip_addr);
         self.notify_network_status(NetworkStatus::AllowedIp(ip_addr));
     }
 
     fn allow_socket_addr(&mut self, socket_addr: SocketAddr) {
         if self.block_list.allow_socket_addr(&socket_addr) {
-            debug!(self.log, "Unblocking socket: {:?}", socket_addr);
+            debug!(self.log, "Allowing socket: {:?}", socket_addr);
             self.notify_network_status(NetworkStatus::AllowedSystem(SystemPath::with_socket(
                 Transport::Tcp,
                 socket_addr,
@@ -1056,7 +1056,7 @@ impl NetworkThread {
 
     fn allow_ip_net(&mut self, ip_net: IpNet) {
         self.block_list.allow_ip_net(ip_net);
-        debug!(self.log, "Blocking IpNet: {:?}", &ip_net);
+        debug!(self.log, "Allowing IpNet: {:?}", &ip_net);
         self.notify_network_status(NetworkStatus::AllowedIpNet(ip_net));
     }
 }
@@ -1218,16 +1218,12 @@ impl BlockList {
 
     /// Returns true if the IpAddr is fully blocked, i.e. it's Blocked and there's no Allowed SocketAddr with the given IP
     fn ip_addr_is_blocked(&self, ip_addr: &IpAddr) -> bool {
-        if match ip_addr {
-            IpAddr::V4(addr) => self.ipv4_set.contains(&addr.to_network()),
-            IpAddr::V6(addr) => self.ipv6_set.contains(&addr.to_network()),
-        } {
+        if self.ip_sets_contains_ip_addr(ip_addr) {
             // The IP may be partially blocked
-            self.allowed_socket_addr
+            !self
+                .allowed_socket_addr
                 .iter()
-                .filter(|socket_addr| socket_addr.ip() == *ip_addr)
-                .count()
-                == 0
+                .any(|socket_addr| socket_addr.ip() == *ip_addr)
         } else {
             // The IP isn't Blocked at all, no need to check the Socket address list
             false
@@ -1241,10 +1237,14 @@ impl BlockList {
         } else if self.blocked_socket_addr.contains(socket_addr) {
             true
         } else {
-            match socket_addr.ip() {
-                IpAddr::V4(addr) => self.ipv4_set.contains(&addr.to_network()),
-                IpAddr::V6(addr) => self.ipv6_set.contains(&addr.to_network()),
-            }
+            self.ip_sets_contains_ip_addr(&socket_addr.ip())
+        }
+    }
+
+    fn ip_sets_contains_ip_addr(&self, ip_addr: &IpAddr) -> bool {
+        match ip_addr {
+            IpAddr::V4(addr) => self.ipv4_set.contains(&addr.to_network()),
+            IpAddr::V6(addr) => self.ipv6_set.contains(&addr.to_network()),
         }
     }
 }

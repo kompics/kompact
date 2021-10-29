@@ -120,7 +120,7 @@ pub mod events {
         AllowIpNet(IpNet),
     }
 
-    /// Errors emitted byt the network `Bridge`
+    /// Errors emitted by the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkError {
         /// The protocol is not supported in this implementation
@@ -496,13 +496,11 @@ pub mod net_test_helpers {
         prelude::*,
     };
     use crossbeam_channel::Sender;
-    use ipnet::IpNet;
     use std::{
         borrow::Borrow,
         cmp::Ordering,
         collections::VecDeque,
         fmt::{Debug, Formatter},
-        net::IpAddr,
         time::{Duration, SystemTime, UNIX_EPOCH},
     };
     use uuid::Uuid;
@@ -1312,12 +1310,6 @@ pub mod net_test_helpers {
         pub connected_systems: Vec<(SystemPath, SessionId)>,
         /// Contains all `SystemPath`'s received in a `ConnectionLost` or `ConnectionClosed` message
         pub disconnected_systems: Vec<(SystemPath, SessionId)>,
-        /// The blocked SystemPaths
-        pub blocked_systems: Vec<SystemPath>,
-        /// The blocked ip addresses
-        pub blocked_ip: Vec<IpAddr>,
-        /// The blocked ip nets'
-        pub blocked_ip_nets: Vec<IpNet>,
         /// Counts the number of `SoftConnectionLimitExceeded` messages received
         pub soft_connection_limit_exceeded: u32,
         /// Counts the number of `HardConnectionLimitReached` messages received
@@ -1342,9 +1334,6 @@ pub mod net_test_helpers {
                 connection_closed: 0,
                 connected_systems: Vec::new(),
                 disconnected_systems: Vec::new(),
-                blocked_systems: Vec::new(),
-                blocked_ip: Vec::new(),
-                blocked_ip_nets: Vec::new(),
                 soft_connection_limit_exceeded: 0,
                 hard_connection_limit_reached: 0,
                 network_out_of_buffers: 0,
@@ -1464,12 +1453,6 @@ pub mod net_test_helpers {
                     self.connection_closed += 1;
                     self.disconnected_systems.push((system_path, session));
                 }
-                NetworkStatus::BlockedSystem(sys_path) => self.blocked_systems.push(sys_path),
-                NetworkStatus::BlockedIp(ip_addr) => self.blocked_ip.push(ip_addr),
-                NetworkStatus::AllowedSystem(sys_path) => {
-                    self.blocked_systems.retain(|s| s != &sys_path)
-                }
-                NetworkStatus::AllowedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
                 NetworkStatus::SoftConnectionLimitExceeded => {
                     self.soft_connection_limit_exceeded += 1
                 }
@@ -1479,12 +1462,12 @@ pub mod net_test_helpers {
                 NetworkStatus::CriticalNetworkFailure => {
                     self.critical_network_failure += 1;
                 }
-                NetworkStatus::BlockedIpNet(net) => {
-                    self.blocked_ip_nets.push(net);
-                }
-                NetworkStatus::AllowedIpNet(net) => {
-                    self.blocked_ip_nets.retain(|ip_net| ip_net != &net);
-                }
+                NetworkStatus::BlockedIpNet(_) => {}
+                NetworkStatus::AllowedIpNet(_) => {}
+                NetworkStatus::AllowedIp(_) => {}
+                NetworkStatus::BlockedSystem(_) => {}
+                NetworkStatus::BlockedIp(_) => {}
+                NetworkStatus::AllowedSystem(_) => {}
             }
             Handled::Ok
         }

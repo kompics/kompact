@@ -233,7 +233,6 @@ mod tests {
 
     fn int_to_key(i: usize) -> [u8; 8] {
         let key: [u8; 8] = (i * 100).to_ne_bytes();
-        // let key: [u8; 8] = unsafe { std::mem::transmute(i * 100) };
         key
     }
 
