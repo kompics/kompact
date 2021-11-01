@@ -1462,12 +1462,12 @@ pub mod net_test_helpers {
                 NetworkStatus::CriticalNetworkFailure => {
                     self.critical_network_failure += 1;
                 }
-                NetworkStatus::BlockedIpNet(_) => {}
-                NetworkStatus::AllowedIpNet(_) => {}
-                NetworkStatus::AllowedIp(_) => {}
-                NetworkStatus::BlockedSystem(_) => {}
-                NetworkStatus::BlockedIp(_) => {}
-                NetworkStatus::AllowedSystem(_) => {}
+                NetworkStatus::BlockedIpNet(_) => (),
+                NetworkStatus::AllowedIpNet(_) => (),
+                NetworkStatus::AllowedIp(_) => (),
+                NetworkStatus::BlockedSystem(_) => (),
+                NetworkStatus::BlockedIp(_) => (),
+                NetworkStatus::AllowedSystem(_) => (),
             }
             Handled::Ok
         }
