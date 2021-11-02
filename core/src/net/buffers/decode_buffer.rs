@@ -79,9 +79,7 @@ impl DecodeBuffer {
 
     /// Returns true if there is data to be decoded, else false
     pub(crate) fn has_frame(&mut self) -> io::Result<bool> {
-        if self.decode_frame_head().is_err() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "framing error"));
-        }
+        self.decode_frame_head()?;
         if let Some(head) = &self.next_frame_head {
             if self.readable_len() >= head.content_length() {
                 return Ok(true);

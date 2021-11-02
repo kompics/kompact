@@ -10,6 +10,7 @@ use crate::{
     prelude::NetworkConfig,
 };
 use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
+use ipnet::IpNet;
 use mio::{Interest, Waker};
 pub use std::net::SocketAddr;
 use std::{io, net::IpAddr, panic, sync::Arc, thread, time::Duration};
@@ -85,7 +86,9 @@ impl SessionId {
 pub mod events {
 
     use crate::{messaging::DispatchData, net::SocketAddr};
+    use ipnet::IpNet;
     use std::net::IpAddr;
+
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
@@ -107,13 +110,17 @@ pub mod events {
         BlockSocket(SocketAddr),
         /// Tells the `NetworkThread` to block the `IpAddr`
         BlockIpAddr(IpAddr),
-        /// Tells the `NetworkThread` to block the `SocketAddr`
-        UnblockSocket(SocketAddr),
-        /// Tells the `NetworkThread` to block the `IpAddr`
-        UnblockIpAddr(IpAddr),
+        /// Tells the `NetworkThread` to allow the `IpNet`
+        BlockIpNet(IpNet),
+        /// Tells the `NetworkThread` to allow the `SocketAddr`
+        AllowSocket(SocketAddr),
+        /// Tells the `NetworkThread` to allow the `IpAddr`
+        AllowIpAddr(IpAddr),
+        /// Tells the `NetworkThread` to allow the `IpNet`
+        AllowIpNet(IpNet),
     }
 
-    /// Errors emitted byt the network `Bridge`
+    /// Errors emitted by the network `Bridge`
     #[derive(Debug)]
     pub enum NetworkError {
         /// The protocol is not supported in this implementation
@@ -352,18 +359,34 @@ impl Bridge {
         Ok(())
     }
 
-    /// Requests the NetworkThread to unblock the socket addr
-    pub fn unblock_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+    /// Requests the NetworkThread to block the ip subnet ip_net
+    pub fn block_ip_net(&self, ip_net: IpNet) -> Result<(), NetworkBridgeErr> {
         self.network_input_queue
-            .send(events::DispatchEvent::UnblockSocket(addr))?;
+            .send(events::DispatchEvent::BlockIpNet(ip_net))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests the NetworkThread to unblock the socket addr
+    pub fn allow_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::AllowSocket(addr))?;
         self.waker.wake()?;
         Ok(())
     }
 
     /// Requests the NetworkThread to unblock the ip address ip_addr
-    pub fn unblock_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeErr> {
+    pub fn allow_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeErr> {
         self.network_input_queue
-            .send(events::DispatchEvent::UnblockIpAddr(ip_addr))?;
+            .send(events::DispatchEvent::AllowIpAddr(ip_addr))?;
+        self.waker.wake()?;
+        Ok(())
+    }
+
+    /// Requests the NetworkThread to unblock the ip subnet ip_net
+    pub fn allow_ip_net(&self, ip_net: IpNet) -> Result<(), NetworkBridgeErr> {
+        self.network_input_queue
+            .send(events::DispatchEvent::AllowIpNet(ip_net))?;
         self.waker.wake()?;
         Ok(())
     }
@@ -478,7 +501,6 @@ pub mod net_test_helpers {
         cmp::Ordering,
         collections::VecDeque,
         fmt::{Debug, Formatter},
-        net::IpAddr,
         time::{Duration, SystemTime, UNIX_EPOCH},
     };
     use uuid::Uuid;
@@ -1288,10 +1310,6 @@ pub mod net_test_helpers {
         pub connected_systems: Vec<(SystemPath, SessionId)>,
         /// Contains all `SystemPath`'s received in a `ConnectionLost` or `ConnectionClosed` message
         pub disconnected_systems: Vec<(SystemPath, SessionId)>,
-        /// The blocked SystemPaths
-        pub blocked_systems: Vec<SystemPath>,
-        /// The blocked ip addresses
-        pub blocked_ip: Vec<IpAddr>,
         /// Counts the number of `SoftConnectionLimitExceeded` messages received
         pub soft_connection_limit_exceeded: u32,
         /// Counts the number of `HardConnectionLimitReached` messages received
@@ -1316,8 +1334,6 @@ pub mod net_test_helpers {
                 connection_closed: 0,
                 connected_systems: Vec::new(),
                 disconnected_systems: Vec::new(),
-                blocked_systems: Vec::new(),
-                blocked_ip: Vec::new(),
                 soft_connection_limit_exceeded: 0,
                 hard_connection_limit_reached: 0,
                 network_out_of_buffers: 0,
@@ -1437,12 +1453,6 @@ pub mod net_test_helpers {
                     self.connection_closed += 1;
                     self.disconnected_systems.push((system_path, session));
                 }
-                NetworkStatus::BlockedSystem(sys_path) => self.blocked_systems.push(sys_path),
-                NetworkStatus::BlockedIp(ip_addr) => self.blocked_ip.push(ip_addr),
-                NetworkStatus::UnblockedSystem(sys_path) => {
-                    self.blocked_systems.retain(|s| s != &sys_path)
-                }
-                NetworkStatus::UnblockedIp(ip_addr) => self.blocked_ip.retain(|ip| ip != &ip_addr),
                 NetworkStatus::SoftConnectionLimitExceeded => {
                     self.soft_connection_limit_exceeded += 1
                 }
@@ -1452,6 +1462,12 @@ pub mod net_test_helpers {
                 NetworkStatus::CriticalNetworkFailure => {
                     self.critical_network_failure += 1;
                 }
+                NetworkStatus::BlockedIpNet(_) => (),
+                NetworkStatus::AllowedIpNet(_) => (),
+                NetworkStatus::AllowedIp(_) => (),
+                NetworkStatus::BlockedSystem(_) => (),
+                NetworkStatus::BlockedIp(_) => (),
+                NetworkStatus::AllowedSystem(_) => (),
             }
             Handled::Ok
         }
