@@ -32,15 +32,25 @@ The Event is an `enum` with the following variants:
 
 * `ConnectionEstablished(SystemPath)` Indicates that a connection has been established to the remote system
 * `ConnectionLost(SystemPath)` Indicates that a connection has been lost to the remote system. The system will 
-  automatically try to recover the connection for a configurable amount of retries. The end of the automatic retries is 
-  signalled by a `ConnectionDropped` message.
+automatically try to recover the connection for a configurable amount of retries. The end of the automatic retries is 
+signalled by a `ConnectionDropped` message.
 * `ConnectionDropped(SystemPath)` Indicates that a connection has been dropped and no more automatic retries to 
-  re-establish the connection will be attempted and all queued messages have been dropped.
+re-establish the connection will be attempted and all queued messages have been dropped.
+* `ConnectionClosed(SystemPath)` Indicates that a connection has been gracefully closed, no automatic retries will be
+attempted.
+*  `SoftConnectionLimitReached` Indicates that the `SoftConnectionLimit` has been reached, the `NetworkThread` will 
+gracefully close the least-recently-used connection, and will continuously evict (gracefully) the LRU-connection when new 
+connection attempts (incoming or outgoing) are made.
+*  `HardConnectionLimitReached` Indicates that the `HardConnectionLimit` has been reached. New connection attempts will
+be discarded immediately until the number of connections are lower.
+*  `CriticalNetworkFailure` The `NetworkThread` has Panicked and will be restarted, any number of incoming and outgoing 
+messages may have been lost.
 * `BlockedSystem(SystemPath)` Indicates that a system has been blocked.
 * `BlockedIp(IpAddr)` Indicates that an IpAddr has been blocked.
-* `UnblockedSystem(SystemPath)` Indicates that a system has been unblocked after previously being blocked.
-* `UnblockedIp(IpAddr)` Indicates that an IpAddr has been unblocked after previously being blocked. Unblocking an IpAddr also unblocks
-all systems with that IpAddr.
+* `BlockedIpNet(IpNet)` Indicates that an IpAddr has been blocked.
+* `AllowedSystem(SystemPath)` Indicates that a system has been unblocked after previously being blocked.
+* `AllowedIp(IpAddr)` Indicates that an IpAddr has been unblocked after previously being blocked.
+* `AllowedIpNet(IpNet)` Indicates that an IpNet has been unblocked after previously being blocked.
 
 The Networking layer distinguishes between gracefully closed connections and lost connections. 
 A lost connection will trigger reconnection attempts for a configurable amount of times, before it is completely dropped. 
@@ -57,15 +67,31 @@ The event is an `enum` with the following variants:
 the only way a connection may be re-established between systems previously disconnected by a `DisconnectSystem` request.
 * `BlockSystem(SystemPath)` Request that a SystemPath to be blocked from this system. An established connection
 will be dropped and future attempts to establish a connection by that given SystemPath will be dropped.
-* `BlockIp(IpAddr)` Request an IpAddr to be blocked. An established connection
+* `BlockIp(IpAddr)` Request an IpAddr to be blocked. Established connections which become blocked
 will be dropped and future attempts to establish a connection by that given IpAddr will be dropped.
-* `UnblockSystem(SystemPath)` Request a System to be unblocked after previously being blocked.
-* `UnblockIp(IpAddr)` Request an IpAddr to be unblocked after previously being blocked.
+* `BlockIpNet(IpNet)` Request an IpNet to be blocked. Established connections which become blocked
+will be dropped and future attempts to establish connections to the IpNet be dropped.
+* `AllowSystem(SystemPath)` This acts as an allow-list for SystemPaths. Allowed SystemPaths will always take precedence
+over Blocked Ips or IpNets. This is the only way to undo a previously blocked SystemPath.
+* `AllowIp(IpAddr)` Request an IpAddr to be unblocked after previously being blocked.
 
-## Blocking and Unblocking
+## Blocking and Allowing
 
-A component that requires `NetworkStatusPort` can block a specific IP address or system. 
-By triggering the request `BlockIp(IpAddr)` on `NetworkStatusPort`, all connections to `IpAddr` will be dropped and future attempts to establish a connection will also be ignored.
-To only block a single system, one can use `BlockSystem(SystemPath)` which results in the same behavior but only targets the given `SystemPath` rather than all systems from a specific IP address.
-If we later want to unblock an IP address or a system that was previously blocked, the corresponding `UnblockIp` or `UnblockSystem` requests can be triggered on `NetworkStatusPort`.
-When the network thread has successfully blocked or unblocked an IP address or a system, a `BlockedIp`/`BlockedSystem` or `UnblockedIp`/`UnblockedSystem` indication will be triggered on the `NetworkStatusPort`.
+A component that requires `NetworkStatusPort` can block a specific IP address, Network or SystemPath. 
+By triggering the request `BlockIp(IpAddr)` or `BlockIpNet(IpNet)` on `NetworkStatusPort`, all connections to `IpAddr`
+will be dropped and future attempts to establish a connection will also be ignored.  
+
+The `BlockIp(IpAddr)` / `AllowIp(IpAddr)` / `BlockIpNet(IpNet)` / `AllowIpNet(IpNet)` are applied in the `NetworkThread`
+in the order they are received and produces a single block-list. Allowing the `IpAddr` `10.0.0.1` and then blocking the
+`IpNet` `10.0.0.0/24` means that the `IpAddr` will effectively become blocked. However, applying the same two operations
+in the reverse order means that the `IpAddr` will be allowed.  
+
+The `AllowSystem(SystemPath)` / `BlockSystem(SystemPath)` are somewhat different, as the `AllowSystem()` maintains a 
+separate allow-list which takes precedence over the `IpAddr`/`IpNet` block-list. So if the user first calls 
+`AllowSystem(10.0.0.1:8080)` and then calls `BlockIpNet(10.0.0.0/24)` the first `AllowSystem` will take precedence and
+connections to the System with the *canonical address* (listening ip:port) `10.0.0.1:8080` will remain unaffected.
+To undo a previously allowed system, or to block a specific `SystemPath`, one can use `BlockSystem(SystemPath)`.
+
+When the network thread has successfully blocked or unblocked an `IpAddr` / `IpNet` / `SystemPath`, a `BlockedIp` /
+`BlockedIpNet` / `BlockedSystem` or `AllowedIp` / `AllowedIpnet` / `AllowedSystem` indication will be triggered on the 
+`NetworkStatusPort`.
