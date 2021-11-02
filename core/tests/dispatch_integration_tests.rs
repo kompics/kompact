@@ -911,9 +911,11 @@ fn remote_lost_and_continued_connection() {
             (c.connected_systems[0].1, c.connected_systems[1].1)
         })
     };
-    ping_stream.on_definition(|c| {
-        assert_eq!(first_session, c.pong_system_paths[0].1);
-        assert_eq!(second_session, c.pong_system_paths[1].1);
+    pinger_1.on_definition(|c| {
+        assert_eq!(first_session, c.pong_system_session.unwrap());
+    });
+    pinger_2.on_definition(|c| {
+        assert_eq!(second_session, c.pong_system_session.unwrap());
     });
 
     pinger_system
