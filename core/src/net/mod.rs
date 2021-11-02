@@ -663,6 +663,8 @@ pub mod net_test_helpers {
         pub count: u64,
         eager: bool,
         promise: Option<KPromise<()>>,
+        /// Contains the first `SessionId` the Pinger received a message from
+        pub pong_system_session: Option<SessionId>,
     }
 
     impl PingerAct {
@@ -675,6 +677,7 @@ pub mod net_test_helpers {
                 count: 0,
                 eager: false,
                 promise: None,
+                pong_system_session: None,
             }
         }
 
@@ -687,6 +690,7 @@ pub mod net_test_helpers {
                 count: 0,
                 eager: true,
                 promise: None,
+                pong_system_session: None,
             }
         }
 
@@ -721,6 +725,9 @@ pub mod net_test_helpers {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            if self.pong_system_session.is_none() {
+                self.pong_system_session = msg.session();
+            }
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
@@ -1481,8 +1488,6 @@ pub mod net_test_helpers {
         target: ActorPath,
         period: Duration,
         timer: Option<ScheduledTimer>,
-        /// Contains all unique `(SystemPath, SessionId)`'s the PingStream has received Pong's from
-        pub pong_system_paths: Vec<(SystemPath, SessionId)>,
         /// Sent Ping messages
         pub ping_count: u64,
         /// Received Pong messages
@@ -1500,7 +1505,6 @@ pub mod net_test_helpers {
                 timer: None,
                 ping_count: 0,
                 pong_count: 0,
-                pong_system_paths: Vec::new(),
             }
         }
 
@@ -1544,21 +1548,10 @@ pub mod net_test_helpers {
         }
 
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
-            let sender = msg.sender.clone();
-            let session = msg.session;
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
                     self.pong_count += 1;
-                    if let Some(session_id) = session {
-                        if !self
-                            .pong_system_paths
-                            .contains(&(sender.system().clone(), session_id))
-                        {
-                            self.pong_system_paths
-                                .push((sender.system().clone(), session_id))
-                        }
-                    }
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
