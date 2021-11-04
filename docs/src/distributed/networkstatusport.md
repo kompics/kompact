@@ -82,9 +82,9 @@ By triggering the request `BlockIp(IpAddr)` or `BlockIpNet(IpNet)` on `NetworkSt
 will be dropped and future attempts to establish a connection will also be ignored.  
 
 The `BlockIp(IpAddr)` / `AllowIp(IpAddr)` / `BlockIpNet(IpNet)` / `AllowIpNet(IpNet)` are applied in the `NetworkThread`
-in the order they are received and produces a single block-list. Allowing the `IpAddr` `10.0.0.1` and then blocking the
-`IpNet` `10.0.0.0/24` means that the `IpAddr` will effectively become blocked. However, applying the same two operations
-in the reverse order means that the `IpAddr` will be allowed.  
+in the order they are received and produce a single block-list. For example, allowing the `IpAddr` `10.0.0.1` and then
+blocking the `IpNet` `10.0.0.0/24` means that the `IpAddr` will effectively become blocked. However, applying the same 
+two operations in the reverse order means that the `IpAddr` will be allowed.  
 
 The `AllowSystem(SystemPath)` / `BlockSystem(SystemPath)` are somewhat different, as the `AllowSystem()` maintains a 
 separate allow-list which takes precedence over the `IpAddr`/`IpNet` block-list. So if the user first calls 
