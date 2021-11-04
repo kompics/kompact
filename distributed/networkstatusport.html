@@ -202,11 +202,21 @@ automatically try to recover the connection for a configurable amount of retries
 signalled by a <code>ConnectionDropped</code> message.</li>
 <li><code>ConnectionDropped(SystemPath)</code> Indicates that a connection has been dropped and no more automatic retries to 
 re-establish the connection will be attempted and all queued messages have been dropped.</li>
+<li><code>ConnectionClosed(SystemPath)</code> Indicates that a connection has been gracefully closed, no automatic retries will be
+attempted.</li>
+<li><code>SoftConnectionLimitReached</code> Indicates that the <code>SoftConnectionLimit</code> has been reached, the <code>NetworkThread</code> will 
+gracefully close the least-recently-used connection, and will continuously evict (gracefully) the LRU-connection when new 
+connection attempts (incoming or outgoing) are made.</li>
+<li><code>HardConnectionLimitReached</code> Indicates that the <code>HardConnectionLimit</code> has been reached. New connection attempts will
+be discarded immediately until the number of connections are lower.</li>
+<li><code>CriticalNetworkFailure</code> The <code>NetworkThread</code> has Panicked and will be restarted, any number of incoming and outgoing 
+messages may have been lost.</li>
 <li><code>BlockedSystem(SystemPath)</code> Indicates that a system has been blocked.</li>
 <li><code>BlockedIp(IpAddr)</code> Indicates that an IpAddr has been blocked.</li>
-<li><code>UnblockedSystem(SystemPath)</code> Indicates that a system has been unblocked after previously being blocked.</li>
-<li><code>UnblockedIp(IpAddr)</code> Indicates that an IpAddr has been unblocked after previously being blocked. Unblocking an IpAddr also unblocks
-all systems with that IpAddr.</li>
+<li><code>BlockedIpNet(IpNet)</code> Indicates that an IpAddr has been blocked.</li>
+<li><code>AllowedSystem(SystemPath)</code> Indicates that a system has been unblocked after previously being blocked.</li>
+<li><code>AllowedIp(IpAddr)</code> Indicates that an IpAddr has been unblocked after previously being blocked.</li>
+<li><code>AllowedIpNet(IpNet)</code> Indicates that an IpNet has been unblocked after previously being blocked.</li>
 </ul>
 <p>The Networking layer distinguishes between gracefully closed connections and lost connections. 
 A lost connection will trigger reconnection attempts for a configurable amount of times, before it is completely dropped. 
@@ -221,17 +231,30 @@ The event is an <code>enum</code> with the following variants:</p>
 the only way a connection may be re-established between systems previously disconnected by a <code>DisconnectSystem</code> request.</li>
 <li><code>BlockSystem(SystemPath)</code> Request that a SystemPath to be blocked from this system. An established connection
 will be dropped and future attempts to establish a connection by that given SystemPath will be dropped.</li>
-<li><code>BlockIp(IpAddr)</code> Request an IpAddr to be blocked. An established connection
+<li><code>BlockIp(IpAddr)</code> Request an IpAddr to be blocked. Established connections which become blocked
 will be dropped and future attempts to establish a connection by that given IpAddr will be dropped.</li>
-<li><code>UnblockSystem(SystemPath)</code> Request a System to be unblocked after previously being blocked.</li>
-<li><code>UnblockIp(IpAddr)</code> Request an IpAddr to be unblocked after previously being blocked.</li>
+<li><code>BlockIpNet(IpNet)</code> Request an IpNet to be blocked. Established connections which become blocked
+will be dropped and future attempts to establish connections to the IpNet be dropped.</li>
+<li><code>AllowSystem(SystemPath)</code> This acts as an allow-list for SystemPaths. Allowed SystemPaths will always take precedence
+over Blocked Ips or IpNets. This is the only way to undo a previously blocked SystemPath.</li>
+<li><code>AllowIp(IpAddr)</code> Request an IpAddr to be unblocked after previously being blocked.</li>
 </ul>
-<h2 id="blocking-and-unblocking"><a class="header" href="#blocking-and-unblocking">Blocking and Unblocking</a></h2>
-<p>A component that requires <code>NetworkStatusPort</code> can block a specific IP address or system. 
-By triggering the request <code>BlockIp(IpAddr)</code> on <code>NetworkStatusPort</code>, all connections to <code>IpAddr</code> will be dropped and future attempts to establish a connection will also be ignored.
-To only block a single system, one can use <code>BlockSystem(SystemPath)</code> which results in the same behavior but only targets the given <code>SystemPath</code> rather than all systems from a specific IP address.
-If we later want to unblock an IP address or a system that was previously blocked, the corresponding <code>UnblockIp</code> or <code>UnblockSystem</code> requests can be triggered on <code>NetworkStatusPort</code>.
-When the network thread has successfully blocked or unblocked an IP address or a system, a <code>BlockedIp</code>/<code>BlockedSystem</code> or <code>UnblockedIp</code>/<code>UnblockedSystem</code> indication will be triggered on the <code>NetworkStatusPort</code>.</p>
+<h2 id="blocking-and-allowing"><a class="header" href="#blocking-and-allowing">Blocking and Allowing</a></h2>
+<p>A component that requires <code>NetworkStatusPort</code> can block a specific IP address, Network or SystemPath. 
+By triggering the request <code>BlockIp(IpAddr)</code> or <code>BlockIpNet(IpNet)</code> on <code>NetworkStatusPort</code>, all connections to <code>IpAddr</code>
+will be dropped and future attempts to establish a connection will also be ignored.</p>
+<p>The <code>BlockIp(IpAddr)</code> / <code>AllowIp(IpAddr)</code> / <code>BlockIpNet(IpNet)</code> / <code>AllowIpNet(IpNet)</code> are applied in the <code>NetworkThread</code>
+in the order they are received and produce a single block-list. For example, allowing the <code>IpAddr</code> <code>10.0.0.1</code> and then
+blocking the <code>IpNet</code> <code>10.0.0.0/24</code> means that the <code>IpAddr</code> will effectively become blocked. However, applying the same 
+two operations in the reverse order means that the <code>IpAddr</code> will be allowed.</p>
+<p>The <code>AllowSystem(SystemPath)</code> / <code>BlockSystem(SystemPath)</code> are somewhat different, as the <code>AllowSystem()</code> maintains a 
+separate allow-list which takes precedence over the <code>IpAddr</code>/<code>IpNet</code> block-list. So if the user first calls 
+<code>AllowSystem(10.0.0.1:8080)</code> and then calls <code>BlockIpNet(10.0.0.0/24)</code> the first <code>AllowSystem</code> will take precedence and
+connections to the System with the <em>canonical address</em> (listening ip:port) <code>10.0.0.1:8080</code> will remain unaffected.
+To undo a previously allowed system, or to block a specific <code>SystemPath</code>, one can use <code>BlockSystem(SystemPath)</code>.</p>
+<p>When the network thread has successfully blocked or unblocked an <code>IpAddr</code> / <code>IpNet</code> / <code>SystemPath</code>, a <code>BlockedIp</code> /
+<code>BlockedIpNet</code> / <code>BlockedSystem</code> or <code>AllowedIp</code> / <code>AllowedIpnet</code> / <code>AllowedSystem</code> indication will be triggered on the 
+<code>NetworkStatusPort</code>.</p>
 
                     </main>
 
