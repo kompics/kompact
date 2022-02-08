@@ -46,9 +46,14 @@ struct SimulationScenario {
 
 #[derive(Debug, Clone)]
 struct StochasticProcess {
-
+    relativeStartTime: bool,
+    startTime: u64,
+    startEvent: StochasticProcessStartEvent,
+    terminateEvent: StochasticProcessTerminatedEvent,
+    stochasticEvent: StochasticProcessEvent,
 }
 
+/*
 impl Serialisable for SimulationScenario {
     fn ser_id(&self) -> SerId {
         todo!();
@@ -83,11 +88,9 @@ impl Serialisable for StochasticProcess {
     fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
         todo!();
     }
-}
+}*/
 
 impl SimulationScenario {
-    const serialVersionUID: SerId = 0; // What to put this to?
-
     // get-random?
 
     pub fn new(init_seed: u64) -> Self {
