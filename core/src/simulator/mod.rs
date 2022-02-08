@@ -22,10 +22,10 @@ pub use crate::{
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 
-use lazy_static::lazy_static;
+//use lazy_static::lazy_static;
 
-use std::collections::LinkedList;
-use std::sync::Mutex;
+use std::collections::VecDeque;
+//use std::sync::Mutex;
 
 pub use bytes::{Buf, BufMut};
 pub use std::{
@@ -38,9 +38,10 @@ use stochastic::events::*;
 
 #[derive(Debug, Clone)]
 struct SimulationScenario {
-    processes: LinkedList<StochasticProcess>,
+    processes: VecDeque<StochasticProcess>,
     processCount: u32,
     terminatedEvent: Option<StochasticSimulationTerminatedEvent>,
+    rng: ChaCha20Rng,
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +85,27 @@ impl Serialisable for StochasticProcess {
     }
 }
 
+impl SimulationScenario {
+    const serialVersionUID: SerId = 0; // What to put this to?
+
+    // get-random?
+
+    pub fn new(init_seed: u64) -> Self {
+        SimulationScenario {
+            processes: VecDeque::new(),
+            processCount: 0,
+            terminatedEvent: Option::None,
+            rng: ChaCha20Rng::seed_from_u64(init_seed),
+        }
+    }
+
+    pub fn set_seed(&mut self, new_seed: u64){
+        self.rng = ChaCha20Rng::seed_from_u64(new_seed);
+    }
+}
+
+
+/*
 const INIT_SEED: u64 = 0;
 
 lazy_static!{
@@ -112,4 +134,6 @@ impl SimulationScenario {
         }
     }
 }
+*/
+
 
