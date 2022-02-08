@@ -120,6 +120,7 @@ pub mod routing;
 /// Kompact system runtime facilities, such as configuration and schedulers
 pub mod runtime;
 mod serialisation;
+mod simulator;
 mod supervision;
 /// Reusable timer facility internals
 pub mod timer;
