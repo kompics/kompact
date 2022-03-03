@@ -64,7 +64,7 @@
 //!     - While this feature is convenient, it may open up your system to DoS attacks via broadcast on high-level nodes (e.g. `tcp://1.2.3.4:8000/*`).
 //!     - If you are concered about this security risk, you can disable this feature by using `--no-default-features`.
 
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]
 #![allow(clippy::new_without_default)]
@@ -255,6 +255,9 @@ pub mod prelude {
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         supervision::{FaultContext, RecoveryHandler},
         Never,
+        simulator::{
+            SimulationScenario
+        }
     };
 
     pub use crate::{

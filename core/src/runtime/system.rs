@@ -109,7 +109,8 @@ impl KompactSystem {
             }
         }
         let mut wait_for: Option<KFuture<()>> = Some(disp_f);
-        while wait_for.is_some() {
+            while wait_for.is_some() {
+
             if sys.inner.is_poisoned() {
                 return Err(KompactError::Poisoned);
             }

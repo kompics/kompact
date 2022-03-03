@@ -1,0 +1,974 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'kompact'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=kompact"
+                ],
+                "filter": {
+                    "name": "kompact",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'dispatch_integration_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=dispatch_integration_tests",
+                    "--package=kompact"
+                ],
+                "filter": {
+                    "name": "dispatch_integration_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'extra_component_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=extra_component_tests",
+                    "--package=kompact"
+                ],
+                "filter": {
+                    "name": "extra_component_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'macro_compile_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=macro_compile_tests",
+                    "--package=kompact"
+                ],
+                "filter": {
+                    "name": "macro_compile_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'macro-test'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=macro-test",
+                    "--package=macro-test"
+                ],
+                "filter": {
+                    "name": "macro-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'macro-test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=macro-test",
+                    "--package=macro-test"
+                ],
+                "filter": {
+                    "name": "macro-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'protobuf-test'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=protobuf-test",
+                    "--package=protobuf-test"
+                ],
+                "filter": {
+                    "name": "protobuf-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'protobuf-test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=protobuf-test",
+                    "--package=protobuf-test"
+                ],
+                "filter": {
+                    "name": "protobuf-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dynamic-benches'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dynamic-benches"
+                ],
+                "filter": {
+                    "name": "dynamic-benches",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'network_latency_exec'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=network_latency_exec",
+                    "--package=dynamic-benches"
+                ],
+                "filter": {
+                    "name": "network_latency_exec",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'network_latency_exec'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=network_latency_exec",
+                    "--package=dynamic-benches"
+                ],
+                "filter": {
+                    "name": "network_latency_exec",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'actor_store'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=actor_store",
+                    "--package=dynamic-benches"
+                ],
+                "filter": {
+                    "name": "actor_store",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'datastructures'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=datastructures"
+                ],
+                "filter": {
+                    "name": "datastructures",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'kompact-examples'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "kompact-examples",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dynamic_components'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dynamic_components",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "dynamic_components",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dynamic_components'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dynamic_components",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "dynamic_components",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'buncher_config'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=buncher_config",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "buncher_config",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'buncher_config'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=buncher_config",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "buncher_config",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'load_balancer'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=load_balancer",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "load_balancer",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'load_balancer'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=load_balancer",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "load_balancer",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'buncher_regular'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=buncher_regular",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "buncher_regular",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'buncher_regular'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=buncher_regular",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "buncher_regular",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'logging_custom'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=logging_custom",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "logging_custom",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'logging_custom'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=logging_custom",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "logging_custom",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'logging'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=logging",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "logging",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'logging'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=logging",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "logging",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'counters'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=counters",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "counters",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'counters'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=counters",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "counters",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'workers_sender'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=workers_sender",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "workers_sender",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'workers_sender'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=workers_sender",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "workers_sender",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'leader_election'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=leader_election",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "leader_election",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'leader_election'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=leader_election",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "leader_election",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'unstable_counter'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=unstable_counter",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "unstable_counter",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'unstable_counter'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=unstable_counter",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "unstable_counter",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'buncher_adaptive'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=buncher_adaptive",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "buncher_adaptive",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'buncher_adaptive'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=buncher_adaptive",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "buncher_adaptive",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'serialisation'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=serialisation",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "serialisation",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'serialisation'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=serialisation",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "serialisation",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'workers'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=workers",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "workers",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'workers'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=workers",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "workers",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'helloworld'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=helloworld",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "helloworld",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'helloworld'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=helloworld",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "helloworld",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'counters_pool'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=counters_pool",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "counters_pool",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'counters_pool'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=counters_pool",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "counters_pool",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dns_resolver'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dns_resolver",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "dns_resolver",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dns_resolver'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dns_resolver",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "dns_resolver",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'counters_channel_pool'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=counters_channel_pool",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "counters_channel_pool",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'counters_channel_pool'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=counters_channel_pool",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "counters_channel_pool",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'actor_helloworld'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=actor_helloworld",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "actor_helloworld",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'actor_helloworld'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=actor_helloworld",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "actor_helloworld",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'bootstrapping'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=bootstrapping",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "bootstrapping",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'bootstrapping'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=bootstrapping",
+                    "--package=kompact-examples"
+                ],
+                "filter": {
+                    "name": "bootstrapping",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

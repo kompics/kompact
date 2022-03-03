@@ -1,171 +1,137 @@
-pub mod adaptor;
-pub mod core;
-pub mod events;
-pub mod instrumentation;
-pub mod network;
-pub mod result;
-pub mod run;
-pub mod scheduler;
-pub mod stochastic;
-pub mod util;
 
-pub use crate::{
-    serialisation::{
-        serialisation_ids, 
-        Deserialiser, 
-        SerError, 
-        SerId, 
-        Serialisable
+
+use super::*;
+use executors::*;
+use crate::{
+    runtime::*,
+};
+use std::{
+    collections::{
+        HashMap,
+        VecDeque
     },
-    simulator::{
-        adaptor::{
-            distributions::*,
+    rc::Rc,
+    cell::RefCell,
+    future::Future,
+    net::SocketAddr,
+    ops::Deref,
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
+    task::{Context, Poll},
+    time::Duration,
+};
+use log::{
+    debug,
+    warn,
+};
+use crossbeam_channel::unbounded;
+use async_task::*;
+
+#[derive(Clone)]
+struct SimulationScheduler(Rc<RefCell<SimulationSchedulerData>>);
+
+unsafe impl Sync for SimulationScheduler {}
+unsafe impl Send for SimulationScheduler {}
+
+pub struct SimulationSchedulerData {
+    queue: VecDeque<Arc<dyn CoreContainer>>,
+} 
+
+impl SimulationSchedulerData {
+    pub fn new() -> SimulationSchedulerData {
+        SimulationSchedulerData {
+            queue: VecDeque::new(),
         }
     }
-};
 
-use rand::prelude::*;
-use rand::{
-    Rng,
-    rngs::{StdRng},
-    distributions::{
-        Distribution,
-        Uniform,
+    pub fn simulate_step(&mut self) -> SchedulingDecision {
+        match self.queue.pop_front() {
+            Some(work) => work.execute(),
+            None => SchedulingDecision::NoWork
+        }
     }
-};
 
-//use rand_chacha::ChaCha20Rng;
-
-use lazy_static::lazy_static;
-
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
-
-pub use bytes::{Buf, BufMut};
-pub use std::{
-    any::Any,
-    convert::{From, Into},
-};
-
-use stochastic::events::*;
-
-const INIT_SEED: u64 = 0;
-
-lazy_static!{
-    static ref SEED: Mutex<u64> = Mutex::new(INIT_SEED);
-    static ref STATIC_RNG: Arc<Mutex<StdRng>> = Arc::new(Mutex::new(StdRng::seed_from_u64(INIT_SEED)));
+    pub fn simulate_to_completion(&mut self) {
+        while let Some(work) = self.queue.pop_front() {
+            println!("doing work");
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
-struct SimulationScenario {
-    processes: VecDeque<StochasticProcess>,
-    processCount: u32,
-    terminatedEvent: Option<StochasticSimulationTerminatedEvent>,
+impl Scheduler for SimulationScheduler {
+    fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
+        println!("schedule");
+        let mut data_ref = self.0.as_ref().borrow_mut();
+        data_ref.queue.push_back(c);
+    }
+
+    fn shutdown_async(&self) -> (){
+        println!("shutdown_async");
+        todo!();
+    }
+
+    fn shutdown(&self) -> Result<(), String>{
+        println!("shutdown");
+        todo!();
+    }
+
+    fn box_clone(&self) -> Box<dyn Scheduler>{
+        println!("box_clone");
+        Box::new(self.clone()) as Box<dyn Scheduler>
+    }
+
+    fn poison(&self) -> (){
+        println!("poison");
+        todo!();
+    }
+
+    fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> (){
+        println!("spawn");
+        todo!();
+    }
 }
 
-#[derive(Debug, Clone)]
-struct StochasticProcess {
-    relativeStartTime: bool,
-    startTime: u64,
-    startEvent: StochasticProcessStartEvent,
-    terminateEvent: StochasticProcessTerminatedEvent,
-    stochasticEvent: StochasticProcessEvent,
+fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
+
+    match c.execute() {
+        SchedulingDecision::Schedule => {
+            /*
+            if cfg!(feature = "use_local_executor") {
+                let res = try_execute_locally(move || maybe_reschedule(c));
+                assert!(!res.is_err(), "Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
+            } else {
+                let c2 = c.clone();
+                c.system().schedule(c2);
+            }*/
+        }
+        SchedulingDecision::Resume => maybe_reschedule(c),
+        _ => (),
+    }
+}
+
+pub struct SimulationScenario {
+    systems: Vec<KompactSystem>,
+    scheduler: SimulationScheduler,
 }
 
 impl SimulationScenario {
-    // get-random?
-
-    pub fn new(init_seed: u64) -> Self {
+    pub fn new() -> SimulationScenario {
         SimulationScenario {
-            processes: VecDeque::new(),
-            processCount: 0,
-            terminatedEvent: Option::None,
+            systems: Vec::new(),
+            scheduler: SimulationScheduler(Rc::new(RefCell::new(SimulationSchedulerData{
+                queue: VecDeque::new(),
+            }))),
         }
     }
 
-    pub fn set_seed(new_seed: u64){
-        let mut seed_ref = SEED.lock().unwrap();
-        *seed_ref = new_seed;
-        let mut random_ref = STATIC_RNG.lock().unwrap();
-        *random_ref = StdRng::seed_from_u64(new_seed);
-    }
+    pub fn spawn_system(&mut self, cfg: KompactConfig) -> KompactSystem{
+        let mut mut_cfg = cfg;
 
-    pub fn get_distribution<D: Distribution<i32>>(&mut self, distribution: D) -> SimulatorDistribution<D> {
-        SimulatorDistribution::new(distribution, Arc::clone(&STATIC_RNG))
+        let scheduler = self.scheduler.clone();
+        mut_cfg.scheduler(move |_| Box::new(scheduler.clone()));
+        mut_cfg.build().expect("system")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    pub use crate::{
-        simulator::*,
-    };
-
-    #[test]
-    fn uniform_distribution_test() {
-
-        let mut reproducible_sequence1 = Vec::new();
-        let mut reproducible_sequence2 = Vec::new();
-        
-        let r1 = 0..10;
-        let r2 = 10..20;
-
-        {
-            let mut ss : SimulationScenario = SimulationScenario::new(1234);
-            let u1 = ss.get_distribution(Uniform::from(0..10));
-            let u2 = ss.get_distribution(Uniform::from(10..20));
-    
-            for _ in 0..10 {
-                let throw1 = u1.draw();
-                let throw2 = u2.draw();
-
-                reproducible_sequence1.push(throw1);
-                reproducible_sequence2.push(throw2);
-                
-                assert!(r1.contains(&throw1));
-                assert!(r2.contains(&throw2));
-            }
-        }
-
-        let mut ss : SimulationScenario = SimulationScenario::new(1234);
-        let u1 = ss.get_distribution(Uniform::from(0..10));
-        let u2 = ss.get_distribution(Uniform::from(10..20));
-
-        for i in 0..10 {
-            let throw1 = u1.draw();
-            let throw2 = u2.draw();
-            
-            assert!(r1.contains(&throw1));
-            assert!(r2.contains(&throw2));
-
-            assert_eq!(reproducible_sequence1[i], throw1);
-            assert_eq!(reproducible_sequence2[i], throw2);
-        }
-    }
-}
-
-/*
-const INIT_SEED: u64 = 0;
-
-lazy_static!{
-    static ref SEED: Mutex<u64> = Mutex::new(INIT_SEED);
-    //TODO: Using chacha and not StdRng because its deterministic across platforms
-    static ref RANDOM: Mutex<ChaCha20Rng> = Mutex::new(ChaCha20Rng::seed_from_u64(INIT_SEED));
-}
-
-impl SimulationScenario {
-    const serialVersionUID: SerId = 0; // What to put this to?
-    
-
-
-    // get-random?
-
-    pub fn new() -> Self {
-        SimulationScenario {
-            processes: LinkedList::new(),
-            processCount: 0,
-            terminatedEvent: Option::None,
-        }
-    }
-}
-*/
