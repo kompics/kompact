@@ -1,11 +1,17 @@
 use super::*;
-use hierarchical_hash_wheel_timer::Timer as LowlevelTimer;
+use hierarchical_hash_wheel_timer::{
+    Timer as LowlevelTimer,
+};
+
 use std::{
     collections::HashMap,
     fmt,
     rc::Rc,
     sync::{Arc, Weak},
     time::Duration,
+    thread::{
+        current,
+    },
 };
 use uuid::Uuid;
 
@@ -14,7 +20,7 @@ use crate::*;
 /// A factory trait to produce instances of [TimerRef](timer::TimerRef)
 pub trait TimerRefFactory {
     /// Returns the timer reference for associated with this factory
-    fn timer_ref(&self) -> TimerRef;
+    fn timer_ref(&mut self) -> TimerRefWrapper;
 }
 
 /// Opaque reference to a scheduled instance of a timer
@@ -32,6 +38,7 @@ impl ScheduledTimer {
         ScheduledTimer(id)
     }
 }
+
 
 /// API exposed within a component by a timer implementation
 ///
@@ -213,13 +220,21 @@ pub(crate) enum ExecuteAction<C: ComponentDefinition> {
 }
 
 pub(crate) struct TimerManager<C: ComponentDefinition> {
-    timer: timer::TimerRef,
+    timer: TimerRefWrapper,
     timer_queue: Arc<ConcurrentQueue<Timeout>>,
     handles: HashMap<Uuid, TimerHandle<C>>,
 }
 
 impl<C: ComponentDefinition> TimerManager<C> {
-    pub(crate) fn new(timer: timer::TimerRef) -> TimerManager<C> {
+    pub(crate) fn new(timer: TimerRefWrapper) -> TimerManager<C> {
+        match current().name() {
+            None => println!("NEW TIMER No thread name"),
+            Some(thread_name) => {
+                println!("NEW TIMER Thread name: {}", thread_name)
+            },
+        };
+
+
         TimerManager {
             timer,
             timer_queue: Arc::new(ConcurrentQueue::new()),
@@ -352,6 +367,7 @@ impl TimerActorRef {
             (Some(q), Some(c)) => {
                 let res = c.core().increment_work();
                 q.push(timeout);
+                println!("TIMER");
                 if let SchedulingDecision::Schedule = res {
                     let system = c.core().system();
                     system.schedule(c.clone());

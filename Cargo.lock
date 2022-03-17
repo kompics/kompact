@@ -1161,6 +1161,7 @@ dependencies = [
  "as_num",
  "async-std",
  "async-task",
+ "backtrace",
  "bitfields",
  "bytes",
  "core_affinity",

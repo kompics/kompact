@@ -4,6 +4,10 @@ use super::*;
 use executors::*;
 use crate::{
     runtime::*,
+    timer::{
+        timer_manager::TimerRefFactory,
+
+    }
 };
 use std::{
     collections::{
@@ -22,6 +26,10 @@ use std::{
     },
     task::{Context, Poll},
     time::Duration,
+    thread::{
+        current,
+    },
+    mem::drop,
 };
 use log::{
     debug,
@@ -30,6 +38,13 @@ use log::{
 use crossbeam_channel::unbounded;
 use async_task::*;
 
+use std::io::{stdin,stdout,Write};
+
+use config_keys::*;
+
+use backtrace::Backtrace;
+
+
 #[derive(Clone)]
 struct SimulationScheduler(Rc<RefCell<SimulationSchedulerData>>);
 
@@ -37,78 +52,97 @@ unsafe impl Sync for SimulationScheduler {}
 unsafe impl Send for SimulationScheduler {}
 
 pub struct SimulationSchedulerData {
+    setup: bool,
     queue: VecDeque<Arc<dyn CoreContainer>>,
 } 
 
 impl SimulationSchedulerData {
     pub fn new() -> SimulationSchedulerData {
         SimulationSchedulerData {
+            setup: true, 
             queue: VecDeque::new(),
-        }
-    }
-
-    pub fn simulate_step(&mut self) -> SchedulingDecision {
-        match self.queue.pop_front() {
-            Some(work) => work.execute(),
-            None => SchedulingDecision::NoWork
-        }
-    }
-
-    pub fn simulate_to_completion(&mut self) {
-        while let Some(work) = self.queue.pop_front() {
-            println!("doing work");
         }
     }
 }
 
 impl Scheduler for SimulationScheduler {
     fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
-        println!("schedule");
-        let mut data_ref = self.0.as_ref().borrow_mut();
-        data_ref.queue.push_back(c);
+        match current().name() {
+            None => println!("No thread name"),
+            Some(thread_name) => {
+                println!("Thread name: {}", thread_name)
+            },
+        }
+
+        println!("Component Definition Type Name: {}", c.type_name());
+
+        if self.0.as_ref().borrow().setup {
+            c.execute();
+        } else {
+            self.0.as_ref().borrow_mut().queue.push_back(c);
+        }
     }
 
     fn shutdown_async(&self) -> (){
-        println!("shutdown_async");
+        println!("TODO shutdown_async");
         todo!();
     }
 
     fn shutdown(&self) -> Result<(), String>{
-        println!("shutdown");
+        println!("TODO shutdown");
         todo!();
     }
 
     fn box_clone(&self) -> Box<dyn Scheduler>{
-        println!("box_clone");
+        println!("TODO box_clone");
         Box::new(self.clone()) as Box<dyn Scheduler>
     }
 
     fn poison(&self) -> (){
-        println!("poison");
+        println!("TODO poison");
         todo!();
     }
 
     fn spawn(&self, future: futures::future::BoxFuture<'static, ()>) -> (){
-        println!("spawn");
+        println!("TODO spawn");
         todo!();
     }
 }
 
-fn maybe_reschedule(c: Arc<dyn CoreContainer>) {
+#[derive(Clone)]
+struct SimulationTimer(Rc<RefCell<SimulationTimerData>>);
 
-    match c.execute() {
-        SchedulingDecision::Schedule => {
-            /*
-            if cfg!(feature = "use_local_executor") {
-                let res = try_execute_locally(move || maybe_reschedule(c));
-                assert!(!res.is_err(), "Only run with Executors that can support local execute or remove the avoid_executor_lookups feature!");
-            } else {
-                let c2 = c.clone();
-                c.system().schedule(c2);
-            }*/
+unsafe impl Sync for SimulationTimer {}
+unsafe impl Send for SimulationTimer {}
+
+struct SimulationTimerData{
+    inner: timer::SimulationTimer,
+}
+
+impl SimulationTimerData {
+    pub(crate) fn new() -> SimulationTimerData {
+        SimulationTimerData {
+            inner: timer::SimulationTimer::new(),
         }
-        SchedulingDecision::Resume => maybe_reschedule(c),
-        _ => (),
+    }
+}
+
+impl TimerRefFactory for SimulationTimer {
+    fn timer_ref(&mut self) -> TimerRefWrapper {
+        TimerRefWrapper::new(Box::new(self.0.clone()))
+    }
+}
+
+impl TimerComponent for SimulationTimer{
+    fn shutdown(&self) -> Result<(), String> {
+        todo!();
+    }
+}
+
+impl SimulationTimer {
+    pub(crate) fn new_timer_component() -> Box<dyn TimerComponent> {
+        let t = SimulationTimer(Rc::new(RefCell::new(SimulationTimerData::new())));
+        Box::new(t) as Box<dyn TimerComponent>
     }
 }
 
@@ -121,17 +155,38 @@ impl SimulationScenario {
     pub fn new() -> SimulationScenario {
         SimulationScenario {
             systems: Vec::new(),
-            scheduler: SimulationScheduler(Rc::new(RefCell::new(SimulationSchedulerData{
-                queue: VecDeque::new(),
-            }))),
+            scheduler: SimulationScheduler(Rc::new(RefCell::new(SimulationSchedulerData::new()))),
         }
     }
 
-    pub fn spawn_system(&mut self, cfg: KompactConfig) -> KompactSystem{
+    pub fn spawn_system(&mut self, cfg: KompactConfig) -> KompactSystem {
         let mut mut_cfg = cfg;
-
+        KompactConfig::set_config_value(&mut mut_cfg, &config_keys::system::THREADS, 1);
         let scheduler = self.scheduler.clone();
-        mut_cfg.scheduler(move |_| Box::new(scheduler.clone()));
+        mut_cfg.scheduler(move |_| Box::new(scheduler.clone()));      
+        mut_cfg.timer::<SimulationTimer, _>(SimulationTimer::new_timer_component);
         mut_cfg.build().expect("system")
+    }
+
+    pub fn end_setup(&mut self) -> () {
+        let mut data_ref = self.scheduler.0.as_ref().borrow_mut();
+        data_ref.setup = false;
+    }
+
+    fn get_work(&mut self) -> Option<Arc<dyn CoreContainer>> {
+        let mut data_ref = self.scheduler.0.as_ref().borrow_mut();
+        data_ref.queue.pop_front()
+    }
+
+    pub fn simulate_step(&mut self) -> SchedulingDecision {
+        match self.get_work(){
+            Some(w) => w.execute(),
+            None => SchedulingDecision::NoWork
+        }
+    }
+    pub fn simulate_to_completion(&mut self) {
+        loop {
+            self.simulate_step();
+        }
     }
 }

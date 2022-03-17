@@ -550,6 +550,7 @@ impl KompactConfig {
         self.throughput = conf.get_or_default(&keys::THROUGHPUT)?;
         self.msg_priority = conf.get_or_default(&keys::MESSAGE_PRIORITY)?;
         self.threads = conf.get_or_default(&keys::THREADS)?;
+        println!("THREADSSSS {}", self.threads);
         let scheduler_option = conf.get_or_default(&keys::SCHEDULER)?;
         match scheduler_option.as_ref() {
             "auto" => {

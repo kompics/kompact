@@ -65,6 +65,7 @@ lazy_static                     = "1.4.0"
 rand                            = "0.8.0"
 rand_chacha                     = "0.3.1"
 async-task                      = "4.1.0"
+backtrace                       = "0.3"
 
 # Optional
 protobuf 						= {version = "2", optional = true, features = ["with-bytes"]}

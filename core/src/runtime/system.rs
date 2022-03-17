@@ -642,6 +642,7 @@ impl KompactSystem {
     /// # system.shutdown().expect("shutdown");
     /// ```
     pub fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        println!("start");
         self.inner.assert_not_poisoned();
         c.enqueue_control(ControlEvent::Start);
     }
@@ -1081,7 +1082,7 @@ impl ActorPathFactory for KompactSystem {
 }
 
 impl TimerRefFactory for KompactSystem {
-    fn timer_ref(&self) -> timer::TimerRef {
+    fn timer_ref(&mut self) -> TimerRefWrapper {
         self.inner.assert_not_poisoned();
         self.inner.timer_ref()
     }
@@ -1826,7 +1827,7 @@ impl KompactRuntime {
         }
     }
 
-    fn timer_ref(&self) -> timer::TimerRef {
+    fn timer_ref(&self) -> TimerRefWrapper {
         self.timer.timer_ref()
     }
 

@@ -505,6 +505,7 @@ impl NetworkDispatcher {
     fn schedule_reaper(&mut self) {
         if !self.reaper.is_scheduled() {
             // First time running; mark as scheduled and jump straight to scheduling
+            println!("schedule_reaper");
             self.reaper.schedule();
         } else {
             // Repeated schedule; prune deallocated ActorRefs and update strategy accordingly

@@ -16,6 +16,7 @@ where
     CD: ComponentTraits + ComponentLifecycle,
 {
     fn wake_by_ref(arc_self: &Arc<Self>) {
+        println!("wake by ref");
         arc_self.schedule()
     }
 }
