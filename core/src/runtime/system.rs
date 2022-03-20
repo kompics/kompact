@@ -1082,7 +1082,7 @@ impl ActorPathFactory for KompactSystem {
 }
 
 impl TimerRefFactory for KompactSystem {
-    fn timer_ref(&mut self) -> TimerRefWrapper {
+    fn timer_ref(&self) -> timer::TimerRef {
         self.inner.assert_not_poisoned();
         self.inner.timer_ref()
     }
@@ -1827,7 +1827,7 @@ impl KompactRuntime {
         }
     }
 
-    fn timer_ref(&self) -> TimerRefWrapper {
+    fn timer_ref(&self) -> timer::TimerRef {
         self.timer.timer_ref()
     }
 

@@ -20,7 +20,7 @@ use crate::*;
 /// A factory trait to produce instances of [TimerRef](timer::TimerRef)
 pub trait TimerRefFactory {
     /// Returns the timer reference for associated with this factory
-    fn timer_ref(&mut self) -> TimerRefWrapper;
+    fn timer_ref(&self) -> TimerRef;
 }
 
 /// Opaque reference to a scheduled instance of a timer
@@ -220,13 +220,13 @@ pub(crate) enum ExecuteAction<C: ComponentDefinition> {
 }
 
 pub(crate) struct TimerManager<C: ComponentDefinition> {
-    timer: TimerRefWrapper,
+    timer: TimerRef,
     timer_queue: Arc<ConcurrentQueue<Timeout>>,
     handles: HashMap<Uuid, TimerHandle<C>>,
 }
 
 impl<C: ComponentDefinition> TimerManager<C> {
-    pub(crate) fn new(timer: TimerRefWrapper) -> TimerManager<C> {
+    pub(crate) fn new(timer: TimerRef) -> TimerManager<C> {
         match current().name() {
             None => println!("NEW TIMER No thread name"),
             Some(thread_name) => {

@@ -109,7 +109,6 @@ impl Scheduler for SimulationScheduler {
     }
 }
 
-#[derive(Clone)]
 struct SimulationTimer(Rc<RefCell<SimulationTimerData>>);
 
 unsafe impl Sync for SimulationTimer {}
@@ -128,8 +127,8 @@ impl SimulationTimerData {
 }
 
 impl TimerRefFactory for SimulationTimer {
-    fn timer_ref(&mut self) -> TimerRefWrapper {
-        TimerRefWrapper::new(Box::new(self.0.clone()))
+    fn timer_ref(&self) -> timer::TimerRef {
+        self.0.as_ref().borrow_mut().inner.timer_ref()
     }
 }
 
@@ -184,6 +183,7 @@ impl SimulationScenario {
             None => SchedulingDecision::NoWork
         }
     }
+
     pub fn simulate_to_completion(&mut self) {
         loop {
             self.simulate_step();

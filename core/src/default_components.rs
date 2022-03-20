@@ -68,32 +68,6 @@ impl SystemComponents for DefaultComponents {
     }
 }
 
-pub struct TimerRefWrapper {
-    pub inner_ref: Box<timer::TimerCore>,
-}
-
-unsafe impl Sync for TimerRefWrapper {}
-unsafe impl Send for TimerRefWrapper {}
-
-impl TimerRefWrapper {
-    pub fn new(inner: Box<timer::TimerCore>) -> Self{
-        TimerRefWrapper {
-            inner_ref: inner,
-        }
-    }
-    pub fn schedule_once (&mut self, timeout: Duration, state: ActorRefState) {
-        self.inner_ref.schedule_once(timeout, state)
-    }
-
-    pub fn schedule_periodic (&mut self, delay: Duration, period: Duration, state: ActorRefState) {
-        self.inner_ref.schedule_periodic(delay, period, state)
-    }
-
-    pub fn cancel(&mut self, id: &Uuid) {
-        self.inner_ref.cancel(id);
-    }
-}
-
 pub(crate) struct DefaultTimer {
     inner: timer::TimerWithThread,
 }
@@ -112,8 +86,8 @@ impl DefaultTimer {
 }
 
 impl TimerRefFactory for DefaultTimer {
-    fn timer_ref(&mut self) -> TimerRefWrapper {
-        TimerRefWrapper::new(Box::new(self.inner.timer_ref()))
+    fn timer_ref(&self) -> timer::TimerRef {
+        self.inner.timer_ref()
     }
 }
 impl TimerComponent for DefaultTimer {
