@@ -227,13 +227,6 @@ pub(crate) struct TimerManager<C: ComponentDefinition> {
 
 impl<C: ComponentDefinition> TimerManager<C> {
     pub(crate) fn new(timer: TimerRef) -> TimerManager<C> {
-        match current().name() {
-            None => println!("NEW TIMER No thread name"),
-            Some(thread_name) => {
-                println!("NEW TIMER Thread name: {}", thread_name)
-            },
-        };
-
 
         TimerManager {
             timer,

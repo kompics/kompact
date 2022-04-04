@@ -257,7 +257,11 @@ pub mod prelude {
         supervision::{FaultContext, RecoveryHandler},
         Never,
         simulator::{
-            SimulationScenario
+            SimulationScenario,
+            simulation_network_dispatcher::{
+                SimulationNetworkConfig,
+                SimulationNetworkDispatcher
+            }
         }
     };
 

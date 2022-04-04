@@ -207,6 +207,7 @@ impl Bridge {
     ) -> (Self, SocketAddr) {
         let (sender, receiver) = channel();
         let (shutdown_p, shutdown_f) = promise();
+        println!("ADDR BEFORE THREAD: {}", addr.port());
         match NetworkThreadBuilder::new(
             network_thread_log,
             addr,
@@ -280,6 +281,10 @@ impl Bridge {
 
     /// Returns the local address if already bound
     pub fn local_addr(&self) -> &Option<SocketAddr> {
+        match self.bound_address {
+            Some(addr) => println!("bound_address {}", addr.ip()),
+            None => println!("NO bound_address"),
+        }
         &self.bound_address
     }
 

@@ -152,7 +152,7 @@ impl<CD: ComponentTraits> Component<CD> {
     pub(crate) fn enqueue_control(&self, event: ControlEvent) -> () {
         let res = self.core.increment_work(); // must do it in this order to maintain counting guarantees
         self.ctrl_queue.push(event);
-        println!("ELLOOOO");
+        //println!("ELLOOOO");
         if let SchedulingDecision::Schedule = res {
             self.schedule();
         }
@@ -268,31 +268,31 @@ impl<CD: ComponentTraits> Component<CD> {
                         .run_blocking_task()
                         .or_from(|| self.core.get_scheduling_decision());
                 }
-                println!("before first loop inner execute");
+                //println!("before first loop inner execute");
                 let mut count: usize = 0;
                 while let Ok(event) = self.ctrl_queue.pop() {
                     // ignore max_events for lifecyle events
                     // println!("Executing event: {:?}", event);
                     let res = match event {
                         lifecycle::ControlEvent::Start => {
-                            println!("Start");
+                            //println!("Start");
                             lifecycle::set_active(&self.core.state);
                             debug!(self.logger, "Component started.");
-                            println!("between set_active and on_start");
+                            //println!("between set_active and on_start");
                             let res = guard.definition.on_start();
-                            println!("after on_start");
+                            //println!("after on_start");
                             count += 1;
                             // inform supervisor after local handling to make sure crashing component don't count as started
                             if let Some(ref supervisor) = self.supervisor {
-                                println!("begin if on Start");
+                                //println!("begin if on Start");
                                 let supervisor_msg = SupervisorMsg::Started(self.core.component());
                                 supervisor.enqueue(supervisor_msg);
                             }
-                            println!("end Start");
+                            //println!("end Start");
                             res
                         }
                         lifecycle::ControlEvent::Stop => {
-                            println!("Stop");
+                            //println!("Stop");
                             lifecycle::set_passive(&self.core.state);
                             debug!(self.logger, "Component stopping");
                             let res = guard.definition.on_stop();
@@ -304,7 +304,7 @@ impl<CD: ComponentTraits> Component<CD> {
                             res
                         }
                         lifecycle::ControlEvent::Kill => {
-                            println!("Kill");
+                            //println!("Kill");
                             lifecycle::set_destroyed(&self.core.state);
                             debug!(self.logger, "Component dying");
                             let res = guard.definition.on_kill();
@@ -316,7 +316,7 @@ impl<CD: ComponentTraits> Component<CD> {
                             res
                         }
                         lifecycle::ControlEvent::Poll(tag) => {
-                            println!("Poll");
+                            //println!("Poll");
                             let res = guard.definition.ctx_mut().run_nonblocking_task(tag);
                             count += 1;
                             res
@@ -350,7 +350,7 @@ impl<CD: ComponentTraits> Component<CD> {
                         }
                     }
                 }
-                println!("after first loop inner execute");
+                //println!("after first loop inner execute");
                 if !lifecycle::is_active(&self.core.state) {
                     trace!(self.logger, "Not running inactive scheduled.");
                     return self.core.decrement_work(count);
@@ -506,7 +506,7 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
     }
 
     fn execute(&self) -> SchedulingDecision {
-        println!("execute begin");
+        //println!("execute begin");
         match self.core.load_state() {
             LifecycleState::Destroyed => return SchedulingDecision::NoWork, // don't execute anything
             LifecycleState::Faulty => {
@@ -518,9 +518,9 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
             }
             _ => (), // it's fine to continue
         }
-        println!("Before inner execute");
+        //println!("Before inner execute");
         let res = panic::catch_unwind(panic::AssertUnwindSafe(|| self.inner_execute()));
-        println!("After inner execute");
+        //println!("After inner execute");
         match res {
             Ok(decision) => decision, // great
             Err(e) => {
@@ -571,7 +571,7 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
             Some(ref scheduler) => scheduler.schedule_custom(),
             None => {
                 let core = self.core();
-                println!("ACTUAL COMP");
+                //println!("ACTUAL COMP");
                 core.system().schedule(core.component())
             }
         }

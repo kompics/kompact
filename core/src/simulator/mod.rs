@@ -1,13 +1,22 @@
 
 
+use self::{simulation_network::SimulationNetwork, simulation_network_dispatcher::{SimulationNetworkConfig, SimulationNetworkDispatcher}};
+
 use super::*;
+use arc_swap::ArcSwap;
 use executors::*;
+use messaging::{DispatchEnvelope, RegistrationResult};
+use prelude::{NetworkConfig, NetworkStatusPort};
+use rustc_hash::FxHashMap;
+pub mod simulation_network_dispatcher;
+pub mod simulation_bridge;
+pub mod simulation_network;
 use crate::{
     runtime::*,
     timer::{
         timer_manager::TimerRefFactory,
 
-    }
+    }, net::{ConnectionState, buffers::BufferChunk}, lookup::ActorStore, dispatch::queue_manager::QueueManager, serde_serialisers::Serde
 };
 use std::{
     collections::{
@@ -44,6 +53,7 @@ use config_keys::*;
 
 use backtrace::Backtrace;
 
+type SimulationNetHashMap<K, V> = FxHashMap<K, V>;
 
 #[derive(Clone)]
 struct SimulationScheduler(Rc<RefCell<SimulationSchedulerData>>);
@@ -67,14 +77,8 @@ impl SimulationSchedulerData {
 
 impl Scheduler for SimulationScheduler {
     fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
-        match current().name() {
-            None => println!("No thread name"),
-            Some(thread_name) => {
-                println!("Thread name: {}", thread_name)
-            },
-        }
 
-        println!("Component Definition Type Name: {}", c.type_name());
+        //println!("Component Definition Type Name: {}", c.type_name());
 
         if self.0.as_ref().borrow().setup {
             c.execute();
@@ -109,6 +113,7 @@ impl Scheduler for SimulationScheduler {
     }
 }
 
+#[derive(Clone)]
 struct SimulationTimer(Rc<RefCell<SimulationTimerData>>);
 
 unsafe impl Sync for SimulationTimer {}
@@ -138,16 +143,91 @@ impl TimerComponent for SimulationTimer{
     }
 }
 
-impl SimulationTimer {
+/* impl SimulationTimer {
     pub(crate) fn new_timer_component() -> Box<dyn TimerComponent> {
         let t = SimulationTimer(Rc::new(RefCell::new(SimulationTimerData::new())));
         Box::new(t) as Box<dyn TimerComponent>
     }
+}*/
+/* 
+#[derive(ComponentDefinition)]
+pub struct SimulationNetworkDispatcher {
+    ctx: ComponentContext<SimulationNetworkDispatcher>,
+    /// Local map of connection statuses
+    connections: SimulationNetHashMap<SocketAddr, ConnectionState>,
+    /// Network configuration for this dispatcher
+    cfg: NetworkConfig,
+    /// Shared lookup structure for mapping [actor paths](ActorPath) and [actor refs](ActorRef)
+    lookup: Arc<ArcSwap<ActorStore>>,
+    // Fields initialized at [Start](ControlEvent::Start) – they require ComponentContextual awareness
+    /// Bridge into asynchronous networking layer
+    net_bridge: Option<net::Bridge>,
+    /// A cached version of the bound system path
+    system_path: Option<SystemPath>,
+    /// Management for queuing Frames during network unavailability (conn. init. and MPSC unreadiness)
+    queue_manager: QueueManager,
+    /// Reaper which cleans up deregistered actor references in the actor lookup table
+    reaper: lookup::gc::ActorRefReaper,
+    notify_ready: Option<KPromise<()>>,
+    /// Stores the number of retry-attempts for connections. Checked and incremented periodically by the reaper.
+    retry_map: FxHashMap<SocketAddr, u8>,
+    garbage_buffers: VecDeque<BufferChunk>,
+    /// The dispatcher emits NetworkStatusUpdates to the `NetworkStatusPort`.
+    network_status_port: ProvidedPort<NetworkStatusPort>,
 }
+
+impl NetworkActor for SimulationNetworkDispatcher{
+    type Message = DispatchEnvelope;
+
+    type Deserialiser = Serde;
+
+    fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> Handled {
+        todo!()
+    }
+
+    fn on_error(&mut self, error: prelude::UnpackError<prelude::NetMessage>) -> Handled {
+        warn!(
+            "{} {} {} {}", self.log(),
+            "Could not deserialise a message with Deserialiser with id={}. Error was: {:?}",
+            Self::Deserialiser::SER_ID,
+            error
+        );
+        Handled::Ok
+    }
+}
+
+impl ComponentLifecycle for SimulationNetworkDispatcher {
+    fn on_start(&mut self) -> Handled
+    where
+        Self: 'static,
+    {
+        debug!("{} {}", self.log(), "Starting...");
+        Handled::Ok
+    }
+
+    fn on_stop(&mut self) -> Handled
+    where
+        Self: 'static,
+    {
+        debug!("{} {}", self.log(), "Stopping...");
+        Handled::Ok
+    }
+
+    fn on_kill(&mut self) -> Handled
+    where
+        Self: 'static,
+    {
+        debug!("{} {}", self.log(), "Killing...");
+        Handled::Ok
+    }
+}*/
+
 
 pub struct SimulationScenario {
     systems: Vec<KompactSystem>,
     scheduler: SimulationScheduler,
+    timer: SimulationTimer,
+    network: Arc<Mutex<SimulationNetwork>>
 }
 
 impl SimulationScenario {
@@ -155,6 +235,9 @@ impl SimulationScenario {
         SimulationScenario {
             systems: Vec::new(),
             scheduler: SimulationScheduler(Rc::new(RefCell::new(SimulationSchedulerData::new()))),
+            timer: SimulationTimer(Rc::new(RefCell::new(SimulationTimerData::new()))),
+            //network: Rc::new(RefCell::new(SimulationNetwork::new()))
+            network: Arc::new(Mutex::new(SimulationNetwork::new()))
         }
     }
 
@@ -162,9 +245,13 @@ impl SimulationScenario {
         let mut mut_cfg = cfg;
         KompactConfig::set_config_value(&mut mut_cfg, &config_keys::system::THREADS, 1);
         let scheduler = self.scheduler.clone();
-        mut_cfg.scheduler(move |_| Box::new(scheduler.clone()));      
-        mut_cfg.timer::<SimulationTimer, _>(SimulationTimer::new_timer_component);
-        mut_cfg.build().expect("system")
+        mut_cfg.scheduler(move |_| Box::new(scheduler.clone()));
+        let timer = self.timer.clone();
+        mut_cfg.timer::<SimulationTimer, _>(move || Box::new(timer.clone()));
+        let dispatcher = SimulationNetworkConfig::default().build(self.network.clone());
+        mut_cfg.system_components(DeadletterBox::new, dispatcher);
+        let system = mut_cfg.build().expect("system");
+        system
     }
 
     pub fn end_setup(&mut self) -> () {
@@ -177,9 +264,32 @@ impl SimulationScenario {
         data_ref.queue.pop_front()
     }
 
+    pub fn create_and_register<C, F>(
+        &self,
+        sys: KompactSystem,
+        f: F,
+    ) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        sys.create_and_register(f)
+    }
+
+    /*fn register_system_to_simulated_network(&mut self, dispatcher: SimulationNetworkDispatcher) -> () {
+        self.network.lock().unwrap().register_system(dispatcher., actor_store)
+    }*/
+
+    pub fn get_simulated_network(&self) -> Arc<Mutex<SimulationNetwork>>{
+        self.network.clone()
+    }
+
     pub fn simulate_step(&mut self) -> SchedulingDecision {
         match self.get_work(){
-            Some(w) => w.execute(),
+            Some(w) => {
+                //println!("EXECUTING SOMETHING!!!!!!!!!!!!!!!!");
+                w.execute()
+            },
             None => SchedulingDecision::NoWork
         }
     }

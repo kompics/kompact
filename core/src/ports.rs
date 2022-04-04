@@ -392,7 +392,7 @@ impl<P: Port + 'static> ProvidedRef<P> {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(event);
-                println!("PROVIDED REF");
+                //println!("PROVIDED REF");
                 if let SchedulingDecision::Schedule = sd {
                     let system = c.core().system();
                     system.schedule(c.clone());
@@ -465,7 +465,7 @@ impl<P: Port + 'static> RequiredRef<P> {
             (Some(q), Some(c)) => {
                 let sd = c.core().increment_work();
                 q.push(event);
-                println!("REQUIRED REF");
+                //println!("REQUIRED REF");
                 if let SchedulingDecision::Schedule = sd {
                     let system = c.core().system();
                     system.schedule(c.clone());

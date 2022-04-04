@@ -147,7 +147,7 @@ impl DynActorRef {
             let q = c.dyn_message_queue();
             let sd = c.core().increment_work();
             q.push_net(msg);
-            println!("DynActorRef");
+            //println!("DynActorRef");
             if let SchedulingDecision::Schedule = sd {
                 c.schedule();
             }
@@ -225,7 +225,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
         let q = c.message_queue();
         let sd = c.core().increment_work();
         q.push(env);
-        println!("ActorRefStrong");
+        //println!("ActorRefStrong");
         if let SchedulingDecision::Schedule = sd {
             c.schedule();
         }

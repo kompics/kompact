@@ -58,7 +58,7 @@ impl ComponentLifecycle for Pinger {
     fn on_start(&mut self) -> Handled {
         println!("On start Pinger");
         info!(self.log(), "Pinger started!");
-        //self.actor_path.tell((Ping, Serde), self);
+        self.actor_path.tell((Ping, Serde), self);
         Handled::Ok
     }
 }
@@ -112,15 +112,13 @@ impl Actor for Ponger {
     }
 }
 
-pub fn main() {
+pub fn sim() {
     let mut simulation = SimulationScenario::new();
 
     let mut cfg2 = KompactConfig::default();
-    cfg2.system_components(DeadletterBox::new, NetworkConfig::default().build());
     let sys2 = simulation.spawn_system(cfg2);
 
     let mut cfg1 = KompactConfig::default();
-    cfg1.system_components(DeadletterBox::new, NetworkConfig::default().build());
     let sys1 = simulation.spawn_system(cfg1);
 
     let (ponger, registration_future) = sys2.create_and_register(Ponger::new);
@@ -135,9 +133,30 @@ pub fn main() {
     println!("start in main");
     sys1.start(&pinger);
     println!("start in main 2");
+    
+    /* 
+    println!("start in main 1 {:?}", simulation.simulate_step());
+    println!("start in main 2 {:?}", simulation.simulate_step());
+    println!("start in main 3 {:?}", simulation.simulate_step());
+    println!("start in main 4 {:?}", simulation.simulate_step());
+    println!("start in main 5 {:?}", simulation.simulate_step());
+    println!("start in main 6 {:?}", simulation.simulate_step());
+    println!("start in main 7 {:?}", simulation.simulate_step());
+    println!("start in main 8 {:?}", simulation.simulate_step());
+    println!("start in main 9 {:?}", simulation.simulate_step());
+    println!("start in main 10 {:?}", simulation.simulate_step());
+    println!("start in main 11 {:?}", simulation.simulate_step());
+    println!("start in main 12 {:?}", simulation.simulate_step());
+    println!("start in main 13 {:?}", simulation.simulate_step());
+    println!("start in main 14 {:?}", simulation.simulate_step());
+    println!("start in main 15 {:?}", simulation.simulate_step());
+    println!("start in main 16 {:?}", simulation.simulate_step());
+    println!("start in main 17 {:?}", simulation.simulate_step());
+    println!("start in main 18 {:?}", simulation.simulate_step());
+    println!("start in main 19 {:?}", simulation.simulate_step());
+    */
 
     simulation.simulate_to_completion();
-
 
     std::thread::sleep(Duration::from_millis(1000));
     sys1.await_termination(); //shutdown().expect("shutdown");
@@ -145,10 +164,11 @@ pub fn main() {
 
     sys2.await_termination(); //.shutdown().expect("shutdown");
     println!("shutdown 2");
-}
+} 
 
-/*
-pub fn main() {
+
+
+pub fn nonsim() {
     let mut cfg2 = KompactConfig::default();
     cfg2.system_components(DeadletterBox::new, NetworkConfig::default().build());
     let sys2 = cfg2.build().expect("sys2");
@@ -170,4 +190,7 @@ pub fn main() {
     sys1.shutdown().expect("shutdown");
     sys2.shutdown().expect("shutdown");
 }
-*/
+
+pub fn main(){
+    sim();
+}
