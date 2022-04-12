@@ -327,7 +327,6 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
 // This isn't technically true, but I know I'm never actually sending
 // individual Rc instances to different threads. Only the whole component
 // with all its Rc instances crosses threads sometimes.
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {}
 
 #[derive(Clone)]

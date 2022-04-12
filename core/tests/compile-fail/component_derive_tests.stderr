@@ -1,5 +1,5 @@
 error: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "provided_test_port2"]). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^
@@ -7,7 +7,7 @@ error: Ambiguous port type: There are multiple fields with type TestPort (["prov
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Ambiguous port type: There are multiple fields with type TestPort (["required_test_port1", "required_test_port2"]). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ error: Ambiguous port type: There are multiple fields with type TestPort (["requ
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0407]: method `provided_ref` is not a member of trait `RequireRef`
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^ not a member of trait `RequireRef`
@@ -23,7 +23,7 @@ error[E0407]: method `provided_ref` is not a member of trait `RequireRef`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0407]: method `connect_to_required` is not a member of trait `RequireRef`
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^
@@ -34,7 +34,7 @@ error[E0407]: method `connect_to_required` is not a member of trait `RequireRef`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
-  --> $DIR/component_derive_tests.rs:12:10
+  --> tests/compile-fail/component_derive_tests.rs:12:10
    |
 12 |     ctx: ComponentContext<Self>,
    |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `NetworkActor` is not implemented for `DuplicatePortComponent`
@@ -43,41 +43,55 @@ error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not sati
    = note: required because of the requirements on the impl of `ActorRaw` for `DuplicatePortComponent`
    = note: required because of the requirements on the impl of `ComponentTraits` for `DuplicatePortComponent`
 note: required by a bound in `kompact::component::ComponentContext`
-  --> $DIR/context.rs:28:33
+  --> src/component/context.rs
    |
-28 | pub struct ComponentContext<CD: ComponentTraits> {
+   | pub struct ComponentContext<CD: ComponentTraits> {
    |                                 ^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentContext`
 
 error[E0277]: the trait bound `DuplicatePortComponent: ComponentLifecycle` is not satisfied
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^ the trait `ComponentLifecycle` is not implemented for `DuplicatePortComponent`
    |
+   = help: the following other types implement trait `ComponentLifecycle`:
+             BigPingerAct
+             BigPongerAct
+             DeadletterBox
+             ForwarderAct
+             LocalDispatcher
+             NetworkDispatcher
+             NetworkStatusCounter
+             PingStream
+           and 5 others
 note: required by a bound in `kompact::component::ComponentDefinition`
-  --> $DIR/definition.rs:30:32
+  --> src/component/definition.rs
    |
-30 | pub trait ComponentDefinition: DynamicComponentDefinition
+   | pub trait ComponentDefinition: DynamicComponentDefinition
    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentDefinition`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^ the trait `NetworkActor` is not implemented for `DuplicatePortComponent`
    |
+   = help: the following other types implement trait `ActorRaw`:
+             TestComponent1
+             TestComponent2
+             kompact::supervision::ComponentSupervisor
    = note: required because of the requirements on the impl of `kompact::prelude::Actor` for `DuplicatePortComponent`
    = note: required because of the requirements on the impl of `ActorRaw` for `DuplicatePortComponent`
 note: required by a bound in `kompact::component::ComponentDefinition`
-  --> $DIR/definition.rs:30:32
+  --> src/component/definition.rs
    |
-30 | pub trait ComponentDefinition: DynamicComponentDefinition
+   | pub trait ComponentDefinition: DynamicComponentDefinition
    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentDefinition`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^ the trait `NetworkActor` is not implemented for `DuplicatePortComponent`
@@ -86,14 +100,14 @@ error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not sati
    = note: required because of the requirements on the impl of `ActorRaw` for `DuplicatePortComponent`
    = note: required because of the requirements on the impl of `ComponentTraits` for `DuplicatePortComponent`
 note: required by a bound in `kompact::component::Component`
-  --> $DIR/actual_component.rs:50:26
+  --> src/component/actual_component.rs
    |
-50 | pub struct Component<CD: ComponentTraits> {
+   | pub struct Component<CD: ComponentTraits> {
    |                          ^^^^^^^^^^^^^^^ required by this bound in `kompact::component::Component`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
-  --> $DIR/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:10:10
    |
 10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
    |          ^^^^^^^^^^^^^^^^^^^ the trait `NetworkActor` is not implemented for `DuplicatePortComponent`
@@ -102,8 +116,8 @@ error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not sati
    = note: required because of the requirements on the impl of `ActorRaw` for `DuplicatePortComponent`
    = note: required because of the requirements on the impl of `ComponentTraits` for `DuplicatePortComponent`
 note: required by a bound in `kompact::component::ComponentContext`
-  --> $DIR/context.rs:28:33
+  --> src/component/context.rs
    |
-28 | pub struct ComponentContext<CD: ComponentTraits> {
+   | pub struct ComponentContext<CD: ComponentTraits> {
    |                                 ^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentContext`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
