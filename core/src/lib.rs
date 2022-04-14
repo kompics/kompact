@@ -684,7 +684,7 @@ mod tests {
     fn test_dedicated_pinning() -> () {
         let core_ids = core_affinity::get_core_ids().expect("Failed to fetch core ids");
         assert!(
-            (core_ids.len() >= 2),
+            core_ids.len() >= 2,
             "this test requires at least two cores"
         );
 
