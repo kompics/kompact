@@ -981,10 +981,12 @@ impl NetworkThread {
                         "Dropping channel to blocked socket: {:?}", socket_addr
                     );
                     let mut channel = channel_rc.borrow_mut();
+                    if channel.connected() {
+                        self.notify_network_status(NetworkStatus::ConnectionDropped(
+                            SystemPath::with_socket(Transport::Tcp, socket_addr),
+                        ));
+                    }
                     self.drop_channel(&mut channel);
-                    self.notify_network_status(NetworkStatus::ConnectionDropped(
-                        SystemPath::with_socket(Transport::Tcp, socket_addr),
-                    ));
                 }
             }
         }
@@ -1045,10 +1047,12 @@ impl NetworkThread {
                     "Dropping channel to blocked socket: {:?}", socket_addr
                 );
                 let mut channel = channel_rc.borrow_mut();
+                if channel.connected() {
+                    self.notify_network_status(NetworkStatus::ConnectionDropped(
+                        SystemPath::with_socket(Transport::Tcp, socket_addr),
+                    ));
+                }
                 self.drop_channel(&mut channel);
-                self.notify_network_status(NetworkStatus::ConnectionDropped(
-                    SystemPath::with_socket(Transport::Tcp, socket_addr),
-                ));
             }
         }
         self.notify_network_status(NetworkStatus::BlockedIpNet(ip_net));

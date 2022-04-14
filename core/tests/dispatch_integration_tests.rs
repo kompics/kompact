@@ -224,12 +224,12 @@ impl NetworkStatusReceiver {
             Ok(NetworkStatus::BlockedIpNet(_)) => {}
             Ok(other_status) => {
                 panic!(
-                    "unexpected network status {:?} waiting for BlockedIp",
+                    "unexpected network status {:?} waiting for BlockedIpNet",
                     other_status
                 )
             }
             Err(_) => {
-                panic!("ConnectionStatus timeout waiting for BlockedIp")
+                panic!("ConnectionStatus timeout waiting for BlockedIpNet")
             }
         }
     }

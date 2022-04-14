@@ -35,12 +35,12 @@ jobs:
         with:
           command: build
         env:
-          RUSTFLAGS: '-Zinstrument-coverage'
-          RUSTDOCFLAGS: '-Zinstrument-coverage'
+          RUSTFLAGS: '-Cinstrument-coverage'
+          RUSTDOCFLAGS: '-Cinstrument-coverage'
       - name: Run tests
         env:
-          RUSTFLAGS: '-Zinstrument-coverage'
-          RUSTDOCFLAGS: '-Zinstrument-coverage'
+          RUSTFLAGS: '-Cinstrument-coverage'
+          RUSTDOCFLAGS: '-Cinstrument-coverage'
           LLVM_PROFILE_FILE: 'codecov-instrumentation-%p-%m.profraw'
         run: |
           cargo test --features slog/max_level_error

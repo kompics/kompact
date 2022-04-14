@@ -593,6 +593,7 @@ impl NetworkDispatcher {
                     self.connection_closed(system_path, session)
                 }
                 NetworkStatus::ConnectionDropped(system_path) => {
+                    let _ = self.retry_map.remove(&system_path.socket_address());
                     self.network_status_port
                         .trigger(NetworkStatus::ConnectionDropped(system_path));
                 }

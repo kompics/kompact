@@ -683,10 +683,7 @@ mod tests {
     #[cfg(feature = "thread_pinning")]
     fn test_dedicated_pinning() -> () {
         let core_ids = core_affinity::get_core_ids().expect("Failed to fetch core ids");
-        assert!(
-            !(core_ids.len() < 2),
-            "this test requires at least two cores"
-        );
+        assert!(core_ids.len() >= 2, "this test requires at least two cores");
 
         let system = KompactConfig::default().build().expect("System");
         let cc = system.create_dedicated_pinned(CounterComponent::new, core_ids[0]);
