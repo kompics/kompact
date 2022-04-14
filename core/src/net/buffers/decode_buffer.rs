@@ -73,7 +73,7 @@ impl DecodeBuffer {
     }
 
     /// True if there is sufficient amount of writeable bytes
-    pub(crate) fn is_writeable(&mut self) -> bool {
+    pub(crate) fn is_writeable(&self) -> bool {
         self.writeable_len() > 8
     }
 
