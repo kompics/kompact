@@ -9,6 +9,7 @@ use crate::{
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
+        quinn_endpoint::QuinnEndpoint,
     },
     prelude::{NetworkStatus, SessionId},
     serialisation::ser_helpers::deserialise_chunk_lease,
@@ -36,6 +37,8 @@ use std::{
     time::Duration,
     usize,
 };
+use crate::net::quinn_endpoint::server_config;
+use quinn_proto::Endpoint;
 
 // Used for identifying connections
 const TCP_SERVER: Token = Token(0);
@@ -132,12 +135,16 @@ impl NetworkThreadBuilder {
             .expect("Could not get buffer for setting up UDP");
         let udp_state = UdpState::new(udp_socket, udp_buffer, logger.clone(), &self.network_config);
 
+        let server = Endpoint::new(Default::default(), Some(Arc::new(server_config())));
+        let quinn_endpoint = QuinnEndpoint::new(server, self.address);
+
         NetworkThread {
             log: logger,
             addr: actual_addr,
             lookup: self.lookup,
             tcp_listener: self.tcp_listener,
             udp_state: Some(udp_state),
+            quinn_endpoint: Some(quinn_endpoint),
             poll: self.poll,
             address_map: FxHashMap::default(),
             token_map: LruCache::new(self.network_config.get_hard_connection_limit() as usize),
@@ -162,6 +169,7 @@ pub struct NetworkThread {
     lookup: Arc<ArcSwap<ActorStore>>,
     tcp_listener: TcpListener,
     udp_state: Option<UdpState>,
+    quinn_endpoint: Option<QuinnEndpoint>,
     poll: Poll,
     address_map: FxHashMap<SocketAddr, Rc<RefCell<TcpChannel>>>,
     token_map: LruCache<Token, Rc<RefCell<TcpChannel>>>,
@@ -192,7 +200,7 @@ impl NetworkThread {
                 .map(EventWithRetries::from)
                 .chain(self.retry_queue.split_off(0))
             {
-                self.handle_event(event);
+                self.handle_event(event, self.addr);
 
                 if self.stopped {
                     if let Some(Err(e)) = self
@@ -221,7 +229,7 @@ impl NetworkThread {
         }
     }
 
-    fn handle_event(&mut self, event: EventWithRetries) {
+    fn handle_event(&mut self, event: EventWithRetries, remote: SocketAddr) {
         match event.token {
             TCP_SERVER => {
                 if let Err(e) = self.receive_stream() {
@@ -229,14 +237,16 @@ impl NetworkThread {
                 }
             }
             UDP_SOCKET => {
-                if let Some(mut udp_state) = self.udp_state.take() {
-                    if event.writeable {
-                        self.write_udp(&mut udp_state);
+                if let Some(mut udp_state) = self.udp_state.take(){
+                    if let Some(mut quinn_endpoint) = self.quinn_endpoint.take() {
+                        if event.writeable {
+                            self.write_udp(&mut udp_state);
+                        }
+                        if event.readable {
+                            self.read_udp(&mut udp_state, event, &mut quinn_endpoint, remote);
+                        }
+                        self.udp_state = Some(udp_state);
                     }
-                    if event.readable {
-                        self.read_udp(&mut udp_state, event);
-                    }
-                    self.udp_state = Some(udp_state);
                 }
             }
             DISPATCHER => {
@@ -276,7 +286,7 @@ impl NetworkThread {
 
     fn receive_dispatch(&mut self) {
         while let Ok(event) = self.input_queue.try_recv() {
-            self.handle_dispatch_event(event);
+                self.handle_dispatch_event(event);
         }
     }
 
@@ -287,6 +297,9 @@ impl NetworkThread {
             }
             DispatchEvent::SendUdp(address, data) => {
                 self.send_udp_message(address, data);
+            }
+            DispatchEvent::SendQuinn(address, data) => {
+                self.send_quinn_message(address, data);
             }
             DispatchEvent::Stop => {
                 self.stop();
@@ -413,7 +426,7 @@ impl NetworkThread {
         }
     }
 
-    fn read_udp(&mut self, udp_state: &mut UdpState, event: EventWithRetries) -> () {
+    fn read_udp(&mut self, udp_state: &mut UdpState, event: EventWithRetries, quinn_endpoint: &mut QuinnEndpoint, remote: SocketAddr) -> () {
         match udp_state.try_read(&self.buffer_pool) {
             Ok(_) => {}
             Err(e) if no_buffer_space(&e) => {
@@ -430,6 +443,10 @@ impl NetworkThread {
         }
         while let Some(net_message) = udp_state.incoming_messages.pop_front() {
             self.deliver_net_message(net_message);
+        }
+        //quinn
+        while let (recv_time, ecn, data) = quinn_endpoint.inbound.pop_front().unwrap(){
+            quinn_endpoint.read_incoming(recv_time, remote, ecn, data);
         }
     }
 
@@ -549,6 +566,14 @@ impl NetworkThread {
         }
     }
 
+    fn send_quinn_message(&mut self, address: SocketAddr, data: DispatchData) {
+        //todo!();
+        // if let Some(quinn_endpoint) = self.quinn_endpoint.take() {
+        //     while let Some(x) = quinn_endpoint.endpoint.poll_transmit() {
+        //         quinn_endpoint.outbound.extend(split_transmit(x));
+        //     }
+        // }
+    }
     fn handle_data_frame(&self, data: Data, session: SessionId) -> () {
         let buf = data.payload();
         let mut envelope = deserialise_chunk_lease(buf).expect("s11n errors");
@@ -1263,10 +1288,10 @@ mod tests {
             .poll
             .poll(&mut events, Some(Duration::from_millis(100)));
         for event in events.iter() {
-            thread.handle_event(EventWithRetries::from(event));
+   //         thread.handle_event(EventWithRetries::from(event));
         }
         while let Some(event) = thread.retry_queue.pop_front() {
-            thread.handle_event(event);
+      //      thread.handle_event(event);
         }
     }
 

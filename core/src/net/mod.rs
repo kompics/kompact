@@ -22,6 +22,7 @@ pub mod frames;
 pub(crate) mod network_channel;
 pub(crate) mod network_thread;
 pub(crate) mod udp_state;
+pub(crate) mod quinn_endpoint;
 
 /// The state of a connection
 #[derive(Clone, Debug)]
@@ -96,6 +97,8 @@ pub mod events {
         SendTcp(SocketAddr, DispatchData),
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
         SendUdp(SocketAddr, DispatchData),
+        /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
+        SendQuinn(SocketAddr, DispatchData),
         /// Tells the network thread to Stop, will gracefully shutdown all channels.
         Stop,
         /// Tells the network thread to Die as soon as possible, without graceful shutdown.
