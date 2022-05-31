@@ -445,9 +445,8 @@ impl NetworkThread {
             self.deliver_net_message(net_message);
         }
         //quinn
-        while let (recv_time, ecn, data) = quinn_endpoint.inbound.pop_front().unwrap(){
-            quinn_endpoint.read_incoming(recv_time, remote, ecn, data);
-        }
+            quinn_endpoint.read_incoming(remote);
+        //}
     }
 
     fn write_tcp(&mut self, token: &Token) -> () {

@@ -29,6 +29,9 @@ pub enum Transport {
     Tcp = 0b01,
     /// Send messages as UDP datagrams
     Udp = 0b10,
+    /// Send messages over QUIC
+    Quic = 0b11,
+    
 }
 
 impl Transport {
@@ -49,6 +52,7 @@ impl fmt::Display for Transport {
             &Transport::Local => write!(fmt, "local"),
             &Transport::Tcp => write!(fmt, "tcp"),
             &Transport::Udp => write!(fmt, "udp"),
+            &Transport::Quic => write!(fmt, "quic"),
         }
     }
 }
@@ -61,6 +65,7 @@ impl FromStr for Transport {
             "local" => Ok(Transport::Local),
             "tcp" => Ok(Transport::Tcp),
             "udp" => Ok(Transport::Udp),
+            "quic" => Ok(Transport::Quic),
             _ => Err(TransportParseError),
         }
     }
@@ -78,7 +83,7 @@ impl fmt::Display for TransportParseError {
 
 impl Error for TransportParseError {
     fn description(&self) -> &str {
-        "Transport must be one of [local,tcp,udp]"
+        "Transport must be one of [local,tcp,udp, quic]"
     }
 }
 
