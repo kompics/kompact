@@ -63,7 +63,7 @@ impl ChunkRef {
                 panic!("Critical Bug in ChunkRef, bad chain");
             }
         } else {
-            let slice: &[u8] = &*self.content;
+            let slice: &[u8] = self.content;
             &slice[pos..]
         }
     }

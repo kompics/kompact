@@ -135,6 +135,7 @@ pub struct RecoveryHandler {
     /// The context of the fault that occurred
     ctx: FaultContext,
     /// The actions to take in response to the fault
+    #[allow(clippy::type_complexity)]
     action: Box<dyn FnOnce(FaultContext, ContextSystemHandle, &KompactLogger) + Send>,
 }
 impl RecoveryHandler {

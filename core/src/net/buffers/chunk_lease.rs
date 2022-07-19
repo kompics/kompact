@@ -110,7 +110,7 @@ impl ChunkLease {
             Ordering::Less => {
                 // Split of the data in self and retain self while returning the "tail" of the split
                 unsafe {
-                    let content_ptr = (&mut *self.content).as_mut_ptr();
+                    let content_ptr = (*self.content).as_mut_ptr();
                     let head_bytes = std::slice::from_raw_parts_mut(content_ptr, position);
                     let tail_ptr = content_ptr.add(position);
                     let tail_bytes =

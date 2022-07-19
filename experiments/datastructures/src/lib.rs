@@ -114,7 +114,7 @@ impl<V> RadixTree<V> {
                     None
                 }
             }
-            RadixTree::Node { ref children } => match key.get(0) {
+            RadixTree::Node { ref children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
                     unsafe { children.get_unchecked(pos).get(&key[1..]) }
@@ -149,7 +149,7 @@ impl<V> RadixTree<V> {
                     }
                 }
             }
-            RadixTree::Node { ref mut children } => match key.get(0) {
+            RadixTree::Node { ref mut children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
                     unsafe {
@@ -168,7 +168,7 @@ impl<V> RadixTree<V> {
                 //println!("Growing tree at {}", pos);
                 let mut node = RadixTree::empty_children();
                 std::mem::swap(self, &mut node);
-                let new_pos = match key.get(0) {
+                let new_pos = match key.first() {
                     Some(i) => (*i) as usize,
                     None => {
                         unimplemented!("Key already ended.");

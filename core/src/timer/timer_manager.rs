@@ -10,6 +10,7 @@ use std::{
 use uuid::Uuid;
 
 use crate::*;
+#[allow(clippy::type_complexity)]
 
 /// A factory trait to produce instances of [TimerRef](timer::TimerRef)
 pub trait TimerRefFactory {
