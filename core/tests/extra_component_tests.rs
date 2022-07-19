@@ -68,8 +68,8 @@ impl Actor for SelfCaller {
                 Handled::Ok
             }
             SelfMessage::RegisterMe => Handled::block_on(self, move |mut async_self| async move {
-                let res = async_self.register_me().await;
-                info!(async_self.log(), "Done blocking {:?}", res);
+                async_self.register_me().await;
+                info!(async_self.log(), "Done blocking ");
             }),
         }
     }

@@ -271,7 +271,7 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
 
     fn chunk_mut(&mut self) -> &mut UninitSlice {
         unsafe {
-            let ptr = (&mut *self.encode_buffer.buffer.chunk).as_mut_ptr();
+            let ptr = (*self.encode_buffer.buffer.chunk).as_mut_ptr();
             let offset_ptr = ptr.add(self.encode_buffer.write_offset);
             UninitSlice::from_raw_parts_mut(
                 offset_ptr,

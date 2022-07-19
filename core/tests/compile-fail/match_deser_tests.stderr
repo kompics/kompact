@@ -1,5 +1,5 @@
 error: Must specify a deserialisation target type
- --> $DIR/match_deser_tests.rs:4:2
+ --> tests/compile-fail/match_deser_tests.rs:4:2
   |
 4 | /     match_deser! {
 5 | |         msg {
@@ -11,7 +11,7 @@ error: Must specify a deserialisation target type
   = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Illegal case `nsg`. Allowed values: [`msg`, `err`, `default`]
-  --> $DIR/match_deser_tests.rs:9:5
+  --> tests/compile-fail/match_deser_tests.rs:9:5
    |
 9  | /     match_deser! {
 10 | |         msg {
@@ -23,7 +23,7 @@ error: Illegal case `nsg`. Allowed values: [`msg`, `err`, `default`]
    = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Illegal `match_deser!` item(s). See docs for example of legal items. Offending item(s): my_msg : String => (),
-  --> $DIR/match_deser_tests.rs:14:5
+  --> tests/compile-fail/match_deser_tests.rs:14:5
    |
 14 | /     match_deser! {
 15 | |         msg {
@@ -35,7 +35,7 @@ error: Illegal `match_deser!` item(s). See docs for example of legal items. Offe
    = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Illegal `match_deser!` item(s). See docs for example of legal items. Offending item(s): my_msg : String => ()
-  --> $DIR/match_deser_tests.rs:19:5
+  --> tests/compile-fail/match_deser_tests.rs:19:5
    |
 19 | /     match_deser! {
 20 | |         msg {
@@ -47,7 +47,7 @@ error: Illegal `match_deser!` item(s). See docs for example of legal items. Offe
    = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: You are using an old `match_deser!` format. See docs for the new format.
-  --> $DIR/match_deser_tests.rs:24:5
+  --> tests/compile-fail/match_deser_tests.rs:24:5
    |
 24 | /     match_deser!(msg; {
 25 | |         my_msg: String => (), //~ ERROR: You are using an old `match_deser!` format. See docs for the new format.

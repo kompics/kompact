@@ -181,13 +181,12 @@ mod tests {
     #[test]
     #[allow(clippy::unit_arg)]
     fn test_unit_serialisation() {
-        let test_v: () = ();
-        let mut mbuf = if let Some(size_hint) = test_v.size_hint() {
+        let mut mbuf = if let Some(size_hint) = ().size_hint() {
             BytesMut::with_capacity(size_hint)
         } else {
             panic!("Unit serialiser should have produced a size hint");
         };
-        test_v.serialise(&mut mbuf).expect("serialise");
+        ().serialise(&mut mbuf).expect("serialise");
         let mut buf = mbuf.freeze();
         let res = <()>::deserialise(&mut buf);
         res.expect("Should have produced a unit value")

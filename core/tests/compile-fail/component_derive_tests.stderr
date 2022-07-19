@@ -63,7 +63,7 @@ error[E0277]: the trait bound `DuplicatePortComponent: ComponentLifecycle` is no
              NetworkDispatcher
              NetworkStatusCounter
              PingStream
-           and 5 others
+           and 4 others
 note: required by a bound in `kompact::component::ComponentDefinition`
   --> src/component/definition.rs
    |
@@ -80,7 +80,6 @@ error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not sati
    = help: the following other types implement trait `ActorRaw`:
              TestComponent1
              TestComponent2
-             kompact::supervision::ComponentSupervisor
    = note: required because of the requirements on the impl of `kompact::prelude::Actor` for `DuplicatePortComponent`
    = note: required because of the requirements on the impl of `ActorRaw` for `DuplicatePortComponent`
 note: required by a bound in `kompact::component::ComponentDefinition`

@@ -292,13 +292,11 @@ impl Bridge {
     ) -> Result<(), NetworkBridgeErr> {
         match protocol {
             Protocol::Tcp => {
-                let _ = self
-                    .network_input_queue
+                self.network_input_queue
                     .send(DispatchEvent::SendTcp(addr, data))?;
             }
             Protocol::Udp => {
-                let _ = self
-                    .network_input_queue
+                self.network_input_queue
                     .send(DispatchEvent::SendUdp(addr, data))?;
             }
         }
@@ -403,7 +401,7 @@ fn run_network_thread(
         .spawn(move || {
             if let Err(e) = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 let network_thread = builder.build();
-                let _ = started_promise
+                started_promise
                     .complete()
                     .expect("NetworkThread started but failed to fulfil promise");
                 network_thread.run()

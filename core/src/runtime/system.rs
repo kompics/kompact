@@ -1665,6 +1665,7 @@ impl InternalComponents {
         self.system_components.kill(system);
     }
 
+    #[allow(unknown_lints, clippy::explicit_auto_deref)]
     pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
         &*self.system_components
     }

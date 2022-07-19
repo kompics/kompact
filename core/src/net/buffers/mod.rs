@@ -264,7 +264,7 @@ impl BufferChunk {
     /// Return a pointer to a subslice of the chunk
     unsafe fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
         assert!(from < to && to <= self.len() && !self.locked);
-        let ptr = (&mut *self.chunk).as_mut_ptr();
+        let ptr = (*self.chunk).as_mut_ptr();
         let offset_ptr = ptr.add(from);
         std::slice::from_raw_parts_mut(offset_ptr, to - from)
     }
@@ -333,7 +333,7 @@ impl ChunkAllocator for DefaultAllocator {
     }
 
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> () {
-        Box::from_raw(ptr);
+        let _ = Box::from_raw(ptr);
     }
 }
 

@@ -909,8 +909,8 @@ impl NetworkThread {
                 self.log,
                 "Stopping channel with message count {}", channel.messages
             );
-            let _ = channel.initiate_graceful_shutdown();
-            let _ = self.token_map.pop(&channel.token);
+            channel.initiate_graceful_shutdown();
+            self.token_map.pop(&channel.token);
         }
         self.poll
             .registry()

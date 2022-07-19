@@ -10,6 +10,7 @@ use hierarchical_hash_wheel_timer::{
 
 pub use hierarchical_hash_wheel_timer::TimerError;
 
+#[allow(clippy::type_complexity)]
 pub(crate) mod timer_manager;
 use timer_manager::{Timeout, TimerActorRef};
 

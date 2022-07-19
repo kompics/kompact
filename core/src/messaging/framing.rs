@@ -10,7 +10,7 @@ use std::{any::Any, convert::TryFrom, net::IpAddr};
 use uuid::Uuid;
 
 /// The type of address used
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum AddressType {
     /// An IPv4 address
@@ -22,7 +22,7 @@ pub enum AddressType {
 }
 
 /// The type of path used
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum PathType {
     /// A [unique path](ActorPath::Unique)
