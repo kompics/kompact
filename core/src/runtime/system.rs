@@ -205,10 +205,10 @@ impl KompactSystem {
     {
         self.inner.assert_active();
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
+        let cd = &mut c.mutable_core.lock().unwrap().definition;
+        let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
+        cd.setup(c.clone());
         unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
-            cd.setup(c.clone());
             c.core().set_component(cc);
         }
         c
@@ -256,10 +256,10 @@ impl KompactSystem {
         C: ComponentDefinition + 'static,
     {
         let c = Arc::new(Component::without_supervisor(self.clone(), f()));
+        let cd = &mut c.mutable_core.lock().unwrap().definition;
+        cd.setup(c.clone());
+        let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
         unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            cd.setup(c.clone());
-            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
         c
@@ -293,10 +293,10 @@ impl KompactSystem {
             self.supervision_port(),
             scheduler,
         ));
+        let cd = &mut c.mutable_core.lock().unwrap().definition;
+        let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
+        cd.setup(c.clone());
         unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
-            cd.setup(c.clone());
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
@@ -365,10 +365,10 @@ impl KompactSystem {
             f(),
             scheduler,
         ));
+        let cd = &mut c.mutable_core.lock().unwrap().definition;
+        cd.setup(c.clone());
+        let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
         unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            cd.setup(c.clone());
-            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
@@ -401,10 +401,10 @@ impl KompactSystem {
             f(),
             scheduler,
         ));
+        let cd = &mut c.mutable_core.lock().unwrap().definition;
+        cd.setup(c.clone());
+        let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
         unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            cd.setup(c.clone());
-            let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");

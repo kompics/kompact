@@ -180,16 +180,16 @@ impl<V> RadixTree<V> {
                     } else {
                         let new_node = RadixTree::value(&key[1..], value);
                         let new_tree = MaybeTree::from_tree(new_node);
-                        unsafe {
-                            let target = children.get_unchecked_mut(new_pos);
+                        
+                            let target = unsafe { children.get_unchecked_mut(new_pos) };
                             *target = new_tree;
-                        }
+                        
                     }
                     let node_tree = MaybeTree::from_tree(node);
-                    unsafe {
-                        let target = children.get_unchecked_mut(pos);
+                    
+                        let target = unsafe { children.get_unchecked_mut(pos) };
                         *target = node_tree;
-                    }
+                    
                 } else {
                     //#[cfg(debug_assertions)]
                     unimplemented!("Invalid tree composition?!?!?");

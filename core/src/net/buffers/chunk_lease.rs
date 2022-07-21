@@ -109,12 +109,12 @@ impl ChunkLease {
             }
             Ordering::Less => {
                 // Split of the data in self and retain self while returning the "tail" of the split
-                unsafe {
+                
                     let content_ptr = (*self.content).as_mut_ptr();
-                    let head_bytes = std::slice::from_raw_parts_mut(content_ptr, position);
-                    let tail_ptr = content_ptr.add(position);
+                    let head_bytes = unsafe { std::slice::from_raw_parts_mut(content_ptr, position) };
+                    let tail_ptr = unsafe { content_ptr.add(position) };
                     let tail_bytes =
-                        std::slice::from_raw_parts_mut(tail_ptr, self.chain_head_len - position);
+                        unsafe { std::slice::from_raw_parts_mut(tail_ptr, self.chain_head_len - position) };
                     self.content = head_bytes;
                     self.chain_head_len = position;
                     let mut return_lease = ChunkLease::new(tail_bytes, self.lock.clone());
@@ -122,7 +122,7 @@ impl ChunkLease {
                         return_lease.append_to_chain(*tail_chain);
                     }
                     return return_lease;
-                }
+                
             }
         }
         // Should not be reachable

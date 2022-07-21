@@ -110,8 +110,8 @@ impl DecodeBuffer {
                 // the overflow must not exceed the new buffers capacity
                 unsafe {
                     overflow_chunk.copy_to_slice(self.buffer.get_slice(0, overflow_len));
-                    self.write_offset = overflow_len;
                 }
+                self.write_offset = overflow_len;
             } else {
                 // Start a chain/Append to the chain
                 if let Some(chain_head) = &mut self.chain_head {
