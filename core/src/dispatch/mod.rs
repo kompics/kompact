@@ -96,6 +96,22 @@ impl NetworkConfig {
             hard_connection_limit: defaults::HARD_CONNECTION_LIMIT,
         }
     }
+    /// Create a new config with `addr` and protocol `protocol`
+    /// NetworkDispatcher and NetworkThread will use the default `BufferConfig`
+    pub fn new2(addr: SocketAddr, transport: Transport) -> Self {
+        NetworkConfig {
+            addr,
+            transport,
+            buffer_config: BufferConfig::default(),
+            custom_allocator: None,
+            tcp_nodelay: true,
+            max_connection_retry_attempts: defaults::MAX_RETRY_ATTEMPTS,
+            connection_retry_interval: defaults::RETRY_CONNECTIONS_INTERVAL,
+            boot_timeout: defaults::BOOT_TIMEOUT,
+            soft_connection_limit: defaults::SOFT_CONNECTION_LIMIT,
+            hard_connection_limit: defaults::HARD_CONNECTION_LIMIT,
+        }
+    }
 
     /// Create a new config with `addr` and protocol [TCP](Transport::Tcp)
     /// Note: Only the NetworkThread and NetworkDispatcher will use the `BufferConfig`, not Actors
@@ -736,6 +752,21 @@ impl NetworkDispatcher {
             }
         }
     }
+    fn route_remote_quic(
+        &mut self,
+        addr: SocketAddr,
+        data: DispatchData,
+    ) -> Result<(), NetworkBridgeErr> {
+        if let Some(bridge) = &self.net_bridge {
+            bridge.route(addr, data, net::Protocol::Quic)?;
+        } else {
+            warn!(
+                self.ctx.log(),
+                "Dropping Quic message to {}, as bridge is not connected.", addr
+            );
+        }
+        Ok(())
+    }
 
     fn route_remote_udp(
         &mut self,
@@ -865,6 +896,10 @@ impl NetworkDispatcher {
                 Transport::Udp => {
                     let addr = SocketAddr::new(*dst.address(), dst.port());
                     self.route_remote_udp(addr, msg)
+                }
+                Transport::Quic => {
+                    let addr = SocketAddr::new(*dst.address(), dst.port());
+                    self.route_remote_quic(addr, msg)
                 }
             }
         }

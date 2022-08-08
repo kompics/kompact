@@ -1,3 +1,6 @@
+use std::time::Instant;
+use std::ops::RangeFrom;
+use std::sync::Mutex;
 use super::*;
 use crate::{
     dispatch::{
@@ -9,11 +12,12 @@ use crate::{
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
-        quinn_endpoint::QuinnEndpoint,
+        quic_endpoint::QuicEndpoint,
     },
     prelude::{NetworkStatus, SessionId},
     serialisation::ser_helpers::deserialise_chunk_lease,
 };
+use portpicker::pick_unused_port;
 use crossbeam_channel::Receiver as Recv;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use iprange::{IpRange, ToNetwork};
@@ -30,19 +34,22 @@ use std::{
     cell::{RefCell, RefMut},
     collections::VecDeque,
     io,
-    net::{IpAddr, Shutdown, SocketAddr},
+    net::{IpAddr, Shutdown, SocketAddr, Ipv4Addr},
     ops::DerefMut,
     rc::Rc,
     sync::Arc,
     time::Duration,
     usize,
+    env,
 };
-use crate::net::quinn_endpoint::server_config;
+//use crate::net::quic_client::server_config;
 use quinn_proto::Endpoint;
+use assert_matches::assert_matches;
 
 // Used for identifying connections
 const TCP_SERVER: Token = Token(0);
 const UDP_SOCKET: Token = Token(1);
+const QUIC_SOCKET: Token = Token(2);
 // Used for identifying the dispatcher/input queue
 const DISPATCHER: Token = Token(2);
 const START_TOKEN: Token = Token(3);
@@ -105,8 +112,16 @@ impl NetworkThreadBuilder {
             .tcp_listener
             .local_addr()
             .expect("could not get real addr");
+
         let logger = self.log.new(o!("addr" => format!("{}", actual_addr)));
         let mut udp_socket = UdpSocket::bind(actual_addr).expect("could not bind UDP on TCP port");
+
+        let quic_addr = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            pick_unused_port().expect("No ports free"),
+        );
+        //bind to local address
+        let mut quic_socket = UdpSocket::bind(quic_addr).expect("Could not bind UDP for QUIC");
 
         // Register Listeners
         self.poll
@@ -121,6 +136,14 @@ impl NetworkThreadBuilder {
                 Interest::READABLE | Interest::WRITABLE,
             )
             .expect("failed to register UDP SOCKET");
+        self.poll
+            .registry()
+            .register(
+                &mut quic_socket, 
+                QUIC_SOCKET, 
+                Interest::READABLE | Interest::WRITABLE,
+            )
+            .expect("Failed to register QUIC SOCKET");
 
         let mut buffer_pool = BufferPool::with_config(
             self.network_config.get_buffer_config(),
@@ -135,8 +158,8 @@ impl NetworkThreadBuilder {
             .expect("Could not get buffer for setting up UDP");
         let udp_state = UdpState::new(udp_socket, udp_buffer, logger.clone(), &self.network_config);
 
-        let server = Endpoint::new(Default::default(), Some(Arc::new(server_config())));
-        let quinn_endpoint = QuinnEndpoint::new(server, self.address);
+        let endpoint_conf = Endpoint::new(Default::default(), Some(Arc::new(quic_endpoint::server_config())));
+        let endpoint = QuicEndpoint::new(endpoint_conf, quic_addr, quic_socket);
 
         NetworkThread {
             log: logger,
@@ -144,7 +167,7 @@ impl NetworkThreadBuilder {
             lookup: self.lookup,
             tcp_listener: self.tcp_listener,
             udp_state: Some(udp_state),
-            quinn_endpoint: Some(quinn_endpoint),
+            endpoint: Some(endpoint),
             poll: self.poll,
             address_map: FxHashMap::default(),
             token_map: LruCache::new(self.network_config.get_hard_connection_limit() as usize),
@@ -169,7 +192,7 @@ pub struct NetworkThread {
     lookup: Arc<ArcSwap<ActorStore>>,
     tcp_listener: TcpListener,
     udp_state: Option<UdpState>,
-    quinn_endpoint: Option<QuinnEndpoint>,
+    endpoint: Option<QuicEndpoint>,
     poll: Poll,
     address_map: FxHashMap<SocketAddr, Rc<RefCell<TcpChannel>>>,
     token_map: LruCache<Token, Rc<RefCell<TcpChannel>>>,
@@ -238,15 +261,24 @@ impl NetworkThread {
             }
             UDP_SOCKET => {
                 if let Some(mut udp_state) = self.udp_state.take(){
-                    if let Some(mut quinn_endpoint) = self.quinn_endpoint.take() {
-                        if event.writeable {
-                            self.write_udp(&mut udp_state);
-                        }
-                        if event.readable {
-                            self.read_udp(&mut udp_state, event, &mut quinn_endpoint, remote);
-                        }
-                        self.udp_state = Some(udp_state);
+                    if event.writeable {
+                        self.write_udp(&mut udp_state);
                     }
+                    if event.readable {
+                        self.read_udp(&mut udp_state, event);
+                    }
+                    self.udp_state = Some(udp_state);
+                }
+            }
+            QUIC_SOCKET => {
+                if let Some(mut endpoint) = self.endpoint.take() {
+                    if event.writeable {
+                        self.write_quic(remote)
+                    }
+                    if event.readable {
+                        self.read_quic(&mut endpoint, remote)
+                    }
+                    self.endpoint = Some(endpoint);
                 }
             }
             DISPATCHER => {
@@ -287,6 +319,7 @@ impl NetworkThread {
     fn receive_dispatch(&mut self) {
         while let Ok(event) = self.input_queue.try_recv() {
                 self.handle_dispatch_event(event);
+                info!(self.log, "entering receive dispatch with event : {:?}", self.input_queue.try_recv() );
         }
     }
 
@@ -298,14 +331,17 @@ impl NetworkThread {
             DispatchEvent::SendUdp(address, data) => {
                 self.send_udp_message(address, data);
             }
-            DispatchEvent::SendQuinn(address, data) => {
-                self.send_quinn_message(address, data);
+            DispatchEvent::SendQuic(address, data) => {
+                self.send_quic_message(address, data);
             }
             DispatchEvent::Stop => {
                 self.stop();
             }
             DispatchEvent::Kill => {
                 self.kill();
+            }
+            DispatchEvent::ConnectQuic(addr) => {
+                self.write_quic(addr);
             }
             DispatchEvent::Connect(addr) => {
                 if self.block_list.socket_addr_is_blocked(&addr) {
@@ -426,7 +462,7 @@ impl NetworkThread {
         }
     }
 
-    fn read_udp(&mut self, udp_state: &mut UdpState, event: EventWithRetries, quinn_endpoint: &mut QuinnEndpoint, remote: SocketAddr) -> () {
+    fn read_udp(&mut self, udp_state: &mut UdpState, event: EventWithRetries) -> () {
         match udp_state.try_read(&self.buffer_pool) {
             Ok(_) => {}
             Err(e) if no_buffer_space(&e) => {
@@ -444,9 +480,47 @@ impl NetworkThread {
         while let Some(net_message) = udp_state.incoming_messages.pop_front() {
             self.deliver_net_message(net_message);
         }
-        //quinn
-            quinn_endpoint.read_incoming(remote);
-        //}
+    }
+
+   fn read_quic(&mut self, endpoint: &mut QuicEndpoint, remote: SocketAddr){
+        if let Some(mut endpoint) = self.endpoint.take() {
+
+        }
+   }
+
+   fn write_quic(&mut self, remote: SocketAddr){
+        if let Some(mut endpoint) = self.endpoint.take() {   
+            let ch = endpoint.connect(remote);
+            let mut_conn = endpoint.connections.get_mut(&ch).unwrap();
+            info!(self.log, "mut_conn is {:?}", mut_conn);
+
+            info!(self.log, "remote is {:?}", remote);
+            info!(self.log, "local is {:?}", endpoint.addr);
+
+            let now = Instant::now();
+            info!(self.log, "client drive {:?}", now);
+
+            endpoint.read_quic(now, remote);
+
+            for x in endpoint.outbound.drain(..) {
+                endpoint.socket.send_to(&x.contents, x.destination).unwrap();
+
+                if remote == x.destination {
+                    endpoint
+                        .inbound
+                        .push_back((now, x.ecn, x.contents));
+                }
+            }
+           info!(self.log, "server drive {:?}", now);
+
+            endpoint.read_quic(now, endpoint.addr);
+
+            let server_ch = endpoint.accepted.take().expect("server didn't connect");
+            let mut_conn_remote = endpoint.connections.get_mut(&server_ch).unwrap();
+            info!(self.log, "server ch {:?}", mut_conn_remote);
+
+           // UdpSocket::bind(remote).expect("could not bind UDP on TCP port");
+        }
     }
 
     fn write_tcp(&mut self, token: &Token) -> () {
@@ -565,13 +639,8 @@ impl NetworkThread {
         }
     }
 
-    fn send_quinn_message(&mut self, address: SocketAddr, data: DispatchData) {
-        //todo!();
-        // if let Some(quinn_endpoint) = self.quinn_endpoint.take() {
-        //     while let Some(x) = quinn_endpoint.endpoint.poll_transmit() {
-        //         quinn_endpoint.outbound.extend(split_transmit(x));
-        //     }
-        // }
+    fn send_quic_message(&mut self, address: SocketAddr, data: DispatchData) {
+        todo!();
     }
     fn handle_data_frame(&self, data: Data, session: SessionId) -> () {
         let buf = data.payload();
@@ -1345,12 +1414,33 @@ mod tests {
         let path = ActorPath::from_str(PATH).expect("a proper path");
         DispatchData::Lazy(Box::new(()), path.clone(), path)
     }
+    #[test]
+    fn establish_connection_quic() -> () {
+        // Sets up two NetworkThreads and does mutual connection request
+        let local = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            pick_unused_port().expect("No ports free"),
+        );
+        let remote = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            pick_unused_port().expect("No ports free"),
+        );
+        let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::new2(local, Transport::Quic));
+        let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::new2(remote, Transport::Quic));
+        let addr1 = thread1.addr;
+        let addr2 = thread2.addr;
+
+        input_queue_1_sender.send(DispatchEvent::ConnectQuic(addr2));
+
+        thread1.receive_dispatch();
+    }
 
     #[test]
     fn merge_connections_basic() -> () {
         // Sets up two NetworkThreads and does mutual connection request
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::default());
         let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::default());
+
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
         // Tell both to connect to each-other before they start running:

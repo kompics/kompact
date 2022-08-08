@@ -69,6 +69,14 @@ rcgen                           = "0.9.2"
 crypto                          = "0.3.0"
 tonic                           = "0.7.1"
 lazy_static                     = "1.4.0"
+assert_matches                  = "1.5.0"
+tracing                         = "0.1.35"
+rand                            = "0.4"
+thiserror                       = "1.0.31"
+slab                            = "0.4.6"
+tracing-subscriber              = "0.3.14"
+hex-literal                     = "0.3.4"
+portpicker                      = "0.1.1"
 
 # Optional
 protobuf 						= {version = "2", optional = true, features = ["with-bytes"]}

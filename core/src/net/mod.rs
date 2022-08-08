@@ -22,7 +22,7 @@ pub mod frames;
 pub(crate) mod network_channel;
 pub(crate) mod network_thread;
 pub(crate) mod udp_state;
-pub(crate) mod quinn_endpoint;
+pub(crate) mod quic_endpoint;
 
 /// The state of a connection
 #[derive(Clone, Debug)]
@@ -46,12 +46,14 @@ pub enum ConnectionState {
 pub(crate) enum Protocol {
     Tcp,
     Udp,
+    Quic,
 }
 impl From<Transport> for Protocol {
     fn from(t: Transport) -> Self {
         match t {
             Transport::Tcp => Protocol::Tcp,
             Transport::Udp => Protocol::Udp,
+            Transport::Quic => Protocol::Quic,
             _ => unimplemented!("Unsupported Protocol"),
         }
     }
@@ -98,11 +100,13 @@ pub mod events {
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
         SendUdp(SocketAddr, DispatchData),
         /// Send the `SerialisedFrame` to receiver associated with the `SocketAddr`
-        SendQuinn(SocketAddr, DispatchData),
+        SendQuic(SocketAddr, DispatchData),
         /// Tells the network thread to Stop, will gracefully shutdown all channels.
         Stop,
         /// Tells the network thread to Die as soon as possible, without graceful shutdown.
         Kill,
+        /// Tells the `NetworkThread` to open up a channel to the `SocketAddr` via Quic
+        ConnectQuic(SocketAddr),
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
         Connect(SocketAddr),
         /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
@@ -251,7 +255,7 @@ impl Bridge {
                 (bridge, bound_address)
             }
             Err(e) => {
-                panic!("Failed to build a Network Thread, error: {:?}", e);
+                panic!("Failed to build a Network Thread, error: {:?} {:?}", e, addr);
             }
         }
     }
@@ -304,6 +308,11 @@ impl Bridge {
                     .network_input_queue
                     .send(DispatchEvent::SendUdp(addr, data))?;
             }
+            Protocol::Quic => {
+                let _ = self   
+                    .network_input_queue
+                    .send(DispatchEvent::SendQuic(addr, data))?;
+            }
         }
         self.waker.wake()?;
         Ok(())
@@ -321,6 +330,12 @@ impl Bridge {
     pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
         match proto {
             Transport::Tcp => {
+                self.network_input_queue
+                    .send(events::DispatchEvent::Connect(addr))?;
+                self.waker.wake()?;
+                Ok(())
+            }
+            Transport::Quic => {
                 self.network_input_queue
                     .send(events::DispatchEvent::Connect(addr))?;
                 self.waker.wake()?;
