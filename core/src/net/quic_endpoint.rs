@@ -1,3 +1,5 @@
+use bytes::BytesMut;
+use crate::net::buffers::BufferPool;
 use super::*;
 use quinn_proto::{
     EcnCodepoint, 
@@ -9,7 +11,7 @@ use quinn_proto::{
     Transmit, 
     Endpoint, 
     ServerConfig,
-    ClientConfig,
+    ClientConfig, Streams,
 };
 use mio::net::UdpSocket;
 //use log::{info, warn};
@@ -18,15 +20,21 @@ use std::{
     collections::HashMap,
     sync::{Arc},
     time::Instant, 
-    net::{SocketAddr},
+    net::{SocketAddr, Ipv4Addr},
     convert::TryInto,
+    io::Error,
 };
 use hex_literal::hex;
 use rustls::{Certificate, KeyLogFile, PrivateKey};
 use lazy_static::lazy_static;
 use assert_matches::assert_matches;
 use portpicker::pick_unused_port;
+use crate::{
+    messaging::{SerialisedFrame},
+    net::buffers::{DecodeBuffer, BufferChunk},
+};
 
+const MAX_DATAGRAMS: usize = 10;
 
 pub struct QuicEndpoint {
     pub endpoint: Endpoint,
@@ -34,36 +42,42 @@ pub struct QuicEndpoint {
     pub socket: UdpSocket,
     timeout: Option<Instant>,
     pub outbound: VecDeque<Transmit>,
-    delayed: VecDeque<Transmit>,
+    //delayed: VecDeque<Transmit>,
     pub inbound: VecDeque<(Instant, Option<EcnCodepoint>, Vec<u8>)>,
     pub accepted: Option<ConnectionHandle>,
     pub connections: HashMap<ConnectionHandle, Connection>,
     pub conn_events: HashMap<ConnectionHandle, VecDeque<ConnectionEvent>>,
 }
-//The most important types are Endpoint, which conceptually represents the protocol state for a single socket 
-//and mostly manages configuration and dispatches incoming datagrams to the related Connection. 
-//Connection types contain the bulk of the protocol logic related to managing a single connection and all the related 
-//state (such as streams).
-///// This object performs no I/O whatsoever. Instead, it generates a stream of packets to send via
-/// `poll_transmit`, and consumes incoming packets and connection-generated events via `handle` and
-/// `handle_event`.
-//A Quinn endpoint corresponds to a single UDP socket, no matter how many connections are in use
+
 impl QuicEndpoint {
-    pub fn new(endpoint: Endpoint, addr: SocketAddr, socket: UdpSocket) -> Self {          
+    pub fn new(endpoint: Endpoint, 
+                addr: SocketAddr, 
+                socket: UdpSocket) -> Self {          
         Self {
             endpoint,
             socket: socket,
             addr: addr,
             timeout: None,
             outbound: VecDeque::new(),
-            delayed: VecDeque::new(),
+            //delayed: VecDeque::new(),
             inbound: VecDeque::new(),
             accepted: None,
             connections: HashMap::default(),
             conn_events: HashMap::default(),
         }
     }
-
+    pub fn client_conn_mut(&mut self, ch: ConnectionHandle) -> &mut Connection {
+        return self.connections.get_mut(&ch).unwrap();
+    }
+    pub fn server_conn_mut(&mut self, ch: ConnectionHandle) -> &mut Connection {
+        return self.connections.get_mut(&ch).unwrap();
+    }
+    pub fn client_streams(&mut self, ch: ConnectionHandle) -> Streams<'_> {
+        self.client_conn_mut(ch).streams()
+    }
+    pub fn server_streams(&mut self, ch: ConnectionHandle) -> Streams<'_> {
+        self.server_conn_mut(ch).streams()
+    }
     /// start connecting the client
     pub fn connect(&mut self, remote: SocketAddr) -> ConnectionHandle {
         println!("Initiating Connection to ... {}", remote);  
@@ -75,60 +89,126 @@ impl QuicEndpoint {
         client_ch
     }
 
-
-    pub fn read_quic(&mut self, now: Instant, remote: SocketAddr) {
+    pub fn try_read_quic(&mut self, now: Instant) -> io::Result<()> { 
         //consume icoming packets and connection-generated events via handle and handle_event
-        while self.inbound.front().map_or(false, |x| x.0 <= now) {
-            let (recv_time, ecn, packet) = self.inbound.pop_front().unwrap();
-            if let Some((ch, event)) =
-                self.endpoint
-                    .handle(recv_time, remote, None, ecn, packet.as_slice().into())
-            {
-                match event {
-                    DatagramEvent::NewConnection(conn) => {
-                        println!("NEW CONNECTION {}", remote);
-                        self.connections.insert(ch, conn);
-                        self.accepted = Some(ch);
-                    }
-                    DatagramEvent::ConnectionEvent(event) => {
-                        println!("REDIRECT TO EXISTING CONNECTION {}", remote);
-                        self.conn_events
+        let mut buf = [0; 65000];
+        match self.socket.recv_from(&mut buf) {
+            Ok((n, remote)) => {
+                println!("Received {n:?} from {remote:?}");
+                if let Some((ch, event)) =
+                    self.endpoint.handle(now, remote, None, None, BytesMut::from(buf.as_slice()))
+                {
+                    match event {
+                        DatagramEvent::NewConnection(conn) => {
+                            println!("NEW CONNECTION {:?} {:?}", ch, conn);
+                            self.connections.insert(ch, conn);
+                            self.accepted = Some(ch);
+                        }
+                        DatagramEvent::ConnectionEvent(event) => {
+                            println!("REDIRECT TO EXISTING CONNECTION {:?}", ch);
+                            self.conn_events
                             .entry(ch)
                             .or_insert_with(VecDeque::new)
                             .push_back(event);
+                        }
                     }
                 }
-            }
-        }
-        //generate a stream of packet to send via poll_transmit
-        let mut endpoint_events: Vec<(ConnectionHandle, EndpointEvent)> = vec![];
-        for (ch, conn) in self.connections.iter_mut() {
-            while let Some(event) = conn.poll_endpoint_events() {
-                println!("poll endpoint events {:?}", ch);
-                endpoint_events.push((*ch, event));
-            }
-
-            while let Some(x) = conn.poll_transmit(now, 10) {
-                println!("poll transmit {}", remote);
-                self.outbound.extend(split_transmit(x));
-                //println!("Self outbound {:?}", self.outbound);
-            }
-            self.timeout = conn.poll_timeout();
-        }
-        for (ch, event) in endpoint_events {
-            if let Some(event) = self.endpoint.handle_event(ch, event) {
-                if let Some(conn) = self.connections.get_mut(&ch) {
-                    println!("handle event event {:?}", event);
-                    conn.handle_event(event);
+                //Get the next packet to transmit
+                while let Some(x) = self.endpoint.poll_transmit() {
+                    println!("endpoint poll transmit in write {}", self.addr);
+                    self.outbound.push_back(x);
                 }
+                
+                let mut endpoint_events: Vec<(ConnectionHandle, EndpointEvent)> = vec![];
+                for (ch, conn) in self.connections.iter_mut() {
+                    println!("connectionhandle read {:?}", ch);
+                    if self.timeout.map_or(false, |x| x <= now) {
+                        self.timeout = None;
+                        conn.handle_timeout(now);
+                    }
+                    //Return endpoint-facing events
+                    while let Some(event) = conn.poll_endpoint_events() {
+                        println!("push to endpoint events {:?}", event);
+                        endpoint_events.push((*ch, event))
+                    }
+                    // //Returns packets to transmit
+                    while let Some(x) = conn.poll_transmit(now, 10) {
+                    println!("conn poll transmit {} {:?} {:?}", remote, ch, conn);
+                        self.outbound.push_back(x);
+                    }
+                    self.timeout = conn.poll_timeout();
+                }
+                for (ch, event) in endpoint_events {
+                    //Process ConnectionEvents generated by the associated Endpoint
+                    if let Some(event) = self.endpoint.handle_event(ch, event) {
+                        if let Some(conn) = self.connections.get_mut(&ch) {
+                            println!("handle event {:?} {:?}", ch, conn);
+                            conn.handle_event(event);
+                           // println!("conn poll  {:?}", conn.poll());
+                        }
+                    }
+                }
+                return Ok(());
+            }
+            Err(err) => {
+                return Err(err);
             }
         }
     }
 
-    pub fn write_quic(&mut self, now: Instant, remote: SocketAddr) {
+    pub fn try_write_quic(&mut self, now: Instant) -> io::Result<usize> {
+        let mut sent_bytes: usize = 0;
+        let mut interrupts = 0;
+        //Get the next packet to transmit
+        while let Some(x) = self.endpoint.poll_transmit() {
+            println!("endpoint poll transmit in write {}", self.addr);
+            self.outbound.push_back(x);
+        }
 
+        for (ch, conn) in self.connections.iter_mut() {
+            if self.timeout.map_or(false, |x| x <= now) {
+                self.timeout = None;
+                conn.handle_timeout(now);
+            }
+            //Returns packets to transmit, Connections should be polled for transmit after:
+            //the application performed some I/O on the connection
+            //a call was made to handle_event
+            //a call was made to handle_timeout
+            while let Some(x) = conn.poll_transmit(now, MAX_DATAGRAMS) {
+                println!("poll transmit in write {:?} {:?}", ch, conn);
+                self.outbound.push_back(x);
+            }
+            self.timeout = conn.poll_timeout();
+        }
 
-
+        while let Some(x) = self.outbound.pop_front(){
+            //let mut interrupts = 0;
+            // x.make_contiguous();
+            match self.socket.send_to(&x.contents, x.destination) {
+                Ok(n) => {
+                    sent_bytes += n;
+                }
+                Err(ref err) if would_block(err) => {
+                    // re-insert the data at the front of the buffer and return
+                    self.outbound.push_front(x);
+                    return Ok(sent_bytes);
+                }
+                Err(err) if interrupted(&err) => {
+                    // re-insert the data at the front of the buffer
+                    self.outbound.push_front(x);
+                    interrupts += 1;
+                    if interrupts >= network_thread::MAX_INTERRUPTS {
+                        return Err(err);
+                    }
+                }
+                // Other errors we'll consider fatal.
+                Err(err) => {
+                    self.outbound.push_front(x);
+                    return Err(err);
+                }
+            }
+        }
+        Ok(sent_bytes)
     }
 }
 
@@ -192,143 +272,131 @@ lazy_static! {
         rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
 }
 
-fn split_transmit(transmit: Transmit) -> Vec<Transmit> {
-    let segment_size = match transmit.segment_size {
-        Some(segment_size) => segment_size,
-        _ => return vec![transmit],
-    };
 
-    let mut offset = 0;
-    let mut transmits = Vec::new();
-    while offset < transmit.contents.len() {
-        let end = (offset + segment_size).min(transmit.contents.len());
+#[cfg(test)]
+#[allow(unused_must_use)]
+fn setup_endpoints() -> (QuicEndpoint, QuicEndpoint) {
+    let local = SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        pick_unused_port().expect("No ports free"),
+    );
+    let remote = SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        pick_unused_port().expect("No ports free"),
+    );
+    let client_socket = UdpSocket::bind(local).expect("could not bind UDP for client");
+    let server_socket = UdpSocket::bind(remote).expect("could not bind UDP for server");
 
-        let contents = transmit.contents[offset..end].to_vec();
-        transmits.push(Transmit {
-            destination: transmit.destination,
-            ecn: transmit.ecn,
-            contents,
-            segment_size: None,
-            src_ip: transmit.src_ip,
-        });
+    //Client endpoint should be using an endpoint with no server_config set
+    //When called connect the client_config will be applied
+    let endpoint_conf = Endpoint::new(Default::default(), None);
+    let endpoint_conf2 = Endpoint::new(Default::default(), Some(Arc::new(quic_endpoint::server_config())));
 
-        offset = end;
-    }
+    //Bind endpoints to client and server sockets
+    let mut endpoint = QuicEndpoint::new(endpoint_conf, local, client_socket);
+    let mut server_endpoint = QuicEndpoint::new(endpoint_conf2, remote, server_socket);
 
-    transmits
+    //Connect to remote host
+    endpoint.connect(remote);
+
+    (endpoint, server_endpoint)
 }
-
-// #[test]
-// fn establish_connection() {
-
-//     let local = SocketAddr::new(
-//         IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-//         pick_unused_port().expect("No ports free"),
-//     );
-//     let remote = SocketAddr::new(
-//         IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-//         pick_unused_port().expect("No ports free"),
-//     );
-
-//     let client_socket = UdpSocket::bind(local).expect("could not bind UDP on TCP port for client");
-//     let server_socket = UdpSocket::bind(remote).expect("could not bind UDP on TCP port for server");
-
-//     let endpoint_conf = Endpoint::new(Default::default(), Some(Arc::new(quic_endpoint::server_config())));
-//     let endpoint_conf_server = Endpoint::new(Default::default(), Some(Arc::new(quic_endpoint::server_config())));
-//     let mut client_endpoint = QuicEndpoint::new(endpoint_conf, local, client_socket);
-//     let mut server_endpoint = QuicEndpoint::new(endpoint_conf_server, remote, server_socket);
-
-//     //info!("connecting");
-//     let client_ch = client_endpoint.connect(remote);
-//     let now = Instant::now();
-//     client_endpoint.write_quic(now, remote);
-//     server_endpoint.write_quic(now, local);
-
-//     // The client completes the connection
-//     assert_matches!(
-//         //client_endpoint.client_conn_mut(client_ch).poll(),
-//         Some(quinn_proto::Event::HandshakeDataReady)
-//     );
-//     assert_matches!(
-//         //client_endpoint.client_conn_mut(client_ch).poll(),
-//         Some(quinn_proto::Event::Connected)
-//     );
-
-//     // The server completes the connection
-//     let server_ch = server_endpoint.accepted.take().expect("server didn't connect");
-//     assert_matches!(
-//         //server_endpoint.server_conn_mut(server_ch).poll(),
-//         Some(quinn_proto::Event::HandshakeDataReady)
-//     );
-//     assert_matches!(
-//         //server_endpoint.server_conn_mut(server_ch).poll(),
-//         Some(quinn_proto::Event::Connected)
-//     );
-// }
 
 #[test]
-fn version_negotiate_server() {
-    let client_addr = "127.0.0.1:7890".parse().expect("Address should work");
-    let mut server = Endpoint::new(Default::default(), Some(Arc::new(server_config())));
-    let now = Instant::now();
-    let event = server.handle(
-        now,
-        client_addr,
-        None,
-        None,
-        // Long-header packet with reserved version number
-        hex!("80 0a1a2a3a 04 00000000 04 00000000 00")[..].into(),
-    );
-    assert!(event.is_none());
+fn establish_connection() {
+    let (mut endpoint, mut server_endpoint) = setup_endpoints();
 
-    let io = server.poll_transmit();
-    assert!(io.is_some());
-    if let Some(Transmit { contents, .. }) = io {
-        assert_ne!(contents[0] & 0x80, 0);
-        assert_eq!(&contents[1..15], hex!("00000000 04 00000000 04 00000000"));
-       assert!(contents[15..].chunks(4).any(|x| {
-           DEFAULT_SUPPORTED_VERSIONS.contains(&u32::from_be_bytes(x.try_into().unwrap()))
-       }));
+    match endpoint.try_write_quic(Instant::now()) {
+        Ok(_) => {}
+        Err(e) => {
+           println!("Error writing quic from endpoint {}", e);
+        }
     }
-    assert_matches!(server.poll_transmit(), None);
+    thread::sleep(Duration::from_secs(1));
+
+    //Server should be handshake data ready 
+    match server_endpoint.try_read_quic(Instant::now()) {
+        Ok(_) => {
+            let server_ch = server_endpoint.accepted.take().expect("server didn't connect");
+            assert_matches!(
+                server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
+                Some(quinn_proto::Event::HandshakeDataReady)    
+            );        
+        }
+        Err(e) => {
+           println!("Error reading quic from server endpoint {}", e);
+        }
+    }
+    thread::sleep(Duration::from_secs(1));
+ 
+    match endpoint.try_read_quic(Instant::now()) {
+        Ok(_) => {
+            let client_ch = endpoint.accepted.take().expect("client didn't connect");
+            let server_ch = server_endpoint.accepted.take().expect("server didn't connect");
+
+            //The client completes the connection
+            assert_matches!(
+                endpoint.connections.get_mut(&client_ch).unwrap().poll(),
+                Some(quinn_proto::Event::HandshakeDataReady)    
+            );   
+            assert_matches!(
+                endpoint.connections.get_mut(&client_ch).unwrap().poll(),
+                Some(quinn_proto::Event::Connected { .. })    
+            ); 
+            //The server completes the connection
+            assert_matches!(
+                server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
+                Some(quinn_proto::Event::HandshakeDataReady)    
+            );
+            assert_matches!(
+                server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
+                Some(quinn_proto::Event::Connected { .. })    
+            );       
+        }
+        Err(e) => {
+           println!("Error reading quic from endpoint {}", e);
+        }
+    }
+}
+
+#[test]
+fn finish_stream() {
+
 }
 
 // #[test]
-// fn version_negotiate_client() {
-//     let server_addr = "127.0.0.1:7890".parse().expect("Address should work");
-//     let mut client = Endpoint::new(Default::default(), None);
-//     println!("Client {:?}", client);
-//     let (_, mut client_ch) = client
-//         .connect(client_config(), server_addr, "localhost")
-//         .unwrap();
+// fn version_negotiate_server() {
+//     let client_addr = "127.0.0.1:7890".parse().expect("Address should work");
+//     let mut server = Endpoint::new(Default::default(), Some(Arc::new(server_config())));
 //     let now = Instant::now();
-//     let opt_event = client.handle(
+//     let event = server.handle(
 //         now,
-//         server_addr,
+//         client_addr,
 //         None,
 //         None,
-//        // Version negotiation packet for reserved version
-//         hex!("80 00000000 04 00000000 04 00000000 0a1a2a3a")[..].into(),
+//         // Long-header packet with reserved version number
+//         hex!("80 0a1a2a3a 04 00000000 04 00000000 00")[..].into(),
 //     );
+//     assert!(event.is_none());
 
-//     if let Some((_, quinn_proto::DatagramEvent::ConnectionEvent(event))) = opt_event {
-//         client_ch.handle_event(event);
+//     let io = server.poll_transmit();
+//     assert!(io.is_some());
+//     if let Some(Transmit { contents, .. }) = io {
+//         assert_ne!(contents[0] & 0x80, 0);
+//         assert_eq!(&contents[1..15], hex!("00000000 04 00000000 04 00000000"));
+//        assert!(contents[15..].chunks(4).any(|x| {
+//            DEFAULT_SUPPORTED_VERSIONS.contains(&u32::from_be_bytes(x.try_into().unwrap()))
+//        }));
 //     }
-//     assert_matches!(
-//         client_ch.poll(),
-//         Some(quinn_proto::Event::ConnectionLost {
-//             reason: quinn_proto::ConnectionError::VersionMismatch,
-//         })
-//     );
+//     assert_matches!(server.poll_transmit(), None);
+//     /// The QUIC protocol version implemented.
+//     pub const DEFAULT_SUPPORTED_VERSIONS: &[u32] = &[
+//         0x00000001,
+//         0xff00_001d,
+//         0xff00_001e,
+//         0xff00_001f,
+//         0xff00_0020,
+//         0xff00_0021,
+//         0xff00_0022,
+//     ];
 // }
-
-/// The QUIC protocol version implemented.
-pub const DEFAULT_SUPPORTED_VERSIONS: &[u32] = &[
-    0x00000001,
-    0xff00_001d,
-    0xff00_001e,
-    0xff00_001f,
-    0xff00_0020,
-    0xff00_0021,
-    0xff00_0022,
-];
