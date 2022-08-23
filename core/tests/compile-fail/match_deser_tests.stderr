@@ -8,7 +8,7 @@ error: Must specify a deserialisation target type
 8 | |     };
   | |_____^
   |
-  = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `$crate::match_deser_internal` which comes from the expansion of the macro `match_deser` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Illegal case `nsg`. Allowed values: [`msg`, `err`, `default`]
   --> tests/compile-fail/match_deser_tests.rs:9:5
@@ -20,7 +20,7 @@ error: Illegal case `nsg`. Allowed values: [`msg`, `err`, `default`]
 13 | |     };
    | |_____^
    |
-   = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `$crate::match_deser_internal` which comes from the expansion of the macro `match_deser` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Illegal `match_deser!` item(s). See docs for example of legal items. Offending item(s): my_msg : String => (),
   --> tests/compile-fail/match_deser_tests.rs:14:5
@@ -32,7 +32,7 @@ error: Illegal `match_deser!` item(s). See docs for example of legal items. Offe
 18 | |     };
    | |_____^
    |
-   = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `$crate::match_deser_internal` which comes from the expansion of the macro `match_deser` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Illegal `match_deser!` item(s). See docs for example of legal items. Offending item(s): my_msg : String => ()
   --> tests/compile-fail/match_deser_tests.rs:19:5
@@ -44,7 +44,7 @@ error: Illegal `match_deser!` item(s). See docs for example of legal items. Offe
 23 | |     };
    | |_____^
    |
-   = note: this error originates in the macro `$crate::match_deser_internal` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `$crate::match_deser_internal` which comes from the expansion of the macro `match_deser` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: You are using an old `match_deser!` format. See docs for the new format.
   --> tests/compile-fail/match_deser_tests.rs:24:5
