@@ -5,6 +5,7 @@ use crate::{
 };
 use mio::net::UdpSocket;
 use network_thread::*;
+use quinn_proto::Transmit;
 use std::{cell::RefCell, cmp::min, collections::VecDeque, io, io::Error, net::SocketAddr};
 
 // Note that this is a theoretical IPv4 limit.
@@ -15,7 +16,7 @@ const MAX_PACKET_SIZE: usize = 65535;
 pub(super) struct UdpState {
     logger: KompactLogger,
     pub(super) socket: UdpSocket,
-    outbound_queue: VecDeque<(SocketAddr, SerialisedFrame)>,
+    pub(super) outbound_queue: VecDeque<(SocketAddr, SerialisedFrame)>,
     input_buffer: DecodeBuffer,
     pub(super) incoming_messages: VecDeque<NetMessage>,
     max_packet_size: usize,
@@ -49,6 +50,7 @@ impl UdpState {
         let mut sent_bytes: usize = 0;
         let mut interrupts = 0;
         while let Some((addr, mut frame)) = self.outbound_queue.pop_front() {
+            println!("send to from udp_state {:?}", addr);
             frame.make_contiguous();
             match self.socket.send_to(frame.bytes(), addr) {
                 Ok(n) => {

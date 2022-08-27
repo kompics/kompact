@@ -6,7 +6,7 @@ use crate::{
         frames::{Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
     },
 };
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BytesMut, BufMut};
 use mio::{net::TcpStream, Token};
 use network_thread::*;
 use std::{
@@ -365,6 +365,12 @@ impl TcpChannel {
                                 self.outbound_queue.push_front(serialized_frame);
                             }
                         }
+                        SerialisedFrame::Vec(slice) => {
+                            if n < slice.remaining_mut() {
+                                unsafe { slice.advance_mut(n) };
+                                self.outbound_queue.push_front(serialized_frame);
+                            }
+                        }
                     }
                     // Continue looping for the next message
                 }
@@ -396,6 +402,7 @@ impl TcpChannel {
             SerialisedFrame::ChunkLease(chunk) => self.stream.write(chunk.chunk()),
             SerialisedFrame::Bytes(bytes) => self.stream.write(bytes.chunk()),
             SerialisedFrame::ChunkRef(chunkref) => self.stream.write(chunkref.chunk()),
+            SerialisedFrame::Vec(sliceref) => self.stream.write(sliceref.as_slice()),
         }
     }
 

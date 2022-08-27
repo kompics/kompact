@@ -41,6 +41,11 @@ impl DispatchData {
                 //println!("to_local (from: {:?}; to: {:?})", src, dst);
                 Ok(deserialise_bytes(bytes).expect("s11n errors"))
             }
+            DispatchData::Serialised(SerialisedFrame::Vec(slice)) => {
+               // slice.retain(FRAME_HEAD_LEN as usize);
+                //println!("to_local (from: {:?}; to: {:?})", src, dst);
+                Ok(deserialise_bytes(slice.into()).expect("s11n errors"))
+            }
             DispatchData::NetMessage(net_message) => Ok(net_message),
         }
     }

@@ -23,6 +23,7 @@ pub(crate) mod network_channel;
 pub(crate) mod network_thread;
 pub(crate) mod udp_state;
 pub(crate) mod quic_endpoint;
+mod quic_config;
 
 /// The state of a connection
 #[derive(Clone, Debug)]

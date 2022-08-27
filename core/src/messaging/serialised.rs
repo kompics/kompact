@@ -1,3 +1,6 @@
+use async_std::io::ReadExt;
+use bytes::BufMut;
+
 use super::*;
 
 /// Wrapper for serialised data with a serialisation id
@@ -61,6 +64,8 @@ pub enum SerialisedFrame {
     ChunkLease(ChunkLease),
     /// Variant for the Pooled buffers
     ChunkRef(ChunkRef),
+    /// Variant for Quic messaging
+    Vec(Vec<u8>),
 }
 
 impl SerialisedFrame {
@@ -75,6 +80,7 @@ impl SerialisedFrame {
             SerialisedFrame::ChunkLease(chunk) => chunk.remaining(),
             SerialisedFrame::ChunkRef(chunk) => chunk.remaining(),
             SerialisedFrame::Bytes(bytes) => bytes.remaining(),
+            SerialisedFrame::Vec(contents) => contents.remaining_mut(),
         }
     }
 
@@ -84,6 +90,7 @@ impl SerialisedFrame {
             SerialisedFrame::ChunkLease(chunk) => chunk.chunk(),
             SerialisedFrame::ChunkRef(chunk) => chunk.chunk(),
             SerialisedFrame::Bytes(bytes) => bytes.chunk(),
+            SerialisedFrame::Vec(contents) => contents.as_slice(),
         }
     }
 
@@ -98,6 +105,9 @@ impl SerialisedFrame {
                 }
                 SerialisedFrame::ChunkRef(chunk) => {
                     *self = SerialisedFrame::Bytes(chunk.copy_to_bytes(len));
+                }
+                SerialisedFrame::Vec(slice) => {
+                   *self = SerialisedFrame::Vec(slice.to_vec());
                 }
                 _ => {
                     // Unreachable

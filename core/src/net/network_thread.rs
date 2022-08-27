@@ -44,7 +44,6 @@ use std::{
 };
 //use crate::net::quic_client::server_config;
 use quinn_proto::Endpoint;
-use assert_matches::assert_matches;
 
 // Used for identifying connections
 const TCP_SERVER: Token = Token(0);
@@ -158,10 +157,7 @@ impl NetworkThreadBuilder {
             .expect("Could not get buffer for setting up UDP");
         let udp_state = UdpState::new(udp_socket, udp_buffer, logger.clone(), &self.network_config);
 
-        let udp_buffer2 = buffer_pool
-            .get_buffer()
-            .expect("Could not get buffer for setting up UDP");
-        let endpoint_conf = Endpoint::new(Default::default(), Some(Arc::new(quic_endpoint::server_config())));
+        let endpoint_conf = Endpoint::new(Default::default(), Some(Arc::new(quic_config::server_config())));
         let endpoint = QuicEndpoint::new(endpoint_conf, quic_addr, quic_socket);
 
         NetworkThread {
@@ -275,13 +271,17 @@ impl NetworkThread {
             }
             QUIC_SOCKET => {
                 if let Some(mut endpoint) = self.endpoint.take() {
-                    if event.writeable {
-                        self.write_quic(remote)
+                    if let Some(mut udp_state) = self.udp_state.take(){
+                        if event.writeable {
+                            self.write_quic(remote);
+                        }
+                        if event.readable {
+                            self.read_quic(remote);
+                        }
+                        self.endpoint = Some(endpoint);
                     }
-                    if event.readable {
-                        self.read_quic(&mut endpoint)
-                    }
-                    self.endpoint = Some(endpoint);
+
+                   // }
                 }
             }
             DISPATCHER => {
@@ -485,26 +485,28 @@ impl NetworkThread {
         }
     }
 
-   fn read_quic(&mut self, endpoint: &mut QuicEndpoint) -> (){
-        match endpoint.try_read_quic(Instant::now()) {
-            Ok(_) => {}
-            Err(e) => {
-                warn!(self.log, "Error during QUIC reading: {}", e);
+   fn read_quic(&mut self, remote: SocketAddr) -> (){
+        if let Some(mut endpoint) = self.endpoint.take() {   
+            if let Some(mut udp_state) = self.udp_state.take() {   
+                match endpoint.try_read_quic(Instant::now(), remote, &mut udp_state, &self.buffer_pool) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        warn!(self.log, "Error during QUIC reading: {}", e);
+                    }
+                }
             }
         }
-        // while let Some(net_message) = udp_state.incoming_messages.pop_front() {
-        //     self.deliver_net_message(net_message);
-        // }
    }
 
    fn write_quic(&mut self, remote: SocketAddr){
         if let Some(mut endpoint) = self.endpoint.take() {   
-            endpoint.connect(remote);
-
-            match endpoint.try_write_quic(Instant::now()) {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!(self.log, "Error during QUIC sending: {}", e);
+            if let Some(mut udp_state) = self.udp_state.take() {   
+                endpoint.connect(remote);
+                match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        warn!(self.log, "Error during QUIC sending: {}", e);
+                    }
                 }
             }
         }
@@ -628,38 +630,39 @@ impl NetworkThread {
 
     fn send_quic_message(&mut self, address: SocketAddr, data: DispatchData) {
         if let Some(mut endpoint) = self.endpoint.take() {
-            match self.serialise_dispatch_data(data) {
-                Ok(frame) => {
-                   // endpoint.enqueue_serialised(address, frame);
-                    let now = Instant::now();
-                    match endpoint.try_write_quic(now) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            warn!(self.log, "Error during UDP sending: {}", e);
-                            debug!(self.log, "UDP error debug info: {:?}", e);
+            if let Some(mut udp_state) = self.udp_state.take() {
+                match self.serialise_dispatch_data(data) {
+                    Ok(frame) => {
+                        udp_state.enqueue_serialised(address, frame);
+                        match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                warn!(self.log, "Error during UDP sending: {}", e);
+                                debug!(self.log, "UDP error debug info: {:?}", e);
+                            }
                         }
                     }
+                    Err(e) if out_of_buffers(&e) => {
+                        self.out_of_buffers = true;
+                        warn!(
+                            self.log,
+                            "No network buffers available, dropping outbound message.\
+                            slow down message rate or increase buffer limits."
+                        );
+                    }
+                    Err(e) => {
+                        error!(self.log, "Error serialising message {}", e);
+                    }
                 }
-                Err(e) if out_of_buffers(&e) => {
-                    self.out_of_buffers = true;
-                    warn!(
-                        self.log,
-                        "No network buffers available, dropping outbound message.\
-                        slow down message rate or increase buffer limits."
-                    );
-                }
-                Err(e) => {
-                    error!(self.log, "Error serialising message {}", e);
-                }
+                self.udp_state = Some(udp_state);
+            } else {
+                self.reject_dispatch_data(address, data);
+                trace!(
+                    self.log,
+                    "Rejecting UDP message to {} as socket is already shut down.",
+                    address
+                );
             }
-            self.endpoint = Some(endpoint);
-        } else {
-            self.reject_dispatch_data(address, data);
-            trace!(
-                self.log,
-                "Rejecting UDP message to {} as socket is already shut down.",
-                address
-            );
         }
     }
     fn handle_data_frame(&self, data: Data, session: SessionId) -> () {
@@ -1446,14 +1449,36 @@ mod tests {
             pick_unused_port().expect("No ports free"),
         );
 
+
+
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::new2(local, Transport::Quic));
         let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::new2(remote, Transport::Quic));
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
 
+        const a: Vec<u8> = Vec::new();
+        a.push(56);
+
+        const data: DispatchData = DispatchData::Serialised(SerialisedFrame::Vec(a));
+
         input_queue_1_sender.send(DispatchEvent::ConnectQuic(addr2));
+        input_queue_1_sender.send(DispatchEvent::SendQuic(addr2, data));
 
         thread1.receive_dispatch();
+
+       // thread1.write_quic(remote);
+        thread2.read_quic(addr1);
+
+        thread::sleep(Duration::from_millis(100));
+
+        // We need to make sure the TCP buffers are actually flushing the messages.
+        // Handle events on both ends, say hello:
+        poll_and_handle(&mut thread1);
+        poll_and_handle(&mut thread2);
+
+        assert_eq!(thread1.address_map.len(), 1);
+        assert_eq!(thread2.address_map.len(), 1);
+
     }
 
     #[test]
