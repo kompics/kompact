@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     messaging::{NetMessage, SerialisedFrame},
-    net::buffers::{BufferChunk, BufferPool, DecodeBuffer},
+    net::buffers::{BufferChunk, BufferPool, DecodeBuffer, decode_buffer},
 };
 use mio::net::UdpSocket;
 use network_thread::*;
@@ -103,13 +103,15 @@ impl UdpState {
                     return Err(Error::new(io::ErrorKind::InvalidInput, "Out of Buffers"));
                 }
             }
-            if let Some(buf) = self.input_buffer.get_writeable() {
+            //println!("input buffer get writeable {:?}", self.input_buffer.get_writeable());
+            if let  Some(buf) = self.input_buffer.get_writeable() {
                 match self.socket.recv_from(buf) {
                     Ok((0, addr)) => {
                         debug!(self.logger, "Got empty UDP datagram from {}", addr);
                         return Ok(());
                     }
                     Ok((n, addr)) => {
+                        println!("n received {:?}", n);
                         self.input_buffer.advance_writeable(n);
                         self.decode_message(addr);
                     }
@@ -134,6 +136,7 @@ impl UdpState {
     }
 
     fn decode_message(&mut self, source: SocketAddr) {
+        println!("print input buffer get frame {:?}", self.input_buffer.get_frame());
         match self.input_buffer.get_frame() {
             Ok(Frame::Data(frame)) => {
                 use serialisation::ser_helpers::deserialise_chunk_lease;
@@ -154,12 +157,19 @@ impl UdpState {
                     "Decoded unexpected frame from UDP datagram from {}: {:?}", source, frame
                 );
             }
+            Err(FramingError::InvalidMagicNum(message)) => {
+                let len = message.1.len();
+                let chunklease = DecodeBuffer::read_chunk_lease(&mut self.input_buffer, len);
+                println!("chunklease {:?}", chunklease);
+
+            }
             Err(e) => {
                 warn!(
                     self.logger,
                     "Could not decode UDP datagram from {}: {:?}", source, e
                 );
             }
+
         }
     }
 

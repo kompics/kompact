@@ -126,7 +126,7 @@ impl DecodeBuffer {
     }
 
     /// Extracts a ChunkLease from the readable portion of the buffer (including the chain)
-    fn read_chunk_lease(&mut self, length: usize) -> ChunkLease {
+    pub(crate) fn read_chunk_lease(&mut self, length: usize) -> ChunkLease {
         if let Some(mut chain_head) = self.chain_head.take() {
             match chain_head.remaining().cmp(&length) {
                 Ordering::Greater => {
@@ -164,6 +164,7 @@ impl DecodeBuffer {
 
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
+        println!("Decode frame head {:?}", self.decode_frame_head());
         self.decode_frame_head()?;
         if let Some(head) = &self.next_frame_head {
             if self.readable_len() >= head.content_length() {

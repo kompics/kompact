@@ -80,7 +80,7 @@ impl SerialisedFrame {
             SerialisedFrame::ChunkLease(chunk) => chunk.remaining(),
             SerialisedFrame::ChunkRef(chunk) => chunk.remaining(),
             SerialisedFrame::Bytes(bytes) => bytes.remaining(),
-            SerialisedFrame::Vec(contents) => contents.remaining_mut(),
+            SerialisedFrame::Vec(contents) => contents.len(),
         }
     }
 
@@ -106,9 +106,9 @@ impl SerialisedFrame {
                 SerialisedFrame::ChunkRef(chunk) => {
                     *self = SerialisedFrame::Bytes(chunk.copy_to_bytes(len));
                 }
-                SerialisedFrame::Vec(slice) => {
-                   *self = SerialisedFrame::Vec(slice.to_vec());
-                }
+                // SerialisedFrame::Vec(slice) => {
+                //    *self = SerialisedFrame::Vec(slice.to_vec());
+                // }
                 _ => {
                     // Unreachable
                     panic!("Impossible error, can't convert uncontiguous Bytes to contiguous");

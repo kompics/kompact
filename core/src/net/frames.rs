@@ -206,10 +206,10 @@ impl FrameHead {
         if src.remaining() < (FRAME_HEAD_LEN) as usize {
             return Err(FramingError::NoData);
         }
-
         let magic_check = src.get_u32();
+        println!("magic check {:?}", magic_check);
         if magic_check != MAGIC_NUM {
-            eprintln!("Magic check fail: {:X}", magic_check);
+            // eprintln!("Magic check fail: {:X}", magic_check);
             return Err(FramingError::InvalidMagicNum((
                 magic_check,
                 src.chunk().to_vec(),
