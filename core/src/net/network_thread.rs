@@ -44,7 +44,7 @@ use std::{
 };
 //use crate::net::quic_client::server_config;
 use quinn_proto::Endpoint;
-
+use assert_matches::assert_matches;
 // Used for identifying connections
 const TCP_SERVER: Token = Token(0);
 const UDP_SOCKET: Token = Token(1);
@@ -115,12 +115,12 @@ impl NetworkThreadBuilder {
         let logger = self.log.new(o!("addr" => format!("{}", actual_addr)));
         let mut udp_socket = UdpSocket::bind(actual_addr).expect("could not bind UDP on TCP port");
 
-        let quic_addr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            pick_unused_port().expect("No ports free"),
-        );
+        // let quic_addr = SocketAddr::new(
+        //     IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        //     pick_unused_port().expect("No ports free"),
+        // );
         //bind to local address
-        let mut quic_socket = UdpSocket::bind(quic_addr).expect("Could not bind UDP for QUIC");
+       // let mut quic_socket = UdpSocket::bind(quic_addr).expect("Could not bind UDP for QUIC");
 
         // Register Listeners
         self.poll
@@ -135,14 +135,14 @@ impl NetworkThreadBuilder {
                 Interest::READABLE | Interest::WRITABLE,
             )
             .expect("failed to register UDP SOCKET");
-        self.poll
-            .registry()
-            .register(
-                &mut quic_socket, 
-                QUIC_SOCKET, 
-                Interest::READABLE | Interest::WRITABLE,
-            )
-            .expect("Failed to register QUIC SOCKET");
+        // self.poll
+        //     .registry()
+        //     .register(
+        //         &mut quic_socket, 
+        //         QUIC_SOCKET, 
+        //         Interest::READABLE | Interest::WRITABLE,
+        //     )
+        //     .expect("Failed to register QUIC SOCKET");
 
         let mut buffer_pool = BufferPool::with_config(
             self.network_config.get_buffer_config(),
@@ -158,7 +158,7 @@ impl NetworkThreadBuilder {
         let udp_state = UdpState::new(udp_socket, udp_buffer, logger.clone(), &self.network_config);
 
         let endpoint_conf = Endpoint::new(Default::default(), Some(Arc::new(quic_config::server_config())));
-        let endpoint = QuicEndpoint::new(endpoint_conf, quic_addr, quic_socket);
+        let endpoint = QuicEndpoint::new(endpoint_conf, actual_addr);
 
         NetworkThread {
             log: logger,
@@ -222,7 +222,7 @@ impl NetworkThread {
                 .map(EventWithRetries::from)
                 .chain(self.retry_queue.split_off(0))
             {
-                self.handle_event(event, self.addr);
+                self.handle_event(event);
 
                 if self.stopped {
                     if let Some(Err(e)) = self
@@ -251,7 +251,7 @@ impl NetworkThread {
         }
     }
 
-    fn handle_event(&mut self, event: EventWithRetries, remote: SocketAddr) {
+    fn handle_event(&mut self, event: EventWithRetries) {
         match event.token {
             TCP_SERVER => {
                 if let Err(e) = self.receive_stream() {
@@ -271,17 +271,15 @@ impl NetworkThread {
             }
             QUIC_SOCKET => {
                 if let Some(mut endpoint) = self.endpoint.take() {
-                    if let Some(mut udp_state) = self.udp_state.take(){
-                        if event.writeable {
-                            self.write_quic(remote);
-                        }
-                        if event.readable {
-                            self.read_quic(remote);
-                        }
-                        self.endpoint = Some(endpoint);
+                    if event.writeable {
+                      //  self.write_quic(remote);
                     }
+                    if event.readable {
+                      //  println!("I am being written {:?}", remote);
+                      //  self.read_quic(remote);
+                    }
+                    self.endpoint = Some(endpoint);
 
-                   // }
                 }
             }
             DISPATCHER => {
@@ -344,7 +342,7 @@ impl NetworkThread {
                 self.kill();
             }
             DispatchEvent::ConnectQuic(addr) => {
-                self.write_quic(addr);
+                self.initate_handshake_quic(addr);
             }
             DispatchEvent::Connect(addr) => {
                 if self.block_list.socket_addr_is_blocked(&addr) {
@@ -486,8 +484,12 @@ impl NetworkThread {
     }
 
    fn read_quic(&mut self, remote: SocketAddr) -> (){
-        if let Some(mut endpoint) = self.endpoint.take() {   
+        if let Some(mut endpoint) = self.endpoint.take() {  
+            info!(self.log, "endpoint exists: {:?}", remote);
+ 
             if let Some(mut udp_state) = self.udp_state.take() {   
+                info!(self.log, "udp_state exists: {:?}", remote);
+
                 match endpoint.try_read_quic(Instant::now(), remote, &mut udp_state, &self.buffer_pool) {
                     Ok(_) => {}
                     Err(e) => {
@@ -497,15 +499,31 @@ impl NetworkThread {
             }
         }
    }
+   fn write_quic(&mut self, remote: SocketAddr) -> (){
+    if let Some(mut endpoint) = self.endpoint.take() {   
+        info!(self.log, "endpoint exists in write: {:?}", remote);
 
-   fn write_quic(&mut self, remote: SocketAddr){
+        if let Some(mut udp_state) = self.udp_state.take() {  
+            info!(self.log, "udp_state exists in write: {:?}", remote);
+ 
+            match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!(self.log, "Error during QUIC sending: {}", e);
+                }
+            }
+        }
+    }
+   }
+
+   fn initate_handshake_quic(&mut self, remote: SocketAddr) {
         if let Some(mut endpoint) = self.endpoint.take() {   
+            endpoint.connect(remote);
             if let Some(mut udp_state) = self.udp_state.take() {   
-                endpoint.connect(remote);
                 match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
                     Ok(_) => {}
                     Err(e) => {
-                        warn!(self.log, "Error during QUIC sending: {}", e);
+                        warn!(self.log, "Error establishing QUIC connection: {}", e);
                     }
                 }
             }
@@ -633,6 +651,7 @@ impl NetworkThread {
             if let Some(mut udp_state) = self.udp_state.take() {
                 match self.serialise_dispatch_data(data) {
                     Ok(frame) => {
+                        info!(self.log, "what is frame: {:?}", frame);
                         udp_state.enqueue_serialised(address, frame);
                         match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
                             Ok(_) => {}
@@ -1379,10 +1398,10 @@ mod tests {
             .poll
             .poll(&mut events, Some(Duration::from_millis(100)));
         for event in events.iter() {
-   //         thread.handle_event(EventWithRetries::from(event));
+            thread.handle_event(EventWithRetries::from(event));
         }
         while let Some(event) = thread.retry_queue.pop_front() {
-      //      thread.handle_event(event);
+            thread.handle_event(event);
         }
     }
 
@@ -1449,36 +1468,76 @@ mod tests {
             pick_unused_port().expect("No ports free"),
         );
 
-
-
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::new2(local, Transport::Quic));
         let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::new2(remote, Transport::Quic));
+       // let (mut thread3, input_queue_3_sender) = setup_network_thread(&NetworkConfig::new2(extra, Transport::Quic));
         let addr1 = thread1.addr;
         let addr2 = thread2.addr;
+      //  let addr3 = thread3.addr;
 
-        const a: Vec<u8> = Vec::new();
-        a.push(56);
-
-        const data: DispatchData = DispatchData::Serialised(SerialisedFrame::Vec(a));
+       // const data: DispatchData = DispatchData::Serialised(SerialisedFrame::Vec(a));
 
         input_queue_1_sender.send(DispatchEvent::ConnectQuic(addr2));
-        input_queue_1_sender.send(DispatchEvent::SendQuic(addr2, data));
 
-        thread1.receive_dispatch();
+      //  thread1.receive_dispatch();
 
-       // thread1.write_quic(remote);
+    //    thread::sleep(Duration::from_secs(2));
+
         thread2.read_quic(addr1);
 
-        thread::sleep(Duration::from_millis(100));
+      //  thread::sleep(Duration::from_secs(2));
+
+        //    thread1.read_quic(addr2);
+      //  poll_and_handle(&mut thread1);
+      //  poll_and_handle(&mut thread2);
+
+       // input_queue_2_sender.send(DispatchEvent::ConnectQuic(addr1));
+
+        thread::sleep(Duration::from_secs(2));
+
+     //   thread2.receive_dispatch();
+
+    //    poll_and_handle(&mut thread1);
+    //    poll_and_handle(&mut thread2);
+
+    //    thread::sleep(Duration::from_secs(2));
+
+        thread1.read_quic(addr2);
+
+        thread2.endpoint.take().expect("help");
+        thread::sleep(Duration::from_secs(2));
+
+        if let Some(mut server_endpoint) = thread2.endpoint.take() {
+            if let Some(mut client_endpoint) = thread1.endpoint.take() {
+                let client_ch = client_endpoint.accepted.take().expect("client didn't connect");
+                let server_ch = server_endpoint.accepted.take().expect("server didn't connect");
+                //The client completes the connection
+                assert_matches!(
+                    client_endpoint.connections.get_mut(&client_ch).unwrap().poll(),
+                    Some(quinn_proto::Event::HandshakeDataReady)    
+                );   
+                assert_matches!(
+                    client_endpoint.connections.get_mut(&client_ch).unwrap().poll(),
+                    Some(quinn_proto::Event::Connected { .. })    
+                ); 
+                //The server completes the connection
+                assert_matches!(
+                    server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
+                    Some(quinn_proto::Event::HandshakeDataReady)    
+                );
+                assert_matches!(
+                    server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
+                    Some(quinn_proto::Event::Connected { .. })    
+                ); 
+            }
+        }
 
         // We need to make sure the TCP buffers are actually flushing the messages.
         // Handle events on both ends, say hello:
-        poll_and_handle(&mut thread1);
-        poll_and_handle(&mut thread2);
+      //  poll_and_handle(&mut thread1);
+      //  poll_and_handle(&mut thread2);
 
-        assert_eq!(thread1.address_map.len(), 1);
-        assert_eq!(thread2.address_map.len(), 1);
-
+        //assert_eq!(thread1.address_map.len(), 1);
     }
 
     #[test]

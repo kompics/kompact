@@ -8,7 +8,7 @@ use std::{cmp::Ordering, ptr::NonNull};
 /// modified until the `ChunkLease` is dropped.
 #[derive(Debug)]
 pub struct ChunkLease {
-    content: &'static mut [u8],
+    pub content: &'static mut [u8],
     write_pointer: usize,
     read_pointer: usize,
     chain_head_len: usize,

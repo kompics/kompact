@@ -203,13 +203,13 @@ impl FrameHead {
 
     pub(crate) fn decode_from<B: Buf + ?Sized>(src: &mut B) -> Result<Self, FramingError> {
         // length_delimited's decoder will have parsed the length out of `src`, subtract that out
+        
         if src.remaining() < (FRAME_HEAD_LEN) as usize {
             return Err(FramingError::NoData);
         }
         let magic_check = src.get_u32();
-        println!("magic check {:?}", magic_check);
         if magic_check != MAGIC_NUM {
-            // eprintln!("Magic check fail: {:X}", magic_check);
+            eprintln!("Magic check fail: {:X}", magic_check);
             return Err(FramingError::InvalidMagicNum((
                 magic_check,
                 src.chunk().to_vec(),
@@ -219,7 +219,11 @@ impl FrameHead {
         let content_length = src.get_u32() as usize;
 
         let frame_type: FrameType = src.get_u8().into();
+        println!("frame type are {:?}", frame_type);
+
         let head = FrameHead::new(frame_type, content_length);
+        println!("head are {:?}", head);
+
         Ok(head)
     }
 

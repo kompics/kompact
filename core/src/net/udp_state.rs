@@ -17,7 +17,7 @@ pub(super) struct UdpState {
     logger: KompactLogger,
     pub(super) socket: UdpSocket,
     pub(super) outbound_queue: VecDeque<(SocketAddr, SerialisedFrame)>,
-    input_buffer: DecodeBuffer,
+    pub(super) input_buffer: DecodeBuffer,
     pub(super) incoming_messages: VecDeque<NetMessage>,
     max_packet_size: usize,
 }
@@ -78,6 +78,7 @@ impl UdpState {
                 }
             }
         }
+        println!("Sent_bytes from udp_state read {:?}", sent_bytes);
         Ok(sent_bytes)
     }
 
@@ -103,7 +104,6 @@ impl UdpState {
                     return Err(Error::new(io::ErrorKind::InvalidInput, "Out of Buffers"));
                 }
             }
-            //println!("input buffer get writeable {:?}", self.input_buffer.get_writeable());
             if let  Some(buf) = self.input_buffer.get_writeable() {
                 match self.socket.recv_from(buf) {
                     Ok((0, addr)) => {
@@ -112,8 +112,11 @@ impl UdpState {
                     }
                     Ok((n, addr)) => {
                         println!("n received {:?}", n);
-                        self.input_buffer.advance_writeable(n);
-                        self.decode_message(addr);
+                       // self.input_buffer.read_chunk_lease(n);
+
+                      //  self.input_buffer.advance_writeable(n);
+                        //self.decode_message(addr);
+                        return Ok(());
                     }
                     Err(err) if would_block(&err) => {
                         return Ok(());
@@ -136,7 +139,7 @@ impl UdpState {
     }
 
     fn decode_message(&mut self, source: SocketAddr) {
-        println!("print input buffer get frame {:?}", self.input_buffer.get_frame());
+       // println!("print input buffer get frame {:?}", self.input_buffer.get_frame());
         match self.input_buffer.get_frame() {
             Ok(Frame::Data(frame)) => {
                 use serialisation::ser_helpers::deserialise_chunk_lease;

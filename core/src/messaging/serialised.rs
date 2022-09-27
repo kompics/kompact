@@ -106,9 +106,9 @@ impl SerialisedFrame {
                 SerialisedFrame::ChunkRef(chunk) => {
                     *self = SerialisedFrame::Bytes(chunk.copy_to_bytes(len));
                 }
-                // SerialisedFrame::Vec(slice) => {
-                //    *self = SerialisedFrame::Vec(slice.to_vec());
-                // }
+                SerialisedFrame::Vec(slice) => {
+                   *self = SerialisedFrame::Vec(slice.to_vec());
+                }
                 _ => {
                     // Unreachable
                     panic!("Impossible error, can't convert uncontiguous Bytes to contiguous");
