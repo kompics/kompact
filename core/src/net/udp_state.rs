@@ -50,7 +50,6 @@ impl UdpState {
         let mut sent_bytes: usize = 0;
         let mut interrupts = 0;
         while let Some((addr, mut frame)) = self.outbound_queue.pop_front() {
-            println!("send to from udp_state {:?}", addr);
             frame.make_contiguous();
             match self.socket.send_to(frame.bytes(), addr) {
                 Ok(n) => {
@@ -78,7 +77,6 @@ impl UdpState {
                 }
             }
         }
-        println!("Sent_bytes from udp_state read {:?}", sent_bytes);
         Ok(sent_bytes)
     }
 
@@ -95,7 +93,7 @@ impl UdpState {
         }
     }
 
-    pub(super) fn try_read(&mut self, buffer_pool: &RefCell<BufferPool>) -> io::Result<()> {
+    pub(super) fn try_read(&mut self, buffer_pool: &RefCell<BufferPool>) -> io::Result<usize> {
         let mut interrupts = 0;
         loop {
             if self.input_buffer.writeable_len() < self.max_packet_size {
@@ -108,18 +106,19 @@ impl UdpState {
                 match self.socket.recv_from(buf) {
                     Ok((0, addr)) => {
                         debug!(self.logger, "Got empty UDP datagram from {}", addr);
-                        return Ok(());
+                        return Ok(0);
                     }
                     Ok((n, addr)) => {
                         println!("n received {:?}", n);
                        // self.input_buffer.read_chunk_lease(n);
-
-                      //  self.input_buffer.advance_writeable(n);
+                        self.input_buffer.advance_writeable(n);
                         //self.decode_message(addr);
-                        return Ok(());
+                        return Ok(n);
                     }
                     Err(err) if would_block(&err) => {
-                        return Ok(());
+                        //return Ok((_));
+                        return Err(err);
+
                     }
                     Err(err) if interrupted(&err) => {
                         // We should continue trying until no interruption

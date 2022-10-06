@@ -259,7 +259,7 @@ impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
             addr: "127.0.0.1:0".parse().unwrap(),
-            transport: Transport::Tcp,
+            transport: Transport::Quic,
             buffer_config: BufferConfig::default(),
             custom_allocator: None,
             tcp_nodelay: true,

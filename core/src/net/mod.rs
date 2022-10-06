@@ -93,6 +93,8 @@ pub mod events {
     use ipnet::IpNet;
     use std::net::IpAddr;
 
+    use super::quic_endpoint::QuicEndpoint;
+
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]
     pub enum DispatchEvent {
@@ -107,7 +109,7 @@ pub mod events {
         /// Tells the network thread to Die as soon as possible, without graceful shutdown.
         Kill,
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr` via Quic
-        ConnectQuic(SocketAddr),
+        ConnectQuic(SocketAddr, QuicEndpoint),
         /// Tells the `NetworkThread` to open up a channel to the `SocketAddr`
         Connect(SocketAddr),
         /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
