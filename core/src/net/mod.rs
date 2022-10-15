@@ -93,7 +93,7 @@ pub mod events {
     use ipnet::IpNet;
     use std::net::IpAddr;
 
-    use super::quic_endpoint::QuicEndpoint;
+    use super::{quic_endpoint::QuicEndpoint, udp_state::UdpState};
 
     /// BridgeEvents emitted to the network `Bridge`
     #[derive(Debug)]

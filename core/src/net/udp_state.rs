@@ -21,7 +21,6 @@ pub(super) struct UdpState {
     pub(super) incoming_messages: VecDeque<NetMessage>,
     max_packet_size: usize,
 }
-
 impl UdpState {
     pub(super) fn new(
         socket: UdpSocket,
