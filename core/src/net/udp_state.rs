@@ -92,7 +92,7 @@ impl UdpState {
         }
     }
 
-    pub(super) fn try_read(&mut self, buffer_pool: &RefCell<BufferPool>) -> io::Result<usize> {
+    pub(super) fn try_read(&mut self, buffer_pool: &RefCell<BufferPool>) -> io::Result<(usize, SocketAddr)> {
         let mut interrupts = 0;
         loop {
             if self.input_buffer.writeable_len() < self.max_packet_size {
@@ -105,14 +105,14 @@ impl UdpState {
                 match self.socket.recv_from(buf) {
                     Ok((0, addr)) => {
                         debug!(self.logger, "Got empty UDP datagram from {}", addr);
-                        return Ok(0);
+                        return Ok((0, addr));
                     }
                     Ok((n, addr)) => {
                         println!("n received {:?}", n);
                        // self.input_buffer.read_chunk_lease(n);
                         self.input_buffer.advance_writeable(n);
                         //self.decode_message(addr);
-                        return Ok(n);
+                        return Ok((n, addr));
                     }
                     Err(err) if would_block(&err) => {
                         //return Ok((_));

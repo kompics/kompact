@@ -338,6 +338,65 @@ fn remote_delivery_to_registered_actors_eager() {
     let pinger_system = system_from_network_config(NetworkConfig::default());
     let ponger_system = system_from_network_config(NetworkConfig::default());
 
+    let (ponger_unique, mut ponger_unique_path) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let (ponger_named, _) = start_ponger(&ponger_system, PongerAct::new_eager());
+    let mut ponger_named_path = ponger_system
+        .register_by_alias(&ponger_named, "custom_name")
+        .wait_expect(REGISTRATION_TIMEOUT, "Ponger failed to register!");
+
+    ponger_unique_path.set_protocol(Transport::Quic);
+    ponger_named_path.set_protocol(Transport::Quic);
+    
+
+    let (pinger_unique, all_unique_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_unique_path));
+    let (pinger_named, all_named_pongs_received_future) =
+        start_pinger(&pinger_system, PingerAct::new_eager(ponger_named_path));
+
+    all_unique_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+    all_named_pongs_received_future
+        .wait_timeout(PINGPONG_TIMEOUT)
+        .expect("Time out waiting for ping pong to complete");
+
+    pinger_system
+        .stop_notify(&pinger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    pinger_system
+        .stop_notify(&pinger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Ponger never died!");
+    ponger_system
+        .kill_notify(ponger_unique)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Pinger never stopped!");
+    ponger_system
+        .kill_notify(ponger_named)
+        .wait_timeout(STOP_COMPONENT_TIMEOUT)
+        .expect("Ponger never died!");
+
+    pinger_unique.on_definition(|c| {
+        assert_eq!(c.count, PING_COUNT);
+    });
+    pinger_named.on_definition(|c| {
+        assert_eq!(c.count, PING_COUNT);
+    });
+
+    pinger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+    ponger_system
+        .shutdown()
+        .expect("Kompact didn't shut down properly");
+}
+
+#[test]
+fn remote_delivery_to_registered_actors_eager_quic() {
+    let pinger_system = system_from_network_config(NetworkConfig::default());
+    let ponger_system = system_from_network_config(NetworkConfig::default());
+
     let (ponger_unique, ponger_unique_path) = start_ponger(&ponger_system, PongerAct::new_eager());
     let (ponger_named, _) = start_ponger(&ponger_system, PongerAct::new_eager());
     let ponger_named_path = ponger_system
@@ -387,6 +446,7 @@ fn remote_delivery_to_registered_actors_eager() {
         .shutdown()
         .expect("Kompact didn't shut down properly");
 }
+
 
 #[test]
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.

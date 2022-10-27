@@ -115,13 +115,6 @@ impl NetworkThreadBuilder {
         let logger = self.log.new(o!("addr" => format!("{}", actual_addr)));
         let mut udp_socket = UdpSocket::bind(actual_addr).expect("could not bind UDP on TCP port");
 
-        // let quic_addr = SocketAddr::new(
-        //     IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        //     pick_unused_port().expect("No ports free"),
-        // );
-        //bind to local address
-       // let mut quic_socket = UdpSocket::bind(quic_addr).expect("Could not bind UDP for QUIC");
-
         // Register Listeners
         self.poll
             .registry()
@@ -135,14 +128,6 @@ impl NetworkThreadBuilder {
                 Interest::READABLE | Interest::WRITABLE,
             )
             .expect("failed to register UDP SOCKET");
-        // self.poll
-        //     .registry()
-        //     .register(
-        //         &mut quic_socket, 
-        //         QUIC_SOCKET, 
-        //         Interest::READABLE | Interest::WRITABLE,
-        //     )
-        //     .expect("Failed to register QUIC SOCKET");
 
         let mut buffer_pool = BufferPool::with_config(
             self.network_config.get_buffer_config(),
@@ -222,6 +207,8 @@ impl NetworkThread {
                 .map(EventWithRetries::from)
                 .chain(self.retry_queue.split_off(0))
             {
+                info!(self.log, "Events from running networkThread {:?}", events);
+
                 self.handle_event(event);
 
                 if self.stopped {
@@ -259,24 +246,31 @@ impl NetworkThread {
                 }
             }
             UDP_SOCKET => {
-                if let Some(mut udp_state) = self.udp_state.take(){
+                //if let Some(mut udp_state) = self.udp_state.take(){
+                if let Some(mut endpoint) = self.endpoint.take(){
                     if event.writeable {
-                        self.write_udp(&mut udp_state);
+                        print!("event is writeable");
+                        self.write_quic(&mut endpoint);
+                        //self.write_udp(&mut udp_state);
                     }
                     if event.readable {
-                        self.read_udp(&mut udp_state, event);
+                        print!("event is readable");
+                        self.read_quic(&mut endpoint);
+                        //self.read_udp(&mut udp_state, event);
                     }
-                    self.udp_state = Some(udp_state);
+                    //self.udp_state = Some(udp_state);
+                    self.endpoint = Some(endpoint);
                 }
             }
             QUIC_SOCKET => {
                 if let Some(mut endpoint) = self.endpoint.take() {
                     if event.writeable {
-                      //  self.write_quic(remote);
+                        print!("event is writeable");
+                        self.write_quic(&mut endpoint);
                     }
                     if event.readable {
-                      //  println!("I am being written {:?}", remote);
-                      //  self.read_quic(remote);
+                        print!("event is readable");
+                        self.read_quic(&mut endpoint);
                     }
                     self.endpoint = Some(endpoint);
 
@@ -332,7 +326,6 @@ impl NetworkThread {
                 self.send_udp_message(address, data);
             }
             DispatchEvent::SendQuic(address, data) => {
-                println!("Send quic messages {:?}", data);
                 self.send_quic_message(address, data);
             }
             DispatchEvent::Stop => {
@@ -342,7 +335,7 @@ impl NetworkThread {
                 self.kill();
             }
             DispatchEvent::ConnectQuic(addr, mut endpoint) => {
-                endpoint.connect(addr);
+                self.initiate_handshake_quic(addr, &mut endpoint);
             }
             DispatchEvent::Connect(addr) => {
                 if self.block_list.socket_addr_is_blocked(&addr) {
@@ -483,10 +476,10 @@ impl NetworkThread {
         }
     }
 
-   fn read_quic(&mut self, endpoint: &mut QuicEndpoint, remote: SocketAddr) -> (){
+   fn read_quic(&mut self, endpoint: &mut QuicEndpoint) -> (){
        // if let Some(mut endpoint) = self.endpoint.take() {  
-            if let Some(mut udp_state) = self.udp_state.take() {   
-                match endpoint.try_read_quic(Instant::now(), remote, &mut udp_state, &self.buffer_pool) {
+            if let Some(mut udp_state) = self.udp_state.take() {
+                match endpoint.try_read_quic(Instant::now(), &mut udp_state, &self.buffer_pool) {
                     Ok(_) => {}
                     Err(e) => {
                         warn!(self.log, "Error during QUIC reading: {}", e);
@@ -496,9 +489,7 @@ impl NetworkThread {
             }
         //}
    }
-   fn write_quic(&mut self, endpoint: &mut QuicEndpoint, remote: SocketAddr) -> (){
-   // if let Some(mut endpoint) = self.endpoint.take() {   
-    //    info!(self.log, "endpoint exists in write: {:?}", remote);
+   fn write_quic(&mut self, endpoint: &mut QuicEndpoint) -> (){
         if let Some(mut udp_state) = self.udp_state.take() {   
             match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
                 Ok(_) => {}
@@ -511,8 +502,10 @@ impl NetworkThread {
     //}
    }
 
-   fn initiate_handshake_quic(&mut self, remote: SocketAddr, endpoint: &mut QuicEndpoint) -> ConnectionHandle {
-        return endpoint.connect(remote);
+    fn initiate_handshake_quic(&mut self, remote: SocketAddr, endpoint: &mut QuicEndpoint) -> ConnectionHandle {
+        let client_ch = endpoint.connect(remote);
+        self.write_quic(endpoint);
+        return client_ch;
     }
 
     fn write_tcp(&mut self, token: &Token) -> () {
@@ -632,14 +625,16 @@ impl NetworkThread {
     }
 
     fn send_quic_message(&mut self, address: SocketAddr, data: DispatchData) {
+        println!("what is data: {:?}", data);
         if let Some(mut endpoint) = self.endpoint.take() {
             if let Some(mut udp_state) = self.udp_state.take() {
+                println!("what is data: {:?}", data);
                 match self.serialise_dispatch_data(data) {
                     Ok(frame) => {
                         info!(self.log, "what is frame: {:?}", frame);
                         udp_state.enqueue_serialised(address, frame);
                         match endpoint.try_write_quic(Instant::now(), &mut udp_state) {
-                            Ok(_) => {}
+                            Ok(_) => { info!(self.log, "SEND QUIC MESSAGE") }
                             Err(e) => {
                                 warn!(self.log, "Error during UDP sending: {}", e);
                                 debug!(self.log, "UDP error debug info: {:?}", e);
@@ -659,6 +654,7 @@ impl NetworkThread {
                     }
                 }
                 self.udp_state = Some(udp_state);
+                self.endpoint = Some(endpoint);
             } else {
                 self.reject_dispatch_data(address, data);
                 trace!(
@@ -1385,6 +1381,7 @@ mod tests {
             .poll
             .poll(&mut events, Some(Duration::from_millis(100)));
         for event in events.iter() {
+            println!("EVENT {:?}", event);
             thread.handle_event(EventWithRetries::from(event));
         }
         while let Some(event) = thread.retry_queue.pop_front() {
@@ -1460,34 +1457,34 @@ mod tests {
 
             if let Some(mut server_endpoint) = thread2.endpoint.take() {
 
-                println!("remote address {:?}", addr2);
-                println!("local address {:?}", addr1);
                 print!("==== CLIENT ENDPOINT CONNECT =====");
-                let client_ch = thread1.initiate_handshake_quic(addr2, &mut client_endpoint);
 
-                print!("==== CLIENT ENDPOINT WRITE =====");
-                thread1.write_quic(&mut client_endpoint, addr2);
-                //thread1.read_quic(&mut client_endpoint, addr2);
+                input_queue_1_sender.send(DispatchEvent::ConnectQuic(addr2, client_endpoint));
 
-                
-                // thread::sleep(Duration::from_secs(2));
+                thread::sleep(Duration::from_millis(3000));
 
-                print!("==== SERVER ENDPOINT READ =====");
-                thread2.read_quic(&mut server_endpoint, addr1);
+                print!("==== THREADS RECEIVE DISPATCH =====");
+                //thread2.receive_dispatch();
+                thread1.receive_dispatch();
 
-                thread::sleep(Duration::from_secs(5));
+                thread::sleep(Duration::from_millis(3000));
 
-                print!("==== CLIENT ENDPOINT READ =====");
-                thread1.read_quic(&mut client_endpoint, addr2);
+                print!("==== SERVER ENDPOINT READ QUIC =====");
+                thread2.read_quic(&mut server_endpoint);
+                poll_and_handle(&mut thread2);
 
-                thread::sleep(Duration::from_secs(2));
+                // print!("==== CLIENT SEND =====");
+                // let contents = [206, 0, 0, 0, 1, 20, 11, 159, 228, 45, 120, 47, 24, 121, 177, 113, 111, 165, 232, 163, 88, 115];
+                // let data = SerialisedFrame::Vec(contents.to_vec());
 
-                print!("==== SERVER ENDPOINT READ =====");
-                 thread2.read_quic(&mut server_endpoint, addr1);
+                // input_queue_1_sender.send(DispatchEvent::SendQuic(addr2, messaging::dispatch::DispatchData::Serialised(data)));
 
+                print!("==== poll and handle =====");
+                poll_and_handle(&mut thread1);
+                poll_and_handle(&mut thread2);
 
                 let server_ch = server_endpoint.accepted.take().expect("server didn't connect");
-                
+
                 assert_matches!(
                     server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
                     Some(quinn_proto::Event::HandshakeDataReady)    
@@ -1496,54 +1493,42 @@ mod tests {
                     server_endpoint.connections.get_mut(&server_ch).unwrap().poll(),
                     Some(quinn_proto::Event::Connected { .. })    
                 ); 
-                assert_matches!(
-                    client_endpoint.connections.get_mut(&client_ch).unwrap().poll(),
-                    Some(quinn_proto::Event::HandshakeDataReady)    
-                );   
-                assert_matches!(
-                    client_endpoint.connections.get_mut(&client_ch).unwrap().poll(),
-                    Some(quinn_proto::Event::Connected { .. })    
-                ); 
+                // assert_matches!(
+                //     client_endpoint.connections.get_mut(&ConnectionHandle(0)).unwrap().poll(),
+                //     Some(quinn_proto::Event::HandshakeDataReady)    
+                // );   
+                // assert_matches!(
+                //     client_endpoint.connections.get_mut(&ConnectionHandle(0)).unwrap().poll(),
+                //     Some(quinn_proto::Event::Connected { .. })    
+                // ); 
 
-                let s = client_endpoint.streams(client_ch).open(quinn_proto::Dir::Uni).unwrap();
+            //     let stream_id = client_endpoint.streams(client_ch).open(quinn_proto::Dir::Bi).unwrap();
 
-                println!("STREAMID? {:?}", s);
-                const MSG: &[u8] = b"hello";
-                client_endpoint.send(client_ch, s).write(MSG).unwrap();
-                assert_eq!(client_endpoint.streams(client_ch).send_streams(), 1);
+            //     println!("STREAMID? {:?}", stream_id);
+            //     const MSG: &[u8] = b"hello";
+            //     client_endpoint.send(client_ch, stream_id).write(MSG).unwrap();
+            //     assert_eq!(client_endpoint.streams(client_ch).send_streams(), 1);
 
 
-                print!("==== CLIENT ENDPOINT WRITE 2 =====");
-                thread1.write_quic(&mut client_endpoint, addr2);
+            //     print!("==== CLIENT ENDPOINT WRITE 2 =====");
+            //     thread1.write_quic(&mut client_endpoint);
 
-                thread::sleep(Duration::from_secs(2));
+            //     thread::sleep(Duration::from_secs(2));
 
-                print!("==== SERVER ENDPOINT READ 2 =====");
-                thread2.read_quic(&mut server_endpoint, addr1);
+            //     print!("==== SERVER ENDPOINT READ 2 =====");
+            //     thread2.read_quic(&mut server_endpoint);
 
-                thread::sleep(Duration::from_secs(2));
+            //     thread::sleep(Duration::from_secs(2));
 
-                print!("==== CLIENT ENDPOINT READ 2 =====");
-                thread1.read_quic(&mut client_endpoint, addr2);
+            //    let mut recv = server_endpoint.recv(server_ch, stream_id);
+            //    let mut chunks = recv.read(false).unwrap();
 
-              //  print!("==== SERVER ENDPOINT READ 3 =====");
-               // thread2.read_quic(&mut server_endpoint, addr1);
-
-                thread::sleep(Duration::from_secs(2));
-
-               let mut recv = server_endpoint.recv(server_ch, s);
-               let mut chunks = recv.read(false).unwrap();
-
-              //  assert_matches!(
-               //     chunks.next(usize::MAX),
-               //     Ok(Some(chunk)) if chunk.offset == 0 && chunk.bytes == MSG
-               // );
-                println!("CHUNK ByTES {:?}", chunks.next(usize::MAX));
-                let _ = chunks.finalize();
-               // assert_eq!(client_endpoint.conn_mut(client_ch).lost_packets(), 0);
+            //    assert_matches!(
+            //        chunks.next(usize::MAX),
+            //        Ok(Some(chunk)) if chunk.offset == 0 && chunk.bytes == MSG
+            //    );
+            //     let _ = chunks.finalize();
             }
-      //  }
-
         }
     }
 

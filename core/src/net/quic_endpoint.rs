@@ -96,26 +96,17 @@ impl QuicEndpoint {
         client_ch
     }
 
-    // pub fn connect_with(&mut self, config: ClientConfig) -> (ConnectionHandle, ConnectionHandle) {
-    //     info!("connecting");
-    //     let client_ch = self.begin_connect(config);
-    //     self.drive();
-    //     let server_ch = self.server.assert_accept();
-    //     self.finish_connect(client_ch, server_ch);
-    //     (client_ch, server_ch)
-    // }
-
-    pub(super) fn try_read_quic(&mut self, now: Instant, remote: SocketAddr, udp_state: &mut UdpState, buffer_pool: &RefCell<BufferPool>) -> io::Result<()> { 
+    pub(super) fn try_read_quic(&mut self, now: Instant, udp_state: &mut UdpState, buffer_pool: &RefCell<BufferPool>) -> io::Result<()> { 
         //consume icoming packets and connection-generated events via handle and handle_event
         match udp_state.try_read(buffer_pool) {
-            Ok(n) => {
+            Ok((n, addr)) => {
                 //let data = udp_state.input_buffer.read_chunk_lease(buf.len());
                 println!("OK in try read");
                 let byte_data = udp_state.input_buffer.read_chunk_lease(n);
                 let buffer = byte_data.content.to_vec();
                 //buf.put_slice(bytes::BufMut);
                 if let Some((ch, event)) =
-                    self.endpoint.handle(now, remote, None, None, buffer.as_slice().into())
+                    self.endpoint.handle(now, addr, None, None, buffer.as_slice().into())
                 {
                     match event {
                         DatagramEvent::NewConnection(conn) => {
@@ -133,11 +124,11 @@ impl QuicEndpoint {
                     }
                 }
                 while let Some(x) = self.endpoint.poll_transmit() {
-                    println!("endpoint poll transmit in read {}", self.addr);
+                    println!("endpoint poll transmit in read {:?}", x.contents);
                     udp_state.outbound_queue.push_back((x.destination, SerialisedFrame::Vec(x.contents)));
                 }
                 while let Some(x) = self.endpoint.poll_transmit() {
-                    println!("push to outbound queue in read poll endpoint {:?}", x.destination);
+                    println!("push to outbound queue in read poll endpoint {:?}", x.contents);
                     udp_state.outbound_queue.push_back((x.destination, SerialisedFrame::Vec(x.contents)));
                 }
                 let mut endpoint_events: Vec<(ConnectionHandle, EndpointEvent)> = vec![];
@@ -149,7 +140,7 @@ impl QuicEndpoint {
                     }
                     for (_, mut events) in self.conn_events.drain() {
                         for event in events.drain(..) {
-                            println!("drain connection events {:?}", remote);
+                            println!("drain connection events {:?}", addr);
                             conn.handle_event(event);
                         }
                     }
@@ -162,8 +153,8 @@ impl QuicEndpoint {
 
                     //Returns packets to transmit
                     while let Some(x) = conn.poll_transmit(now, MAX_DATAGRAMS) {
-                        println!("push to outbound queue in read {:?}", remote);
-                        udp_state.outbound_queue.push_back((remote, SerialisedFrame::Vec(x.contents)));
+                        println!("push to outbound queue in read {:?}", addr);
+                        udp_state.outbound_queue.push_back((addr, SerialisedFrame::Vec(x.contents)));
 
                     }
                     self.timeout = conn.poll_timeout();
@@ -194,7 +185,7 @@ impl QuicEndpoint {
 
     pub(super) fn try_write_quic(&mut self, now: Instant, udp_state: &mut UdpState) -> io::Result<()>{
         while let Some(x) = self.endpoint.poll_transmit() {
-            println!("endpoint poll transmit in read {}", self.addr);
+            println!("endpoint poll transmit in read {:?}", x.destination);
             udp_state.outbound_queue.push_back((x.destination, SerialisedFrame::Vec(x.contents)));
         }
         for (ch, conn) in self.connections.iter_mut() {
