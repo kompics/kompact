@@ -43,7 +43,7 @@ kompact-component-derive 		= { version="0.11.0", path = "../macros/component-def
 kompact-actor-derive 			= { version="0.11.0", path = "../macros/actor-derive/" }
 crossbeam-channel 				= "0.4"
 crossbeam-queue 				= "0.2"
-crossbeam-utils 				= "0.7"
+crossbeam-utils 				= "0.8"
 arc-swap 						= "0.4"
 synchronoise 					= "1.0"
 uuid 							= { version = "0.8", features = ["v4"] }
