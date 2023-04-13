@@ -863,7 +863,7 @@ dependencies = [
  "core_affinity",
  "crossbeam-channel 0.4.4",
  "crossbeam-queue 0.2.3",
- "crossbeam-utils 0.7.2",
+ "crossbeam-utils 0.8.15",
  "executors",
  "futures",
  "hierarchical_hash_wheel_timer",
