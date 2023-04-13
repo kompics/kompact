@@ -221,7 +221,7 @@ impl<P: Port + 'static> ProvidedPort<P> {
     ///
     /// This method should only be used in custom [ComponentDefinition](ComponentDefinition) implementations!
     pub fn dequeue(&self) -> Option<P::Request> {
-        self.msg_queue.pop().ok()
+        self.msg_queue.pop()
     }
 }
 
@@ -357,7 +357,7 @@ impl<P: Port + 'static> RequiredPort<P> {
     ///
     /// This method should only be used in custom [ComponentDefinition](ComponentDefinition) implementations!
     pub fn dequeue(&self) -> Option<P::Indication> {
-        self.msg_queue.pop().ok()
+        self.msg_queue.pop()
     }
 }
 

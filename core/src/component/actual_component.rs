@@ -269,7 +269,7 @@ impl<CD: ComponentTraits> Component<CD> {
                 }
 
                 let mut count: usize = 0;
-                while let Ok(event) = self.ctrl_queue.pop() {
+                while let Some(event) = self.ctrl_queue.pop() {
                     // ignore max_events for lifecyle events
                     // println!("Executing event: {:?}", event);
                     let res = match event {
