@@ -30,12 +30,12 @@ use std::{
     collections::VecDeque,
     io,
     net::{IpAddr, Shutdown, SocketAddr},
+    num::NonZeroUsize,
     ops::DerefMut,
     rc::Rc,
     sync::Arc,
     time::Duration,
     usize,
-    num::NonZeroUsize
 };
 
 // Used for identifying connections
@@ -141,7 +141,10 @@ impl NetworkThreadBuilder {
             udp_state: Some(udp_state),
             poll: self.poll,
             address_map: FxHashMap::default(),
-            token_map: LruCache::new(NonZeroUsize::new(self.network_config.get_hard_connection_limit() as usize).unwrap()),
+            token_map: LruCache::new(
+                NonZeroUsize::new(self.network_config.get_hard_connection_limit() as usize)
+                    .unwrap(),
+            ),
             token: START_TOKEN,
             input_queue: self.input_queue,
             buffer_pool: RefCell::new(buffer_pool),
