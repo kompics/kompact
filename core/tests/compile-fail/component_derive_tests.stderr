@@ -46,13 +46,13 @@ note: required by a bound in `kompact::component::ComponentContext`
   --> src/component/context.rs
    |
    | pub struct ComponentContext<CD: ComponentTraits> {
-   |                                 ^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentContext`
+   |                                 ^^^^^^^^^^^^^^^ required by this bound in `ComponentContext`
 
 error[E0277]: the trait bound `DuplicatePortComponent: ComponentLifecycle` is not satisfied
-  --> tests/compile-fail/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:11:8
    |
-10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
-   |          ^^^^^^^^^^^^^^^^^^^ the trait `ComponentLifecycle` is not implemented for `DuplicatePortComponent`
+11 | struct DuplicatePortComponent {
+   |        ^^^^^^^^^^^^^^^^^^^^^^ the trait `ComponentLifecycle` is not implemented for `DuplicatePortComponent`
    |
    = help: the following other types implement trait `ComponentLifecycle`:
              BigPingerAct
@@ -64,30 +64,27 @@ error[E0277]: the trait bound `DuplicatePortComponent: ComponentLifecycle` is no
              NetworkStatusCounter
              PingStream
            and 4 others
+   = note: required for `DuplicatePortComponent` to implement `DynamicComponentDefinition`
 note: required by a bound in `kompact::component::ComponentDefinition`
   --> src/component/definition.rs
    |
    | pub trait ComponentDefinition: DynamicComponentDefinition
-   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentDefinition`
-   = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ComponentDefinition`
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
-  --> tests/compile-fail/component_derive_tests.rs:10:10
+  --> tests/compile-fail/component_derive_tests.rs:11:8
    |
-10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
-   |          ^^^^^^^^^^^^^^^^^^^ the trait `NetworkActor` is not implemented for `DuplicatePortComponent`
+11 | struct DuplicatePortComponent {
+   |        ^^^^^^^^^^^^^^^^^^^^^^ the trait `NetworkActor` is not implemented for `DuplicatePortComponent`
    |
-   = help: the following other types implement trait `ActorRaw`:
-             TestComponent1
-             TestComponent2
    = note: required for `DuplicatePortComponent` to implement `kompact::prelude::Actor`
    = note: required for `DuplicatePortComponent` to implement `ActorRaw`
+   = note: required for `DuplicatePortComponent` to implement `DynamicComponentDefinition`
 note: required by a bound in `kompact::component::ComponentDefinition`
   --> src/component/definition.rs
    |
    | pub trait ComponentDefinition: DynamicComponentDefinition
-   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentDefinition`
-   = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ComponentDefinition`
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
   --> tests/compile-fail/component_derive_tests.rs:10:10
@@ -102,7 +99,7 @@ note: required by a bound in `kompact::component::Component`
   --> src/component/actual_component.rs
    |
    | pub struct Component<CD: ComponentTraits> {
-   |                          ^^^^^^^^^^^^^^^ required by this bound in `kompact::component::Component`
+   |                          ^^^^^^^^^^^^^^^ required by this bound in `Component`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `DuplicatePortComponent: NetworkActor` is not satisfied
@@ -118,5 +115,5 @@ note: required by a bound in `kompact::component::ComponentContext`
   --> src/component/context.rs
    |
    | pub struct ComponentContext<CD: ComponentTraits> {
-   |                                 ^^^^^^^^^^^^^^^ required by this bound in `kompact::component::ComponentContext`
+   |                                 ^^^^^^^^^^^^^^^ required by this bound in `ComponentContext`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
