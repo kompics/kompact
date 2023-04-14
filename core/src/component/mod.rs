@@ -39,9 +39,10 @@ pub use future_task::*;
 
 /// State transition indication at the end of a message or event handler
 #[must_use = "The Handled value must be returned from a handle or receive function in order to take effect."]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum Handled {
     /// Continue as normal
+    #[default]
     Ok,
     /// Immediately suspend processing of any messages and events
     /// until the `BlockingFuture` has completed
@@ -111,11 +112,6 @@ impl Handled {
     /// Returns true if this instance is an [Handled::Ok](Handled::Ok) variant
     pub fn is_ok(&self) -> bool {
         matches!(self, Handled::Ok)
-    }
-}
-impl Default for Handled {
-    fn default() -> Self {
-        Handled::Ok
     }
 }
 

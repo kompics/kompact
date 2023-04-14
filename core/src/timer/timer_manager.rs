@@ -233,7 +233,7 @@ impl<C: ComponentDefinition> TimerManager<C> {
     }
 
     pub(crate) fn try_action(&mut self) -> ExecuteAction<C> {
-        if let Ok(timeout) = self.timer_queue.pop() {
+        if let Some(timeout) = self.timer_queue.pop() {
             let res = self.handles.remove(&timeout.0);
             match res {
                 Some(TimerHandle::OneShot { action, .. }) => ExecuteAction::Once(timeout.0, action),

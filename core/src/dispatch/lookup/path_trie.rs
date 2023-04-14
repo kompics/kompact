@@ -28,11 +28,11 @@ impl<V> PathTrie<V> {
     }
 
     #[allow(dead_code)]
-    pub fn insert<'key>(&mut self, key: &[&'key str], value: V) -> Option<V> {
+    pub fn insert(&mut self, key: &[&str], value: V) -> Option<V> {
         self.insert_recursive(key, value)
     }
 
-    fn insert_recursive<'key>(&mut self, key: &[&'key str], value: V) -> Option<V> {
+    fn insert_recursive(&mut self, key: &[&str], value: V) -> Option<V> {
         if let Some(fragment) = key.first() {
             match self.children.get_mut(*fragment) {
                 Some(child) => child.insert_recursive(&key[1..], value),

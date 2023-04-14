@@ -15,9 +15,10 @@ pub(crate) mod timer_manager;
 use timer_manager::{Timeout, TimerActorRef};
 
 /// Indicate whether or not to reschedule a periodic timer
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TimerReturn {
     /// Reschedule the timer
+    #[default]
     Reschedule,
     /// Do not reschedule the timer
     Cancel,
@@ -29,11 +30,6 @@ impl TimerReturn {
             TimerReturn::Reschedule => true,
             TimerReturn::Cancel => false,
         }
-    }
-}
-impl Default for TimerReturn {
-    fn default() -> Self {
-        TimerReturn::Reschedule
     }
 }
 impl From<TimerReturn> for GenericTimerReturn<()> {

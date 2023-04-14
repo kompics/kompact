@@ -3,16 +3,12 @@ use super::*;
 use crate::net::buffers::{BufferConfig, ChunkAllocator, ChunkRef};
 use std::task::Poll;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(super) enum StateTransition {
+    #[default]
     Active,
     Passive,
     Destroyed,
-}
-impl Default for StateTransition {
-    fn default() -> Self {
-        StateTransition::Active
-    }
 }
 
 #[derive(Debug)]

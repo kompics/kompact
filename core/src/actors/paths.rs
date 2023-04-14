@@ -115,10 +115,10 @@ impl Error for PathParseError {
 
     fn cause(&self) -> Option<&dyn Error> {
         match self {
-            &PathParseError::Form(_) => None,
-            &PathParseError::Transport(ref e) => Some(e),
-            &PathParseError::Addr(ref e) => Some(e),
-            &PathParseError::IllegalCharacter(_) => None,
+            PathParseError::Form(_) => None,
+            PathParseError::Transport(e) => Some(e),
+            PathParseError::Addr(e) => Some(e),
+            PathParseError::IllegalCharacter(_) => None,
         }
     }
 }
@@ -575,8 +575,8 @@ impl ActorPath {
 impl SystemField for ActorPath {
     fn system(&self) -> &SystemPath {
         match self {
-            &ActorPath::Unique(ref up) => up.system(),
-            &ActorPath::Named(ref np) => np.system(),
+            ActorPath::Unique(up) => up.system(),
+            ActorPath::Named(np) => np.system(),
         }
     }
 }
@@ -632,7 +632,7 @@ pub const SELECT_MARKER: char = '?';
 impl fmt::Display for ActorPath {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            &ActorPath::Named(ref np) => {
+            ActorPath::Named(np) => {
                 let path = np.path.iter().fold(String::new(), |mut acc, arg| {
                     acc.push(PATH_SEP);
                     acc.push_str(arg);
@@ -640,7 +640,7 @@ impl fmt::Display for ActorPath {
                 });
                 write!(fmt, "{}{}", np.system, path)
             }
-            &ActorPath::Unique(ref up) => write!(fmt, "{}{}{}", up.system, UNIQUE_PATH_SEP, up.id),
+            ActorPath::Unique(up) => write!(fmt, "{}{}{}", up.system, UNIQUE_PATH_SEP, up.id),
         }
     }
 }
@@ -920,10 +920,7 @@ impl Div<char> for NamedPath {
 
 /// Split the `&str` into segments using [PATH_SEP](crate::constants::PATH_SEP)
 pub fn parse_path(s: &str) -> Vec<String> {
-    s.split(PATH_SEP)
-        .into_iter()
-        .map(|v| v.to_string())
-        .collect()
+    s.split(PATH_SEP).map(|v| v.to_string()).collect()
 }
 
 /// Check that the given path is valid as a lookup path

@@ -18,7 +18,7 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
     }
 
     pub(crate) fn pop(&self) -> Option<MsgEnvelope<M>> {
-        self.inner.pop().ok()
+        self.inner.pop()
     }
 
     #[allow(unused)]

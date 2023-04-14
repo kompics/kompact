@@ -113,7 +113,7 @@ pub trait ActorLookup: Clone {
     fn contains(&self, path: &PathResolvable) -> bool;
 
     /// Lookup the `path` in the store
-    fn get_by_actor_path<'a, 'b>(&'a self, path: &'b ActorPath) -> LookupResult<'a> {
+    fn get_by_actor_path<'a>(&'a self, path: &ActorPath) -> LookupResult<'a> {
         match path {
             ActorPath::Unique(ref up) => match self.get_by_uuid(&up.id()) {
                 Some(aref) => LookupResult::Ref(aref),
@@ -127,7 +127,7 @@ pub trait ActorLookup: Clone {
     fn get_by_uuid(&self, id: &Uuid) -> Option<&DynActorRef>;
 
     /// Lookup the `path` in the store
-    fn get_by_named_path<'a, 'b>(&'a self, path: &'b [String]) -> LookupResult<'a>;
+    fn get_by_named_path<'a>(&'a self, path: &[String]) -> LookupResult<'a>;
 
     // fn get_mut_by_actor_path(&mut self, path: &ActorPath) -> Option<&mut DynActorRef> {
     //     match path {

@@ -64,7 +64,7 @@ impl ConfigValueType for BooleanValue {
 /// Value converter for byte units
 pub struct BytesValue;
 impl ConfigValueType for BytesValue {
-    type Value = f64;
+    type Value = u64;
 
     fn from_conf(conf: &Hocon) -> Result<Self::Value, ConfigError> {
         conf.as_bytes()
@@ -155,12 +155,12 @@ mod tests {
     fn test_bytes() {
         let conf = str_conf("size = 1.5KiB");
         let res = BytesValue::from_conf(&conf["size"]);
-        assert_eq!(Ok(1536.0), res);
+        assert_eq!(Ok(1536), res);
     }
 
     #[test]
     fn test_bytes_roundtrip() {
-        conf_test_roundtrip::<BytesValue>(1536.0);
+        conf_test_roundtrip::<BytesValue>(1536);
     }
 
     #[test]

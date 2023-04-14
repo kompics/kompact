@@ -1,10 +1,10 @@
 use super::*;
-use crate::{messaging::DispatchEnvelope, utils::checked_casts::*};
+use crate::messaging::DispatchEnvelope;
 use bytes::{Buf, BufMut};
 use core::{cmp, fmt, ptr};
 use hocon::{Hocon, HoconLoader};
 use std::{
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     fmt::{Debug, Formatter},
     sync::Arc,
 };
@@ -41,7 +41,7 @@ impl BufferConfig {
         let mut buffer_config = BufferConfig::default();
         if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_bytes() {
             buffer_config.chunk_size = chunk_size
-                .ceil_checked_cast()
+                .try_into()
                 .expect("Invalid byte number for chunk_size");
         }
         if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
@@ -56,7 +56,7 @@ impl BufferConfig {
             config["buffer_config"]["encode_min_remaining"].as_bytes()
         {
             buffer_config.encode_buf_min_free_space = encode_min_remaining
-                .ceil_checked_cast()
+                .try_into()
                 .expect("Invalid byte number for encode_min_remaining");
         }
         buffer_config.validate();
