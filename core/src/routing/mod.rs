@@ -114,7 +114,7 @@ mod tests {
         let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, format!("routing-group/receiver{}", i)))
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -167,7 +167,7 @@ mod tests {
         let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, format!("routing-group/receiver{}", i)))
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -233,7 +233,7 @@ mod tests {
         let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, format!("routing-group/receiver{}", i)))
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -295,7 +295,7 @@ mod tests {
         let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, format!("routing-group/receiver{}", i)))
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));
@@ -357,7 +357,7 @@ mod tests {
         let receiver_refs: Vec<ActorPath> = receivers
             .iter()
             .enumerate()
-            .map(|(i, c)| system.register_by_alias(c, &format!("routing-group/receiver{}", i)))
+            .map(|(i, c)| system.register_by_alias(c, format!("routing-group/receiver{}", i)))
             .map(|f| f.wait_expect(SLEEP_TIME, "Could not register component"))
             .collect();
         receivers.iter().for_each(|c| system.start(c));

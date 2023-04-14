@@ -92,13 +92,14 @@ macro_rules! kompact_config {
     };
 }
 
-macro_rules! config_assert {
-    ($cond:expr, $val:ident) => {
-        #[allow(clippy::neg_cmp_op_on_partial_ord)]
-        if !($cond) {
-            let condition = stringify!($cond).replace(stringify!($val), "value");
-            let error_msg = format!("value={} did not satisfy condition `{}`", $val, condition);
-            return Err($crate::config::ConfigError::ConversionError(error_msg));
-        }
-    };
-}
+// Not used atm.
+// macro_rules! config_assert {
+//     ($cond:expr, $val:ident) => {
+//         #[allow(clippy::neg_cmp_op_on_partial_ord)]
+//         if !($cond) {
+//             let condition = stringify!($cond).replace(stringify!($val), "value");
+//             let error_msg = format!("value={} did not satisfy condition `{}`", $val, condition);
+//             return Err($crate::config::ConfigError::ConversionError(error_msg));
+//         }
+//     };
+// }

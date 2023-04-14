@@ -1010,7 +1010,7 @@ pub mod net_test_helpers {
                 PING_ID => {
                     let i = buf.get_u64();
                     let data_len = buf.get_u64() as usize;
-                    let mut data = Vec::with_capacity(data_len as usize);
+                    let mut data = Vec::with_capacity(data_len);
                     for j in 0..data_len {
                         data.insert(j, buf.get_u8());
                     }
@@ -1043,7 +1043,7 @@ pub mod net_test_helpers {
                 PONG_ID => {
                     let i = buf.get_u64();
                     let data_len = buf.get_u64() as usize;
-                    let mut data = Vec::with_capacity(data_len as usize);
+                    let mut data = Vec::with_capacity(data_len);
                     for j in 0..data_len {
                         data.insert(j, buf.get_u8());
                     }

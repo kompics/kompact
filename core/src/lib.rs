@@ -410,12 +410,12 @@ mod test_helpers {
             let root_dir = &env::var("CARGO_MANIFEST_DIR").expect("$CARGO_MANIFEST_DIR");
             let mut source = PathBuf::from(root_dir);
             source.push("tests/fixtures");
-            source.push(&fixture_filename);
+            source.push(fixture_filename);
 
             // The "real" path of the file is going to be under a temporary directory:
             let tempdir = tempfile::tempdir().unwrap();
             let mut path = PathBuf::from(&tempdir.path());
-            path.push(&fixture_filename);
+            path.push(fixture_filename);
 
             Fixture {
                 _tempdir: tempdir,

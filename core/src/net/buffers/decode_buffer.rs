@@ -219,13 +219,13 @@ mod tests {
     use bytes::{Bytes, BytesMut};
 
     fn test_frame_with_reference_bytes(len: usize) -> (Vec<u8>, Bytes) {
-        let mut head = FrameHead::new(FrameType::Data, (len - 9) as usize);
+        let mut head = FrameHead::new(FrameType::Data, len - 9);
         let mut frame_bytes = BytesMut::with_capacity(len);
         head.encode_into(&mut frame_bytes);
         for i in 0..len - 9 {
             frame_bytes.put_u8(i as u8);
         }
-        let mut reference_bytes = BytesMut::with_capacity((len - 9) as usize);
+        let mut reference_bytes = BytesMut::with_capacity(len - 9);
         for i in 0..len - 9 {
             reference_bytes.put_u8(i as u8);
         }
