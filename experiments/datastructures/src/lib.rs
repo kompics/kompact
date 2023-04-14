@@ -40,7 +40,9 @@ impl<V> Default for ByteSliceMap<V> {
     }
 }
 
+#[derive(Default)]
 enum MaybeTree<V> {
+    #[default]
     Empty,
     Tree(Box<RadixTree<V>>),
 }
@@ -71,12 +73,6 @@ impl<V> MaybeTree<V> {
             }
             MaybeTree::Tree(tree) => tree.insert(key, value),
         }
-    }
-}
-
-impl<V> Default for MaybeTree<V> {
-    fn default() -> Self {
-        MaybeTree::Empty
     }
 }
 
