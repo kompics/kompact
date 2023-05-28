@@ -1,6 +1,6 @@
 [package]
 name = "kompact-actor-derive"
-version = "0.11.1"
+version = "0.11.2"
 authors = ["Max Meldrum <mmeldrum@kth.se>", "Lars Kroll <lkroll@kth.se>"]
 description = "A derive macro for Kompact Actors."
 edition = "2018"
@@ -24,5 +24,5 @@ proc-macro = true
 
 [dependencies]
 proc-macro2 = "1.0"
-syn = {version = "2.0", features=["full", "extra-traits"]}
+syn = { version = "2.0", features = ["full", "extra-traits"] }
 quote = "1.0"

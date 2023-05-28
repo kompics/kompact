@@ -9,16 +9,16 @@ type_erasure = ["kompact/type_erasure"]
 silent_logging = ["kompact/silent_logging"]
 
 [dependencies]
-slog 				= "2"
-slog-async 			= "2"
-slog-term 			= "2"
-serde 				= { version = "1.0", features = ["derive"] }
-trust-dns-proto 	= {version = "0.19", default-features=false}
-async-std-resolver 	= "0.19"
-dialoguer 			= "0.6"
-lru 				= "0.7"
-uuid 				= { version = "0.8", features = ["v4", "serde"] }
-rand 				= { version = "0.7", features = ["small_rng"] }
+slog = "2"
+slog-async = "2"
+slog-term = "2"
+serde = { version = "1", features = ["derive"] }
+trust-dns-proto = { version = "0.19", default-features = false }
+async-std-resolver = "0.19"
+dialoguer = "0.10"
+lru = "0.10"
+uuid = { version = "1", features = ["v4", "serde"] }
+rand = { version = "0.8", features = ["small_rng"] }
 
 [dependencies.kompact]
 path = "../../core/"
@@ -29,4 +29,3 @@ default-features = true
 [[bin]]
 name = "dynamic_components"
 required-features = ["type_erasure"]
-

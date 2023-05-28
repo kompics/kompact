@@ -1,8 +1,12 @@
 [package]
 name = "kompact"
-version = "0.11.1"
-authors = ["Lars Kroll <lkroll@kth.se>", "Johan Mickos <johanmi@kth.se>", "Max Meldrum <mmeldrum@kth.se>",
-    "Adam Hasselberg <adamhas@kth.se>"]
+version = "0.11.2"
+authors = [
+    "Lars Kroll <lkroll@kth.se>",
+    "Johan Mickos <johanmi@kth.se>",
+    "Max Meldrum <mmeldrum@kth.se>",
+    "Adam Hasselberg <adamhas@kth.se>",
+]
 edition = "2018"
 
 description = "Kompact is a Rust implementation of the Kompics component model combined with the Actor model."
@@ -24,62 +28,73 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [features]
-default 			= ["serde_support","slog/max_level_trace", "slog/release_max_level_info", "ser_id_64", "use_local_executor", "implicit_routes"]
-silent_logging 		= ["serde_support", "slog/max_level_info", "slog/release_max_level_error"]
-low_latency 		= ["executors/ws-no-park"]
-ser_id_64 			= []
-ser_id_32 			= []
-ser_id_16 			= []
-ser_id_8 			= []
-thread_pinning 		= ["core_affinity", "executors/numa-aware"]
-serde_support 		= ["serde", "bytes/serde"]
-type_erasure 		= []
-use_local_executor 	= []
-implicit_routes		= []
+default = [
+    "serde_support",
+    "slog/max_level_trace",
+    "slog/release_max_level_info",
+    "ser_id_64",
+    "use_local_executor",
+    "implicit_routes",
+]
+silent_logging = [
+    "serde_support",
+    "slog/max_level_info",
+    "slog/release_max_level_error",
+]
+low_latency = ["executors/ws-no-park"]
+ser_id_64 = []
+ser_id_32 = []
+ser_id_16 = []
+ser_id_8 = []
+thread_pinning = ["core_affinity", "executors/numa-aware"]
+serde_support = ["serde", "bytes/serde"]
+type_erasure = []
+use_local_executor = []
+implicit_routes = []
 
 [dependencies]
-log 							= "0.4"
-kompact-component-derive 		= { version="0.11.1", path = "../macros/component-definition-derive/" }
-kompact-actor-derive 			= { version="0.11.1", path = "../macros/actor-derive/" }
-crossbeam-channel 				= "0.5"
-crossbeam-queue 				= "0.3"
-crossbeam-utils 				= "0.8"
-arc-swap 						= "1.6"
-synchronoise 					= "1.0"
-uuid 							= { version = "1.3", features = ["v4"] }
-as_num 							= "0.2"
-num_cpus 						= "1"
-oncemutex 						= "0.1"
-slog 							= "2"
-slog-async 						= "2"
-slog-term 						= "2"
-rustc-hash 						= "1.1"
-hocon 							= {version = "0.9", default-features = false}
-hierarchical_hash_wheel_timer 	= "1.2"
-owning_ref 						= "0.4"
-futures 						= "0.3"
-async-std 						= "1.12"
-executors						= "0.9"
-lru 							= "0.10"
+log = "0.4"
+kompact-component-derive = { version = "0.11.2", path = "../macros/component-definition-derive/" }
+kompact-actor-derive = { version = "0.11.2", path = "../macros/actor-derive/" }
+crossbeam-channel = "0.5"
+crossbeam-queue = "0.3"
+crossbeam-utils = "0.8"
+arc-swap = "1.6"
+synchronoise = "1.0"
+uuid = { version = "1.3", features = ["v4"] }
+as_num = "0.2"
+num_cpus = "1"
+oncemutex = "0.1"
+slog = "2"
+slog-async = "2"
+slog-term = "2"
+rustc-hash = "1.1"
+hocon = { version = "0.9", default-features = false }
+hierarchical_hash_wheel_timer = "1.2"
+owning_ref = "0.4"
+futures = "0.3"
+async-std = "1.12"
+executors = "0.9"
+lru = "0.10"
 
 # Optional
-protobuf 						= {version = "3", optional = true, features = ["with-bytes"]}
-serde 							= {version = "1.0", optional = true}
-core_affinity 					= {version = "0.8", optional = true}
+protobuf = { version = "3", optional = true, features = ["with-bytes"] }
+serde = { version = "1.0", optional = true }
+core_affinity = { version = "0.8", optional = true }
 
 # Network-specific
-bytes 							= "1.4"
-bitfields 						= "0.2"
-mio 							= {version = "0.8", features = ["net", "os-poll"]}
-iprange                         = "0.6"
-ipnet                           = "2.7"
+bytes = "1.4"
+bitfields = "0.2"
+mio = { version = "0.8", features = ["net", "os-poll"] }
+iprange = "0.6"
+ipnet = "2.7"
 
 [dev-dependencies]
-tempfile 		= "3"
-serde 			= {version = "1.0", features = ["derive"]}
-once_cell 		= "1.17"
-rustversion 	= "1.0"
-trybuild 		= {version = "1.0", features = ["diff"] }
+tempfile = "3"
+serde = { version = "1.0", features = ["derive"] }
+once_cell = "1.17"
+rustversion = "1.0"
+trybuild = { version = "1.0", features = ["diff"] }
 
 [build-dependencies]
-rustc_version 	= "0.4"
+rustc_version = "0.4"
