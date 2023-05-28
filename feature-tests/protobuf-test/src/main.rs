@@ -1,9 +1,5 @@
-#![allow(unused_parens)]
-
-//#[macro_use]
-//extern crate component_definition_derive;
-
-mod messages;
+mod protos;
+pub use protos::messages::example::*;
 
 fn main() {
     unimplemented!();
@@ -11,7 +7,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::messages::*;
+    use super::*;
     use bytes::BytesMut;
 
     use kompact::{prelude::*, protobuf_serialisers::*};
