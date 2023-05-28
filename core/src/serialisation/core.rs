@@ -1,5 +1,7 @@
 use super::*;
 
+use std::error::Error;
+
 /// Errors that can be thrown during serialisation or deserialisation
 #[derive(Debug)]
 pub enum SerError {
@@ -18,6 +20,13 @@ pub enum SerError {
     NoClone,
     /// Any other kind of error
     Unknown(String),
+    /// An error forwarded from a third-party crate.
+    ThirdParty {
+        /// Which crate did the error originate from.
+        context: String,
+        /// The actual underlying error.
+        source: Box<dyn Error + 'static>,
+    },
 }
 
 impl SerError {
@@ -57,6 +66,10 @@ impl fmt::Display for SerError {
                 s
             ),
             SerError::Unknown(s) => write!(f, "A serialisation error occurred: {}", s),
+            SerError::ThirdParty { context, source } => write!(
+                f,
+                "A serialisation error occurred in a third party crate: {context}\n Caused by {source}"
+            ),
         }
     }
 }

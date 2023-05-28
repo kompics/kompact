@@ -326,7 +326,7 @@ mod tests {
             println!("Group: {:?}", group);
         }
         {
-            let router = BroadcastRouting::default();
+            let router = BroadcastRouting;
             println!("Router: {:?}", router);
             let group = RoutingGroup::new(Vec::new(), &router);
             println!("Group: {:?}", group);
@@ -518,7 +518,7 @@ mod tests {
             receivers.iter().map(|c| c.actor_ref().dyn_ref()).collect();
         receivers.iter().for_each(|c| system.start(c));
 
-        let router = BroadcastRouting::default();
+        let router = BroadcastRouting;
         let group = RoutingGroup::new(receiver_refs.iter().collect(), &router);
         let group_ref: ActorPath = NamedPath::with_system(
             system.system_path(),

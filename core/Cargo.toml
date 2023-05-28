@@ -63,9 +63,9 @@ executors						= "0.9"
 lru 							= "0.10"
 
 # Optional
-protobuf 						= {version = "2", optional = true, features = ["with-bytes"]}
+protobuf 						= {version = "3", optional = true, features = ["with-bytes"]}
 serde 							= {version = "1.0", optional = true}
-core_affinity 					= {version = "0.5", optional = true}
+core_affinity 					= {version = "0.8", optional = true}
 
 # Network-specific
 bytes 							= "1.4"
