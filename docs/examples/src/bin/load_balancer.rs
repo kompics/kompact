@@ -3,7 +3,7 @@ use kompact::{prelude::*, serde_serialisers::*};
 use lru::LruCache;
 use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use uuid::Uuid;
 
 // ANCHOR: messages
@@ -102,7 +102,7 @@ impl Client {
             broadcast_path,
             request_count: 0,
             cache_hits: 0,
-            cache: LruCache::new(20),
+            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
             current_query: None,
             rng: SmallRng::from_entropy(),
         }
@@ -207,7 +207,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 
 fn generate_string<R: Rng>(rng: &mut R, length: usize) -> String {
     std::iter::repeat(())
-        .map(|_| rng.sample(Alphanumeric))
+        .map(|_| rng.sample(Alphanumeric) as char)
         .take(length)
         .collect()
 }

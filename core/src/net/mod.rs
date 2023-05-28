@@ -495,7 +495,6 @@ pub mod net_test_helpers {
     };
     use crossbeam_channel::Sender;
     use std::{
-        borrow::Borrow,
         cmp::Ordering,
         collections::VecDeque,
         fmt::{Debug, Formatter},
@@ -1386,11 +1385,10 @@ pub mod net_test_helpers {
                     DispatchData::Serialised(SerialisedFrame::ChunkRef(corrupted_chunk));
 
                 self.ctx
-                    .borrow()
                     .system()
                     .dispatcher_ref()
                     .tell(DispatchEnvelope::Msg {
-                        src: self.ctx.borrow().actor_path(),
+                        src: self.ctx.actor_path(),
                         dst: receiver,
                         msg: corrupted_message,
                     });

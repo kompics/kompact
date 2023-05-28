@@ -290,7 +290,7 @@ mod tests {
             .map(|_i| system.create(ReceiverComponent::default))
             .collect();
         let group_ref = system
-            .set_routing_policy(BroadcastRouting::default(), "routing-group", false)
+            .set_routing_policy(BroadcastRouting, "routing-group", false)
             .wait_expect(SLEEP_TIME, "Could not register policy");
         let receiver_refs: Vec<ActorPath> = receivers
             .iter()

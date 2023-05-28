@@ -18,11 +18,6 @@ jobs:
       matrix:
         rust: [stable, nightly]
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.6.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -61,10 +56,6 @@ jobs:
         rust: [stable, nightly]
         feature: [ser_id_8, ser_id_16, ser_id_32]
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.6.1'
       - name: Setup rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -103,10 +94,6 @@ jobs:
         rust: [stable, nightly]
         feature: [thread_pinning, low_latency, type_erasure]
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.6.1'
       - name: Setup rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -141,10 +128,6 @@ jobs:
     name: cargo clippy
     runs-on: ubuntu-latest
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.6.1'
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
         with:

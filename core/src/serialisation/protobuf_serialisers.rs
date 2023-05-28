@@ -1,6 +1,6 @@
 //! Provides serialisation support for protocol buffers
 use super::*;
-use protobuf::{Message, ProtobufError};
+use protobuf::Message;
 
 /// Kompact serialisation marker for protobuf messages
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -17,19 +17,9 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
 
     fn serialise(&self, v: &M, buf: &mut dyn BufMut) -> Result<(), SerError> {
         let mut w = buf.writer();
-        v.write_to_writer(&mut w).map_err(|e| match e {
-            ProtobufError::IoError(_) => {
-                SerError::Unknown("Protobuf serialisation reported an IoError.".into())
-            }
-            ProtobufError::WireError(_) => {
-                SerError::Unknown("Protobuf serialisation reported a WireError.".into())
-            }
-            ProtobufError::Utf8(_) => {
-                SerError::Unknown("Protobuf serialisation reported an Utf8Error.".into())
-            }
-            ProtobufError::MessageNotInitialized { message: msg } => {
-                SerError::InvalidData(format!("Protobuf serialisation reported: {}", msg))
-            }
+        v.write_to_writer(&mut w).map_err(|e| SerError::ThirdParty {
+            context: "protobuf".to_string(),
+            source: Box::new(e),
         })
     }
 }
@@ -60,19 +50,9 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
                 m.merge_from_bytes(b.chunk())
             }
         };
-        let r = pr.map_err(|e| match e {
-            ProtobufError::IoError(_) => {
-                SerError::Unknown("Protobuf deserialisation reported an IoError.".into())
-            }
-            ProtobufError::WireError(_) => {
-                SerError::Unknown("Protobuf deserialisation reported a WireError.".into())
-            }
-            ProtobufError::Utf8(_) => {
-                SerError::Unknown("Protobuf deserialisation reported an Utf8Error.".into())
-            }
-            ProtobufError::MessageNotInitialized { message: msg } => {
-                SerError::InvalidData(format!("Protobuf deserialisation reported: {}", msg))
-            }
+        let r = pr.map_err(|e| SerError::ThirdParty {
+            context: "protobuf".to_string(),
+            source: Box::new(e),
         });
         r.map(|_| m)
     }
