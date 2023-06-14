@@ -179,7 +179,7 @@ unsafe impl<CD> Send for ComponentDefinitionAccess<CD> where CD: ComponentDefini
 mod task_waker {
     use super::*;
     use std::{
-        mem::{self, ManuallyDrop},
+        mem::ManuallyDrop,
         task::{RawWaker, RawWakerVTable, Waker},
     };
 
@@ -206,8 +206,7 @@ mod task_waker {
 
         #[allow(clippy::undropped_manually_drops)]
         unsafe fn clone_waker(ptr: *const ()) -> RawWaker {
-            let arc = ManuallyDrop::new(Arc::from_raw(ptr as *const TaskWaker));
-            mem::drop(arc.clone());
+            Arc::increment_strong_count(ptr as *const TaskWaker);
             RawWaker::new(ptr, &Self::VTABLE)
         }
 
