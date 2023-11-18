@@ -55,15 +55,15 @@ error[E0277]: the trait bound `DuplicatePortComponent: ComponentLifecycle` is no
    |        ^^^^^^^^^^^^^^^^^^^^^^ the trait `ComponentLifecycle` is not implemented for `DuplicatePortComponent`
    |
    = help: the following other types implement trait `ComponentLifecycle`:
-             BigPingerAct
-             BigPongerAct
              DeadletterBox
-             ForwarderAct
              LocalDispatcher
              NetworkDispatcher
-             NetworkStatusCounter
-             PingStream
-           and 4 others
+             PingerAct
+             PongerAct
+             ForwarderAct
+             BigPingerAct
+             BigPongerAct
+           and $N others
    = note: required for `DuplicatePortComponent` to implement `DynamicComponentDefinition`
 note: required by a bound in `kompact::component::ComponentDefinition`
   --> src/component/definition.rs
@@ -117,3 +117,26 @@ note: required by a bound in `kompact::component::ComponentContext`
    | pub struct ComponentContext<CD: ComponentTraits> {
    |                                 ^^^^^^^^^^^^^^^ required by this bound in `ComponentContext`
    = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0053]: method `disconnect` has an incompatible type for trait
+  --> tests/compile-fail/component_derive_tests.rs:10:10
+   |
+10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
+   |          ^^^^^^^^^^^^^^^^^^^
+   |          |
+   |          expected `ProvidedRef<TestPort>`, found `RequiredRef<TestPort>`
+   |          help: change the parameter type to match the trait: `kompact::prelude::ProvidedRef<TestPort>`
+   |
+   = note: expected signature `fn(&mut DuplicatePortComponent, kompact::prelude::ProvidedRef<TestPort>)`
+              found signature `fn(&mut DuplicatePortComponent, kompact::prelude::RequiredRef<TestPort>)`
+   = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0046]: not all trait items implemented, missing: `required_ref`, `connect_to_provided`
+  --> tests/compile-fail/component_derive_tests.rs:10:10
+   |
+10 | #[derive(ComponentDefinition)] //~ ERROR: Ambiguous port type: There are multiple fields with type TestPort (["provided_test_port1", "pro...
+   |          ^^^^^^^^^^^^^^^^^^^ missing `required_ref`, `connect_to_provided` in implementation
+   |
+   = note: this error originates in the derive macro `ComponentDefinition` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = help: implement the missing item: `fn required_ref(&mut self) -> kompact::prelude::RequiredRef<TestPort> { todo!() }`
+   = help: implement the missing item: `fn connect_to_provided(&mut self, _: kompact::prelude::ProvidedRef<TestPort>) { todo!() }`
