@@ -29,9 +29,9 @@ pub use serialised::*;
 pub(crate) mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
+use crate::{net::SocketAddr, prelude::NetworkStatus};
 #[allow(unused_imports)]
 pub use deser_macro::*;
-use crate::{net::SocketAddr, prelude::NetworkStatus};
 
 pub mod framing;
 

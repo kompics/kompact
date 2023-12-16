@@ -23,18 +23,12 @@ impl QueueManager {
 
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_data(&mut self, data: DispatchData, dst: SocketAddr) {
-        self.inner
-            .entry(dst)
-            .or_default()
-            .push_back(data);
+        self.inner.entry(dst).or_default().push_back(data);
     }
 
     /// Appends the given frame onto the SocketAddr's queue
     pub fn enqueue_priority_data(&mut self, data: DispatchData, dst: SocketAddr) {
-        self.priority_queue
-            .entry(dst)
-            .or_default()
-            .push_back(data);
+        self.priority_queue.entry(dst).or_default().push_back(data);
     }
 
     /// Extracts the next queue-up frame for the SocketAddr, if one exists
