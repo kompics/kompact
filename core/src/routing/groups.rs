@@ -10,7 +10,7 @@ use crate::{
 use slog::{crit, debug, error, info, trace, warn};
 use std::{
     fmt,
-    hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
+    hash::{BuildHasher, BuildHasherDefault, Hash},
     ops::Deref,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -203,9 +203,7 @@ impl<M, T: Hash, H: BuildHasher + Clone> FieldHashBucketRouting<M, T, H> {
 
     /// Hashes the `field` using this router's `Hasher`
     pub fn hash_field(&self, field: &T) -> u64 {
-        let mut hasher = self.hasher_builder.build_hasher();
-        field.hash(&mut hasher);
-        hasher.finish()
+        self.hasher_builder.hash_one(field)
     }
 
     /// Extracts and hashes the `msg` field using this router's `Hasher`

@@ -306,7 +306,7 @@ unsafe impl<'a> BufMut for BufferEncoder<'a> {
                 let dst = self.chunk_mut();
                 let cnt = cmp::min(dst.len(), src.len() - off);
 
-                ptr::copy_nonoverlapping(src.as_ptr().add(off), dst.as_mut_ptr() as *mut u8, cnt);
+                ptr::copy_nonoverlapping(src.as_ptr().add(off), dst.as_mut_ptr(), cnt);
 
                 off += cnt;
                 self.advance_mut(cnt);

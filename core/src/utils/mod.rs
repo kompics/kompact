@@ -20,6 +20,7 @@ pub(crate) mod checked_casts;
 mod iter_extras;
 pub use iter_extras::*;
 mod macros;
+#[allow(unused_imports)]
 pub use macros::*;
 #[cfg(all(nightly, feature = "type_erasure"))]
 pub mod erased;

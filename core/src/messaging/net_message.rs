@@ -474,7 +474,7 @@ impl NetData {
                 })?;
                 b.downcast::<T>()
                     .map(|b| *b)
-                    .map_err(|b| UnpackError::NoCast(b))
+                    .map_err(UnpackError::NoCast)
             }
             HeapOrSer::Serialised(mut bytes) => {
                 D::deserialise(&mut bytes).map_err(UnpackError::DeserError)

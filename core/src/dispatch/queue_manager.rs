@@ -25,7 +25,7 @@ impl QueueManager {
     pub fn enqueue_data(&mut self, data: DispatchData, dst: SocketAddr) {
         self.inner
             .entry(dst)
-            .or_insert_with(VecDeque::new)
+            .or_default()
             .push_back(data);
     }
 
@@ -33,7 +33,7 @@ impl QueueManager {
     pub fn enqueue_priority_data(&mut self, data: DispatchData, dst: SocketAddr) {
         self.priority_queue
             .entry(dst)
-            .or_insert_with(VecDeque::new)
+            .or_default()
             .push_back(data);
     }
 
