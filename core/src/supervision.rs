@@ -109,7 +109,7 @@ impl fmt::Debug for FaultContext {
         } else {
             format!(
                 "Component panicked with a non-string message with type id={:?}",
-                self.fault.type_id()
+                (*self.fault).type_id()
             )
         };
         f.debug_struct("RecoveryHandler")
@@ -319,7 +319,7 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         .into_inner()
                         .expect("Someone broke the promise mutex -.-");
                     trace!(self.ctx.log(), "Subscribing listener for {}.", event.id());
-                    let l = self.listeners.entry(event.id()).or_insert_with(Vec::new);
+                    let l = self.listeners.entry(event.id()).or_default();
                     l.push((event, p));
                 }
                 Err(_) => error!(

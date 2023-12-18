@@ -519,7 +519,7 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
                     error!(
                         self.logger,
                         "Component panicked with a non-string message with type id={:?}",
-                        e.type_id()
+                        (*e).type_id()
                     );
                 }
                 lifecycle::set_faulty(&self.core.state);

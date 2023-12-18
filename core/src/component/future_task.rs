@@ -204,7 +204,7 @@ mod task_waker {
             Self::drop_waker,
         );
 
-        #[allow(clippy::undropped_manually_drops)]
+        #[allow(undropped_manually_drops)]
         unsafe fn clone_waker(ptr: *const ()) -> RawWaker {
             Arc::increment_strong_count(ptr as *const TaskWaker);
             RawWaker::new(ptr, &Self::VTABLE)

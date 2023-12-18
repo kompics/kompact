@@ -30,6 +30,7 @@ pub(crate) mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
 use crate::{net::SocketAddr, prelude::NetworkStatus};
+#[allow(unused_imports)]
 pub use deser_macro::*;
 
 pub mod framing;
