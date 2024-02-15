@@ -48,11 +48,13 @@ pub trait CheckedIntegerCasts<Target> {
         Self: Sized;
 
     /// If the cast involves rounding, round up.
+    #[allow(unused)]
     fn ceil_checked_cast(self) -> Result<Target, ConvertToIntError<Self>>
     where
         Self: Sized;
 
     /// If the cast involves rounding, round down.
+    #[allow(unused)]
     fn floor_checked_cast(self) -> Result<Target, ConvertToIntError<Self>>
     where
         Self: Sized;
