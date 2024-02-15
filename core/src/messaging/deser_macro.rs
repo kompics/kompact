@@ -617,7 +617,9 @@ mod deser_macro_tests {
     }
 
     enum EitherAOrB {
+        #[allow(unused)]
         A(MsgA),
+        #[allow(unused)]
         B(MsgB),
     }
 
@@ -725,8 +727,11 @@ mod deser_macro_tests {
     }
 
     enum EitherAOrBOrWrapped {
+        #[allow(unused)]
         A(MsgA),
+        #[allow(unused)]
         B(MsgB),
+        #[allow(unused)]
         W(Wrapper<MsgA>),
     }
 

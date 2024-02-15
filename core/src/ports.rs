@@ -578,10 +578,6 @@ impl<C> Error for DisconnectError<C> {
     }
 }
 
-trait InternalChannel {
-    fn disconnect_impl(&self) -> Result<(), TryLockError>;
-}
-
 /// Common functionality for all channel types
 pub trait Channel {
     /// Gives a type erased version of this channel
