@@ -1,5 +1,4 @@
 //! Messaging types for sending and receiving messages between remote actors.
-
 use crate::{
     actors::{ActorPath, DynActorRef, MessageBounds, PathParseError},
     net::{
@@ -32,8 +31,8 @@ mod deser_macro;
 use crate::{net::SocketAddr, prelude::NetworkStatus};
 #[allow(unused_imports)]
 pub use deser_macro::*;
-
 pub mod framing;
+pub mod bitfields;
 
 /// An event from the network
 ///

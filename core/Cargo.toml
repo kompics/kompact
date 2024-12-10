@@ -84,7 +84,6 @@ core_affinity = { version = "0.8", optional = true }
 
 # Network-specific
 bytes = "1.4"
-bitfields = "0.2"
 mio = { version = "0.8", features = ["net", "os-poll"] }
 iprange = "0.6"
 ipnet = "2.7"

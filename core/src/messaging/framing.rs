@@ -4,7 +4,7 @@ use crate::{
     actors::{ActorPath, NamedPath, SystemField, SystemPath, Transport, UniquePath},
     serialisation::{serialisation_ids, Deserialiser, SerError, SerId, Serialisable},
 };
-use bitfields::BitField;
+use crate::messaging::bitfields::{BitField, BitFieldExt};
 use bytes::{Buf, BufMut};
 use std::{any::Any, convert::TryFrom, net::IpAddr};
 use uuid::Uuid;
@@ -130,7 +130,6 @@ pub struct SystemPathHeader {
 impl SystemPathHeader {
     /// Create header from an actor path
     pub fn from_path(sys: &ActorPath) -> Self {
-        use bitfields::BitFieldExt;
 
         let path_type = match sys {
             ActorPath::Unique(_) => PathType::Unique,
@@ -159,8 +158,6 @@ impl SystemPathHeader {
 
     /// Create header from a system path
     pub fn from_system(sys: &SystemPath) -> Self {
-        use bitfields::BitFieldExt;
-
         let path_type = PathType::Unique; // doesn't matter, will be ignored anyway
         let address_type: AddressType = sys.address().into();
 
@@ -193,7 +190,6 @@ impl TryFrom<u8> for SystemPathHeader {
     type Error = SerError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        use bitfields::BitFieldExt;
 
         let storage = [value];
         let path_type = storage
