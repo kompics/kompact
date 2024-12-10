@@ -1,13 +1,16 @@
 use super::*;
-
 use crate::{
-    actors::{Actor, ActorPath, Dispatcher, DynActorRef, SystemPath, Transport},
+    actors::{
+        Actor,
+        ActorPath,
+        Dispatcher,
+        DynActorRef,
+        NamedPath,
+        SystemPath,
+        Transport,
+        Transport::Tcp,
+    },
     component::{Component, ComponentContext, ExecuteResult},
-};
-use std::{pin::Pin, sync::Arc};
-
-use crate::{
-    actors::{NamedPath, Transport::Tcp},
     messaging::{
         ActorRegistration,
         DispatchData,
@@ -35,7 +38,7 @@ use ipnet::IpNet;
 use lookup::{ActorLookup, ActorStore, InsertResult, LookupResult};
 use queue_manager::QueueManager;
 use rustc_hash::FxHashMap;
-use std::{collections::VecDeque, net::IpAddr, time::Duration};
+use std::{collections::VecDeque, net::IpAddr, pin::Pin, sync::Arc, time::Duration};
 
 pub mod lookup;
 pub mod queue_manager;
@@ -685,7 +688,7 @@ impl NetworkDispatcher {
 
     fn connection_lost(&mut self, system_path: SystemPath, id: SessionId) {
         let addr = &system_path.socket_address();
-        if self.retry_map.get(addr).is_none() {
+        if !self.retry_map.contains_key(addr) {
             warn!(self.ctx().log(), "connection lost to {:?}", addr);
             self.retry_map.insert(*addr, 0); // Make sure we try to re-establish the connection
         }

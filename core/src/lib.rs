@@ -63,7 +63,7 @@
 //!     - Allow default broadcast and select actor paths on any node in the tree, not just where explicitly set via [set_routing_policy](KompactSystem::set_routing_policy).
 //!     - While this feature is convenient, it may open up your system to DoS attacks via broadcast on high-level nodes (e.g. `tcp://1.2.3.4:8000/*`).
 //!     - If you are concered about this security risk, you can disable this feature by using `--no-default-features`.
-
+#![allow(internal_features)]
 #![deny(missing_docs)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::match_ref_pats)]

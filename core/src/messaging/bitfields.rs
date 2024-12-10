@@ -1,6 +1,5 @@
 //! Helpers for grouping together data in sub-byte bitfields.
-use std::convert::TryFrom;
-use std::fmt::Debug;
+use std::{convert::TryFrom, fmt::Debug};
 
 type Pos = usize;
 type Width = usize;
@@ -100,9 +99,9 @@ impl BitFieldExt for [u8] {
         }
         let supported_bits = BITS_PER_BYTE * self.len();
         if (Field::POS + Field::WIDTH) > supported_bits {
-            return Err(Error::Overflow);
+            Err(Error::Overflow)
         } else {
-            return Ok(());
+            Ok(())
         }
     }
 }
@@ -111,6 +110,7 @@ impl BitFieldExt for [u8] {
 ///
 /// # Panics
 /// All of these will panic if the `pos` parameter exceeds 7
+#[allow(unused)]
 mod bit_twiddles {
     pub const BITS_PER_BYTE: usize = 8;
 
@@ -119,7 +119,7 @@ mod bit_twiddles {
     }
 
     pub fn get_bit(target: &u8, pos: usize) -> u8 {
-        ((target >> pos) & 0b1)
+        (target >> pos) & 0b1
     }
 
     pub fn test_bit(target: &u8, pos: usize) -> bool {
@@ -279,6 +279,8 @@ mod bit_twiddles {
 }
 
 #[cfg(test)]
+#[allow(clippy::useless_vec)]
+#[allow(clippy::upper_case_acronyms)]
 mod tests {
     use super::*;
 
@@ -295,9 +297,9 @@ mod tests {
         const WIDTH: usize = 2;
     }
 
-    impl Into<u8> for Transport {
-        fn into(self) -> u8 {
-            self as u8
+    impl From<Transport> for u8 {
+        fn from(val: Transport) -> Self {
+            val as u8
         }
     }
 
@@ -328,9 +330,9 @@ mod tests {
         const WIDTH: usize = 2;
     }
 
-    impl Into<u8> for WideWithOffset {
-        fn into(self) -> u8 {
-            self as u8
+    impl From<WideWithOffset> for u8 {
+        fn from(val: WideWithOffset) -> Self {
+            val as u8
         }
     }
 
@@ -359,9 +361,9 @@ mod tests {
         const WIDTH: usize = 9; // exceeds current allowed width
     }
 
-    impl Into<u8> for InvalidWidth {
-        fn into(self) -> u8 {
-            self as u8
+    impl From<InvalidWidth> for u8 {
+        fn from(val: InvalidWidth) -> Self {
+            val as u8
         }
     }
 
@@ -403,7 +405,7 @@ mod tests {
     #[test]
     fn corrupted_read() {
         // 0b0000_0000 is not a valid representation for [Transport]
-        let mut storage = vec![0u8];
+        let storage = vec![0u8];
         assert_eq!(storage.get_as::<Transport>(), Err(Error::TryFromErr));
     }
 

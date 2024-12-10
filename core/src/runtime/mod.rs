@@ -61,7 +61,8 @@ fn default_logger() -> &'static KompactLogger {
 /// so make sure you use this only right before exiting the programme.
 pub fn drop_default_logger() {
     unsafe {
-        drop(DEFAULT_ROOT_LOGGER.take());
+        // Overwriting the current value will implicitly drop it.
+        DEFAULT_ROOT_LOGGER = None;
     }
 }
 

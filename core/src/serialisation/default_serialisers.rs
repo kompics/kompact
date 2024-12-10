@@ -57,7 +57,7 @@ impl Serialisable for String {
     }
 
     fn size_hint(&self) -> Option<usize> {
-        Some(self.as_bytes().len() + 8)
+        Some(self.len() + 8)
     }
 
     fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {

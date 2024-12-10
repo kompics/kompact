@@ -65,7 +65,7 @@ where
 pub fn serialiser_to_serialised<T, S>(t: &T, ser: &S) -> Result<Serialised, SerError>
 where
     T: std::fmt::Debug,
-    S: Serialiser<T> + ?Sized,
+    S: Serialiser<T>,
 {
     if let Some(size) = ser.size_hint() {
         let mut buf = BytesMut::with_capacity(size);

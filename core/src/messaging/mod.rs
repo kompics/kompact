@@ -31,8 +31,8 @@ mod deser_macro;
 use crate::{net::SocketAddr, prelude::NetworkStatus};
 #[allow(unused_imports)]
 pub use deser_macro::*;
-pub mod framing;
 pub mod bitfields;
+pub mod framing;
 
 /// An event from the network
 ///

@@ -12,6 +12,7 @@ mod default_serialisers;
 pub mod protobuf_serialisers;
 pub mod ser_helpers;
 #[cfg(feature = "serde_support")]
+#[allow(clippy::needless_lifetimes)]
 pub mod serde_serialisers;
 
 pub use self::{core::*, default_serialisers::*};

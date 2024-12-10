@@ -264,13 +264,13 @@ pub struct DispatchingPath<'a, 'b> {
     ctx: &'b dyn Dispatching,
 }
 
-impl<'a, 'b> Dispatching for DispatchingPath<'a, 'b> {
+impl Dispatching for DispatchingPath<'_, '_> {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx.dispatcher_ref()
     }
 }
 
-impl<'a, 'b> ActorPathFactory for DispatchingPath<'a, 'b> {
+impl ActorPathFactory for DispatchingPath<'_, '_> {
     fn actor_path(&self) -> ActorPath {
         self.path.clone()
     }

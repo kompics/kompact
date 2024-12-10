@@ -35,7 +35,6 @@ use std::{
     rc::Rc,
     sync::Arc,
     time::Duration,
-    usize,
 };
 
 // Used for identifying connections
@@ -1578,7 +1577,7 @@ mod tests {
         thread1.receive_dispatch();
 
         // Assert that 2 is dropped
-        assert!(thread1.address_map.get(&addr2).is_none());
+        assert!(!thread1.address_map.contains_key(&addr2));
 
         // Ack the closed connection on 2
         input_queue_2_sender.send(DispatchEvent::ClosedAck(addr1));
@@ -1655,13 +1654,13 @@ mod tests {
         input_queue_1_sender.send(DispatchEvent::Connect(addr5));
         thread1.receive_dispatch();
         // That it was immediately discarded
-        assert!(thread1.address_map.get(&addr5).is_none());
+        assert!(!thread1.address_map.contains_key(&addr5));
 
         // This should do nothing...
         run_handshake_sequence(&mut thread1, &mut thread5);
 
         // Assert channels are unchanged
-        assert!(thread1.address_map.get(&addr5).is_none());
+        assert!(!thread1.address_map.contains_key(&addr5));
         assert!(thread1
             .address_map
             .get(&addr2)
@@ -1687,13 +1686,13 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
         poll_and_handle(&mut thread1);
         // Should have been rejected immediately
-        assert!(thread1.address_map.get(&addr5).is_none());
+        assert!(!thread1.address_map.contains_key(&addr5));
 
         // This should do nothing
         run_handshake_sequence(&mut thread5, &mut thread1);
 
         // Assert channels are unchanged
-        assert!(thread1.address_map.get(&addr5).is_none());
+        assert!(!thread1.address_map.contains_key(&addr5));
         assert!(thread1
             .address_map
             .get(&addr2)

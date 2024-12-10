@@ -54,13 +54,9 @@ impl QueueManager {
     }
 
     pub fn has_data(&self, dst: &SocketAddr) -> bool {
-        if self
-            .priority_queue
-            .get(dst)
-            .map_or(false, |q| !q.is_empty())
-        {
+        if self.priority_queue.get(dst).is_some_and(|q| !q.is_empty()) {
             return true;
         }
-        self.inner.get(dst).map_or(false, |q| !q.is_empty())
+        self.inner.get(dst).is_some_and(|q| !q.is_empty())
     }
 }
