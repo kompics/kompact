@@ -1,4 +1,5 @@
 #![allow(unused_parens)]
+#![allow(dead_code)]
 
 use kompact::prelude::*;
 use std::{thread, time};

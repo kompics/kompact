@@ -3,6 +3,8 @@
 set -o xtrace
 set -e
 
+cargo clippy --all-targets -- -D warnings
+
 pushd macros/actor-derive
 cargo clippy --all-targets -- -D warnings
 popd
