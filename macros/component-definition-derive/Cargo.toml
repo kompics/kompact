@@ -1,6 +1,6 @@
 [package]
 name = "kompact-component-derive"
-version = "0.11.2"
+version = "0.11.3"
 authors = ["Lars Kroll <lkroll@kth.se>", "Max Meldrum <mmeldrum@kth.se>"]
 edition = "2018"
 

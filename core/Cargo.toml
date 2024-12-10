@@ -1,6 +1,6 @@
 [package]
 name = "kompact"
-version = "0.11.2"
+version = "0.11.3"
 authors = [
     "Lars Kroll <lkroll@kth.se>",
     "Johan Mickos <johanmi@kth.se>",
@@ -54,8 +54,8 @@ implicit_routes = []
 
 [dependencies]
 log = "0.4"
-kompact-component-derive = { version = "0.11.2", path = "../macros/component-definition-derive/" }
-kompact-actor-derive = { version = "0.11.2", path = "../macros/actor-derive/" }
+kompact-component-derive = { version = "0.11.3", path = "../macros/component-definition-derive/" }
+kompact-actor-derive = { version = "0.11.3", path = "../macros/actor-derive/" }
 crossbeam-channel = "0.5"
 crossbeam-queue = "0.3"
 crossbeam-utils = "0.8"
