@@ -11,7 +11,6 @@ use mio::{net::TcpStream, Token};
 use network_thread::*;
 use std::{
     cell::RefCell,
-    cmp::Ordering,
     collections::VecDeque,
     fmt::Formatter,
     io,
@@ -21,6 +20,8 @@ use std::{
 
 /// Received connection: Initialising -> Say Hello, Receive Start -> Connected, Send Ack
 /// Requested connection: Requested -> Receive Hello -> Initialised -> Send Start, Receive Ack -> Connected
+#[derive(Debug)]
+#[allow(unused)]
 pub(crate) enum ChannelState {
     /// Requester state: outgoing request sent, await Hello(addr). SocketAddr is remote addr
     Requested(SocketAddr, SessionId),
@@ -415,56 +416,56 @@ impl std::fmt::Debug for TcpChannel {
     }
 }
 
-impl std::fmt::Debug for ChannelState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut ds = f.debug_struct("ChannelState");
-        ds.field("State", &0);
-        match self {
-            ChannelState::Initialised(addr, id) => ds.field("Address", addr).field("Id", id),
-            ChannelState::Requested(addr, id) => ds.field("Address", addr).field("Id", id),
-            ChannelState::Connected(addr, id) => ds.field("Address", addr).field("Id", id),
-            ChannelState::Closed(addr, id) => ds.field("Address", addr).field("Id", id),
-            ChannelState::CloseRequested(addr, id) => ds.field("Address", addr).field("Id", id),
-            ChannelState::CloseReceived(addr, id) => ds.field("Address", addr).field("Id", id),
-            ChannelState::Error(error) => ds.field("Error", error),
-            ChannelState::Initialising => &mut ds,
-        }
-        .finish()
-    }
-}
+// impl std::fmt::Debug for ChannelState {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         let mut ds = f.debug_struct("ChannelState");
+//         ds.field("State", 0);
+//         match self {
+//             ChannelState::Initialised(addr, id) => ds.field("Address", addr).field("Id", id),
+//             ChannelState::Requested(addr, id) => ds.field("Address", addr).field("Id", id),
+//             ChannelState::Connected(addr, id) => ds.field("Address", addr).field("Id", id),
+//             ChannelState::Closed(addr, id) => ds.field("Address", addr).field("Id", id),
+//             ChannelState::CloseRequested(addr, id) => ds.field("Address", addr).field("Id", id),
+//             ChannelState::CloseReceived(addr, id) => ds.field("Address", addr).field("Id", id),
+//             ChannelState::Error(error) => ds.field("Error", error),
+//             ChannelState::Initialising => &mut ds,
+//         }
+//         .finish()
+//     }
+// }
 
-#[derive(PartialEq, Eq)]
-struct SocketWrapper {
-    pub inner: SocketAddr,
-}
+// #[derive(PartialEq, Eq)]
+// struct SocketWrapper {
+//     pub inner: SocketAddr,
+// }
 
-impl std::cmp::PartialOrd for SocketWrapper {
-    fn partial_cmp(&self, other: &SocketWrapper) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
+// impl std::cmp::PartialOrd for SocketWrapper {
+//     fn partial_cmp(&self, other: &SocketWrapper) -> Option<Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
 
-impl Ord for SocketWrapper {
-    fn cmp(&self, other: &SocketWrapper) -> Ordering {
-        match self.inner {
-            SocketAddr::V4(_self_v4) => {
-                if other.inner.is_ipv6() {
-                    Ordering::Greater
-                } else if self.inner.ip() == other.inner.ip() {
-                    self.inner.port().cmp(&other.inner.port())
-                } else {
-                    self.inner.ip().cmp(&other.inner.ip())
-                }
-            }
-            SocketAddr::V6(_self_v6) => {
-                if other.inner.is_ipv4() {
-                    Ordering::Greater
-                } else if self.inner.ip() == other.inner.ip() {
-                    self.inner.port().cmp(&other.inner.port())
-                } else {
-                    self.inner.ip().cmp(&other.inner.ip())
-                }
-            }
-        }
-    }
-}
+// impl Ord for SocketWrapper {
+//     fn cmp(&self, other: &SocketWrapper) -> Ordering {
+//         match self.inner {
+//             SocketAddr::V4(_self_v4) => {
+//                 if other.inner.is_ipv6() {
+//                     Ordering::Greater
+//                 } else if self.inner.ip() == other.inner.ip() {
+//                     self.inner.port().cmp(&other.inner.port())
+//                 } else {
+//                     self.inner.ip().cmp(&other.inner.ip())
+//                 }
+//             }
+//             SocketAddr::V6(_self_v6) => {
+//                 if other.inner.is_ipv4() {
+//                     Ordering::Greater
+//                 } else if self.inner.ip() == other.inner.ip() {
+//                     self.inner.port().cmp(&other.inner.port())
+//                 } else {
+//                     self.inner.ip().cmp(&other.inner.ip())
+//                 }
+//             }
+//         }
+//     }
+// }

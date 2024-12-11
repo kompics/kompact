@@ -284,7 +284,7 @@ mod tests {
         };
 
         // Assert the lengths before split
-        assert_eq!(both_strings.remaining(), test_string.as_bytes().len() * 2);
+        assert_eq!(both_strings.remaining(), test_string.len() * 2);
 
         // Split the double down the middle
         let mut second_half = both_strings.split_at(both_strings.remaining() / 2);
@@ -292,7 +292,7 @@ mod tests {
 
         // Assert lengths after split
         assert_eq!(second_half.remaining(), first_half.remaining());
-        assert_eq!(test_string.as_bytes().len(), second_half.remaining());
+        assert_eq!(test_string.len(), second_half.remaining());
 
         let test_bytes = Bytes::copy_from_slice(test_string.as_bytes());
         let test_bytes2 = Bytes::copy_from_slice(test_string2.as_bytes());

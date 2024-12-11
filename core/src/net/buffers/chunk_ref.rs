@@ -106,7 +106,7 @@ mod tests {
             for j in 0..data_len {
                 test_string.push(((j + i * data_len).to_string()).chars().next().unwrap());
             }
-            let len = test_string.as_bytes().len();
+            let len = test_string.len();
             vec.push(test_string.as_bytes().copy_to_bytes(len));
         }
         vec

@@ -240,13 +240,13 @@ impl<'a> BufferEncoder<'a> {
 }
 
 /// Make sure the read pointer is caught up to the write pointer for the next encoding.
-impl<'a> Drop for BufferEncoder<'a> {
+impl Drop for BufferEncoder<'_> {
     fn drop(&mut self) {
         self.encode_buffer.read_offset = self.encode_buffer.write_offset;
     }
 }
 
-unsafe impl<'a> BufMut for BufferEncoder<'a> {
+unsafe impl BufMut for BufferEncoder<'_> {
     fn remaining_mut(&self) -> usize {
         self.encode_buffer.writeable_len()
     }
@@ -448,7 +448,7 @@ mod tests {
                 // capacity() should be equal to the test-string, first assert lengths.
                 assert_eq!(
                     chunk_lease.capacity(),
-                    test_string.as_bytes().len(),
+                    test_string.len(),
                     "Incorrect Lengths of ChunkLease created, ChunkLease number = {}",
                     chunk_lease_cnt
                 );

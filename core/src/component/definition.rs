@@ -196,7 +196,7 @@ pub trait DynamicPortAccess {
     fn get_required_port_as_any(&mut self, port_id: std::any::TypeId) -> Option<&mut dyn Any>;
 }
 
-impl<'a, M: MessageBounds> dyn DynamicComponentDefinition<Message = M> + 'a {
+impl<M: MessageBounds> dyn DynamicComponentDefinition<Message = M> + '_ {
     /// Dynamically obtain a mutable reference to a [`ProvidedPort<P>`](ProvidedPort) if `self`
     /// provides a port of type `P`.
     pub fn get_provided_port<P: Port>(&mut self) -> Option<&mut ProvidedPort<P>> {
@@ -233,9 +233,6 @@ impl std::error::Error for LockPoisoned {}
 ///
 /// See also: [`ActorRefFactory`] and [`CoreContainer`], which this trait inherits.
 pub trait AbstractComponent: MsgQueueContainer + CoreContainer + Any {
-    /// Message type of this component
-    //type Message: MessageBounds;
-
     /// Returns a mutable reference to the underlying component definition as a
     /// [`DynamicComponentDefinition`] trait object.
     ///

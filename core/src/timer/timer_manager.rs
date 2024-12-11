@@ -1,4 +1,5 @@
 use super::*;
+use crate::*;
 use hierarchical_hash_wheel_timer::Timer as LowlevelTimer;
 use std::{
     collections::HashMap,
@@ -8,9 +9,6 @@ use std::{
     time::Duration,
 };
 use uuid::Uuid;
-
-use crate::*;
-#[allow(clippy::type_complexity)]
 
 /// A factory trait to produce instances of [TimerRef](timer::TimerRef)
 pub trait TimerRefFactory {

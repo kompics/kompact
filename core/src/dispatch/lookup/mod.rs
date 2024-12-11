@@ -37,7 +37,7 @@ pub enum LookupResult<'a> {
     /// Some error occurred during lookup
     Err(String),
 }
-impl<'a> LookupResult<'a> {
+impl LookupResult<'_> {
     /// Returns true if there is no result
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {

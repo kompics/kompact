@@ -9,6 +9,7 @@ on:
     types: [opened, reopened, synchronize]
   schedule:
     - cron: '0 0 * * *'  # every day at midnight
+  workflow_dispatch:  
 
 jobs:
   tests:
@@ -132,7 +133,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2024-02-14
+          toolchain: nightly-2024-12-09
           override: true
           components: rustfmt, clippy
       - name: Use the cache to share dependencies # keyed by Cargo.lock
@@ -183,7 +184,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2024-02-14
+          toolchain: nightly-2024-12-09
           override: true
           components: rustfmt, clippy
       - name: Use the cache to share dependencies # keyed by Cargo.lock

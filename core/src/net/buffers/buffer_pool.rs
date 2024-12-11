@@ -68,7 +68,7 @@ impl BufferPool {
 
     /// Ensures that the pool will be able to fit `size` amount of bytes
     pub(crate) fn try_reserve(&mut self, size: usize) -> Result<(), BufferError> {
-        let mut required_buffers = (size + self.chunk_size - 1) / self.chunk_size;
+        let mut required_buffers = size.div_ceil(self.chunk_size);
         if required_buffers > self.max_pool_size {
             return Err(BufferError::NoAvailableBuffers(format!(
                 "Message too big for the current BufferConfig {} bytes. \
