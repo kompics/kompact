@@ -25,7 +25,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -63,7 +63,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -101,7 +101,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -137,7 +137,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -188,7 +188,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
