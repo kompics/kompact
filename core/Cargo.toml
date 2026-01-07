@@ -75,7 +75,7 @@ owning_ref = "0.4"
 futures = "0.3"
 async-std = "1.12"
 executors = "0.9"
-lru = "0.10"
+lru = "0.16"
 
 # Optional
 protobuf = { version = "3", optional = true, features = ["with-bytes"] }
