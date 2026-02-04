@@ -16,7 +16,7 @@ serde = { version = "1", features = ["derive"] }
 trust-dns-proto = { version = "0.19", default-features = false }
 async-std-resolver = "0.19"
 dialoguer = "0.10"
-lru = "0.10"
+lru = "0.16"
 uuid = { version = "1", features = ["v4", "serde"] }
 rand = { version = "0.8", features = ["small_rng"] }
 
