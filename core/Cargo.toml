@@ -83,7 +83,7 @@ serde = { version = "1.0", optional = true }
 core_affinity = { version = "0.8", optional = true }
 
 # Network-specific
-bytes = "1.4"
+bytes = "1.11"
 mio = { version = "0.8", features = ["net", "os-poll"] }
 iprange = "0.6"
 ipnet = "2.7"
