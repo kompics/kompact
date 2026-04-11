@@ -1155,7 +1155,7 @@ mod tests {
         let counter1 = system.create(Counter::default);
         let counter2 = system.create(Counter::default);
 
-        let channel1: Box<(dyn Channel + Send + 'static)> =
+        let channel1: Box<dyn Channel + Send + 'static> =
             biconnect_components::<CounterPort, _, _>(&sender, &counter1)
                 .expect("connection")
                 .boxed();
@@ -1234,7 +1234,7 @@ mod tests {
 
         let sender_port: ProvidedRef<CounterPort> = sender.provided_ref();
         let counter1_port: RequiredRef<CounterPort> = counter1.required_ref();
-        let channel1: Box<(dyn Channel + Send + 'static)> =
+        let channel1: Box<dyn Channel + Send + 'static> =
             sender.connect_to_required(counter1_port).boxed();
         let channel2 = counter2.connect_to_provided(sender_port);
 

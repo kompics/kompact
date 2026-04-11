@@ -25,7 +25,7 @@ pub fn load_addr_data(data_size: usize) -> Vec<SocketAddr> {
     for i in 0..data_size {
         let bytes: [u8; 4] = (i as u32).to_ne_bytes();
         let port_bytes = [bytes[0], bytes[1]];
-        let port: u16 = unsafe { std::mem::transmute(port_bytes) };
+        let port = u16::from_ne_bytes(port_bytes);
         v.push(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(10, 0, bytes[3], bytes[2])),
             port,

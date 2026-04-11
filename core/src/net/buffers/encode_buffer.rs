@@ -62,7 +62,7 @@ impl EncodeBuffer {
     }
 
     /// Returns a `BufferEncoder` which allows for encoding into the Buffer
-    pub fn get_buffer_encoder(&mut self) -> Result<BufferEncoder, SerError> {
+    pub fn get_buffer_encoder(&mut self) -> Result<BufferEncoder<'_>, SerError> {
         if (self.buffer.len() - self.write_offset) < self.min_remaining {
             // Eagerly swap to avoid unnecessary chaining
             self.swap_buffer()?;

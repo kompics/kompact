@@ -255,7 +255,7 @@ impl Bridge {
 
     /// Sets the dispatcher reference, returning the previously stored one
     pub fn set_dispatcher(&mut self, dispatcher: DispatcherRef) -> Option<DispatcherRef> {
-        std::mem::replace(&mut self.dispatcher, Some(dispatcher))
+        self.dispatcher.replace(dispatcher)
     }
 
     /// Stops the bridge gracefully
@@ -1198,7 +1198,7 @@ pub mod net_test_helpers {
                     );
                     assert_eq!(pong.i, self.count % PING_COUNT, "Incorrect index of pong!");
                     self.count += 1;
-                    if self.count % PING_COUNT > 0 {
+                    if !self.count.is_multiple_of(PING_COUNT) {
                         if self.eager {
                             if let Some(msgs) = &mut self.pre_serialised {
                                 self.target

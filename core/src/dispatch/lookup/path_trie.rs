@@ -61,7 +61,7 @@ impl<V> PathTrie<V> {
                 .or_insert_with(Self::new)
         });
 
-        std::mem::replace(&mut key_node.value, Some(value))
+        key_node.value.replace(value)
     }
 
     /// Get the node at `key`
@@ -217,7 +217,7 @@ impl<V> PathTrie<V> {
         self.children.is_empty()
     }
 
-    pub fn values(&self) -> Values<V> {
+    pub fn values(&self) -> Values<'_, V> {
         Values {
             root: self,
             root_visited: false,

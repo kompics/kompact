@@ -666,7 +666,7 @@ where
     C1: ComponentDefinition + Sized + 'static + Provide<P> + ProvideRef<P>,
     C2: ComponentDefinition + Sized + 'static + Require<P> + RequireRef<P>,
 {
-    fn boxed(self) -> std::boxed::Box<(dyn Channel + Send + 'static)> {
+    fn boxed(self) -> std::boxed::Box<dyn Channel + Send + 'static> {
         Box::new(self)
     }
 
@@ -711,7 +711,7 @@ where
     P: Port + 'static,
     C: ComponentDefinition + Sized + 'static + Provide<P> + ProvideRef<P>,
 {
-    fn boxed(self) -> std::boxed::Box<(dyn Channel + Send + 'static)> {
+    fn boxed(self) -> std::boxed::Box<dyn Channel + Send + 'static> {
         Box::new(self)
     }
 
@@ -752,7 +752,7 @@ where
     P: Port + 'static,
     C: ComponentDefinition + Sized + 'static + Require<P> + RequireRef<P>,
 {
-    fn boxed(self) -> std::boxed::Box<(dyn Channel + Send + 'static)> {
+    fn boxed(self) -> std::boxed::Box<dyn Channel + Send + 'static> {
         Box::new(self)
     }
 
@@ -765,8 +765,8 @@ where
     }
 }
 
-impl Channel for Box<(dyn Channel + Send + 'static)> {
-    fn boxed(self) -> std::boxed::Box<(dyn Channel + Send + 'static)> {
+impl Channel for Box<dyn Channel + Send + 'static> {
+    fn boxed(self) -> std::boxed::Box<dyn Channel + Send + 'static> {
         self
     }
 
