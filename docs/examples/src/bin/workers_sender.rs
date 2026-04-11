@@ -139,13 +139,8 @@ impl Actor for Manager {
                     "One request at a time, please!"
                 );
                 let work: &Work = msg.request();
-                if self.num_workers == 0 {
-                    // manager gotta work itself -> very unhappy manager
-                    let res = work.data.iter().fold(work.neutral, work.merger);
-                    msg.reply(WorkResult(res)).expect("reply");
-                } else {
+                if let Some(stride) = work.data.len().checked_div(self.num_workers) {
                     let len = work.data.len();
-                    let stride = len / self.num_workers;
                     let mut start = 0usize;
                     let mut index = 0;
                     while start < len && index < self.num_workers {
@@ -167,6 +162,10 @@ impl Actor for Manager {
                         self.result_accumulator.push(work.neutral);
                     }
                     self.outstanding_request = Some(msg);
+                } else {
+                    // manager gotta work itself -> very unhappy manager
+                    let res = work.data.iter().fold(work.neutral, work.merger);
+                    msg.reply(WorkResult(res)).expect("reply");
                 }
             }
             ManagerMessage::Result(msg) => {

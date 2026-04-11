@@ -62,7 +62,7 @@ impl BufferPool {
         self.pool.push_back(buffer);
     }
 
-    pub fn drain_returned(&mut self) -> Drain<BufferChunk> {
+    pub fn drain_returned(&mut self) -> Drain<'_, BufferChunk> {
         self.pool.drain(0..)
     }
 

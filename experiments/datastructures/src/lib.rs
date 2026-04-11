@@ -233,7 +233,7 @@ mod tests {
     }
 
     fn key_to_value(key: [u8; 8]) -> String {
-        let i: usize = unsafe { std::mem::transmute(key) };
+        let i = usize::from_ne_bytes(key);
         format!("{}", i)
     }
 

@@ -6,7 +6,7 @@ use std::{
     fmt,
     rc::Rc,
     sync::{Arc, Weak},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use uuid::Uuid;
 
@@ -14,6 +14,11 @@ use uuid::Uuid;
 pub trait TimerRefFactory {
     /// Returns the timer reference for associated with this factory
     fn timer_ref(&self) -> TimerRef;
+
+    /// Returns the current time according to the underlying timer implementation.
+    fn now(&self) -> Instant {
+        self.timer_ref().now()
+    }
 }
 
 /// Opaque reference to a scheduled instance of a timer

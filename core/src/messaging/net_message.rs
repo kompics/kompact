@@ -197,6 +197,7 @@ impl NetMessage {
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
     /// ```
+    #[allow(clippy::result_large_err)]
     pub fn try_into_deserialised<T: 'static, D>(
         self,
     ) -> Result<DeserialisedMessage<T>, UnpackError<Self>>
@@ -267,6 +268,7 @@ impl NetMessage {
     /// If you need the sender or the receiver to be owned after deserialisation, either use
     /// `msg.data.try_deserialise<...>(...)` instead,
     /// or use [try_into_deserialised](NetMessage::try_into_deserialised).
+    #[allow(clippy::result_large_err)]
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
     where
         D: Deserialiser<T>,
@@ -323,6 +325,7 @@ impl NetMessage {
     /// If you need the sender or the receiver to be owned after deserialisation, either use
     /// `msg.data.try_deserialise_unchecked<...>(...)` instead,
     /// or use [try_into_deserialised](NetMessage::try_into_deserialised).
+    #[allow(clippy::result_large_err)]
     pub fn try_deserialise_unchecked<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
     where
         D: Deserialiser<T>,

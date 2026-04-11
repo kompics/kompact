@@ -5,6 +5,7 @@ use crate::{
     routing::groups::StorePolicy,
     timer::timer_manager::CanCancelTimers,
 };
+use std::time::Instant;
 
 /// The [SystemHandle](SystemHandle) provided by a [ComponentContext](ComponentContext)
 pub struct ContextSystemHandle {
@@ -18,6 +19,10 @@ impl ContextSystemHandle {
 }
 
 impl SystemHandle for ContextSystemHandle {
+    fn now(&self) -> Instant {
+        self.component.system().now()
+    }
+
     fn create<C, F>(&self, f: F) -> Arc<Component<C>>
     where
         F: FnOnce() -> C,

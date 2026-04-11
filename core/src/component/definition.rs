@@ -248,7 +248,7 @@ pub trait AbstractComponent: MsgQueueContainer + CoreContainer + Any {
     /// access a [`DynamicComponentDefinition`] trait object.
     fn lock_dyn_definition(
         &self,
-    ) -> Result<DynamicComponentDefinitionMutexGuard<Self::Message>, LockPoisoned>;
+    ) -> Result<DynamicComponentDefinitionMutexGuard<'_, Self::Message>, LockPoisoned>;
 
     /// Views self as [`Any`](std::any::Any). Can be used to downcast to a concrete [`Component`].
     fn as_any(&self) -> &dyn Any;
@@ -274,7 +274,7 @@ where
 
     fn lock_dyn_definition(
         &self,
-    ) -> Result<DynamicComponentDefinitionMutexGuard<Self::Message>, LockPoisoned> {
+    ) -> Result<DynamicComponentDefinitionMutexGuard<'_, Self::Message>, LockPoisoned> {
         let lock = self.mutable_core.lock().map_err(|_| LockPoisoned)?;
         let res = OwningRefMut::new(Box::new(lock))
             .map_mut(|l| {

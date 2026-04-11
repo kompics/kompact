@@ -462,7 +462,7 @@ mod tests {
         std::thread::sleep(SLEEP_TIME);
         assert_eq!(3, total_count(&receivers));
         let counts = individual_count(&receivers);
-        assert!(counts.iter().any(|&v| v == 3));
+        assert!(counts.contains(&3));
 
         let other_source_ref: ActorPath = system
             .system_path()
@@ -482,8 +482,8 @@ mod tests {
         let counts = individual_count(&receivers);
         // they could technically end up in the same bucket,
         // just try to pick a name above where they don't
-        assert!(counts.iter().any(|&v| v == 3));
-        assert!(counts.iter().any(|&v| v == 1));
+        assert!(counts.contains(&3));
+        assert!(counts.contains(&1));
 
         for _i in 0..NUM_MESSAGES {
             let msg = NetMessage::with_box(
@@ -499,8 +499,8 @@ mod tests {
         let counts = individual_count(&receivers);
         // they could technically end up in the same bucket,
         // just try to pick a name above where they don't
-        assert!(counts.iter().any(|&v| v == 3));
-        assert!(counts.iter().any(|&v| v == NUM_MESSAGES + 1));
+        assert!(counts.contains(&3));
+        assert!(counts.contains(&(NUM_MESSAGES + 1)));
 
         system.shutdown().expect("shutdown");
     }

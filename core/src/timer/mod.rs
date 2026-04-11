@@ -1,6 +1,7 @@
 use uuid::Uuid;
 
 use hierarchical_hash_wheel_timer::{
+    manual_timer::ManualTimer as GenericManualTimer,
     thread_timer::{TimerRef as GenericTimerRef, TimerWithThread as GenericTimerWithThread},
     OneshotState,
     PeriodicState,
@@ -49,6 +50,9 @@ pub type TimerRef = GenericTimerRef<Uuid, ActorRefState, ActorRefState>;
 
 /// The concrete vairant of timer thread used in Kompact
 pub type TimerWithThread = GenericTimerWithThread<Uuid, ActorRefState, ActorRefState>;
+
+/// The concrete manually-driven timer variant used in Kompact tests
+pub type ManualTimer = GenericManualTimer<Uuid, ActorRefState, ActorRefState>;
 
 /// The necessary state for Kompact timers
 #[derive(Debug)]
