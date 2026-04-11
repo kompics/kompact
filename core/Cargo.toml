@@ -70,7 +70,7 @@ slog-async = "2"
 slog-term = "2"
 rustc-hash = "1.1"
 hocon = { version = "0.9", default-features = false }
-hierarchical_hash_wheel_timer = "1.4.0"
+hierarchical_hash_wheel_timer = "1.4"
 owning_ref = "0.4"
 futures = "0.3"
 async-std = "1.12"
