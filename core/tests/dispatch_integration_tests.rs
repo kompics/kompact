@@ -1,7 +1,15 @@
 use crossbeam_channel::Receiver as Rcv;
 use ipnet::IpNet;
 use kompact::{prelude::*, prelude_test::net_test_helpers::*};
-use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
+use once_cell::sync::Lazy;
+use std::{
+    cell::Cell,
+    net::SocketAddr,
+    ops::{Deref, DerefMut},
+    sync::{Arc, Condvar, Mutex},
+    thread,
+    time::Duration,
+};
 
 const REGISTRATION_TIMEOUT: Duration = Duration::from_millis(1000);
 const STOP_COMPONENT_TIMEOUT: Duration = Duration::from_millis(1000);
@@ -17,11 +25,198 @@ const SMALL_CHUNK_SIZE: usize = 128;
 const MINIMUM_UDP_CHUNK_SIZE: usize = 66000;
 // BigPings with >0 data size provide stricter checks on data-correctness than regular pings...
 const ARBITRARY_DATA_SIZE: usize = 500;
+const MAX_CONCURRENT_TEST_SYSTEMS: usize = 32;
 
-fn system_from_network_config(network_config: NetworkConfig) -> KompactSystem {
+static TEST_SYSTEM_SEMAPHORE: Lazy<TestSystemSemaphore> =
+    Lazy::new(|| TestSystemSemaphore::new(MAX_CONCURRENT_TEST_SYSTEMS));
+
+thread_local! {
+    static TEST_SYSTEM_USAGE: Cell<TestSystemUsage> = Cell::new(TestSystemUsage::default());
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct TestSystemUsage {
+    reserved_systems: usize,
+    active_systems: usize,
+}
+
+struct TestSystemSemaphore {
+    max_systems: usize,
+    reserved_systems: Mutex<usize>,
+    wake_waiters: Condvar,
+}
+
+impl TestSystemSemaphore {
+    fn new(max_systems: usize) -> Self {
+        assert!(max_systems > 0, "test system limit must be positive");
+        TestSystemSemaphore {
+            max_systems,
+            reserved_systems: Mutex::new(0),
+            wake_waiters: Condvar::new(),
+        }
+    }
+
+    fn acquire(&self, requested_systems: usize) {
+        assert!(
+            requested_systems > 0,
+            "tests must reserve at least one Kompact system"
+        );
+        assert!(
+            requested_systems <= self.max_systems,
+            "test reserved {} Kompact systems, but the global limit is {}",
+            requested_systems,
+            self.max_systems
+        );
+
+        let mut reserved_systems = self
+            .reserved_systems
+            .lock()
+            .expect("test system semaphore was poisoned");
+        while (*reserved_systems + requested_systems) > self.max_systems {
+            reserved_systems = self
+                .wake_waiters
+                .wait(reserved_systems)
+                .expect("test system semaphore was poisoned");
+        }
+        *reserved_systems += requested_systems;
+    }
+
+    fn release(&self, released_systems: usize) {
+        let mut reserved_systems = self
+            .reserved_systems
+            .lock()
+            .expect("test system semaphore was poisoned");
+        *reserved_systems = reserved_systems
+            .checked_sub(released_systems)
+            .expect("released more test systems than were reserved");
+        self.wake_waiters.notify_all();
+    }
+}
+
+struct TestSystemReservation {
+    reserved_systems: usize,
+}
+
+impl TestSystemReservation {
+    fn acquire(reserved_systems: usize) -> Self {
+        TEST_SYSTEM_USAGE.with(|usage| {
+            assert_eq!(
+                usage.get(),
+                TestSystemUsage::default(),
+                "nested test system reservations are not supported"
+            );
+        });
+
+        TEST_SYSTEM_SEMAPHORE.acquire(reserved_systems);
+        TEST_SYSTEM_USAGE.with(|usage| {
+            usage.set(TestSystemUsage {
+                reserved_systems,
+                active_systems: 0,
+            });
+        });
+
+        TestSystemReservation { reserved_systems }
+    }
+}
+
+impl Drop for TestSystemReservation {
+    fn drop(&mut self) {
+        let usage = TEST_SYSTEM_USAGE.with(|usage| usage.replace(TestSystemUsage::default()));
+        let should_panic = !thread::panicking()
+            && (usage.active_systems != 0 || usage.reserved_systems != self.reserved_systems);
+
+        TEST_SYSTEM_SEMAPHORE.release(self.reserved_systems);
+
+        if should_panic {
+            assert_eq!(
+                usage.reserved_systems, self.reserved_systems,
+                "test system reservation accounting diverged"
+            );
+            panic!(
+                "test ended with {} Kompact systems still alive; declare the reservation at the top of the test so it drops last",
+                usage.active_systems
+            );
+        }
+    }
+}
+
+struct TestSystemSlot;
+
+impl TestSystemSlot {
+    fn acquire() -> Self {
+        TEST_SYSTEM_USAGE.with(|usage| {
+            let mut usage_state = usage.get();
+            assert!(
+                usage_state.reserved_systems > 0,
+                "declare a test system reservation before creating Kompact systems in this test"
+            );
+            assert!(
+                usage_state.active_systems < usage_state.reserved_systems,
+                "test reserved {} Kompact systems, but tried to create more; update the reservation at the top of the test",
+                usage_state.reserved_systems
+            );
+            usage_state.active_systems += 1;
+            usage.set(usage_state);
+        });
+
+        TestSystemSlot
+    }
+}
+
+impl Drop for TestSystemSlot {
+    fn drop(&mut self) {
+        TEST_SYSTEM_USAGE.with(|usage| {
+            let mut usage_state = usage.get();
+            if usage_state.active_systems == 0 {
+                assert!(
+                    thread::panicking(),
+                    "test system slot accounting underflowed"
+                );
+            } else {
+                usage_state.active_systems -= 1;
+                usage.set(usage_state);
+            }
+        });
+    }
+}
+
+struct TestSystem {
+    inner: KompactSystem,
+    _slot: TestSystemSlot,
+}
+
+impl TestSystem {
+    fn shutdown(self) -> Result<(), String> {
+        let TestSystem { inner, _slot } = self;
+        inner.shutdown()
+    }
+
+    fn kill_system(self) -> Result<(), String> {
+        let TestSystem { inner, _slot } = self;
+        inner.kill_system()
+    }
+}
+
+impl Deref for TestSystem {
+    type Target = KompactSystem;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for TestSystem {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+fn system_from_network_config(network_config: NetworkConfig) -> TestSystem {
+    let slot = TestSystemSlot::acquire();
     let mut cfg = KompactConfig::default();
     cfg.system_components(DeadletterBox::new, network_config.build());
-    cfg.build().expect("KompactSystem")
+    let inner = cfg.build().expect("KompactSystem");
+    TestSystem { inner, _slot: slot }
 }
 
 fn start_pinger(
@@ -298,6 +493,7 @@ impl NetworkStatusReceiver {
 #[test]
 fn named_registration() {
     const ACTOR_NAME: &str = "ponger";
+    let _system_reservation = TestSystemReservation::acquire(1);
     let system = system_from_network_config(NetworkConfig::default());
 
     let ponger = system.create(PongerAct::new_lazy);
@@ -335,6 +531,7 @@ fn named_registration() {
 // messages.
 #[test]
 fn remote_delivery_to_registered_actors_eager() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let pinger_system = system_from_network_config(NetworkConfig::default());
     let ponger_system = system_from_network_config(NetworkConfig::default());
 
@@ -392,6 +589,7 @@ fn remote_delivery_to_registered_actors_eager() {
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
@@ -435,6 +633,7 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
@@ -479,6 +678,7 @@ fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
 // Sets up two KompactSystems, one with a BigPinger and one with a BigPonger.
 // BigPonger will validate the BigPing messages on reception, BigPinger counts replies
 fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(SMALL_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
@@ -522,6 +722,7 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
 #[test]
 // Checks that BufferSwaps will occur for UDP sending/receiving during lazy sending
 fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(MINIMUM_UDP_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
@@ -564,6 +765,7 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
 #[test]
 // Checks that BufferSwaps will occur for UDP sending/receiving during eager sending
 fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(MINIMUM_UDP_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
@@ -611,6 +813,7 @@ fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
 #[test]
 // Checks that BufferSwaps will occur for UDP sending/receiving during preserialized sends
 fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut buf_cfg = BufferConfig::default();
     buf_cfg.chunk_size(MINIMUM_UDP_CHUNK_SIZE);
     let mut net_cfg = NetworkConfig::default();
@@ -661,6 +864,7 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_eager_mixed_udp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let pinger_system = system_from_network_config(NetworkConfig::default());
     let ponger_system = system_from_network_config(NetworkConfig::default());
 
@@ -722,6 +926,7 @@ fn remote_delivery_to_registered_actors_eager_mixed_udp() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_lazy() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let pinger_system = system_from_network_config(NetworkConfig::default());
     let ponger_system = system_from_network_config(NetworkConfig::default());
 
@@ -781,6 +986,7 @@ fn remote_delivery_to_registered_actors_lazy() {
 // the other with the named Ponger. Both sets are expected to exchange PING_COUNT ping-pong
 // messages.
 fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let pinger_system = system_from_network_config(NetworkConfig::default());
     let ponger_system = system_from_network_config(NetworkConfig::default());
 
@@ -847,6 +1053,7 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
 // messages.
 #[ignore]
 fn remote_lost_and_continued_connection() {
+    let _system_reservation = TestSystemReservation::acquire(3);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
@@ -946,6 +1153,7 @@ fn remote_lost_and_continued_connection() {
 #[test]
 #[ignore]
 fn remote_lost_and_dropped_connection() {
+    let _system_reservation = TestSystemReservation::acquire(3);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
@@ -1051,6 +1259,7 @@ fn remote_lost_and_dropped_connection() {
 
 #[test]
 fn local_delivery() {
+    let _system_reservation = TestSystemReservation::acquire(1);
     let system = system_from_network_config(NetworkConfig::default());
 
     let (ponger, mut ponger_path) = start_ponger(&system, PongerAct::new_lazy());
@@ -1080,6 +1289,7 @@ fn local_delivery() {
 
 #[test]
 fn local_forwarding() {
+    let _system_reservation = TestSystemReservation::acquire(1);
     let system = system_from_network_config(NetworkConfig::default());
 
     let (ponger, mut ponger_path) = start_big_ponger(&system, BigPongerAct::new_lazy());
@@ -1123,6 +1333,7 @@ fn local_forwarding() {
 
 #[test]
 fn local_forwarding_eager() {
+    let _system_reservation = TestSystemReservation::acquire(1);
     let system = system_from_network_config(NetworkConfig::default());
 
     let (ponger, mut ponger_path) = start_big_ponger(&system, BigPongerAct::new_lazy());
@@ -1166,6 +1377,7 @@ fn local_forwarding_eager() {
 
 #[test]
 fn remote_forwarding_unique() {
+    let _system_reservation = TestSystemReservation::acquire(3);
     let ponger_system = system_from_network_config(NetworkConfig::default());
     let forwarder_system = system_from_network_config(NetworkConfig::default());
     let pinger_system = system_from_network_config(NetworkConfig::default());
@@ -1216,6 +1428,7 @@ fn remote_forwarding_unique() {
 
 #[test]
 fn remote_forwarding_unique_two_systems() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let ponger_system = system_from_network_config(NetworkConfig::default());
     let pinger_system = system_from_network_config(NetworkConfig::default());
 
@@ -1262,6 +1475,7 @@ fn remote_forwarding_unique_two_systems() {
 
 #[test]
 fn remote_forwarding_named() {
+    let _system_reservation = TestSystemReservation::acquire(3);
     let ponger_system = system_from_network_config(NetworkConfig::default());
     let forwarder_system = system_from_network_config(NetworkConfig::default());
     let pinger_system = system_from_network_config(NetworkConfig::default());
@@ -1321,6 +1535,7 @@ fn remote_forwarding_named() {
 
 #[test]
 fn network_status_port_established_lost_dropped_connection() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
@@ -1363,6 +1578,7 @@ fn network_status_port_established_lost_dropped_connection() {
 
 #[test]
 fn network_status_port_close_connection_closed_connection() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let ponger_system = system_from_network_config(NetworkConfig::default());
     let pinger_system = system_from_network_config(NetworkConfig::default());
 
@@ -1410,6 +1626,7 @@ fn network_status_port_close_connection_closed_connection() {
 
 #[test]
 fn network_status_port_open_close_open() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_max_connection_retry_attempts(2);
     net_cfg.set_connection_retry_interval(1000);
@@ -1454,6 +1671,7 @@ fn network_status_port_open_close_open() {
 
 #[test]
 fn network_status_port_block_unblock_system() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
@@ -1527,6 +1745,7 @@ fn network_status_port_block_unblock_system() {
 
 #[test]
 fn network_status_port_block_unblock_ip() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
@@ -1581,6 +1800,7 @@ fn network_status_port_block_unblock_ip() {
 
 #[test]
 fn network_status_port_block_ip_supernet_allow_subnet() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
@@ -1643,6 +1863,7 @@ fn network_status_port_block_ip_supernet_allow_subnet() {
 
 #[test]
 fn network_status_port_allow_system_block_supernet() {
+    let _system_reservation = TestSystemReservation::acquire(3);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_connection_retry_interval(CONNECTION_RETRY_INTERVAL);
     net_cfg.set_max_connection_retry_attempts(CONNECTION_RETRY_ATTEMPTS);
@@ -1696,6 +1917,7 @@ fn network_status_port_allow_system_block_supernet() {
 // until the Ponger system closes the Big Ping-channel due to too many retries.
 // A new batch up small-pings are then sent and replied to.
 fn remote_delivery_overflow_network_thread_buffers() {
+    let _system_reservation = TestSystemReservation::acquire(3);
     let mut buf_cfg = BufferConfig::default();
     let chunk_size = 1000;
     let chunk_count = 10;
@@ -1775,6 +1997,7 @@ fn remote_delivery_overflow_network_thread_buffers() {
 // Starts a Ponger on system1, then Pingers on system2, then on system3, then on system4.
 // Asserts that system2 connection is dropped by system1
 fn soft_connection_limit_exceeded() {
+    let _system_reservation = TestSystemReservation::acquire(4);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_soft_connection_limit(2);
 
@@ -1874,6 +2097,7 @@ fn soft_connection_limit_exceeded() {
 // Starts a Ponger on system1, then Pingers on system2, then on system3, then on system4.
 // Asserts that system4 fails to achieve a connection
 fn hard_connection_limit_exceeded() {
+    let _system_reservation = TestSystemReservation::acquire(4);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_hard_connection_limit(2);
 
@@ -1941,11 +2165,12 @@ fn hard_connection_limit_exceeded() {
 // and thus messages are retained while the pinger-systems take turns achieving active connections.
 fn hard_and_soft_connection_limit() {
     let mut net_cfg = NetworkConfig::default();
-    let hard_limit = 6;
-    let soft_limit = 4;
+    let hard_limit: u32 = 6;
+    let soft_limit: u32 = 4;
     let connection_retry_interval = 500;
     let max_connection_retry_attempts = 50; // 500ms*50 = 25 Sec
-    let number_of_pingers = hard_limit * 5; // Kind of an arbitrary amount
+    let number_of_pingers = hard_limit as usize * 5; // Kind of an arbitrary amount
+    let _system_reservation = TestSystemReservation::acquire(number_of_pingers + 1);
     let timeout =
         Duration::from_millis(connection_retry_interval * max_connection_retry_attempts as u64)
             + PINGPONG_TIMEOUT;
@@ -1996,6 +2221,7 @@ fn hard_and_soft_connection_limit() {
 //   3. Corrupts the Pinger-systems Network, asserts critical network failure and connection lost
 //   4. Performs a successful Ping-Pong
 fn network_thread_recovery_from_panic_in_sender() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let net_cfg = NetworkConfig::default();
 
     let pinger_system = system_from_network_config(net_cfg.clone());
@@ -2030,6 +2256,7 @@ fn network_thread_recovery_from_panic_in_sender() {
 #[cfg_attr(not(feature = "low_latency"), test)]
 // Same as above except the Panic is induced in the Ponger-system
 fn network_thread_recovery_from_panic_in_receiver() {
+    let _system_reservation = TestSystemReservation::acquire(2);
     let mut net_cfg = NetworkConfig::default();
     net_cfg.set_connection_retry_interval(CONNECTION_STATUS_TIMEOUT.as_millis() as u64);
     let pinger_system = system_from_network_config(net_cfg.clone());
