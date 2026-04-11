@@ -1300,13 +1300,8 @@ struct WorkResult(u64);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -1328,6 +1323,10 @@ struct WorkResult(u64);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -1574,13 +1573,8 @@ struct WorkResult(u64);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -1602,6 +1596,10 @@ struct WorkResult(u64);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -1848,13 +1846,8 @@ struct WorkResult(u64);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -1876,6 +1869,10 @@ struct WorkResult(u64);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2126,13 +2123,8 @@ struct WorkResult(u64);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -2154,6 +2146,10 @@ struct WorkResult(u64);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2400,13 +2396,8 @@ impl Port for WorkerPort {
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -2428,6 +2419,10 @@ impl Port for WorkerPort {
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2677,13 +2672,8 @@ impl Port for WorkerPort {
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -2705,6 +2695,10 @@ impl Port for WorkerPort {
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2958,13 +2952,8 @@ impl Manager {
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -2986,6 +2975,10 @@ impl Manager {
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -3236,13 +3229,8 @@ impl Manager {
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -3264,6 +3252,10 @@ impl Manager {
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -3511,13 +3503,8 @@ impl Manager {
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -3539,6 +3526,10 @@ impl Manager {
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -3793,13 +3784,8 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -3821,6 +3807,10 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -4071,13 +4061,8 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -4099,6 +4084,10 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -4352,13 +4341,8 @@ ignore_requests!(WorkerPort, Worker);
             &quot;One request at a time, please!&quot;
         );
         let work: &amp;Work = msg.request();
-        if self.num_workers == 0 {
-            // manager gotta work itself -&gt; very unhappy manager
-            let res = work.data.iter().fold(work.neutral, work.merger);
-            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-        } else {
+        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
             let len = work.data.len();
-            let stride = len / self.num_workers;
             let mut start = 0usize;
             let mut index = 0;
             while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -4380,6 +4364,10 @@ ignore_requests!(WorkerPort, Worker);
                 self.result_accumulator.push(work.neutral);
             }
             self.outstanding_request = Some(msg);
+        } else {
+            // manager gotta work itself -&gt; very unhappy manager
+            let res = work.data.iter().fold(work.neutral, work.merger);
+            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
         }
         Handled::Ok
     }
@@ -4627,13 +4615,8 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -4655,6 +4638,10 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -4914,13 +4901,8 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -4942,6 +4924,10 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -5188,13 +5174,8 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">            &quot;One request at a time, please!&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let work: &amp;Work = msg.request();
-</span><span class="boring">        if self.num_workers == 0 {
-</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">        } else {
+</span><span class="boring">        if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">            let len = work.data.len();
-</span><span class="boring">            let stride = len / self.num_workers;
 </span><span class="boring">            let mut start = 0usize;
 </span><span class="boring">            let mut index = 0;
 </span><span class="boring">            while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -5216,6 +5197,10 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">                self.result_accumulator.push(work.neutral);
 </span><span class="boring">            }
 </span><span class="boring">            self.outstanding_request = Some(msg);
+</span><span class="boring">        } else {
+</span><span class="boring">            // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -5454,13 +5439,8 @@ enum ManagerMessage {
 </span><span class="boring">                    &quot;One request at a time, please!&quot;
 </span><span class="boring">                );
 </span><span class="boring">                let work: &amp;Work = msg.request();
-</span><span class="boring">                if self.num_workers == 0 {
-</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">                } else {
+</span><span class="boring">                if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">                    let len = work.data.len();
-</span><span class="boring">                    let stride = len / self.num_workers;
 </span><span class="boring">                    let mut start = 0usize;
 </span><span class="boring">                    let mut index = 0;
 </span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -5482,6 +5462,10 @@ enum ManagerMessage {
 </span><span class="boring">                        self.result_accumulator.push(work.neutral);
 </span><span class="boring">                    }
 </span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
@@ -5726,13 +5710,8 @@ enum ManagerMessage {
 </span><span class="boring">                    &quot;One request at a time, please!&quot;
 </span><span class="boring">                );
 </span><span class="boring">                let work: &amp;Work = msg.request();
-</span><span class="boring">                if self.num_workers == 0 {
-</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">                } else {
+</span><span class="boring">                if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">                    let len = work.data.len();
-</span><span class="boring">                    let stride = len / self.num_workers;
 </span><span class="boring">                    let mut start = 0usize;
 </span><span class="boring">                    let mut index = 0;
 </span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -5754,6 +5733,10 @@ enum ManagerMessage {
 </span><span class="boring">                        self.result_accumulator.push(work.neutral);
 </span><span class="boring">                    }
 </span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
@@ -5998,13 +5981,8 @@ struct Manager {
 </span><span class="boring">                    &quot;One request at a time, please!&quot;
 </span><span class="boring">                );
 </span><span class="boring">                let work: &amp;Work = msg.request();
-</span><span class="boring">                if self.num_workers == 0 {
-</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">                } else {
+</span><span class="boring">                if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">                    let len = work.data.len();
-</span><span class="boring">                    let stride = len / self.num_workers;
 </span><span class="boring">                    let mut start = 0usize;
 </span><span class="boring">                    let mut index = 0;
 </span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -6026,6 +6004,10 @@ struct Manager {
 </span><span class="boring">                        self.result_accumulator.push(work.neutral);
 </span><span class="boring">                    }
 </span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
@@ -6270,13 +6252,8 @@ struct Manager {
                     &quot;One request at a time, please!&quot;
                 );
                 let work: &amp;Work = msg.request();
-                if self.num_workers == 0 {
-                    // manager gotta work itself -&gt; very unhappy manager
-                    let res = work.data.iter().fold(work.neutral, work.merger);
-                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-                } else {
+                if let Some(stride) = work.data.len().checked_div(self.num_workers) {
                     let len = work.data.len();
-                    let stride = len / self.num_workers;
                     let mut start = 0usize;
                     let mut index = 0;
                     while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -6298,6 +6275,10 @@ struct Manager {
                         self.result_accumulator.push(work.neutral);
                     }
                     self.outstanding_request = Some(msg);
+                } else {
+                    // manager gotta work itself -&gt; very unhappy manager
+                    let res = work.data.iter().fold(work.neutral, work.merger);
+                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
                 }
             }
             ManagerMessage::Result(msg) =&gt; {
@@ -6543,13 +6524,8 @@ struct Manager {
 </span><span class="boring">                    &quot;One request at a time, please!&quot;
 </span><span class="boring">                );
 </span><span class="boring">                let work: &amp;Work = msg.request();
-</span><span class="boring">                if self.num_workers == 0 {
-</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
-</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
-</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
-</span><span class="boring">                } else {
+</span><span class="boring">                if let Some(stride) = work.data.len().checked_div(self.num_workers) {
 </span><span class="boring">                    let len = work.data.len();
-</span><span class="boring">                    let stride = len / self.num_workers;
 </span><span class="boring">                    let mut start = 0usize;
 </span><span class="boring">                    let mut index = 0;
 </span><span class="boring">                    while start &lt; len &amp;&amp; index &lt; self.num_workers {
@@ -6571,6 +6547,10 @@ struct Manager {
 </span><span class="boring">                        self.result_accumulator.push(work.neutral);
 </span><span class="boring">                    }
 </span><span class="boring">                    self.outstanding_request = Some(msg);
+</span><span class="boring">                } else {
+</span><span class="boring">                    // manager gotta work itself -&gt; very unhappy manager
+</span><span class="boring">                    let res = work.data.iter().fold(work.neutral, work.merger);
+</span><span class="boring">                    msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">            ManagerMessage::Result(msg) =&gt; {
