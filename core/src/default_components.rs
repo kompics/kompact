@@ -86,12 +86,50 @@ impl TimerRefFactory for DefaultTimer {
         self.inner.timer_ref()
     }
 }
+
 impl TimerComponent for DefaultTimer {
     fn shutdown(&self) -> Result<(), String> {
         self.inner
             .shutdown_async()
             .map_err(|e| format!("Error during timer shutdown: {:?}", e))
     }
+}
+
+struct ManualTimerComponent {
+    inner: timer::ManualTimer,
+}
+
+impl ManualTimerComponent {
+    fn new(inner: timer::ManualTimer) -> Self {
+        Self { inner }
+    }
+}
+
+impl TimerRefFactory for ManualTimerComponent {
+    fn timer_ref(&self) -> timer::TimerRef {
+        self.inner.timer_ref()
+    }
+}
+
+impl TimerComponent for ManualTimerComponent {
+    fn shutdown(&self) -> Result<(), String> {
+        self.inner.stop();
+        Ok(())
+    }
+}
+
+/// Replaces the default threaded timer with a manually-driven timer and
+/// returns the control handle for tests.
+///
+/// The returned timer can be advanced deterministically with
+/// [`timer::ManualTimer::advance_by`] or [`timer::ManualTimer::advance_to_next`].
+pub fn install_manual_timer(config: &mut KompactConfig) -> timer::ManualTimer {
+    let timer = timer::ManualTimer::new();
+    let builder_timer = timer.clone();
+    config.timer::<ManualTimerComponent, _>(move || {
+        Box::new(ManualTimerComponent::new(builder_timer.clone()))
+    });
+    timer
 }
 
 /// A wrapper for custom system components
@@ -275,5 +313,75 @@ impl ComponentLifecycle for LocalDispatcher {
             promise.complete().unwrap_or(())
         }
         Handled::Ok
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::timer::timer_manager::Timer;
+    use std::{sync::mpsc, time::Duration};
+
+    #[derive(ComponentDefinition)]
+    struct TimerProbe {
+        ctx: ComponentContext<Self>,
+        fired: mpsc::Sender<()>,
+    }
+
+    impl TimerProbe {
+        fn new(fired: mpsc::Sender<()>) -> Self {
+            Self {
+                ctx: ComponentContext::uninitialised(),
+                fired,
+            }
+        }
+    }
+
+    impl ComponentLifecycle for TimerProbe {
+        fn on_start(&mut self) -> Handled {
+            let fired = self.fired.clone();
+            self.schedule_once(Duration::from_millis(10), move |_component, _timer| {
+                fired.send(()).expect("probe receiver must stay live");
+                Handled::Ok
+            });
+            Handled::Ok
+        }
+    }
+
+    impl Actor for TimerProbe {
+        type Message = Never;
+
+        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            unreachable!("Never type is empty")
+        }
+
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!("TimerProbe does not use network actor messages")
+        }
+    }
+
+    #[test]
+    fn installed_manual_timer_requires_explicit_advance() {
+        let mut config = KompactConfig::default();
+        let timer = install_manual_timer(&mut config);
+        let system = config.build().expect("build KompactSystem");
+        let (tx, rx) = mpsc::channel();
+        let component = system.create(|| TimerProbe::new(tx));
+
+        system
+            .start_notify(&component)
+            .wait_timeout(Duration::from_secs(1))
+            .expect("TimerProbe should start");
+
+        assert!(
+            rx.recv_timeout(Duration::from_millis(50)).is_err(),
+            "manual timer should not fire before explicit advance"
+        );
+
+        timer.advance_by(Duration::from_millis(10));
+        rx.recv_timeout(Duration::from_secs(1))
+            .expect("manual timer should fire after explicit advance");
+
+        system.shutdown().expect("shutdown KompactSystem");
     }
 }

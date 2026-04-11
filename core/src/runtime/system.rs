@@ -18,7 +18,7 @@ use crate::{
 };
 use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
-use std::{any::TypeId, fmt, sync::Mutex};
+use std::{any::TypeId, fmt, sync::Mutex, time::Instant};
 
 /// A Kompact system is a collection of components and services
 ///
@@ -169,6 +169,12 @@ impl KompactSystem {
     /// Get a owned reference to the system configuration
     pub fn config_owned(&self) -> Arc<Hocon> {
         self.config.clone()
+    }
+
+    /// Returns the current time according to the system timer.
+    pub fn now(&self) -> Instant {
+        self.inner.assert_not_poisoned();
+        self.inner.timer_ref().now()
     }
 
     pub(crate) fn poison(&self) {
@@ -1091,6 +1097,9 @@ impl TimerRefFactory for KompactSystem {
 /// This is meant for use from within components, where blocking APIs
 /// are unacceptable.
 pub trait SystemHandle: Dispatching + CanCancelTimers {
+    /// Returns the current time according to the system timer.
+    fn now(&self) -> Instant;
+
     /// Create a new component
     ///
     /// Uses `f` to create an instance of a [ComponentDefinition](ComponentDefinition),
