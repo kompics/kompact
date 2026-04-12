@@ -224,11 +224,10 @@ Outcome:
 
 - Removed unsafe where the current standard library or existing helper traits already provided a safe alternative:
   - `ComponentCore` now uses `OnceLock` instead of `UnsafeCell` for one-time component initialisation.
-  - The default root logger now uses a safe lazy `Mutex<Option<...>>` instead of `static mut`.
+  - The default root logger now uses a safe lazy `ArcSwapOption<_>` instead of `static mut`.
   - The non-blocking task waker now uses `ArcWake` instead of a hand-written raw waker table.
   - `KFuture` no longer needs unchecked pin projection.
-  - Named-path deserialisation now validates UTF-8 instead of using `from_utf8_unchecked`.
-  - The experimental radix-tree helpers and dormant hash benchmarks no longer need unchecked indexing or `transmute`.
+  - The experimental radix-tree initialisation and dormant hash benchmarks no longer need raw array casts or `transmute`.
 - Tightened the remaining unsafe contracts with local safety comments around:
   - component-definition raw access during future polling,
   - system-component trait-object downcasting,

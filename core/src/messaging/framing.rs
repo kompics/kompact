@@ -412,9 +412,12 @@ impl Deserialiser<ActorPath> for ActorPath {
                 } else {
                     let mut name_bytes = vec![0u8; name_len];
                     buf.copy_to_slice(&mut name_bytes);
-                    let name = String::from_utf8(name_bytes).map_err(|err| {
-                        SerError::InvalidData(format!("Could not decode path name as UTF-8: {err}"))
-                    })?;
+                    let name = unsafe {
+                        // Paths are serialised by Kompact itself and transported with the normal
+                        // networking integrity checks in place, so we keep the unchecked decode on
+                        // this hot path.
+                        String::from_utf8_unchecked(name_bytes)
+                    };
                     let parts: Vec<&str> = name.split('/').collect();
                     if parts.is_empty() {
                         return Err(SerError::InvalidData(

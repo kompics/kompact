@@ -274,7 +274,12 @@ impl BufferChunk {
     ///
     /// Internally this uses a `'static` lifetime because leases hold the lock that prevents the
     /// backing chunk from being reused while the slice is alive.
-    fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the returned slice does not outlive the effective lock/ownership
+    /// discipline that keeps the backing chunk from being reused.
+    unsafe fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
         assert!(from < to && to <= self.len() && !self.locked);
         // SAFETY: the bounds check above guarantees the pointer arithmetic stays within the chunk,
         // and `&mut self` ensures there is no concurrent mutable access while the slice is created.
@@ -292,7 +297,8 @@ impl BufferChunk {
     /// the returned lease is a consumable Buf.
     pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease {
         let lock = self.get_lock();
-        ChunkLease::new(self.get_slice(from, to), lock)
+        // SAFETY: the returned lease keeps the chunk locked for the whole lifetime of the slice.
+        ChunkLease::new(unsafe { self.get_slice(from, to) }, lock)
     }
 
     /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated

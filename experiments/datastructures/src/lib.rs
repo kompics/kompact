@@ -105,7 +105,9 @@ impl<V> RadixTree<V> {
             RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
-                    children[pos].get(&key[1..])
+                    // SAFETY: `key_pos` is a `u8`, so the computed index is always within
+                    // `0..256` for the fixed-size children array.
+                    unsafe { children.get_unchecked(pos).get(&key[1..]) }
                 }
                 None => None,
             },
@@ -140,7 +142,11 @@ impl<V> RadixTree<V> {
             RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
-                    children[pos].insert(&key[1..], value);
+                    // SAFETY: `key_pos` is a `u8`, so the computed index is always within
+                    // `0..256` for the fixed-size children array.
+                    unsafe {
+                        children.get_unchecked_mut(pos).insert(&key[1..], value);
+                    }
                     return None;
                 }
                 None => {
@@ -166,10 +172,16 @@ impl<V> RadixTree<V> {
                     } else {
                         let new_node = RadixTree::value(&key[1..], value);
                         let new_tree = MaybeTree::from_tree(new_node);
-                        children[new_pos] = new_tree;
+                        // SAFETY: `new_pos` comes from a `u8`, so it is always a valid child slot.
+                        unsafe {
+                            *children.get_unchecked_mut(new_pos) = new_tree;
+                        }
                     }
                     let node_tree = MaybeTree::from_tree(node);
-                    children[pos] = node_tree;
+                    // SAFETY: `pos` was derived from a `u8`, so it is always a valid child slot.
+                    unsafe {
+                        *children.get_unchecked_mut(pos) = node_tree;
+                    }
                 } else {
                     //#[cfg(debug_assertions)]
                     unimplemented!("Invalid tree composition?!?!?");

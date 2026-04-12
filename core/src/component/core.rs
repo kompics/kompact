@@ -48,7 +48,7 @@ impl ComponentCore {
         self.component
             .get()
             .and_then(Weak::upgrade)
-            .unwrap_or_else(|| panic!("Component already deallocated (or not initialised)!"))
+            .expect("Component already deallocated (or not initialised)!")
     }
 
     pub(crate) fn increment_work(&self) -> SchedulingDecision {

@@ -1,4 +1,5 @@
 use super::*;
+use arc_swap::ArcSwapOption;
 
 use std::{
     error,
@@ -6,7 +7,6 @@ use std::{
     sync::{
         Arc,
         LazyLock,
-        Mutex,
         atomic::{AtomicUsize, Ordering},
     },
 };
@@ -29,7 +29,7 @@ fn default_runtime_label() -> String {
     format!("kompact-runtime-{}", runtime_count)
 }
 
-static DEFAULT_ROOT_LOGGER: LazyLock<Mutex<Option<KompactLogger>>> = LazyLock::new(|| {
+static DEFAULT_ROOT_LOGGER: LazyLock<ArcSwapOption<KompactLogger>> = LazyLock::new(|| {
     let decorator = slog_term::TermDecorator::new().stdout().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
@@ -41,16 +41,13 @@ static DEFAULT_ROOT_LOGGER: LazyLock<Mutex<Option<KompactLogger>>> = LazyLock::n
             })
         ),
     );
-    Mutex::new(Some(logger))
+    ArcSwapOption::from(Some(Arc::new(logger)))
 });
 
-fn default_logger() -> KompactLogger {
+fn default_logger() -> Arc<KompactLogger> {
     DEFAULT_ROOT_LOGGER
-        .lock()
-        .expect("default logger lock poisoned")
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| panic!("Can't re-initialise global logger after it has been dropped!"))
+        .load_full()
+        .expect("Can't re-initialise global logger after it has been dropped!")
 }
 
 /// Removes the global default logger
@@ -61,9 +58,7 @@ fn default_logger() -> KompactLogger {
 /// so make sure you use this only right before exiting the programme.
 pub fn drop_default_logger() {
     // Overwriting the current value will implicitly drop it and flush pending log output.
-    *DEFAULT_ROOT_LOGGER
-        .lock()
-        .expect("default logger lock poisoned") = None;
+    DEFAULT_ROOT_LOGGER.store(None);
 }
 
 type SchedulerBuilder = dyn Fn(usize) -> Box<dyn Scheduler>;

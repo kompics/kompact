@@ -185,6 +185,8 @@ impl<T: Send + Sized> Future for KFuture<T> {
     type Output = Result<T, PromiseDropped>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        // `oneshot::Receiver<T>` is `Unpin`, so once we have `&mut Receiver<T>` we can safely
+        // repin it with `Pin::new` instead of doing unchecked projection from `self`.
         let receiver = &mut self.get_mut().result_channel;
         Pin::new(receiver)
             .poll(cx)
