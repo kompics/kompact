@@ -79,8 +79,14 @@ pub use self::serialisation::protobuf_serialisers;
 #[cfg(feature = "serde_support")]
 pub use self::serialisation::serde_serialisers;
 use self::{
-    actors::*, component::*, default_components::*, lifecycle::*, ports::*, runtime::*,
-    serialisation::*, utils::*,
+    actors::*,
+    component::*,
+    default_components::*,
+    lifecycle::*,
+    ports::*,
+    runtime::*,
+    serialisation::*,
+    utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
 /// The default crate for scheduler implementations
@@ -171,23 +177,61 @@ pub mod prelude {
 
     #[allow(deprecated)]
     pub use crate::{
-        ignore_control, ignore_indications, ignore_lifecycle, ignore_requests, info_lifecycle,
+        ignore_control,
+        ignore_indications,
+        ignore_lifecycle,
+        ignore_requests,
+        info_lifecycle,
         match_deser,
     };
 
     pub use crate::{
         Never,
         actors::{
-            Actor, ActorPath, ActorPathFactory, ActorRaw, ActorRef, ActorRefFactory,
-            ActorRefStrong, Dispatcher, DispatcherRef, Dispatching, DispatchingPath, DynActorRef,
-            DynActorRefFactory, MessageBounds, NamedPath, NetworkActor, PathParseError, Receiver,
-            Recipient, Request, SystemField, SystemPath, Transport, UniquePath, WithRecipient,
-            WithSender, WithSenderStrong,
+            Actor,
+            ActorPath,
+            ActorPathFactory,
+            ActorRaw,
+            ActorRef,
+            ActorRefFactory,
+            ActorRefStrong,
+            Dispatcher,
+            DispatcherRef,
+            Dispatching,
+            DispatchingPath,
+            DynActorRef,
+            DynActorRefFactory,
+            MessageBounds,
+            NamedPath,
+            NetworkActor,
+            PathParseError,
+            Receiver,
+            Recipient,
+            Request,
+            SystemField,
+            SystemPath,
+            Transport,
+            UniquePath,
+            WithRecipient,
+            WithSender,
+            WithSenderStrong,
         },
         component::{
-            Component, ComponentContext, ComponentDefinition, ComponentDefinitionAccess,
-            ComponentLifecycle, ComponentLogging, CoreContainer, DynamicPortAccess, ExecuteResult,
-            Handled, LockingProvideRef, LockingRequireRef, Provide, ProvideRef, Require,
+            Component,
+            ComponentContext,
+            ComponentDefinition,
+            ComponentDefinitionAccess,
+            ComponentLifecycle,
+            ComponentLogging,
+            CoreContainer,
+            DynamicPortAccess,
+            ExecuteResult,
+            Handled,
+            LockingProvideRef,
+            LockingRequireRef,
+            Provide,
+            ProvideRef,
+            Require,
             RequireRef,
         },
         net::{
@@ -195,8 +239,17 @@ pub mod prelude {
             buffers::{BufferConfig, ChunkLease, ChunkRef},
         },
         ports::{
-            Channel, DisconnectError, Port, ProvidedPort, ProvidedRef, ProviderChannel,
-            RequiredPort, RequiredRef, RequirerChannel, TryLockError, TwoWayChannel,
+            Channel,
+            DisconnectError,
+            Port,
+            ProvidedPort,
+            ProvidedRef,
+            ProviderChannel,
+            RequiredPort,
+            RequiredRef,
+            RequirerChannel,
+            TryLockError,
+            TwoWayChannel,
         },
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         supervision::{FaultContext, RecoveryHandler},
@@ -205,12 +258,21 @@ pub mod prelude {
     pub use crate::{
         default_components::{CustomComponents, DeadletterBox, LocalDispatcher},
         dispatch::{
-            NetworkConfig, NetworkDispatcher, NetworkStatus, NetworkStatusPort,
+            NetworkConfig,
+            NetworkDispatcher,
+            NetworkStatus,
+            NetworkStatusPort,
             NetworkStatusRequest,
         },
         messaging::{
-            DispatchEnvelope, MsgEnvelope, NetMessage, PathResolvable, RegistrationError,
-            RegistrationResult, Serialised, UnpackError,
+            DispatchEnvelope,
+            MsgEnvelope,
+            NetMessage,
+            PathResolvable,
+            RegistrationError,
+            RegistrationResult,
+            Serialised,
+            UnpackError,
         },
         timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},
     };
@@ -218,9 +280,22 @@ pub mod prelude {
     pub use crate::{
         serialisation::*,
         utils::{
-            Ask, Completable, Fulfillable, FutureCollection, FutureResultCollection, IterExtras,
-            KFuture, KPromise, PromiseErr, TryDualLockError, biconnect_components, biconnect_ports,
-            block_on, block_until, on_dual_definition, promise,
+            Ask,
+            Completable,
+            Fulfillable,
+            FutureCollection,
+            FutureResultCollection,
+            IterExtras,
+            KFuture,
+            KPromise,
+            PromiseErr,
+            TryDualLockError,
+            biconnect_components,
+            biconnect_ports,
+            block_on,
+            block_until,
+            on_dual_definition,
+            promise,
         },
     };
 
@@ -310,7 +385,8 @@ pub mod doctest_helpers {
 #[cfg(test)]
 mod test_helpers {
     use std::{
-        env, fs,
+        env,
+        fs,
         ops::Deref,
         path::{Path, PathBuf},
     };
@@ -372,14 +448,14 @@ mod test_helpers {
 
 #[cfg(test)]
 mod tests {
-    use super::prelude::*;
-    use super::test_helpers::*;
+    use super::{prelude::*, test_helpers::*};
     use std::{
         fs::File,
         io::Write,
         ops::Deref,
-        sync::{Arc, LazyLock, Mutex},
-        thread, time,
+        sync::{Arc, Mutex},
+        thread,
+        time,
         time::Duration,
     };
 
@@ -992,8 +1068,7 @@ mod tests {
         last_string: &'static str,
     }
 
-    static RECOVERER_CURRENT_REF: LazyLock<Mutex<Option<ActorRef<StringMsg>>>> =
-        LazyLock::new(|| Mutex::new(None));
+    static RECOVERER_CURRENT_REF: Mutex<Option<ActorRef<StringMsg>>> = Mutex::new(None);
 
     impl RecovererComponent {
         fn set_current_ref(aref: ActorRef<<Self as Actor>::Message>) -> () {

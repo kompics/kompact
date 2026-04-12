@@ -100,17 +100,14 @@ impl<V> RadixTree<V> {
 
     fn get(&self, key: &[u8]) -> Option<&V> {
         match self {
-            RadixTree::Value {
-                ref key_suffix,
-                ref value,
-            } => {
+            RadixTree::Value { key_suffix, value } => {
                 if key == key_suffix.as_ref() {
                     Some(value)
                 } else {
                     None
                 }
             }
-            RadixTree::Node { ref children } => match key.first() {
+            RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
                     unsafe { children.get_unchecked(pos).get(&key[1..]) }
@@ -125,8 +122,8 @@ impl<V> RadixTree<V> {
         let mut must_grow_pos: Option<usize> = None;
         match self {
             RadixTree::Value {
-                ref mut key_suffix,
-                value: ref mut current_value,
+                key_suffix,
+                value: current_value,
             } => {
                 if key == key_suffix.as_ref() {
                     let mut temp_value = value;
@@ -145,7 +142,7 @@ impl<V> RadixTree<V> {
                     }
                 }
             }
-            RadixTree::Node { ref mut children } => match key.first() {
+            RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
                     unsafe {
@@ -170,7 +167,7 @@ impl<V> RadixTree<V> {
                         unimplemented!("Key already ended.");
                     }
                 };
-                if let RadixTree::Node { ref mut children } = self {
+                if let RadixTree::Node { children } = self {
                     if new_pos == pos {
                         node.insert(&key[1..], value);
                     } else {

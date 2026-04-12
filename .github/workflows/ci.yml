@@ -13,7 +13,8 @@ on:
   workflow_dispatch:
 
 env:
-  NIGHTLY_TOOLCHAIN: nightly-2026-04-11
+  MSRV_TOOLCHAIN: "1.94.1"
+  PINNED_NIGHTLY_TOOLCHAIN: nightly-2026-04-11
 
 jobs:
   tests:
@@ -21,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ["1.94.1", "nightly-2026-04-11"]
+        rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -41,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ["1.94.1", "nightly-2026-04-11"]
+        rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
         feature: [ser_id_8, ser_id_16, ser_id_32]
     steps:
       - name: Checkout sources
@@ -62,16 +63,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - rust: "1.94.1"
-            feature: thread_pinning
-          - rust: "nightly-2026-04-11"
-            feature: thread_pinning
-          - rust: "1.94.1"
-            feature: low_latency
-          - rust: "nightly-2026-04-11"
-            feature: low_latency
-          - rust: "nightly-2026-04-11"
+        rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
+        feature: [thread_pinning, low_latency, type_erasure]
+        exclude:
+          - rust: stable
+            feature: type_erasure
+          - rust: "${{ env.MSRV_TOOLCHAIN }}"
             feature: type_erasure
     steps:
       - name: Checkout sources
@@ -96,20 +93,20 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          toolchain: ${{ env.PINNED_NIGHTLY_TOOLCHAIN }}
           components: clippy, rustfmt
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
       - name: Run cargo clippy (default)
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --all-targets -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
       - name: Run cargo clippy (ser_id_8)
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
+        run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
       - name: Run cargo clippy (thread_pinning)
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
+        run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
       - name: Run cargo clippy (low_latency)
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
+        run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
       - name: Run cargo clippy (type_erasure)
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
+        run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
 
   format:
     name: cargo fmt
@@ -120,9 +117,9 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          toolchain: ${{ env.PINNED_NIGHTLY_TOOLCHAIN }}
           components: rustfmt
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
       - name: Run cargo fmt
-        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} fmt --all -- --check
+        run: cargo fmt --all -- --check

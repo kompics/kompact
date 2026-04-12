@@ -1,13 +1,29 @@
 use super::*;
 use crate::{
     actors::{
-        Actor, ActorPath, Dispatcher, DynActorRef, NamedPath, SystemPath, Transport, Transport::Tcp,
+        Actor,
+        ActorPath,
+        Dispatcher,
+        DynActorRef,
+        NamedPath,
+        SystemPath,
+        Transport,
+        Transport::Tcp,
     },
     component::{Component, ComponentContext, ExecuteResult},
     messaging::{
-        ActorRegistration, DispatchData, DispatchEnvelope, EventEnvelope, MsgEnvelope, NetMessage,
-        PathResolvable, PolicyRegistration, RegistrationEnvelope, RegistrationError,
-        RegistrationEvent, RegistrationPromise,
+        ActorRegistration,
+        DispatchData,
+        DispatchEnvelope,
+        EventEnvelope,
+        MsgEnvelope,
+        NetMessage,
+        PathResolvable,
+        PolicyRegistration,
+        RegistrationEnvelope,
+        RegistrationError,
+        RegistrationEvent,
+        RegistrationPromise,
     },
     net::{ConnectionState, NetworkBridgeErr, Protocol, SocketAddr, buffers::*},
     prelude::SessionId,
@@ -461,9 +477,7 @@ impl NetworkDispatcher {
     }
 
     fn stop(&mut self) -> () {
-        if let Some(bridge) = self.net_bridge.take()
-            && let Err(e) = bridge.stop()
-        {
+        if let Some(Err(e)) = self.net_bridge.take().map(|bridge| bridge.stop()) {
             error!(
                 self.ctx().log(),
                 "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
@@ -472,9 +486,7 @@ impl NetworkDispatcher {
     }
 
     fn kill(&mut self) -> () {
-        if let Some(bridge) = self.net_bridge.take()
-            && let Err(e) = bridge.kill()
-        {
+        if let Some(Err(e)) = self.net_bridge.take().map(|bridge| bridge.kill()) {
             error!(
                 self.ctx().log(),
                 "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
@@ -649,8 +661,10 @@ impl NetworkDispatcher {
         self.network_status_port
             .trigger(NetworkStatus::ConnectionClosed(system_path, id));
         // Ack the closing
-        if let Some(bridge) = &self.net_bridge
-            && let Err(e) = bridge.ack_closed(*addr)
+        if let Some(Err(e)) = self
+            .net_bridge
+            .as_ref()
+            .map(|bridge| bridge.ack_closed(*addr))
         {
             error!(
                 self.ctx.log(),
@@ -671,8 +685,10 @@ impl NetworkDispatcher {
         }
         self.network_status_port
             .trigger(NetworkStatus::ConnectionLost(system_path, id));
-        if let Some(bridge) = &self.net_bridge
-            && let Err(e) = bridge.ack_closed(*addr)
+        if let Some(Err(e)) = self
+            .net_bridge
+            .as_ref()
+            .map(|bridge| bridge.ack_closed(*addr))
         {
             error!(
                 self.ctx.log(),
@@ -966,8 +982,10 @@ impl NetworkDispatcher {
                     );
                     if let Some(bridge) = &self.net_bridge {
                         while self.queue_manager.has_data(&addr) {
-                            if let Some(data) = self.queue_manager.pop_data(&addr)
-                                && let Err(e) = bridge.route(addr, data, Protocol::Tcp)
+                            if let Some(Err(e)) = self
+                                .queue_manager
+                                .pop_data(&addr)
+                                .map(|data| bridge.route(addr, data, Protocol::Tcp))
                             {
                                 error!(self.ctx.log(), "Bridge error while routing {:?}", e);
                             }

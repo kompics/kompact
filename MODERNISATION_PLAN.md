@@ -93,14 +93,15 @@ Outcome:
 - Workspace crates moved to edition 2024 and now declare `rust-version = "1.94.1"`.
 - Workspace resolver moved to version 3.
 - `once_cell` was removed from direct workspace usage; the remaining occurrences are transitive lockfile entries only.
-- Local `once_cell::sync::Lazy` usages were replaced with `std::sync::LazyLock`.
+- Local `once_cell::sync::Lazy` usages were either replaced with standard-library support or removed where eager initialisation was sufficient.
 - CI was modernised away from `actions-rs` and now uses the pinned nightly lane `nightly-2026-04-11` for nightly-only jobs, including `clippy` and `fmt`.
+- The main test matrix now covers floating `stable`, floating `nightly`, and fixed `1.94.1`; only `clippy` and `fmt` stay on the pinned nightly lane.
 - The stable/nightly feature matrix was made consistent so `type_erasure` only runs on nightly in CI until stage 3 ungates it properly.
 - Validation passed with the workspace default toolchain:
   - `cargo check --workspace --all-targets`
   - `./clippy-extra.sh`
   - `cargo fmt --all -- --check`
-  - `cargo fmt` on stable emits warnings because `rustfmt.toml` still contains nightly-only configuration keys, but formatting itself completed cleanly.
+  - Local development is no longer pinned to the MSRV toolchain; CI carries the compatibility check instead.
 
 Planned commit:
 
@@ -169,7 +170,27 @@ Notes:
 
 ## Tracking Notes
 
-- The workspace now defaults locally to Rust `1.94.1` via `rust-toolchain.toml`.
 - The effective floor is now declared explicitly rather than being left implicit in dependency resolution.
 - `rustfmt.toml` still carries nightly-only options, so stable `cargo fmt` warns even though it formats successfully.
-- CI now reserves nightly for the genuinely nightly-dependent lanes; stage 3 is where the remaining API gating should be reduced further.
+- CI now reserves pinned nightly only for formatting and linting; the main test matrix keeps floating `stable` and `nightly` alongside the fixed MSRV lane.
+- Stage 3 is where the remaining API gating should be reduced further.
+
+## Stage 5: Unsafe Audit And Semantic Labelling
+
+Status: planned
+
+Scope:
+
+- Audit the current `unsafe` surface after the edition-2024 migration.
+- Reassess which functions should remain safe wrappers around localised unsafe operations and which should be marked `unsafe` at the API boundary.
+- Document the semantics and invariants at each retained `unsafe` site with concise, explicit comments.
+
+Goals:
+
+- Make the safety contract visible at the right abstraction layer.
+- Reduce misleading or overly broad `unsafe` markings where the caller does not actually assume an unsafe contract.
+- Ensure the remaining `unsafe` blocks are as small and justified as possible.
+
+Planned commit:
+
+- `audit: review unsafe contracts and labelling`
