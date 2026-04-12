@@ -18,7 +18,7 @@ async-std-resolver = "0.24.1"
 dialoguer = "0.12"
 lru = "0.16"
 uuid = { version = "1", features = ["v4", "serde"] }
-rand = { version = "0.8", features = ["small_rng"] }
+rand = "0.10"
 
 [dependencies.kompact]
 path = "../../core/"

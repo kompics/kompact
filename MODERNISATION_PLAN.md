@@ -180,6 +180,8 @@ Notes:
 - The DNS example moved from `async-std-resolver 0.19` to `0.24.x` while preserving the async-std style of the book example.
 - The direct `trust-dns-proto` dependency was removed entirely; the example now uses `async_std_resolver::proto` so the protocol types stay aligned with the resolver’s internal stack.
 - The Hickory-branded migration was explicitly deferred here because the current resolver ergonomics are Tokio-centred and would add unnecessary runtime churn to a documentation example.
+- `rand 0.8 -> 0.10` in the examples crate required only a small API refresh in the load-balancer example.
+- That refresh slightly simplified the example by using `rand::rng()` and `rand::make_rng()` in place of the older `thread_rng()` and `SmallRng::from_entropy()` naming.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.
