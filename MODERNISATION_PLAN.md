@@ -12,7 +12,7 @@ Base commit: `493f2fedb2d0`
 
 ## Stage 0: Branch And Roadmap
 
-Status: in progress
+Status: done
 
 Goals:
 
@@ -25,7 +25,7 @@ Planned commit:
 
 ## Stage 1: Trivial Dependency Updates
 
-Status: next
+Status: done
 
 Scope:
 
@@ -59,13 +59,20 @@ Verification:
 
 - `cargo check --workspace --all-targets`
 
+Outcome:
+
+- Compatible manifest bumps applied as planned.
+- `cargo update -w` produced no lockfile changes because the existing lock already resolved to the newest compatible releases.
+- No immediate source simplifications were justified by these updates alone.
+- The likely `once_cell` to `std::sync::LazyLock` simplification remains better grouped with the MSRV raise in Stage 2.
+
 Planned commit:
 
 - `chore(deps): apply compatible dependency updates`
 
 ## Stage 2: Edition, MSRV, And CI Tooling
 
-Status: planned
+Status: next
 
 Scope:
 
