@@ -1,5 +1,9 @@
 use crate::net::buffers::{
-    BufferChunk, BufferConfig, BufferError, ChunkAllocator, DefaultAllocator,
+    BufferChunk,
+    BufferConfig,
+    BufferError,
+    ChunkAllocator,
+    DefaultAllocator,
 };
 use std::{
     collections::{VecDeque, vec_deque::Drain},

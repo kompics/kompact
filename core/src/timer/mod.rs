@@ -1,7 +1,9 @@
 use uuid::Uuid;
 
 use hierarchical_hash_wheel_timer::{
-    OneshotState, PeriodicState, TimerEntry as GenericTimerEntry,
+    OneshotState,
+    PeriodicState,
+    TimerEntry as GenericTimerEntry,
     TimerReturn as GenericTimerReturn,
     manual_timer::ManualTimer as GenericManualTimer,
     thread_timer::{TimerRef as GenericTimerRef, TimerWithThread as GenericTimerWithThread},

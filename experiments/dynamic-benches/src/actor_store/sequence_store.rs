@@ -11,7 +11,11 @@ use kompact::{
     messaging::{NetMessage, PathResolvable},
     prelude::{ActorPath, DynActorRef, PathParseError},
     routing::groups::{
-        DEFAULT_BROADCAST_POLICY, DEFAULT_SELECT_POLICY, RoutingGroup, RoutingPolicy, StorePolicy,
+        DEFAULT_BROADCAST_POLICY,
+        DEFAULT_SELECT_POLICY,
+        RoutingGroup,
+        RoutingPolicy,
+        StorePolicy,
     },
 };
 use rustc_hash::FxHashMap;

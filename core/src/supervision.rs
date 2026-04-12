@@ -1,6 +1,7 @@
 use super::prelude::*;
 use crate::{
-    ControlEvent, KompactLogger,
+    ControlEvent,
+    KompactLogger,
     component::ContextSystemHandle,
     utils::{Completable, KPromise},
 };

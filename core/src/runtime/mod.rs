@@ -1,9 +1,11 @@
 use super::*;
 
 use std::{
-    error, fmt,
+    error,
+    fmt,
     sync::{
-        Arc, Once,
+        Arc,
+        Once,
         atomic::{AtomicUsize, Ordering},
     },
 };

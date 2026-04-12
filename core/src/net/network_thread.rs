@@ -18,7 +18,9 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use iprange::{IpRange, ToNetwork};
 use lru::LruCache;
 use mio::{
-    Events, Poll, Token,
+    Events,
+    Poll,
+    Token,
     event::Event,
     net::{TcpListener, TcpStream, UdpSocket},
 };
