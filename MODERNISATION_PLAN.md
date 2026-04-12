@@ -53,7 +53,7 @@ Questions to answer during the stage:
 Current expectation:
 
 - Most of these are likely to be under-the-hood improvements only.
-- The only likely future simplification is replacing `once_cell::sync::Lazy` with `std::sync::LazyLock`, but that belongs with the MSRV move in Stage 2 rather than here.
+- The only likely future simplification is around `once_cell`, but that belongs with the MSRV move in Stage 2 rather than here.
 
 Verification:
 
@@ -64,7 +64,7 @@ Outcome:
 - Compatible manifest bumps applied as planned.
 - `cargo update -w` produced no lockfile changes because the existing lock already resolved to the newest compatible releases.
 - No immediate source simplifications were justified by these updates alone.
-- The likely `once_cell` to `std::sync::LazyLock` simplification remains better grouped with the MSRV raise in Stage 2.
+- Reassess whether `once_cell` is needed at all once the MSRV is raised, since the standard library now covers more of this space directly.
 
 Planned commit:
 
@@ -80,6 +80,7 @@ Scope:
 - Declare `rust-version = "1.94.1"` where appropriate.
 - Update CI tooling and remove stale `actions-rs` usage.
 - Fix the workflow mismatch where the step says stable but actually installs nightly.
+- Double check whether `once_cell` is still needed, or whether standard-library replacements such as `std::sync::LazyLock` are sufficient.
 - Ensure `./clippy-extra.sh` passes before committing.
 
 Expected follow-up checks:
