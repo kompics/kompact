@@ -332,6 +332,8 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
 // individual Rc instances to different threads. Only the whole component
 // with all its Rc instances crosses threads sometimes.
 #[allow(clippy::non_send_fields_in_send_ty)]
+// SAFETY: a `TimerHandle` is only ever moved together with its owning component during scheduler
+// handoff; the contained `Rc` is never detached and sent independently between threads.
 unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {}
 
 #[derive(Clone)]

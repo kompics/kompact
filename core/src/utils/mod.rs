@@ -185,11 +185,10 @@ impl<T: Send + Sized> Future for KFuture<T> {
     type Output = Result<T, PromiseDropped>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        unsafe {
-            self.map_unchecked_mut(|s| &mut s.result_channel)
-                .poll(cx)
-                .map(|res| res.map_err(|_e| PromiseDropped))
-        }
+        let receiver = &mut self.get_mut().result_channel;
+        Pin::new(receiver)
+            .poll(cx)
+            .map(|res| res.map_err(|_e| PromiseDropped))
     }
 }
 

@@ -601,7 +601,7 @@ mod tests {
         let mut map: RadixMap<[u8], &'static str> = RadixMap::new();
         b.iter(|| {
             data.iter().for_each(|id| {
-                let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+                let key = id.to_ne_bytes();
                 let _ = map.insert(&key, VAL);
             });
         });
@@ -617,7 +617,7 @@ mod tests {
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
         b.iter(|| {
             data.iter().for_each(|id| {
-                let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+                let key = id.to_ne_bytes();
                 let _ = map.insert(&key, VAL);
             });
         });
@@ -936,13 +936,13 @@ mod tests {
         let data = load_usize_data(data_size);
         let mut map: RadixMap<[u8], &'static str> = RadixMap::new();
         data.iter().for_each(|id| {
-            let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+            let key = id.to_ne_bytes();
             let _ = map.insert(&key, VAL);
         });
         //assert_eq!(map.len(), data_size);
         b.iter(|| {
             data.iter().for_each(|id| {
-                let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+                let key = id.to_ne_bytes();
                 let r = map.get(&key);
                 assert!(r.is_some());
             });
@@ -954,13 +954,13 @@ mod tests {
         let data = load_usize_data(data_size);
         let mut map: ByteSliceMap<&'static str> = ByteSliceMap::new();
         data.iter().for_each(|id| {
-            let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+            let key = id.to_ne_bytes();
             let _ = map.insert(&key, VAL);
         });
         //assert_eq!(map.len(), data_size);
         b.iter(|| {
             data.iter().for_each(|id| {
-                let key: [u8; 8] = unsafe { std::mem::transmute(id) };
+                let key = id.to_ne_bytes();
                 let r = map.get(&key);
                 assert!(r.is_some());
             });

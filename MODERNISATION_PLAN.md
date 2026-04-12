@@ -202,7 +202,7 @@ Notes:
 
 ## Stage 5: Unsafe Audit And Semantic Labelling
 
-Status: planned
+Status: done
 
 Scope:
 
@@ -219,3 +219,22 @@ Goals:
 Planned commit:
 
 - `audit: review unsafe contracts and labelling`
+
+Outcome:
+
+- Removed unsafe where the current standard library or existing helper traits already provided a safe alternative:
+  - `ComponentCore` now uses `OnceLock` instead of `UnsafeCell` for one-time component initialisation.
+  - The default root logger now uses a safe lazy `Mutex<Option<...>>` instead of `static mut`.
+  - The non-blocking task waker now uses `ArcWake` instead of a hand-written raw waker table.
+  - `KFuture` no longer needs unchecked pin projection.
+  - Named-path deserialisation now validates UTF-8 instead of using `from_utf8_unchecked`.
+  - The experimental radix-tree helpers and dormant hash benchmarks no longer need unchecked indexing or `transmute`.
+- Tightened the remaining unsafe contracts with local safety comments around:
+  - component-definition raw access during future polling,
+  - system-component trait-object downcasting,
+  - buffer allocator release, raw chunk slicing, and `BufMut` implementations,
+  - timer-handle cross-thread movement.
+- Fixed one concrete ownership bug uncovered by the audit:
+  - `BufferChunk` now remembers its allocator and calls `ChunkAllocator::release` on drop instead of always reconstructing a `Box`, so custom allocators finally honour their own deallocation path.
+- Residual risk:
+  - The chunk-lease model still depends on backing buffers outliving any outstanding leases or refs. The dispatcher-backed encode path handles that explicitly, but the non-dispatcher buffer constructors still rely on caller discipline rather than a type-enforced ownership model. That is a separate design follow-up, not just a missing safety comment.

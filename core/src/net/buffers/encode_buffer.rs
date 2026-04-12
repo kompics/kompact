@@ -193,9 +193,10 @@ impl<'a> BufferEncoder<'a> {
     }
 
     pub(crate) fn pad(&mut self, cnt: usize) {
-        unsafe {
-            self.advance_mut(cnt);
-        }
+        // SAFETY: chunk allocators provide fully initialised backing memory, so reserving `cnt`
+        // prefix bytes here only marks already-initialised space as written. Callers overwrite
+        // that reserved prefix with the frame header before the bytes are observed semantically.
+        unsafe { self.advance_mut(cnt) };
     }
 
     /// Returns everything (if any) written into the BufferEncoder as a ChunkLease
@@ -246,6 +247,8 @@ impl Drop for BufferEncoder<'_> {
     }
 }
 
+// SAFETY: `BufferEncoder` keeps the writable tail in sync with `write_offset`, and every call to
+// `advance_mut` or `chunk_mut` updates or derives from that single source of truth.
 unsafe impl BufMut for BufferEncoder<'_> {
     fn remaining_mut(&self) -> usize {
         self.encode_buffer.writeable_len()
@@ -270,6 +273,8 @@ unsafe impl BufMut for BufferEncoder<'_> {
     }
 
     fn chunk_mut(&mut self) -> &mut UninitSlice {
+        // SAFETY: `write_offset` always stays within the current buffer length, so the returned
+        // uninitialised slice covers exactly the remaining writable tail.
         unsafe {
             let ptr = (*self.encode_buffer.buffer.chunk).as_mut_ptr();
             let offset_ptr = ptr.add(self.encode_buffer.write_offset);
@@ -302,6 +307,8 @@ unsafe impl BufMut for BufferEncoder<'_> {
             if self.ser_error.is_some() {
                 return;
             };
+            // SAFETY: `chunk_mut` returns the currently writable uninitialised tail, and `cnt`
+            // bytes are immediately marked as written via `advance_mut` after the copy.
             unsafe {
                 let dst = self.chunk_mut();
                 let cnt = cmp::min(dst.len(), src.len() - off);

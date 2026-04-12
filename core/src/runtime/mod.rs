@@ -5,7 +5,8 @@ use std::{
     fmt,
     sync::{
         Arc,
-        Once,
+        LazyLock,
+        Mutex,
         atomic::{AtomicUsize, Ordering},
     },
 };
@@ -28,29 +29,28 @@ fn default_runtime_label() -> String {
     format!("kompact-runtime-{}", runtime_count)
 }
 
-static mut DEFAULT_ROOT_LOGGER: Option<KompactLogger> = None;
-static DEFAULT_ROOT_LOGGER_INIT: Once = Once::new();
+static DEFAULT_ROOT_LOGGER: LazyLock<Mutex<Option<KompactLogger>>> = LazyLock::new(|| {
+    let decorator = slog_term::TermDecorator::new().stdout().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
+    let logger = slog::Logger::root_typed(
+        Arc::new(drain),
+        o!(
+            "location" => slog::PushFnValue(|r: &slog::Record<'_>, ser: slog::PushFnValueSerializer<'_>| {
+                ser.emit(format_args!("{}:{}", r.file(), r.line()))
+            })
+        ),
+    );
+    Mutex::new(Some(logger))
+});
 
-fn default_logger() -> &'static KompactLogger {
-    unsafe {
-        DEFAULT_ROOT_LOGGER_INIT.call_once(|| {
-            let decorator = slog_term::TermDecorator::new().stdout().build();
-            let drain = slog_term::FullFormat::new(decorator).build().fuse();
-            let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
-            DEFAULT_ROOT_LOGGER = Some(slog::Logger::root_typed(
-                Arc::new(drain),
-                o!(
-                "location" => slog::PushFnValue(|r: &slog::Record<'_>, ser: slog::PushFnValueSerializer<'_>| {
-                    ser.emit(format_args!("{}:{}", r.file(), r.line()))
-                })
-                        ),
-            ));
-        });
-        match DEFAULT_ROOT_LOGGER {
-            Some(ref l) => l,
-            None => panic!("Can't re-initialise global logger after it has been dropped!"),
-        }
-    }
+fn default_logger() -> KompactLogger {
+    DEFAULT_ROOT_LOGGER
+        .lock()
+        .expect("default logger lock poisoned")
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| panic!("Can't re-initialise global logger after it has been dropped!"))
 }
 
 /// Removes the global default logger
@@ -60,10 +60,10 @@ fn default_logger() -> &'static KompactLogger {
 /// This can't be undone (as in, calling `default_logger()` afterwards again will panic),
 /// so make sure you use this only right before exiting the programme.
 pub fn drop_default_logger() {
-    unsafe {
-        // Overwriting the current value will implicitly drop it.
-        DEFAULT_ROOT_LOGGER = None;
-    }
+    // Overwriting the current value will implicitly drop it and flush pending log output.
+    *DEFAULT_ROOT_LOGGER
+        .lock()
+        .expect("default logger lock poisoned") = None;
 }
 
 type SchedulerBuilder = dyn Fn(usize) -> Box<dyn Scheduler>;

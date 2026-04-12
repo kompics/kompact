@@ -88,14 +88,9 @@ impl<V> RadixTree<V> {
     }
 
     fn empty_children() -> RadixTree<V> {
-        let mut children: Vec<MaybeTree<V>> = Vec::with_capacity(256);
-        for _ in 0..256 {
-            children.push(MaybeTree::Empty);
+        RadixTree::Node {
+            children: Box::new(std::array::from_fn(|_| MaybeTree::Empty)),
         }
-        debug_assert_eq!(256, children.len());
-        let boxed = children.into_boxed_slice();
-        let fixed = unsafe { Box::from_raw(Box::into_raw(boxed) as *mut [MaybeTree<V>; 256]) };
-        RadixTree::Node { children: fixed }
     }
 
     fn get(&self, key: &[u8]) -> Option<&V> {
@@ -110,7 +105,7 @@ impl<V> RadixTree<V> {
             RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
-                    unsafe { children.get_unchecked(pos).get(&key[1..]) }
+                    children[pos].get(&key[1..])
                 }
                 None => None,
             },
@@ -145,9 +140,7 @@ impl<V> RadixTree<V> {
             RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
-                    unsafe {
-                        children.get_unchecked_mut(pos).insert(&key[1..], value);
-                    }
+                    children[pos].insert(&key[1..], value);
                     return None;
                 }
                 None => {
@@ -173,16 +166,10 @@ impl<V> RadixTree<V> {
                     } else {
                         let new_node = RadixTree::value(&key[1..], value);
                         let new_tree = MaybeTree::from_tree(new_node);
-                        unsafe {
-                            let target = children.get_unchecked_mut(new_pos);
-                            *target = new_tree;
-                        }
+                        children[new_pos] = new_tree;
                     }
                     let node_tree = MaybeTree::from_tree(node);
-                    unsafe {
-                        let target = children.get_unchecked_mut(pos);
-                        *target = node_tree;
-                    }
+                    children[pos] = node_tree;
                 } else {
                     //#[cfg(debug_assertions)]
                     unimplemented!("Invalid tree composition?!?!?");

@@ -38,7 +38,10 @@ impl BufferPool {
         };
         let mut pool = VecDeque::<BufferChunk>::new();
         for _ in 0..config.initial_chunk_count {
-            pool.push_front(BufferChunk::from_chunk(chunk_allocator.get_chunk()));
+            pool.push_front(BufferChunk::from_chunk(
+                chunk_allocator.get_chunk(),
+                chunk_allocator.clone(),
+            ));
         }
         BufferPool {
             pool,
@@ -50,7 +53,10 @@ impl BufferPool {
     }
 
     fn new_buffer(&self) -> BufferChunk {
-        BufferChunk::from_chunk(self.chunk_allocator.get_chunk())
+        BufferChunk::from_chunk(
+            self.chunk_allocator.get_chunk(),
+            self.chunk_allocator.clone(),
+        )
     }
 
     pub fn get_buffer(&mut self) -> Option<BufferChunk> {

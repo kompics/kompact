@@ -66,7 +66,7 @@ impl DecodeBuffer {
         // Or if we would return less than 8 readable bytes we don't allow further writing into
         // the current buffer, caller must swap.
         if self.is_writeable() {
-            unsafe { Some(self.buffer.get_slice(self.write_offset, self.buffer.len())) }
+            Some(self.buffer.get_slice(self.write_offset, self.buffer.len()))
         } else {
             None
         }
@@ -108,10 +108,8 @@ impl DecodeBuffer {
             {
                 // Just copy the overflow_chunk bytes, no need to chain.
                 // the overflow must not exceed the new buffers capacity
-                unsafe {
-                    overflow_chunk.copy_to_slice(self.buffer.get_slice(0, overflow_len));
-                    self.write_offset = overflow_len;
-                }
+                overflow_chunk.copy_to_slice(self.buffer.get_slice(0, overflow_len));
+                self.write_offset = overflow_len;
             } else {
                 // Start a chain/Append to the chain
                 if let Some(chain_head) = &mut self.chain_head {

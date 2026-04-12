@@ -8,20 +8,16 @@ pub struct ComponentCore {
     pub(super) id: Uuid,
     pub(super) system: KompactSystem,
     pub(super) state: AtomicU64,
-    component: UnsafeCell<Weak<dyn CoreContainer>>,
+    component: OnceLock<Weak<dyn CoreContainer>>,
 }
 
 impl ComponentCore {
-    pub(crate) fn with<CC: CoreContainer + Sized + 'static>(
-        system: KompactSystem,
-    ) -> ComponentCore {
-        let weak_sized = Weak::<CC>::new();
-        let weak = weak_sized as Weak<dyn CoreContainer>;
+    pub(crate) fn with(system: KompactSystem) -> ComponentCore {
         ComponentCore {
             id: Uuid::new_v4(),
             system,
             state: lifecycle::initial_state(),
-            component: UnsafeCell::new(weak),
+            component: OnceLock::new(),
         }
     }
 
@@ -39,23 +35,20 @@ impl ComponentCore {
         &self.id
     }
 
-    pub(crate) unsafe fn set_component(&self, c: Arc<dyn CoreContainer>) -> () {
-        let component_mut = self.component.get();
-        unsafe {
-            *component_mut = Arc::downgrade(&c);
-        }
+    pub(crate) fn set_component(&self, c: Arc<dyn CoreContainer>) -> () {
+        self.component
+            .set(Arc::downgrade(&c))
+            .expect("Component core was initialised more than once");
     }
 
     /// Returns the component instance itself, wrapped in an [Arc](std::sync::Arc)
     ///
     /// This method will panic if the component hasn't been properly initialised, yet!
     pub fn component(&self) -> Arc<dyn CoreContainer> {
-        unsafe {
-            match (*self.component.get()).upgrade() {
-                Some(ac) => ac,
-                None => panic!("Component already deallocated (or not initialised)!"),
-            }
-        }
+        self.component
+            .get()
+            .and_then(Weak::upgrade)
+            .unwrap_or_else(|| panic!("Component already deallocated (or not initialised)!"))
     }
 
     pub(crate) fn increment_work(&self) -> SchedulingDecision {
@@ -70,7 +63,3 @@ impl ComponentCore {
         LifecycleState::load(&self.state).into_scheduling_decision()
     }
 }
-
-unsafe impl Send for ComponentCore {}
-
-unsafe impl Sync for ComponentCore {}

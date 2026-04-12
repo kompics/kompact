@@ -65,7 +65,7 @@ impl<CD: ComponentTraits> Component<CD> {
         definition: CD,
         supervisor: ProvidedRef<SupervisionPort>,
     ) -> Self {
-        let core = ComponentCore::with::<Component<CD>>(system);
+        let core = ComponentCore::with(system);
         let logger = core
             .system
             .logger()
@@ -89,7 +89,7 @@ impl<CD: ComponentTraits> Component<CD> {
         supervisor: ProvidedRef<SupervisionPort>,
         custom_scheduler: dedicated_scheduler::DedicatedThreadScheduler,
     ) -> Self {
-        let core = ComponentCore::with::<Component<CD>>(system);
+        let core = ComponentCore::with(system);
         let logger = core
             .system
             .logger()
@@ -108,7 +108,7 @@ impl<CD: ComponentTraits> Component<CD> {
     }
 
     pub(crate) fn without_supervisor(system: KompactSystem, definition: CD) -> Self {
-        let core = ComponentCore::with::<Component<CD>>(system);
+        let core = ComponentCore::with(system);
         let logger = core
             .system
             .logger()
@@ -131,7 +131,7 @@ impl<CD: ComponentTraits> Component<CD> {
         definition: CD,
         custom_scheduler: dedicated_scheduler::DedicatedThreadScheduler,
     ) -> Self {
-        let core = ComponentCore::with::<Component<CD>>(system);
+        let core = ComponentCore::with(system);
         let logger = core
             .system
             .logger()
