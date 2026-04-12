@@ -109,10 +109,10 @@ fn load_data(data_size: usize) -> DataSet {
     let actors: Vec<Arc<Component<NopActor>>> = (0..num_actors)
         .map(|_| system.create(NopActor::default))
         .collect();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut paths: Vec<(PathResolvable, DynActorRef)> = Vec::with_capacity(data_size);
     for i in 0..data_size {
-        let path_len = rng.gen_range(1, MAX_DEPTH);
+        let path_len = rng.random_range(1..MAX_DEPTH);
         let path: Vec<String> = (1..=path_len)
             .map(|depth| {
                 let level_width = 1.max(data_size / (depth * 2));
@@ -199,9 +199,9 @@ mod tests {
         let actors: Vec<Arc<Component<NopActor>>> = (0..num_actors)
             .map(|_| system.create(NopActor::default))
             .collect();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for i in 0..store_size {
-            let path_len = rng.gen_range(1, MAX_DEPTH);
+            let path_len = rng.random_range(1..MAX_DEPTH);
             let mut path: Vec<String> = (1..=path_len)
                 .map(|depth| {
                     let level_width = 1.max(store_size / (depth * 2));

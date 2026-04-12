@@ -17,7 +17,7 @@ panoradix = "0.6"
 im = "15.1"
 rustc-hash = "2"
 sequence_trie = "0.3"
-rand = "0.7"
+rand = "0.10"
 criterion = { version = "0.3" }
 # only works on nightly
 # criterion = {version = "0.3", features=["real_blackbox"]}
