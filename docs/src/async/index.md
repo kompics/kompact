@@ -18,7 +18,7 @@ In order to show off interaction between Kompact components and asynchronous cal
 
 The messages we need a very simple, we simply pass a `String` representing a single domain name as a request, and we return an already preformatted string with the resolved IPs as a response.
 
-```rust,edition2018,no_run,noplaypen
+```rust,edition2024,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/dns_resolver.rs:messages}}
 ```
 
@@ -26,7 +26,7 @@ The messages we need a very simple, we simply pass a `String` representing a sin
 
 The component's state is almost as simple, we simply require the usual component context and an instance of the asynchronous dns resolver. Since creation of that instance is performed asynchronously by the async-std-resolver library, we won't have the instance we need available during component creation, and thus use an option indicating whether our component has already been properly initialised or not.
 
-```rust,edition2018,no_run,noplaypen
+```rust,edition2024,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/dns_resolver.rs:state}}
 ```
 
@@ -38,11 +38,9 @@ In order to enter the `blocked` state, we must return a a special variant of the
 
 Having said all that, in our case the async closure very simply `await`s the result of the resolver creation and then stores it locally, after which the component unblocks.
 
-```rust,edition2018,no_run,noplaypen
+```rust,edition2024,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/dns_resolver.rs:lifecycle}}
 ```
-
-> **Note:** The complicated looking `move |async_self| async move {...}` syntax is currently only necessary on stable Rust. On nightly, the much easier `async move |async_self| {...}` syntax is already available.
 
 ### Queries
 
@@ -50,7 +48,7 @@ To handle queries we must call `lookup(...)` on the resolver, which returns a fu
 
 Since the result of a DNS query can consist of multiple IP addresses, we construct a single string by formatting them together with the domain into an enumerated list. We then return that string a reply to the original request.
 
-```rust,edition2018,no_run,noplaypen
+```rust,edition2024,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/dns_resolver.rs:actor}}
 ```
 
@@ -58,7 +56,7 @@ Since the result of a DNS query can consist of multiple IP addresses, we constru
 
 In our `main` function we want to set up the component, and then read from the command line over and over until the user enters `"stop"` to end the loop. For each line we read that is not `"stop"`, we will simply assume that it a comma-separated list of domain names. We split them apart, remove unnecessary spaces and then send them one by one to the `DNSComponent` via `ask(...)`. Instead of waiting for each future immediately, we store the response futures until all requests have been sent, and only *then* do we wait for each of them in order. We could also have waited for them in the order they are replied to, instead, it doesn't really matter in this case. Only when the last of them has been completed, do we read input again.
 
-```rust,edition2018,no_run,noplaypen
+```rust,edition2024,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/dns_resolver.rs:main}}
 ```
 
