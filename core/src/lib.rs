@@ -54,7 +54,7 @@
 //!     - See [executors crate](https://docs.rs/executors/0.8.0/executors/crossbeam_workstealing_pool/struct.ThreadPool.html?search=#method.with_affinity) for more details.
 //! - `serde_support` (default)
 //!     - Build with support for [Serde](https://github.com/serde-rs/serde) serialisers.
-//! - `type_erasure` (nightly-only)
+//! - `type_erasure`
 //!     - Build with an experimental API for `dyn` type-erased components.
 //! - `use_local_executor` (default)
 //!     - Use thread-local executors to avoid cloning the handle to the system scheduler for every component scheduling.
@@ -69,7 +69,6 @@
 #![allow(clippy::match_ref_pats)]
 #![allow(clippy::new_without_default)]
 #![cfg_attr(nightly, feature(never_type))]
-#![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
 #[cfg(feature = "thread_pinning")]
 pub use core_affinity::{CoreId, get_core_ids};
@@ -301,7 +300,7 @@ pub mod prelude {
 
     pub use crate::routing::groups::StorePolicy;
 
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     pub use crate::utils::erased::CreateErased;
 }
 

@@ -11,9 +11,11 @@ use std::sync::Arc;
 ///
 /// See: [KompactSystem::create_erased](KompactSystem::create_erased)
 pub trait CreateErased<M: MessageBounds> {
-    // this is only object-safe with unsized_locals nightly feature
     /// Creates component on the given system.
-    fn create_in(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>>;
+    fn create_in(
+        self: Box<Self>,
+        system: &KompactSystem,
+    ) -> Arc<dyn AbstractComponent<Message = M>>;
 }
 
 impl<M, C> CreateErased<M> for C
@@ -21,8 +23,11 @@ where
     M: MessageBounds,
     C: ComponentDefinition<Message = M> + 'static,
 {
-    fn create_in(self, system: &KompactSystem) -> Arc<dyn AbstractComponent<Message = M>> {
-        system.create(|| self)
+    fn create_in(
+        self: Box<Self>,
+        system: &KompactSystem,
+    ) -> Arc<dyn AbstractComponent<Message = M>> {
+        system.create(|| *self)
     }
 }
 

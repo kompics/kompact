@@ -109,7 +109,7 @@ Planned commit:
 
 ## Stage 3: Ungate Stable APIs
 
-Status: next
+Status: done
 
 Scope:
 
@@ -130,6 +130,14 @@ Expected remaining nightly-only pieces:
 
 - The `Never = !` alias on stable is still blocked by the unstable `!` type.
 - The nightly-only experimental crates and benches that explicitly require preview features.
+
+Outcome:
+
+- `type_erasure` now builds on stable by switching the erased constructor trait to a stable object-safe `self: Box<Self>` receiver.
+- The duplicated nightly/stable `IterExtras` implementations were collapsed into a single stable implementation.
+- The old `unsized_fn_params` nightly requirement was removed from the crate root.
+- CI was updated so `type_erasure` is exercised on floating `stable`, floating `nightly`, and the fixed `1.94.1` lane alongside the other misc feature combinations.
+- The only remaining crate-level nightly split in this area is the `Never = !` alias, which still falls back to `Infallible` off nightly.
 
 Planned commit:
 
@@ -173,7 +181,7 @@ Notes:
 - The effective floor is now declared explicitly rather than being left implicit in dependency resolution.
 - `rustfmt.toml` still carries nightly-only options, so stable `cargo fmt` warns even though it formats successfully.
 - CI now reserves pinned nightly only for formatting and linting; the main test matrix keeps floating `stable` and `nightly` alongside the fixed MSRV lane.
-- Stage 3 is where the remaining API gating should be reduced further.
+- The main remaining crate-level nightly dependency is the `Never` alias using `!`; the rest of the type-erasure and iterator-support split has been unified.
 
 ## Stage 5: Unsafe Audit And Semantic Labelling
 

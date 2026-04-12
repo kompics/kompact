@@ -65,11 +65,6 @@ jobs:
       matrix:
         rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
         feature: [thread_pinning, low_latency, type_erasure]
-        exclude:
-          - rust: stable
-            feature: type_erasure
-          - rust: "${{ env.MSRV_TOOLCHAIN }}"
-            feature: type_erasure
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

@@ -1,10 +1,14 @@
 use super::*;
 
-#[cfg(all(nightly, feature = "type_erasure"))]
+#[cfg(feature = "type_erasure")]
 use crate::utils::erased::CreateErased;
 use crate::{
     messaging::{
-        DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope, RegistrationError,
+        DispatchEnvelope,
+        MsgEnvelope,
+        PathResolvable,
+        RegistrationEnvelope,
+        RegistrationError,
         RegistrationResult,
     },
     prelude::NetworkStatusPort,
@@ -237,7 +241,7 @@ impl KompactSystem {
     /// let c = system.create_erased(Box::new(TestComponent1::new()));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     #[inline(always)]
     pub fn create_erased<M: MessageBounds>(
         &self,
@@ -1144,7 +1148,7 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// let c = system.create_erased(Box::new(TestComponent1::new()));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     fn create_erased<M: MessageBounds>(
         &self,
         a: Box<dyn CreateErased<M>>,

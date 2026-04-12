@@ -18,7 +18,7 @@ use crate::{
 };
 use rustc_hash::FxHashMap;
 
-#[cfg(all(nightly, feature = "type_erasure"))]
+#[cfg(feature = "type_erasure")]
 use crate::utils::erased::CreateErased;
 use owning_ref::{Erased, OwningRefMut};
 use std::any::Any;

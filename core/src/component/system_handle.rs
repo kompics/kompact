@@ -1,7 +1,8 @@
 use super::*;
 
 use crate::{
-    messaging::RegistrationResult, routing::groups::StorePolicy,
+    messaging::RegistrationResult,
+    routing::groups::StorePolicy,
     timer::timer_manager::CanCancelTimers,
 };
 use std::time::Instant;
@@ -30,7 +31,7 @@ impl SystemHandle for ContextSystemHandle {
         self.component.system().create(f)
     }
 
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     fn create_erased<M: MessageBounds>(
         &self,
         a: Box<dyn CreateErased<M>>,

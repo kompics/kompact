@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use futures::channel::oneshot;
 use std::{
-    error, fmt,
+    error,
+    fmt,
     future::Future,
     iter::FromIterator,
     pin::Pin,
@@ -21,7 +22,7 @@ pub use iter_extras::*;
 mod macros;
 #[allow(unused_imports)]
 pub use macros::*;
-#[cfg(all(nightly, feature = "type_erasure"))]
+#[cfg(feature = "type_erasure")]
 pub mod erased;
 
 /// This error type is returned when on [`on_dual_definition`](fn.on_dual_definition.html) fails,
