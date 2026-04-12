@@ -225,10 +225,10 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -382,7 +382,10 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -522,10 +525,10 @@ impl BootstrapServer {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -679,7 +682,10 @@ impl BootstrapServer {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -818,10 +824,10 @@ impl BootstrapServer {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -975,7 +981,10 @@ impl EventualLeaderElector {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1115,10 +1124,10 @@ impl NetworkActor for BootstrapServer {
     type Message = CheckIn;
 
     fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-        if let Some(process) = source {
-            if self.processes.insert(process) {
-                self.broadcast_processess();
-            }
+        if let Some(process) = source
+            &amp;&amp; self.processes.insert(process)
+        {
+            self.broadcast_processess();
         }
         Handled::Ok
     }
@@ -1272,7 +1281,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1411,10 +1423,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -1568,7 +1580,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1727,10 +1742,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -1884,7 +1899,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2031,10 +2049,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2188,7 +2206,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2328,10 +2349,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2485,7 +2506,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2625,10 +2649,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -2782,7 +2806,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
             let system = run_client(bootstrap_socket, client_socket);
             system.await_termination(); // gotta quit it from command line
         }
-        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+        x =&gt; panic!(
+            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+            x - 1
+        ),
     }
 }
 <span class="boring">

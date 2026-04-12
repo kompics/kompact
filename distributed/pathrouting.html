@@ -211,7 +211,7 @@
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -312,7 +312,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -334,10 +334,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -418,7 +415,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -533,7 +530,7 @@ impl SerialisationId for QueryResponse {
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -634,7 +631,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -656,10 +653,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -740,7 +734,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -855,7 +849,7 @@ impl SerialisationId for QueryResponse {
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -956,7 +950,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -978,10 +972,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -1062,7 +1053,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -1176,7 +1167,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -1277,7 +1268,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -1299,10 +1290,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -1383,7 +1371,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -1498,7 +1486,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -1599,7 +1587,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -1621,10 +1609,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -1705,7 +1690,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -1819,7 +1804,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -1920,7 +1905,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -1942,10 +1927,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -2026,7 +2008,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -2141,7 +2123,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -2242,7 +2224,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -2264,10 +2246,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -2348,7 +2327,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);

@@ -194,8 +194,14 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
     );
-    info!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
-    warn!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
+    info!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
+    warn!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
     error!(system.logger(), &quot;You will always see this&quot;);
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
@@ -260,8 +266,14 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
     );
-    info!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
-    warn!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
+    info!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
+    warn!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
     error!(system.logger(), &quot;You will always see this&quot;);
 
     for i in 0..2048 {

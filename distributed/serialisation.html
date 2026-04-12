@@ -510,7 +510,10 @@
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -899,7 +902,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1284,7 +1290,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1668,7 +1677,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2056,7 +2068,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

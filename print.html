@@ -8124,8 +8124,14 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
     );
-    info!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
-    warn!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
+    info!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
+    warn!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
     error!(system.logger(), &quot;You will always see this&quot;);
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
@@ -8190,8 +8196,14 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
     );
-    info!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
-    warn!(system.logger(), &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;);
+    info!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
+    warn!(
+        system.logger(),
+        &quot;You will only see this in debug builds with silent_logging or in release builds with default features&quot;
+    );
     error!(system.logger(), &quot;You will always see this&quot;);
 
     for i in 0..2048 {
@@ -9806,7 +9818,7 @@ to spawn some components, set their settings, and send them some data to process
 </span><span class="boring">use std::{
 </span><span class="boring">    error::Error,
 </span><span class="boring">    fmt,
-</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    io::{BufRead, stdin},
 </span><span class="boring">    sync::Arc,
 </span><span class="boring">};
 </span><span class="boring">
@@ -10109,7 +10121,7 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">use std::{
 </span><span class="boring">    error::Error,
 </span><span class="boring">    fmt,
-</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    io::{BufRead, stdin},
 </span><span class="boring">    sync::Arc,
 </span><span class="boring">};
 </span><span class="boring">
@@ -10413,7 +10425,7 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">use std::{
 </span><span class="boring">    error::Error,
 </span><span class="boring">    fmt,
-</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    io::{BufRead, stdin},
 </span><span class="boring">    sync::Arc,
 </span><span class="boring">};
 </span><span class="boring">
@@ -10716,7 +10728,7 @@ some components.</p>
 </span><span class="boring">use std::{
 </span><span class="boring">    error::Error,
 </span><span class="boring">    fmt,
-</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    io::{BufRead, stdin},
 </span><span class="boring">    sync::Arc,
 </span><span class="boring">};
 </span><span class="boring">
@@ -11023,7 +11035,7 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">use std::{
 </span><span class="boring">    error::Error,
 </span><span class="boring">    fmt,
-</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    io::{BufRead, stdin},
 </span><span class="boring">    sync::Arc,
 </span><span class="boring">};
 </span><span class="boring">
@@ -11326,7 +11338,7 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">use std::{
 </span><span class="boring">    error::Error,
 </span><span class="boring">    fmt,
-</span><span class="boring">    io::{stdin, BufRead},
+</span><span class="boring">    io::{BufRead, stdin},
 </span><span class="boring">    sync::Arc,
 </span><span class="boring">};
 </span><span class="boring">
@@ -13299,10 +13311,10 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -13456,7 +13468,10 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -13596,10 +13611,10 @@ impl BootstrapServer {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -13753,7 +13768,10 @@ impl BootstrapServer {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -13892,10 +13910,10 @@ impl BootstrapServer {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -14049,7 +14067,10 @@ impl EventualLeaderElector {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -14189,10 +14210,10 @@ impl NetworkActor for BootstrapServer {
     type Message = CheckIn;
 
     fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-        if let Some(process) = source {
-            if self.processes.insert(process) {
-                self.broadcast_processess();
-            }
+        if let Some(process) = source
+            &amp;&amp; self.processes.insert(process)
+        {
+            self.broadcast_processess();
         }
         Handled::Ok
     }
@@ -14346,7 +14367,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -14485,10 +14509,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -14642,7 +14666,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -14801,10 +14828,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -14958,7 +14985,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -15105,10 +15135,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -15262,7 +15292,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -15402,10 +15435,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -15559,7 +15592,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -15699,10 +15735,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
 </span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
-</span><span class="boring">        if let Some(process) = source {
-</span><span class="boring">            if self.processes.insert(process) {
-</span><span class="boring">                self.broadcast_processess();
-</span><span class="boring">            }
+</span><span class="boring">        if let Some(process) = source
+</span><span class="boring">            &amp;&amp; self.processes.insert(process)
+</span><span class="boring">        {
+</span><span class="boring">            self.broadcast_processess();
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
@@ -15856,7 +15892,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
             let system = run_client(bootstrap_socket, client_socket);
             system.await_termination(); // gotta quit it from command line
         }
-        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x-1),
+        x =&gt; panic!(
+            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+            x - 1
+        ),
     }
 }
 <span class="boring">
@@ -15997,7 +16036,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -16098,7 +16137,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -16120,10 +16159,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -16204,7 +16240,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -16319,7 +16355,7 @@ impl SerialisationId for QueryResponse {
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -16420,7 +16456,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -16442,10 +16478,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -16526,7 +16559,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -16641,7 +16674,7 @@ impl SerialisationId for QueryResponse {
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -16742,7 +16775,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -16764,10 +16797,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -16848,7 +16878,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -16962,7 +16992,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -17063,7 +17093,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -17085,10 +17115,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -17169,7 +17196,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -17284,7 +17311,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -17385,7 +17412,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -17407,10 +17434,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -17491,7 +17515,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -17605,7 +17629,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -17706,7 +17730,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -17728,10 +17752,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -17812,7 +17833,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -17927,7 +17948,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
 </span><span class="boring">use lru::LruCache;
-</span><span class="boring">use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+</span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 </span><span class="boring">use uuid::Uuid;
@@ -18028,7 +18049,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">            cache_hits: 0,
 </span><span class="boring">            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
 </span><span class="boring">            current_query: None,
-</span><span class="boring">            rng: SmallRng::from_entropy(),
+</span><span class="boring">            rng: rand::make_rng(),
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
@@ -18050,10 +18071,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">                let id = Uuid::new_v4();
 </span><span class="boring">                trace!(
 </span><span class="boring">                    self.log(),
-</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;,
-</span><span class="boring">                    self.request_count,
-</span><span class="boring">                    pattern,
-</span><span class="boring">                    id
+</span><span class="boring">                    &quot;Sending query #{} ({}) with id={}&quot;, self.request_count, pattern, id
 </span><span class="boring">                );
 </span><span class="boring">                let query = Query { id, pattern };
 </span><span class="boring">                self.current_query = Some(query.clone());
@@ -18134,7 +18152,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">fn generate_database(size: usize) -&gt; Arc&lt;[String]&gt; {
 </span><span class="boring">    let mut data: Vec&lt;String&gt; = Vec::with_capacity(size);
-</span><span class="boring">    let mut rng = thread_rng();
+</span><span class="boring">    let mut rng = rng();
 </span><span class="boring">    for _i in 0..size {
 </span><span class="boring">        let entry = generate_string(&amp;mut rng, ENTRY_LENGTH);
 </span><span class="boring">        data.push(entry);
@@ -18607,7 +18625,10 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -18996,7 +19017,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -19381,7 +19405,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -19765,7 +19792,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -20153,7 +20183,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">            let system = run_client(bootstrap_socket, client_socket);
 </span><span class="boring">            system.await_termination(); // gotta quit it from command line
 </span><span class="boring">        }
-</span><span class="boring">        x =&gt; panic!(&quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;, x - 1),
+</span><span class="boring">        x =&gt; panic!(
+</span><span class="boring">            &quot;Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!&quot;,
+</span><span class="boring">            x - 1
+</span><span class="boring">        ),
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -20434,11 +20467,10 @@ In particular, Kompact provides three different semantics for this interaction:<
 <p>In order to show off interaction between Kompact components and asynchronous calls, we use the asynchronous DNS resolution API provided by the <a href="https://crates.io/crates/async-std-resolver">async-std-resolver</a> crate to build a DNS lookup component. In order to tell the component what to look up, we will read domain names from stdin, send them via <code>ask(...)</code> to the component and wait for the result to come in, which we then print out. In fact, we will allow multiple concurrent queries to be specified as comma-separated list, to show off concurrent future interaction in Kompact components.</p>
 <h3 id="messages-5"><a class="header" href="#messages-5">Messages</a></h3>
 <p>The messages we need a very simple, we simply pass a <code>String</code> representing a single domain name as a request, and we return an already preformatted string with the resolved IPs as a response.</p>
-<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+<pre><code class="language-rust edition2024 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
 </span><span class="boring">use dialoguer::Input;
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span>#[derive(Debug)]
 struct DnsRequest(String);
@@ -20462,13 +20494,12 @@ struct DnsResponse(String);
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
-</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
 </span><span class="boring">                config::ResolverConfig::default(),
 </span><span class="boring">                config::ResolverOpts::default(),
 </span><span class="boring">            )
-</span><span class="boring">            .await
-</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
 </span><span class="boring">        })
@@ -20489,24 +20520,19 @@ struct DnsResponse(String);
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
-</span><span class="boring">        if let Some(ref resolver) = self.resolver {
-</span><span class="boring">            let query_result_future = resolver.lookup(
-</span><span class="boring">                msg.request().0.clone(),
-</span><span class="boring">                RecordType::A,
-</span><span class="boring">                DnsRequestOptions::default(),
-</span><span class="boring">            );
-</span><span class="boring">            self.spawn_local(move |async_self| async move {
-</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
-</span><span class="boring">                debug!(
-</span><span class="boring">                    async_self.log(),
-</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
-</span><span class="boring">                    msg.request().0
-</span><span class="boring">                );
+</span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
+</span><span class="boring">            let domain = msg.request().0.clone();
+</span><span class="boring">            self.spawn_local(async move |async_self| {
+</span><span class="boring">                let query_result = resolver
+</span><span class="boring">                    .lookup(domain.clone(), RecordType::A)
+</span><span class="boring">                    .await
+</span><span class="boring">                    .expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(async_self.log(), &quot;Got reply for domain: {}&quot;, domain);
 </span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
 </span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
-</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
@@ -20555,11 +20581,10 @@ struct DnsResponse(String);
 </span></code></pre>
 <h3 id="state-4"><a class="header" href="#state-4">State</a></h3>
 <p>The component’s state is almost as simple, we simply require the usual component context and an instance of the asynchronous dns resolver. Since creation of that instance is performed asynchronously by the async-std-resolver library, we won’t have the instance we need available during component creation, and thus use an option indicating whether our component has already been properly initialised or not.</p>
-<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+<pre><code class="language-rust edition2024 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
 </span><span class="boring">use dialoguer::Input;
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
 </span><span class="boring">struct DnsRequest(String);
@@ -20583,13 +20608,12 @@ impl DnsComponent {
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
-</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
 </span><span class="boring">                config::ResolverConfig::default(),
 </span><span class="boring">                config::ResolverOpts::default(),
 </span><span class="boring">            )
-</span><span class="boring">            .await
-</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
 </span><span class="boring">        })
@@ -20610,24 +20634,19 @@ impl DnsComponent {
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
-</span><span class="boring">        if let Some(ref resolver) = self.resolver {
-</span><span class="boring">            let query_result_future = resolver.lookup(
-</span><span class="boring">                msg.request().0.clone(),
-</span><span class="boring">                RecordType::A,
-</span><span class="boring">                DnsRequestOptions::default(),
-</span><span class="boring">            );
-</span><span class="boring">            self.spawn_local(move |async_self| async move {
-</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
-</span><span class="boring">                debug!(
-</span><span class="boring">                    async_self.log(),
-</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
-</span><span class="boring">                    msg.request().0
-</span><span class="boring">                );
+</span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
+</span><span class="boring">            let domain = msg.request().0.clone();
+</span><span class="boring">            self.spawn_local(async move |async_self| {
+</span><span class="boring">                let query_result = resolver
+</span><span class="boring">                    .lookup(domain.clone(), RecordType::A)
+</span><span class="boring">                    .await
+</span><span class="boring">                    .expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(async_self.log(), &quot;Got reply for domain: {}&quot;, domain);
 </span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
 </span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
-</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
@@ -20678,11 +20697,10 @@ impl DnsComponent {
 <p>When we create a resolver instance via <code>async_std_resolver::resolver</code>, we actually get a future back that we need to wait for. But our DNS component can’t perform any lookups until this future completed. Normally, we would have to manually queue up all requests received during that period until the future completed and then replay them. Instead, we can “block” on the provided future, causing the component itself to enter into a <code>blocked</code> lifecycle state, during which it handles no messages or events. Only when the future’s result is available will the component enter the <code>active</code> state and process other events and messages as normal again.</p>
 <p>In order to enter the <code>blocked</code> state, we must return a a special variant of the <code>Handled</code> enum, which is obtained from the <code>Handled::block_on(...)</code> method. This method takes the <code>self</code> reference to the component and an asynchronous closure, that is a closure that produces a future when invoked. This closure is given a single parameter by the Kompact API, which is an access guard object to a mutable component reference. In order words, a special owned struct that can be mutably dereferenced to the current component definition type. This guard object ensures safe mutable access to the current component instance, whenever the resulting future is polled, but prevents holding on to actual references over <code>await</code> calls (which are illegal). It is very important that this guard object is <strong>never</strong> sent to another thread from within the future. The async closure can not directly close over the component’s <code>self</code> reference, as the correct lifetime for it can not be guaranteed. Only the references obtained from the special guard object are safe in between <code>await</code> calls.</p>
 <p>Having said all that, in our case the async closure very simply <code>await</code>s the result of the resolver creation and then stores it locally, after which the component unblocks.</p>
-<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+<pre><code class="language-rust edition2024 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
 </span><span class="boring">use dialoguer::Input;
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
 </span><span class="boring">struct DnsRequest(String);
@@ -20706,13 +20724,12 @@ impl DnsComponent {
 </span>impl ComponentLifecycle for DnsComponent {
     fn on_start(&amp;mut self) -&gt; Handled {
         debug!(self.log(), &quot;Starting...&quot;);
-        Handled::block_on(self, move |mut async_self| async move {
+        Handled::block_on(self, async move |mut async_self| {
             let resolver = resolver(
                 config::ResolverConfig::default(),
                 config::ResolverOpts::default(),
             )
-            .await
-            .expect(&quot;failed to connect resolver&quot;);
+            .await;
             async_self.resolver = Some(resolver);
             debug!(async_self.log(), &quot;Started!&quot;);
         })
@@ -20733,24 +20750,19 @@ impl DnsComponent {
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
-</span><span class="boring">        if let Some(ref resolver) = self.resolver {
-</span><span class="boring">            let query_result_future = resolver.lookup(
-</span><span class="boring">                msg.request().0.clone(),
-</span><span class="boring">                RecordType::A,
-</span><span class="boring">                DnsRequestOptions::default(),
-</span><span class="boring">            );
-</span><span class="boring">            self.spawn_local(move |async_self| async move {
-</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
-</span><span class="boring">                debug!(
-</span><span class="boring">                    async_self.log(),
-</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
-</span><span class="boring">                    msg.request().0
-</span><span class="boring">                );
+</span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
+</span><span class="boring">            let domain = msg.request().0.clone();
+</span><span class="boring">            self.spawn_local(async move |async_self| {
+</span><span class="boring">                let query_result = resolver
+</span><span class="boring">                    .lookup(domain.clone(), RecordType::A)
+</span><span class="boring">                    .await
+</span><span class="boring">                    .expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(async_self.log(), &quot;Got reply for domain: {}&quot;, domain);
 </span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
 </span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
-</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
@@ -20797,17 +20809,13 @@ impl DnsComponent {
 </span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
-<blockquote>
-<p><strong>Note:</strong> The complicated looking <code>move |async_self| async move {...}</code> syntax is currently only necessary on stable Rust. On nightly, the much easier <code>async move |async_self| {...}</code> syntax is already available.</p>
-</blockquote>
 <h3 id="queries"><a class="header" href="#queries">Queries</a></h3>
 <p>To handle queries we must call <code>lookup(...)</code> on the resolver, which returns a future of a dns lookup result, which we must await before replying to the actual request. As we want to handle multiple such outstanding lookups in parallel, we can’t simply block on this future as we did before. Instead we want to spawn the future, to run locally on the component whenever it is polled, via <code>ComponentDefinition::spawn_local(...)</code>. In this way, we have the same advantages as during blocking, but we can handle mutliple outstanding requests in parallel. Technically, except for some logging, we do not really need access to the component’s state in this particular case, but we will use it anyway to showcase the API.</p>
 <p>Since the result of a DNS query can consist of multiple IP addresses, we construct a single string by formatting them together with the domain into an enumerated list. We then return that string a reply to the original request.</p>
-<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+<pre><code class="language-rust edition2024 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
 </span><span class="boring">use dialoguer::Input;
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
 </span><span class="boring">struct DnsRequest(String);
@@ -20831,13 +20839,12 @@ impl DnsComponent {
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
-</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
 </span><span class="boring">                config::ResolverConfig::default(),
 </span><span class="boring">                config::ResolverOpts::default(),
 </span><span class="boring">            )
-</span><span class="boring">            .await
-</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
 </span><span class="boring">        })
@@ -20858,24 +20865,19 @@ impl DnsComponent {
 
     fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
         debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
-        if let Some(ref resolver) = self.resolver {
-            let query_result_future = resolver.lookup(
-                msg.request().0.clone(),
-                RecordType::A,
-                DnsRequestOptions::default(),
-            );
-            self.spawn_local(move |async_self| async move {
-                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
-                debug!(
-                    async_self.log(),
-                    &quot;Got reply for domain: {}&quot;,
-                    msg.request().0
-                );
+        if let Some(resolver) = self.resolver.clone() {
+            let domain = msg.request().0.clone();
+            self.spawn_local(async move |async_self| {
+                let query_result = resolver
+                    .lookup(domain.clone(), RecordType::A)
+                    .await
+                    .expect(&quot;dns query result&quot;);
+                debug!(async_self.log(), &quot;Got reply for domain: {}&quot;, domain);
                 let mut results: Vec&lt;String&gt; = Vec::new();
                 for (index, ip) in query_result.iter().enumerate() {
                     results.push(format!(&quot;{}. {:?}&quot;, index, ip));
                 }
-                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
                 msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
                 Handled::Ok
             });
@@ -20924,11 +20926,10 @@ impl DnsComponent {
 </span></code></pre>
 <h3 id="running-1"><a class="header" href="#running-1">Running</a></h3>
 <p>In our <code>main</code> function we want to set up the component, and then read from the command line over and over until the user enters <code>&quot;stop&quot;</code> to end the loop. For each line we read that is not <code>&quot;stop&quot;</code>, we will simply assume that it a comma-separated list of domain names. We split them apart, remove unnecessary spaces and then send them one by one to the <code>DNSComponent</code> via <code>ask(...)</code>. Instead of waiting for each future immediately, we store the response futures until all requests have been sent, and only <em>then</em> do we wait for each of them in order. We could also have waited for them in the order they are replied to, instead, it doesn’t really matter in this case. Only when the last of them has been completed, do we read input again.</p>
-<pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use async_std_resolver::{config, resolver, AsyncStdResolver};
+<pre><code class="language-rust edition2024 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
+</span><span class="boring">use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
 </span><span class="boring">use dialoguer::Input;
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
 </span><span class="boring">struct DnsRequest(String);
@@ -20952,13 +20953,12 @@ impl DnsComponent {
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
 </span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
-</span><span class="boring">        Handled::block_on(self, move |mut async_self| async move {
+</span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
 </span><span class="boring">                config::ResolverConfig::default(),
 </span><span class="boring">                config::ResolverOpts::default(),
 </span><span class="boring">            )
-</span><span class="boring">            .await
-</span><span class="boring">            .expect(&quot;failed to connect resolver&quot;);
+</span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
 </span><span class="boring">        })
@@ -20979,24 +20979,19 @@ impl DnsComponent {
 </span><span class="boring">
 </span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
-</span><span class="boring">        if let Some(ref resolver) = self.resolver {
-</span><span class="boring">            let query_result_future = resolver.lookup(
-</span><span class="boring">                msg.request().0.clone(),
-</span><span class="boring">                RecordType::A,
-</span><span class="boring">                DnsRequestOptions::default(),
-</span><span class="boring">            );
-</span><span class="boring">            self.spawn_local(move |async_self| async move {
-</span><span class="boring">                let query_result = query_result_future.await.expect(&quot;dns query result&quot;);
-</span><span class="boring">                debug!(
-</span><span class="boring">                    async_self.log(),
-</span><span class="boring">                    &quot;Got reply for domain: {}&quot;,
-</span><span class="boring">                    msg.request().0
-</span><span class="boring">                );
+</span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
+</span><span class="boring">            let domain = msg.request().0.clone();
+</span><span class="boring">            self.spawn_local(async move |async_self| {
+</span><span class="boring">                let query_result = resolver
+</span><span class="boring">                    .lookup(domain.clone(), RecordType::A)
+</span><span class="boring">                    .await
+</span><span class="boring">                    .expect(&quot;dns query result&quot;);
+</span><span class="boring">                debug!(async_self.log(), &quot;Got reply for domain: {}&quot;, domain);
 </span><span class="boring">                let mut results: Vec&lt;String&gt; = Vec::new();
 </span><span class="boring">                for (index, ip) in query_result.iter().enumerate() {
 </span><span class="boring">                    results.push(format!(&quot;{}. {:?}&quot;, index, ip));
 </span><span class="boring">                }
-</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, msg.request().0, results.join(&quot;\n    &quot;));
+</span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
 </span><span class="boring">                Handled::Ok
 </span><span class="boring">            });
