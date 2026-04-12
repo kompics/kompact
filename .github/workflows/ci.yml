@@ -13,7 +13,6 @@ on:
   workflow_dispatch:
 
 env:
-  MSRV_TOOLCHAIN: "1.94.1"
   PINNED_NIGHTLY_TOOLCHAIN: nightly-2026-04-11
 
 jobs:
@@ -22,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
+        rust: [stable, nightly, "1.94.1"] # MSRV
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -42,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
+        rust: [stable, nightly, "1.94.1"] # MSRV
         feature: [ser_id_8, ser_id_16, ser_id_32]
     steps:
       - name: Checkout sources
@@ -63,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly, "${{ env.MSRV_TOOLCHAIN }}"]
+        rust: [stable, nightly, "1.94.1"] # MSRV
         feature: [thread_pinning, low_latency, type_erasure]
     steps:
       - name: Checkout sources
