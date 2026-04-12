@@ -184,6 +184,8 @@ Notes:
 - That refresh slightly simplified the example by using `rand::rng()` and `rand::make_rng()` in place of the older `thread_rng()` and `SmallRng::from_entropy()` naming.
 - `rand 0.7 -> 0.10` in the benches crate was similarly small and stayed confined to `actor_store`.
 - The bench code now uses `rand::rng()` and `random_range(...)` instead of the removed crate-root `thread_rng()` and older `gen_range` call shape.
+- `criterion 0.3 -> 0.8` also stayed fairly small for the currently active bench target.
+- The only required source migration was moving off deprecated `criterion::black_box` to `std::hint::black_box`; the active benchmark-group and bencher APIs otherwise compiled unchanged.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.

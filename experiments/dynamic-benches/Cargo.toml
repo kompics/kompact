@@ -18,7 +18,7 @@ im = "15.1"
 rustc-hash = "2"
 sequence_trie = "0.3"
 rand = "0.10"
-criterion = { version = "0.3" }
+criterion = { version = "0.8" }
 # only works on nightly
 # criterion = {version = "0.3", features=["real_blackbox"]}
 

@@ -134,7 +134,8 @@ fn load_data(data_size: usize) -> DataSet {
 
 mod tests {
     use super::*;
-    use criterion::{BatchSize, Bencher, black_box};
+    use criterion::{BatchSize, Bencher};
+    use std::hint::black_box;
 
     pub fn bench_insert<L, F>(b: &mut Bencher, get_store: F, store_size: usize)
     where
