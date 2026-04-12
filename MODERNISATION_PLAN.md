@@ -145,7 +145,7 @@ Planned commit:
 
 ## Stage 4: Incompatible Dependency Upgrades One By One
 
-Status: next
+Status: done
 
 Strategy:
 
@@ -188,6 +188,7 @@ Notes:
 - The only required source migration was moving off deprecated `criterion::black_box` to `std::hint::black_box`; the active benchmark-group and bencher APIs otherwise compiled unchanged.
 - `twox-hash 1.6 -> 2.x` was a no-code migration for the currently enabled bench targets.
 - The crate still exposes `XxHash64`, so the dormant `hashes.rs` benchmark source did not require a proactive rewrite just to keep the active crate green.
+- `rustc_version 0.2 -> 0.4` was also a no-code migration; the existing `version_meta()` plus `Channel::Nightly` build-script check still compiled unchanged on `0.4.1`.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.
