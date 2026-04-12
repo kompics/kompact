@@ -186,6 +186,8 @@ Notes:
 - The bench code now uses `rand::rng()` and `random_range(...)` instead of the removed crate-root `thread_rng()` and older `gen_range` call shape.
 - `criterion 0.3 -> 0.8` also stayed fairly small for the currently active bench target.
 - The only required source migration was moving off deprecated `criterion::black_box` to `std::hint::black_box`; the active benchmark-group and bencher APIs otherwise compiled unchanged.
+- `twox-hash 1.6 -> 2.x` was a no-code migration for the currently enabled bench targets.
+- The crate still exposes `XxHash64`, so the dormant `hashes.rs` benchmark source did not require a proactive rewrite just to keep the active crate green.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.

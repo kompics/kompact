@@ -11,7 +11,7 @@ rust-version = "1.94.1"
 uuid = { version = "1.23", features = ["v4"] }
 fnv = "1.0"
 #fxhash = "0.2"
-twox-hash = "1.6"
+twox-hash = "2"
 synchronoise = "1.0"
 panoradix = "0.6"
 im = "15.1"
