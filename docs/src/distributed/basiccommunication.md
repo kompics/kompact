@@ -54,13 +54,12 @@ There is a bit of state we need to keep track of in our `EventualLeaderElector` 
 {{#rustdoc_include ../../examples/src/bin/leader_election.rs:state}}
 ```
 
-In order to load our configuration values from a file, we need to put something like the following into an `application.conf` file in the current working directory:
+In order to load our configuration values from a file, we need to put something like the following into an `application.toml` file in the current working directory:
 
-```hocon
-omega {
-	initial-period = 10 ms
-	delta = 1 ms
-}
+```toml
+[omega]
+initial-period = "10 ms"
+delta = "1 ms"
 ```
 
 And then we can load it and start the initial timeout in the `on_start` handler as before:

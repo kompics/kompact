@@ -1,6 +1,9 @@
 use super::*;
 
-use crate::net::buffers::{BufferConfig, ChunkAllocator, ChunkRef};
+use crate::{
+    config::ConfigValue,
+    net::buffers::{BufferConfig, ChunkAllocator, ChunkRef},
+};
 use std::task::Poll;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -33,7 +36,7 @@ struct ComponentContextInner<CD: ComponentTraits> {
     pub(super) component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
-    config: Arc<Hocon>,
+    config: Arc<ConfigValue>,
     id: Uuid,
 }
 
@@ -154,7 +157,7 @@ where
     ///         Handled::Ok
     ///     }    
     /// }
-    /// let default_values = r#"{ a = 7 }"#;
+    /// let default_values = r#"a = 7"#;
     /// let mut conf = KompactConfig::default();
     /// conf.load_config_str(default_values);
     /// let system = conf.build().expect("system");
@@ -162,7 +165,7 @@ where
     /// system.start(&c);
     /// system.await_termination();
     /// ```
-    pub fn config(&self) -> &Hocon {
+    pub fn config(&self) -> &ConfigValue {
         self.inner_ref().config.as_ref()
     }
 
@@ -353,7 +356,7 @@ where
     /// If buffers have already been initialized, explicitly or implicitly, the method does nothing.
     ///
     /// A custom [BufferConfig](net::buffers::BufferConfig) may be specified, if `None` is given the
-    /// actor will first try to parse the configuration from the system wide `Hocon`-Configuration,
+    /// actor will first try to parse the configuration from the system wide configuration,
     /// if that fails, the default config will be used.
     ///
     /// A custom [ChunkAllocator](net::buffers::ChunkAllocator) may also be specified.

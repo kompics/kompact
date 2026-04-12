@@ -315,7 +315,7 @@ const BOOTSTRAP_PATH: &str = "bootstrap";
 
 pub fn run_server(socket: SocketAddr) -> KompactSystem {
     let mut cfg = KompactConfig::default();
-    cfg.load_config_file("./application.conf");
+    cfg.load_config_file("./application.toml");
     cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 
     let system = cfg.build().expect("KompactSystem");
@@ -342,7 +342,7 @@ pub fn run_server(socket: SocketAddr) -> KompactSystem {
 
 pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> KompactSystem {
     let mut cfg = KompactConfig::default();
-    cfg.load_config_file("./application.conf");
+    cfg.load_config_file("./application.toml");
     cfg.system_components(
         DeadletterBox::new,
         NetworkConfig::new(client_socket).build(),
