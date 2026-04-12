@@ -177,6 +177,9 @@ Notes:
 - `executors 0.9 -> 0.10` was also a no-code migration; the scheduler and pool-constructor APIs used here built unchanged on `0.10.0`.
 - `mio 0.8 -> 1.2` also built unchanged; the networking layer usage here did not require any API adaptation.
 - `dialoguer 0.10 -> 0.12` was a no-code migration in the examples crate; the existing `Input` prompt usage built unchanged.
+- The DNS example moved from `async-std-resolver 0.19` to `0.24.x` while preserving the async-std style of the book example.
+- The direct `trust-dns-proto` dependency was removed entirely; the example now uses `async_std_resolver::proto` so the protocol types stay aligned with the resolver’s internal stack.
+- The Hickory-branded migration was explicitly deferred here because the current resolver ergonomics are Tokio-centred and would add unnecessary runtime churn to a documentation example.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.

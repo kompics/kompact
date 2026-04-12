@@ -1,8 +1,7 @@
 #![allow(clippy::unused_unit)]
-use async_std_resolver::{AsyncStdResolver, config, resolver};
+use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
 use dialoguer::Input;
 use kompact::prelude::*;
-use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};
 
 // ANCHOR: messages
 #[derive(Debug)]
@@ -36,8 +35,7 @@ impl ComponentLifecycle for DnsComponent {
                 config::ResolverConfig::default(),
                 config::ResolverOpts::default(),
             )
-            .await
-            .expect("failed to connect resolver");
+            .await;
             async_self.resolver = Some(resolver);
             debug!(async_self.log(), "Started!");
         })
@@ -60,24 +58,19 @@ impl Actor for DnsComponent {
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         debug!(self.log(), "Got request for domain: {}", msg.request().0);
-        if let Some(ref resolver) = self.resolver {
-            let query_result_future = resolver.lookup(
-                msg.request().0.clone(),
-                RecordType::A,
-                DnsRequestOptions::default(),
-            );
+        if let Some(resolver) = self.resolver.clone() {
+            let domain = msg.request().0.clone();
             self.spawn_local(move |async_self| async move {
-                let query_result = query_result_future.await.expect("dns query result");
-                debug!(
-                    async_self.log(),
-                    "Got reply for domain: {}",
-                    msg.request().0
-                );
+                let query_result = resolver
+                    .lookup(domain.clone(), RecordType::A)
+                    .await
+                    .expect("dns query result");
+                debug!(async_self.log(), "Got reply for domain: {}", domain);
                 let mut results: Vec<String> = Vec::new();
                 for (index, ip) in query_result.iter().enumerate() {
                     results.push(format!("{}. {:?}", index, ip));
                 }
-                let result_string = format!("{}:\n   {}", msg.request().0, results.join("\n    "));
+                let result_string = format!("{}:\n   {}", domain, results.join("\n    "));
                 msg.reply(DnsResponse(result_string)).expect("reply");
                 Handled::Ok
             });
