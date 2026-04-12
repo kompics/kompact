@@ -87,12 +87,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "as_num"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62eaa19b325e1b3dc2f7b9b6de544dd536619e3dcf986fc391b2c643f10d68c0"
-
-[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1297,7 +1291,6 @@ name = "kompact"
 version = "0.11.3"
 dependencies = [
  "arc-swap",
- "as_num",
  "async-std",
  "bytes",
  "core_affinity 0.8.3",

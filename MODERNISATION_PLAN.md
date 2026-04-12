@@ -145,7 +145,7 @@ Planned commit:
 
 ## Stage 4: Incompatible Dependency Upgrades One By One
 
-Status: planned
+Status: next
 
 Strategy:
 
@@ -172,6 +172,7 @@ Planned sequence:
 
 Notes:
 
+- `as_num` turned out to be unused in source and was removed outright rather than upgraded.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.

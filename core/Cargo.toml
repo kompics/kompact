@@ -63,7 +63,6 @@ crossbeam-utils = "0.8"
 arc-swap = "1.9"
 synchronoise = "1.0"
 uuid = { version = "1.23", features = ["v4"] }
-as_num = "0.2"
 num_cpus = "1"
 oncemutex = "0.1"
 slog = "2"
