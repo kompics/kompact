@@ -68,7 +68,7 @@ oncemutex = "0.1"
 slog = "2"
 slog-async = "2"
 slog-term = "2"
-rustc-hash = "2.1"
+rustc-hash = "2"
 hocon = { version = "0.9", default-features = false }
 hierarchical_hash_wheel_timer = "1.4"
 owning_ref = "0.4"
@@ -84,7 +84,7 @@ core_affinity = { version = "0.8", optional = true }
 
 # Network-specific
 bytes = "1.11"
-mio = { version = "0.8", features = ["net", "os-poll"] }
+mio = { version = "1", features = ["net", "os-poll"] }
 iprange = "0.6"
 ipnet = "2.12"
 
