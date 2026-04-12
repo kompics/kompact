@@ -30,7 +30,7 @@ impl DnsComponent {
 impl ComponentLifecycle for DnsComponent {
     fn on_start(&mut self) -> Handled {
         debug!(self.log(), "Starting...");
-        Handled::block_on(self, move |mut async_self| async move {
+        Handled::block_on(self, async move |mut async_self| {
             let resolver = resolver(
                 config::ResolverConfig::default(),
                 config::ResolverOpts::default(),
@@ -60,7 +60,7 @@ impl Actor for DnsComponent {
         debug!(self.log(), "Got request for domain: {}", msg.request().0);
         if let Some(resolver) = self.resolver.clone() {
             let domain = msg.request().0.clone();
-            self.spawn_local(move |async_self| async move {
+            self.spawn_local(async move |async_self| {
                 let query_result = resolver
                     .lookup(domain.clone(), RecordType::A)
                     .await

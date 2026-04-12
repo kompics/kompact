@@ -576,8 +576,7 @@ mod tests {
                 None => self.ctx.system().register(&child),
             };
             self.child = Some(child);
-            // async move closure syntax is nightly only
-            Handled::block_on(self, move |async_self| async move {
+            Handled::block_on(self, async move |async_self| {
                 let path = f.await.expect("actor path").expect("actor path");
                 info!(async_self.log(), "Child was registered");
                 if let Some(ref child) = async_self.child {
