@@ -176,6 +176,7 @@ Notes:
 - `rustc-hash 1.1 -> 2.x` was a no-code migration; the existing `FxHashMap` / `FxHashSet` usage built unchanged on `2.1.2`.
 - `executors 0.9 -> 0.10` was also a no-code migration; the scheduler and pool-constructor APIs used here built unchanged on `0.10.0`.
 - `mio 0.8 -> 1.2` also built unchanged; the networking layer usage here did not require any API adaptation.
+- `dialoguer 0.10 -> 0.12` was a no-code migration in the examples crate; the existing `Input` prompt usage built unchanged.
 - `executors` and `mio` are the highest-risk production upgrades.
 - The DNS example stack is likely coupled and may want to move together.
 - Bench-only dependencies can be handled later if earlier runtime work reveals wider churn.
