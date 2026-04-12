@@ -1,5 +1,5 @@
 #![allow(clippy::unused_unit)]
-use async_std_resolver::{config, resolver, AsyncStdResolver};
+use async_std_resolver::{AsyncStdResolver, config, resolver};
 use dialoguer::Input;
 use kompact::prelude::*;
 use trust_dns_proto::{rr::record_type::RecordType, xfer::dns_request::DnsRequestOptions};

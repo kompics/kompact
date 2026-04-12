@@ -1,7 +1,7 @@
 #![allow(clippy::unused_unit)]
 use kompact::{prelude::*, serde_serialisers::*};
 use lru::LruCache;
-use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, distributions::Alphanumeric, rngs::SmallRng, thread_rng};
 use serde::{Deserialize, Serialize};
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use uuid::Uuid;
@@ -126,10 +126,7 @@ impl Client {
                 let id = Uuid::new_v4();
                 trace!(
                     self.log(),
-                    "Sending query #{} ({}) with id={}",
-                    self.request_count,
-                    pattern,
-                    id
+                    "Sending query #{} ({}) with id={}", self.request_count, pattern, id
                 );
                 let query = Query { id, pattern };
                 self.current_query = Some(query.clone());

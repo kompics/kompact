@@ -72,21 +72,15 @@
 #![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
 #[cfg(feature = "thread_pinning")]
-pub use core_affinity::{get_core_ids, CoreId};
+pub use core_affinity::{CoreId, get_core_ids};
 
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
 #[cfg(feature = "serde_support")]
 pub use self::serialisation::serde_serialisers;
 use self::{
-    actors::*,
-    component::*,
-    default_components::*,
-    lifecycle::*,
-    ports::*,
-    runtime::*,
-    serialisation::*,
-    utils::*,
+    actors::*, component::*, default_components::*, lifecycle::*, ports::*, runtime::*,
+    serialisation::*, utils::*,
 };
 use crossbeam_queue::SegQueue as ConcurrentQueue;
 /// The default crate for scheduler implementations
@@ -95,7 +89,7 @@ pub use executors;
 use kompact_actor_derive::*;
 use kompact_component_derive::*;
 #[allow(unused_imports)]
-use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
+use slog::{Drain, Fuse, Logger, crit, debug, error, info, o, trace, warn};
 use slog_async::Async;
 use std::convert::{From, Into};
 
@@ -164,7 +158,7 @@ pub mod config_keys {
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
-    pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
+    pub use slog::{Drain, Fuse, Logger, crit, debug, error, info, o, trace, warn};
 
     pub use bytes::{Buf, BufMut};
     pub use std::{
@@ -177,102 +171,46 @@ pub mod prelude {
 
     #[allow(deprecated)]
     pub use crate::{
-        ignore_control,
-        ignore_indications,
-        ignore_lifecycle,
-        ignore_requests,
-        info_lifecycle,
+        ignore_control, ignore_indications, ignore_lifecycle, ignore_requests, info_lifecycle,
         match_deser,
     };
 
     pub use crate::{
+        Never,
         actors::{
-            Actor,
-            ActorPath,
-            ActorPathFactory,
-            ActorRaw,
-            ActorRef,
-            ActorRefFactory,
-            ActorRefStrong,
-            Dispatcher,
-            DispatcherRef,
-            Dispatching,
-            DispatchingPath,
-            DynActorRef,
-            DynActorRefFactory,
-            MessageBounds,
-            NamedPath,
-            NetworkActor,
-            PathParseError,
-            Receiver,
-            Recipient,
-            Request,
-            SystemField,
-            SystemPath,
-            Transport,
-            UniquePath,
-            WithRecipient,
-            WithSender,
-            WithSenderStrong,
+            Actor, ActorPath, ActorPathFactory, ActorRaw, ActorRef, ActorRefFactory,
+            ActorRefStrong, Dispatcher, DispatcherRef, Dispatching, DispatchingPath, DynActorRef,
+            DynActorRefFactory, MessageBounds, NamedPath, NetworkActor, PathParseError, Receiver,
+            Recipient, Request, SystemField, SystemPath, Transport, UniquePath, WithRecipient,
+            WithSender, WithSenderStrong,
         },
         component::{
-            Component,
-            ComponentContext,
-            ComponentDefinition,
-            ComponentDefinitionAccess,
-            ComponentLifecycle,
-            ComponentLogging,
-            CoreContainer,
-            DynamicPortAccess,
-            ExecuteResult,
-            Handled,
-            LockingProvideRef,
-            LockingRequireRef,
-            Provide,
-            ProvideRef,
-            Require,
+            Component, ComponentContext, ComponentDefinition, ComponentDefinitionAccess,
+            ComponentLifecycle, ComponentLogging, CoreContainer, DynamicPortAccess, ExecuteResult,
+            Handled, LockingProvideRef, LockingRequireRef, Provide, ProvideRef, Require,
             RequireRef,
         },
         net::{
-            buffers::{BufferConfig, ChunkLease, ChunkRef},
             SessionId,
+            buffers::{BufferConfig, ChunkLease, ChunkRef},
         },
         ports::{
-            Channel,
-            DisconnectError,
-            Port,
-            ProvidedPort,
-            ProvidedRef,
-            ProviderChannel,
-            RequiredPort,
-            RequiredRef,
-            RequirerChannel,
-            TryLockError,
-            TwoWayChannel,
+            Channel, DisconnectError, Port, ProvidedPort, ProvidedRef, ProviderChannel,
+            RequiredPort, RequiredRef, RequirerChannel, TryLockError, TwoWayChannel,
         },
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         supervision::{FaultContext, RecoveryHandler},
-        Never,
     };
 
     pub use crate::{
         default_components::{CustomComponents, DeadletterBox, LocalDispatcher},
         dispatch::{
-            NetworkConfig,
-            NetworkDispatcher,
-            NetworkStatus,
-            NetworkStatusPort,
+            NetworkConfig, NetworkDispatcher, NetworkStatus, NetworkStatusPort,
             NetworkStatusRequest,
         },
         messaging::{
-            DispatchEnvelope,
-            MsgEnvelope,
-            NetMessage,
-            PathResolvable,
-            RegistrationError,
-            RegistrationResult,
-            Serialised,
-            UnpackError,
+            DispatchEnvelope, MsgEnvelope, NetMessage, PathResolvable, RegistrationError,
+            RegistrationResult, Serialised, UnpackError,
         },
         timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},
     };
@@ -280,22 +218,9 @@ pub mod prelude {
     pub use crate::{
         serialisation::*,
         utils::{
-            biconnect_components,
-            biconnect_ports,
-            block_on,
-            block_until,
-            on_dual_definition,
-            promise,
-            Ask,
-            Completable,
-            Fulfillable,
-            FutureCollection,
-            FutureResultCollection,
-            IterExtras,
-            KFuture,
-            KPromise,
-            PromiseErr,
-            TryDualLockError,
+            Ask, Completable, Fulfillable, FutureCollection, FutureResultCollection, IterExtras,
+            KFuture, KPromise, PromiseErr, TryDualLockError, biconnect_components, biconnect_ports,
+            block_on, block_until, on_dual_definition, promise,
         },
     };
 
@@ -385,8 +310,7 @@ pub mod doctest_helpers {
 #[cfg(test)]
 mod test_helpers {
     use std::{
-        env,
-        fs,
+        env, fs,
         ops::Deref,
         path::{Path, PathBuf},
     };
@@ -448,13 +372,16 @@ mod test_helpers {
 
 #[cfg(test)]
 mod tests {
-    use super::test_helpers::*;
-    use std::sync::Mutex;
-
     use super::prelude::*;
-    use std::{fs::File, io::Write, ops::Deref, sync::Arc, thread, time, time::Duration};
-
-    use once_cell::sync::Lazy;
+    use super::test_helpers::*;
+    use std::{
+        fs::File,
+        io::Write,
+        ops::Deref,
+        sync::{Arc, LazyLock, Mutex},
+        thread, time,
+        time::Duration,
+    };
 
     struct TestPort;
 
@@ -1065,8 +992,8 @@ mod tests {
         last_string: &'static str,
     }
 
-    static RECOVERER_CURRENT_REF: Lazy<Mutex<Option<ActorRef<StringMsg>>>> =
-        Lazy::new(|| Mutex::new(None));
+    static RECOVERER_CURRENT_REF: LazyLock<Mutex<Option<ActorRef<StringMsg>>>> =
+        LazyLock::new(|| Mutex::new(None));
 
     impl RecovererComponent {
         fn set_current_ref(aref: ActorRef<<Self as Actor>::Message>) -> () {

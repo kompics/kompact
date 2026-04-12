@@ -2,7 +2,7 @@ use super::*;
 
 use futures::{
     future::BoxFuture,
-    task::{waker_ref, ArcWake},
+    task::{ArcWake, waker_ref},
 };
 use std::{
     fmt,
@@ -206,22 +206,24 @@ mod task_waker {
 
         #[allow(undropped_manually_drops)]
         unsafe fn clone_waker(ptr: *const ()) -> RawWaker {
-            Arc::increment_strong_count(ptr as *const TaskWaker);
+            unsafe {
+                Arc::increment_strong_count(ptr as *const TaskWaker);
+            }
             RawWaker::new(ptr, &Self::VTABLE)
         }
 
         unsafe fn wake(ptr: *const ()) {
-            let arc = Arc::from_raw(ptr as *const TaskWaker);
+            let arc = unsafe { Arc::from_raw(ptr as *const TaskWaker) };
             arc.core.enqueue_control(ControlEvent::Poll(arc.id));
         }
 
         unsafe fn wake_by_ref(ptr: *const ()) {
-            let arc = ManuallyDrop::new(Arc::from_raw(ptr as *const TaskWaker));
+            let arc = ManuallyDrop::new(unsafe { Arc::from_raw(ptr as *const TaskWaker) });
             arc.core.enqueue_control(ControlEvent::Poll(arc.id));
         }
 
         unsafe fn drop_waker(ptr: *const ()) {
-            drop(Arc::from_raw(ptr as *const TaskWaker));
+            drop(unsafe { Arc::from_raw(ptr as *const TaskWaker) });
         }
     }
 }

@@ -535,10 +535,11 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
                         supervisor.enqueue(SupervisorMsg::Faulty(handler));
                     } else {
                         error!(
-                        self.logger,
-                        "A recovery function mutex was poisoned in component of type {} with id {}. This component can not recover from its fault!",
-                        CD::type_name(), self.core.id
-                    );
+                            self.logger,
+                            "A recovery function mutex was poisoned in component of type {} with id {}. This component can not recover from its fault!",
+                            CD::type_name(),
+                            self.core.id
+                        );
                     }
                 } else {
                     // we are the supervisor!

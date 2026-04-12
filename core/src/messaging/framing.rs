@@ -3,7 +3,7 @@
 use crate::{
     actors::{ActorPath, NamedPath, SystemField, SystemPath, Transport, UniquePath},
     messaging::bitfields::{BitField, BitFieldExt},
-    serialisation::{serialisation_ids, Deserialiser, SerError, SerId, Serialisable},
+    serialisation::{Deserialiser, SerError, SerId, Serialisable, serialisation_ids},
 };
 use bytes::{Buf, BufMut};
 use std::{any::Any, convert::TryFrom, net::IpAddr};
@@ -334,12 +334,12 @@ impl Serialisable for ActorPath {
         let mut size: usize = 0;
         size += self.system().size_hint()?; // def. returns Some
 
-        size += match *self {
+        size += match self {
             ActorPath::Unique(_) => {
                 // UUIDs are 16 bytes long (see [UuidBytes])
                 16
             }
-            ActorPath::Named(ref np) => {
+            ActorPath::Named(np) => {
                 // Named paths are length-prefixed (2 bytes)
                 // followed by variable-length name
                 let path_len: u16 = 2;
@@ -518,7 +518,7 @@ mod serialisation_tests {
             let deser_sys: &SystemPath = SystemField::system(&deser_path);
             assert_eq!(deser_sys.address(), &expected_addr);
             match deser_path {
-                ActorPath::Unique(ref up) => {
+                ActorPath::Unique(up) => {
                     assert_eq!(up.id(), unique_id);
                 }
                 ActorPath::Named(_) => panic!("expected Unique path, got Named path"),
@@ -541,7 +541,7 @@ mod serialisation_tests {
             assert_eq!(deser_sys.address(), &expected_addr);
             match deser_path {
                 ActorPath::Unique(_) => panic!("expected Named path, got Unique path"),
-                ActorPath::Named(ref np) => {
+                ActorPath::Named(np) => {
                     assert_eq!(np.path_ref(), name.as_slice());
                 }
             }

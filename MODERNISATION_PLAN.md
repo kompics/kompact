@@ -72,7 +72,7 @@ Planned commit:
 
 ## Stage 2: Edition, MSRV, And CI Tooling
 
-Status: next
+Status: done
 
 Scope:
 
@@ -88,13 +88,27 @@ Expected follow-up checks:
 - `./clippy-extra.sh`
 - Targeted cargo checks or tests as needed after lint fixes
 
+Outcome:
+
+- Workspace crates moved to edition 2024 and now declare `rust-version = "1.94.1"`.
+- Workspace resolver moved to version 3.
+- `once_cell` was removed from direct workspace usage; the remaining occurrences are transitive lockfile entries only.
+- Local `once_cell::sync::Lazy` usages were replaced with `std::sync::LazyLock`.
+- CI was modernised away from `actions-rs` and now uses the pinned nightly lane `nightly-2026-04-11` for nightly-only jobs, including `clippy` and `fmt`.
+- The stable/nightly feature matrix was made consistent so `type_erasure` only runs on nightly in CI until stage 3 ungates it properly.
+- Validation passed with the workspace default toolchain:
+  - `cargo check --workspace --all-targets`
+  - `./clippy-extra.sh`
+  - `cargo fmt --all -- --check`
+  - `cargo fmt` on stable emits warnings because `rustfmt.toml` still contains nightly-only configuration keys, but formatting itself completed cleanly.
+
 Planned commit:
 
 - `chore(rust): move to edition 2024 and align MSRV/CI`
 
 ## Stage 3: Ungate Stable APIs
 
-Status: planned
+Status: next
 
 Scope:
 
@@ -155,6 +169,7 @@ Notes:
 
 ## Tracking Notes
 
-- The workspace currently builds on nightly locally.
-- Local stable `1.93.1` is already below the effective floor because `hierarchical_hash_wheel_timer 1.4.0` requires `rustc 1.94.1`.
-- The current CI still tests `type_erasure` under both stable and nightly even though the feature is effectively gated to nightly in code today. Stage 2 or 3 should make that consistent again.
+- The workspace now defaults locally to Rust `1.94.1` via `rust-toolchain.toml`.
+- The effective floor is now declared explicitly rather than being left implicit in dependency resolution.
+- `rustfmt.toml` still carries nightly-only options, so stable `cargo fmt` warns even though it formats successfully.
+- CI now reserves nightly for the genuinely nightly-dependent lanes; stage 3 is where the remaining API gating should be reduced further.

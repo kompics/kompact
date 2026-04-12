@@ -363,7 +363,8 @@ impl TimerActorRef {
                 Ok(())
             }
             (q, c) => {
-                eprintln!("Dropping timeout as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                eprintln!(
+                    "Dropping timeout as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
                     q.is_some(),
                     c.is_some(),
                     timeout

@@ -1,5 +1,5 @@
 use super::*;
-use bytes::{buf::UninitSlice, Bytes};
+use bytes::{Bytes, buf::UninitSlice};
 use std::{cmp::Ordering, ptr::NonNull};
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and

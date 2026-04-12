@@ -13,8 +13,14 @@ pub fn main() {
         system.logger(),
         "You will only see this in debug builds with default features"
     );
-    info!(system.logger(), "You will only see this in debug builds with silent_logging or in release builds with default features");
-    warn!(system.logger(), "You will only see this in debug builds with silent_logging or in release builds with default features");
+    info!(
+        system.logger(),
+        "You will only see this in debug builds with silent_logging or in release builds with default features"
+    );
+    warn!(
+        system.logger(),
+        "You will only see this in debug builds with silent_logging or in release builds with default features"
+    );
     error!(system.logger(), "You will always see this");
 
     // remember that logging is asynchronous and won't happen if the system is shut down already

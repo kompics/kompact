@@ -7,11 +7,11 @@ use crate::{
     messaging::{HeapOrSer, NetData, NetMessage, Serialised},
     net::{
         buffers::{BufferEncoder, ChunkLease, ChunkRef},
-        frames::{FrameHead, FrameType, FRAME_HEAD_LEN},
+        frames::{FRAME_HEAD_LEN, FrameHead, FrameType},
     },
     serialisation::*,
 };
-use bytes::{buf::BufMut, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut, buf::BufMut};
 
 /// Creates a new [NetMessage](NetMessage) from the provided fields
 ///
@@ -201,7 +201,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkRef, S
                     "Serialized frame sizing failed"
                 );
                 chunk_ref
-            })
+            });
         }
         HeapOrSer::ChunkRef(chunk_ref) => {
             return buf.get_chunk_lease().map(|mut header_lease| {
@@ -215,7 +215,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkRef, S
                     "Serialized frame sizing failed"
                 );
                 chunk_ref
-            })
+            });
         }
     }
     buf.get_chunk_lease().map(|mut chunk_lease| {

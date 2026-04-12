@@ -2,7 +2,8 @@
 name = "protobuf-test"
 version = "0.3.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
-edition = "2018"
+edition = "2024"
+rust-version = "1.94.1"
 publish = false
 
 [dependencies]

@@ -1,12 +1,11 @@
 use crossbeam_channel::Receiver as Rcv;
 use ipnet::IpNet;
 use kompact::{prelude::*, prelude_test::net_test_helpers::*};
-use once_cell::sync::Lazy;
 use std::{
     cell::Cell,
     net::SocketAddr,
     ops::{Deref, DerefMut},
-    sync::{Arc, Condvar, Mutex},
+    sync::{Arc, Condvar, LazyLock, Mutex},
     thread,
     time::Duration,
 };
@@ -27,8 +26,8 @@ const MINIMUM_UDP_CHUNK_SIZE: usize = 66000;
 const ARBITRARY_DATA_SIZE: usize = 500;
 const MAX_CONCURRENT_TEST_SYSTEMS: usize = 32;
 
-static TEST_SYSTEM_SEMAPHORE: Lazy<TestSystemSemaphore> =
-    Lazy::new(|| TestSystemSemaphore::new(MAX_CONCURRENT_TEST_SYSTEMS));
+static TEST_SYSTEM_SEMAPHORE: LazyLock<TestSystemSemaphore> =
+    LazyLock::new(|| TestSystemSemaphore::new(MAX_CONCURRENT_TEST_SYSTEMS));
 
 thread_local! {
     static TEST_SYSTEM_USAGE: Cell<TestSystemUsage> = Cell::new(TestSystemUsage::default());

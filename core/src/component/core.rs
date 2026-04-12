@@ -41,7 +41,9 @@ impl ComponentCore {
 
     pub(crate) unsafe fn set_component(&self, c: Arc<dyn CoreContainer>) -> () {
         let component_mut = self.component.get();
-        *component_mut = Arc::downgrade(&c);
+        unsafe {
+            *component_mut = Arc::downgrade(&c);
+        }
     }
 
     /// Returns the component instance itself, wrapped in an [Arc](std::sync::Arc)

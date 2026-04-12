@@ -1,31 +1,15 @@
 use super::*;
 use crate::{
     actors::{
-        Actor,
-        ActorPath,
-        Dispatcher,
-        DynActorRef,
-        NamedPath,
-        SystemPath,
-        Transport,
-        Transport::Tcp,
+        Actor, ActorPath, Dispatcher, DynActorRef, NamedPath, SystemPath, Transport, Transport::Tcp,
     },
     component::{Component, ComponentContext, ExecuteResult},
     messaging::{
-        ActorRegistration,
-        DispatchData,
-        DispatchEnvelope,
-        EventEnvelope,
-        MsgEnvelope,
-        NetMessage,
-        PathResolvable,
-        PolicyRegistration,
-        RegistrationEnvelope,
-        RegistrationError,
-        RegistrationEvent,
-        RegistrationPromise,
+        ActorRegistration, DispatchData, DispatchEnvelope, EventEnvelope, MsgEnvelope, NetMessage,
+        PathResolvable, PolicyRegistration, RegistrationEnvelope, RegistrationError,
+        RegistrationEvent, RegistrationPromise,
     },
-    net::{buffers::*, ConnectionState, NetworkBridgeErr, Protocol, SocketAddr},
+    net::{ConnectionState, NetworkBridgeErr, Protocol, SocketAddr, buffers::*},
     prelude::SessionId,
     timer::timer_manager::Timer,
 };
@@ -414,19 +398,12 @@ impl NetworkDispatcher {
     ///
     /// Mutable, since it will update the cached value, if necessary.
     pub fn system_path_ref(&mut self) -> &SystemPath {
-        match self.system_path {
-            Some(ref path) => path,
-            None => {
-                let _ = self.system_path(); // just to fill the cache
-                if let Some(ref path) = self.system_path {
-                    path
-                } else {
-                    unreachable!(
-                        "Cached value should have been filled by calling self.system_path()!"
-                    );
-                }
-            }
+        if self.system_path.is_none() {
+            let _ = self.system_path(); // fill the cache
         }
+        self.system_path
+            .as_ref()
+            .expect("Cached value should have been filled by calling self.system_path()!")
     }
 
     fn start(&mut self) -> () {
@@ -484,24 +461,24 @@ impl NetworkDispatcher {
     }
 
     fn stop(&mut self) -> () {
-        if let Some(bridge) = self.net_bridge.take() {
-            if let Err(e) = bridge.stop() {
-                error!(
-                    self.ctx().log(),
-                    "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
-                );
-            }
+        if let Some(bridge) = self.net_bridge.take()
+            && let Err(e) = bridge.stop()
+        {
+            error!(
+                self.ctx().log(),
+                "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
+            );
         }
     }
 
     fn kill(&mut self) -> () {
-        if let Some(bridge) = self.net_bridge.take() {
-            if let Err(e) = bridge.kill() {
-                error!(
-                    self.ctx().log(),
-                    "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
-                );
-            }
+        if let Some(bridge) = self.net_bridge.take()
+            && let Err(e) = bridge.kill()
+        {
+            error!(
+                self.ctx().log(),
+                "NetworkBridge did not shut down as expected! Error was:\n     {:?}\n", e
+            );
         }
     }
 
@@ -672,13 +649,13 @@ impl NetworkDispatcher {
         self.network_status_port
             .trigger(NetworkStatus::ConnectionClosed(system_path, id));
         // Ack the closing
-        if let Some(bridge) = &self.net_bridge {
-            if let Err(e) = bridge.ack_closed(*addr) {
-                error!(
-                    self.ctx.log(),
-                    "Bridge error while acking closed connection {:?}", e
-                );
-            }
+        if let Some(bridge) = &self.net_bridge
+            && let Err(e) = bridge.ack_closed(*addr)
+        {
+            error!(
+                self.ctx.log(),
+                "Bridge error while acking closed connection {:?}", e
+            );
         }
         self.connections.insert(*addr, ConnectionState::Closed(id));
         if self.queue_manager.has_data(addr) {
@@ -694,13 +671,13 @@ impl NetworkDispatcher {
         }
         self.network_status_port
             .trigger(NetworkStatus::ConnectionLost(system_path, id));
-        if let Some(bridge) = &self.net_bridge {
-            if let Err(e) = bridge.ack_closed(*addr) {
-                error!(
-                    self.ctx.log(),
-                    "Bridge error while acking lost connection {:?}", e
-                );
-            }
+        if let Some(bridge) = &self.net_bridge
+            && let Err(e) = bridge.ack_closed(*addr)
+        {
+            error!(
+                self.ctx.log(),
+                "Bridge error while acking lost connection {:?}", e
+            );
         }
         self.connections.insert(*addr, ConnectionState::Lost(id));
     }
@@ -905,10 +882,10 @@ impl NetworkDispatcher {
                         result = next.insert(path.clone(), actor.clone());
                         next
                     });
-                    if let Ok(ref res) = result {
-                        if !res.is_empty() {
-                            info!(self.ctx.log(), "Replaced entry for path={:?}", path);
-                        }
+                    if let Ok(ref res) = result
+                        && !res.is_empty()
+                    {
+                        info!(self.ctx.log(), "Replaced entry for path={:?}", path);
                     }
                     result.map(|_| ap)
                         .map_err(RegistrationError::InvalidPath)
@@ -960,10 +937,10 @@ impl NetworkDispatcher {
                         result = next.set_routing_policy(&path, policy.clone());
                         next
                     });
-                    if let Ok(ref res) = result {
-                        if !res.is_empty() {
-                            info!(self.ctx.log(), "Replaced entry for path={:?}", path);
-                        }
+                    if let Ok(ref res) = result
+                        && !res.is_empty()
+                    {
+                        info!(self.ctx.log(), "Replaced entry for path={:?}", path);
                     }
                     result.map(|_| ap).map_err(RegistrationError::InvalidPath)
                 }
@@ -985,16 +962,14 @@ impl NetworkDispatcher {
                 ConnectionState::Connected(session) => {
                     trace!(
                         self.ctx.log(),
-                        "Closing channel to connected system {}, session {:?}",
-                        addr,
-                        session
+                        "Closing channel to connected system {}, session {:?}", addr, session
                     );
                     if let Some(bridge) = &self.net_bridge {
                         while self.queue_manager.has_data(&addr) {
-                            if let Some(data) = self.queue_manager.pop_data(&addr) {
-                                if let Err(e) = bridge.route(addr, data, Protocol::Tcp) {
-                                    error!(self.ctx.log(), "Bridge error while routing {:?}", e);
-                                }
+                            if let Some(data) = self.queue_manager.pop_data(&addr)
+                                && let Err(e) = bridge.route(addr, data, Protocol::Tcp)
+                            {
+                                error!(self.ctx.log(), "Bridge error while routing {:?}", e);
                             }
                         }
                         if let Err(e) = bridge.close_channel(addr) {
@@ -1060,12 +1035,16 @@ impl Dispatcher for NetworkDispatcher {
     ///
     /// This is only possible after the socket is bound and will panic if attempted earlier!
     fn system_path(&mut self) -> SystemPath {
-        match self.system_path {
-            Some(ref path) => path.clone(),
+        match self.system_path.as_ref() {
+            Some(path) => path.clone(),
             None => {
                 let bound_addr = match self.net_bridge {
-                    Some(ref net_bridge) => net_bridge.local_addr().expect("If net bridge is ready, port should be as well!"),
-                    None => panic!("You must wait until the socket is bound before attempting to create a system path!"),
+                    Some(ref net_bridge) => net_bridge
+                        .local_addr()
+                        .expect("If net bridge is ready, port should be as well!"),
+                    None => panic!(
+                        "You must wait until the socket is bound before attempting to create a system path!"
+                    ),
                 };
                 let sp = SystemPath::new(self.cfg.transport, bound_addr.ip(), bound_addr.port());
                 self.system_path = Some(sp.clone());

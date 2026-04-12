@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use futures::channel::oneshot;
 use std::{
-    error,
-    fmt,
+    error, fmt,
     future::Future,
     iter::FromIterator,
     pin::Pin,
@@ -146,8 +145,14 @@ impl error::Error for PromiseErr {
 impl fmt::Display for PromiseErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PromiseErr::ChannelBroken => write!(f, "The Future corresponding to this Promise was dropped without waiting for completion first."),
-            PromiseErr::AlreadyFulfilled => write!(f, "This Promise has already been fulfilled. Double fulfilling a promise is illegal."),
+            PromiseErr::ChannelBroken => write!(
+                f,
+                "The Future corresponding to this Promise was dropped without waiting for completion first."
+            ),
+            PromiseErr::AlreadyFulfilled => write!(
+                f,
+                "This Promise has already been fulfilled. Double fulfilling a promise is illegal."
+            ),
         }
     }
 }
@@ -200,7 +205,7 @@ impl<T> error::Error for WaitErr<T> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             WaitErr::Timeout(_) => None,
-            WaitErr::PromiseDropped(ref p) => Some(p),
+            WaitErr::PromiseDropped(p) => Some(p),
         }
     }
 }
@@ -208,7 +213,7 @@ impl<T> fmt::Debug for WaitErr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WaitErr::Timeout(_) => write!(f, "WaitErr::Timeout(<some future>)"),
-            WaitErr::PromiseDropped(ref p) => fmt::Debug::fmt(p, f),
+            WaitErr::PromiseDropped(p) => fmt::Debug::fmt(p, f),
         }
     }
 }
@@ -216,7 +221,7 @@ impl<T> fmt::Display for WaitErr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WaitErr::Timeout(_) => write!(f, "The timeout expired."),
-            WaitErr::PromiseDropped(ref p) => fmt::Display::fmt(p, f),
+            WaitErr::PromiseDropped(p) => fmt::Display::fmt(p, f),
         }
     }
 }

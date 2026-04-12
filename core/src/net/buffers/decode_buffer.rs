@@ -80,10 +80,10 @@ impl DecodeBuffer {
     /// Returns true if there is data to be decoded, else false
     pub(crate) fn has_frame(&mut self) -> io::Result<bool> {
         self.decode_frame_head()?;
-        if let Some(head) = &self.next_frame_head {
-            if self.readable_len() >= head.content_length() {
-                return Ok(true);
-            }
+        if let Some(head) = &self.next_frame_head
+            && self.readable_len() >= head.content_length()
+        {
+            return Ok(true);
         }
         Ok(false)
     }
@@ -165,29 +165,27 @@ impl DecodeBuffer {
     /// Tries to decode one frame from the readable part of the buffer
     pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
         self.decode_frame_head()?;
-        if let Some(head) = &self.next_frame_head {
-            if self.readable_len() >= head.content_length() {
-                let head = self.next_frame_head.take().unwrap();
-                return match head.frame_type() {
-                    // Frames with empty bodies should be handled in frame-head decoding below.
-                    FrameType::Data => {
-                        Data::decode_from(self.read_chunk_lease(head.content_length()))
-                            .map_err(|_| FramingError::InvalidFrame)
-                    }
-                    FrameType::Hello => {
-                        Hello::decode_from(self.read_chunk_lease(head.content_length()))
-                            .map_err(|_| FramingError::InvalidFrame)
-                    }
-                    FrameType::Start => {
-                        Start::decode_from(self.read_chunk_lease(head.content_length()))
-                            .map_err(|_| FramingError::InvalidFrame)
-                    }
-                    // Frames without content match here for expediency, Decoder doesn't allow 0 length.
-                    FrameType::Bye => Ok(Frame::Bye()),
-                    FrameType::Ack => Ok(Frame::Ack()),
-                    _ => Err(FramingError::UnsupportedFrameType),
-                };
-            }
+        if let Some(head) = &self.next_frame_head
+            && self.readable_len() >= head.content_length()
+        {
+            let head = self.next_frame_head.take().unwrap();
+            return match head.frame_type() {
+                // Frames with empty bodies should be handled in frame-head decoding below.
+                FrameType::Data => Data::decode_from(self.read_chunk_lease(head.content_length()))
+                    .map_err(|_| FramingError::InvalidFrame),
+                FrameType::Hello => {
+                    Hello::decode_from(self.read_chunk_lease(head.content_length()))
+                        .map_err(|_| FramingError::InvalidFrame)
+                }
+                FrameType::Start => {
+                    Start::decode_from(self.read_chunk_lease(head.content_length()))
+                        .map_err(|_| FramingError::InvalidFrame)
+                }
+                // Frames without content match here for expediency, Decoder doesn't allow 0 length.
+                FrameType::Bye => Ok(Frame::Bye()),
+                FrameType::Ack => Ok(Frame::Ack()),
+                _ => Err(FramingError::UnsupportedFrameType),
+            };
         }
         Err(FramingError::NoData)
     }

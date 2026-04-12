@@ -4,7 +4,7 @@ use kompact::{component::AbstractComponent, prelude::*};
 use std::{
     error::Error,
     fmt,
-    io::{stdin, BufRead},
+    io::{BufRead, stdin},
     sync::Arc,
 };
 

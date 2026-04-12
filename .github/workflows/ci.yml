@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches:
@@ -8,8 +9,11 @@ on:
       - master
     types: [opened, reopened, synchronize]
   schedule:
-    - cron: '0 0 * * *'  # every day at midnight
-  workflow_dispatch:  
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+env:
+  NIGHTLY_TOOLCHAIN: nightly-2026-04-11
 
 jobs:
   tests:
@@ -17,192 +21,108 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly]
+        rust: ["1.94.1", "nightly-2026-04-11"]
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
       - name: Setup rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
-      - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo2-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2-
-      - name: Checkout sources
-        uses: actions/checkout@v2
+      - name: Cache cargo state
+        uses: Swatinem/rust-cache@v2
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose
+        run: cargo test --verbose
       - name: Run ignored tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose -- --ignored
+        run: cargo test --verbose -- --ignored
 
   test-core-serde-features:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly]
+        rust: ["1.94.1", "nightly-2026-04-11"]
         feature: [ser_id_8, ser_id_16, ser_id_32]
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
       - name: Setup rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
-      - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo2-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2-
-      - name: Checkout sources
-        uses: actions/checkout@v2
+      - name: Cache cargo state
+        uses: Swatinem/rust-cache@v2
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }}
+        run: cargo test --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }}
       - name: Run ignored tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }} -- --ignored
+        run: cargo test --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }} -- --ignored
 
   test-core-misc-features:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, nightly]
-        feature: [thread_pinning, low_latency, type_erasure]
+        include:
+          - rust: "1.94.1"
+            feature: thread_pinning
+          - rust: "nightly-2026-04-11"
+            feature: thread_pinning
+          - rust: "1.94.1"
+            feature: low_latency
+          - rust: "nightly-2026-04-11"
+            feature: low_latency
+          - rust: "nightly-2026-04-11"
+            feature: type_erasure
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
       - name: Setup rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
-      - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo2-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2-
-      - name: Checkout sources
-        uses: actions/checkout@v2
+      - name: Cache cargo state
+        uses: Swatinem/rust-cache@v2
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }}
+        run: cargo test --manifest-path=core/Cargo.toml --features ${{ matrix.feature }}
       - name: Run ignored tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=core/Cargo.toml --features ${{ matrix.feature }} -- --ignored
+        run: cargo test --manifest-path=core/Cargo.toml --features ${{ matrix.feature }} -- --ignored
 
   clippy:
     name: cargo clippy
     runs-on: ubuntu-latest
     steps:
-      - name: Install nightly toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2026-03-01
-          override: true
-          components: rustfmt, clippy
-      - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo2-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2-
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          components: clippy, rustfmt
+      - name: Cache cargo state
+        uses: Swatinem/rust-cache@v2
       - name: Run cargo clippy (default)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-targets -- -D warnings
+        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --all-targets -- -D warnings
       - name: Run cargo clippy (ser_id_8)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
+        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
       - name: Run cargo clippy (thread_pinning)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
+        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
       - name: Run cargo clippy (low_latency)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
+        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --features low_latency -- -D warnings
       - name: Run cargo clippy (type_erasure)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
+        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} clippy --manifest-path=core/Cargo.toml --all-targets --features type_erasure -- -D warnings
 
   format:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2026-03-01
-          override: true
-          components: rustfmt, clippy
-      - name: Use the cache to share dependencies # keyed by Cargo.lock
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo2-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2-
       - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
+        uses: actions/checkout@v4
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          command: fmt
-          args: --all -- --check
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          components: rustfmt
+      - name: Cache cargo state
+        uses: Swatinem/rust-cache@v2
+      - name: Run cargo fmt
+        run: cargo +${{ env.NIGHTLY_TOOLCHAIN }} fmt --all -- --check

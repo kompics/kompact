@@ -1,12 +1,10 @@
 use super::*;
 
 use std::{
-    error,
-    fmt,
+    error, fmt,
     sync::{
+        Arc, Once,
         atomic::{AtomicUsize, Ordering},
-        Arc,
-        Once,
     },
 };
 
@@ -139,9 +137,9 @@ impl error::Error for KompactError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             KompactError::Poisoned => None,
-            KompactError::ConfigLoadingError(ref e) => Some(e),
-            KompactError::ConfigError(ref e) => Some(e),
-            KompactError::Other(ref o) => Some(o.as_ref()),
+            KompactError::ConfigLoadingError(e) => Some(e),
+            KompactError::ConfigError(e) => Some(e),
+            KompactError::Other(o) => Some(o.as_ref()),
         }
     }
 }

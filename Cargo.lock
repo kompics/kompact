@@ -1316,7 +1316,6 @@ dependencies = [
  "lru",
  "mio",
  "num_cpus",
- "once_cell",
  "oncemutex",
  "owning_ref",
  "protobuf",

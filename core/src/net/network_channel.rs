@@ -3,11 +3,11 @@ use crate::{
     messaging::SerialisedFrame,
     net::{
         buffers::{BufferChunk, BufferPool, DecodeBuffer},
-        frames::{Frame, FramingError, Hello, Start, FRAME_HEAD_LEN},
+        frames::{FRAME_HEAD_LEN, Frame, FramingError, Hello, Start},
     },
 };
 use bytes::{Buf, BytesMut};
-use mio::{net::TcpStream, Token};
+use mio::{Token, net::TcpStream};
 use network_thread::*;
 use std::{
     cell::RefCell,

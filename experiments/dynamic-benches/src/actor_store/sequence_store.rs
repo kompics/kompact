@@ -11,11 +11,7 @@ use kompact::{
     messaging::{NetMessage, PathResolvable},
     prelude::{ActorPath, DynActorRef, PathParseError},
     routing::groups::{
-        RoutingGroup,
-        RoutingPolicy,
-        StorePolicy,
-        DEFAULT_BROADCAST_POLICY,
-        DEFAULT_SELECT_POLICY,
+        DEFAULT_BROADCAST_POLICY, DEFAULT_SELECT_POLICY, RoutingGroup, RoutingPolicy, StorePolicy,
     },
 };
 use rustc_hash::FxHashMap;
@@ -117,8 +113,8 @@ impl ActorLookup for ActorStore {
     fn contains(&self, path: &PathResolvable) -> bool {
         match path {
             PathResolvable::Path(actor_path) => match actor_path {
-                ActorPath::Unique(ref up) => self.uuid_map.contains_key(&up.id()),
-                ActorPath::Named(ref np) => {
+                ActorPath::Unique(up) => self.uuid_map.contains_key(&up.id()),
+                ActorPath::Named(np) => {
                     let keys = np.path_ref();
                     debug_assert!(
                         kompact::prelude_bench::validate_lookup_path(keys).is_ok(),
@@ -128,7 +124,7 @@ impl ActorLookup for ActorStore {
                     self.name_map.get(keys).is_some()
                 }
             },
-            PathResolvable::Alias(ref alias) => {
+            PathResolvable::Alias(alias) => {
                 let path = kompact::prelude_bench::parse_path(alias);
                 debug_assert!(
                     kompact::prelude_bench::validate_lookup_path(&path).is_ok(),
@@ -137,7 +133,7 @@ impl ActorLookup for ActorStore {
                 );
                 self.name_map.get(&path).is_some()
             }
-            PathResolvable::Segments(ref path) => {
+            PathResolvable::Segments(path) => {
                 debug_assert!(
                     kompact::prelude_bench::validate_lookup_path(path).is_ok(),
                     "Path contains illegal characters: {:?}",
@@ -145,7 +141,7 @@ impl ActorLookup for ActorStore {
                 );
                 self.name_map.get(path).is_some()
             }
-            PathResolvable::ActorId(ref uuid) => self.uuid_map.contains_key(uuid),
+            PathResolvable::ActorId(uuid) => self.uuid_map.contains_key(uuid),
             PathResolvable::System => self.deadletter.is_some(),
         }
     }
@@ -176,7 +172,10 @@ impl ActorLookup for ActorStore {
                         match entry {
                             ActorTreeEntry::Ref(aref) => {
                                 if let Some(marker) = marker_opt {
-                                    LookupResult::Err(format!("Expected a routing policy (marker={}), but found an actor reference at path={:?}", marker, path))
+                                    LookupResult::Err(format!(
+                                        "Expected a routing policy (marker={}), but found an actor reference at path={:?}",
+                                        marker, path
+                                    ))
                                 } else {
                                     LookupResult::Ref(aref)
                                 }
@@ -201,7 +200,10 @@ impl ActorLookup for ActorStore {
                                                     RoutingGroup::new(children, broadcast_policy);
                                                 LookupResult::Group(group)
                                             } else {
-                                                LookupResult::Err(format!("Expected a broadcast policy (marker={}), but found a non-broadcast policy at path={:?}", marker, path))
+                                                LookupResult::Err(format!(
+                                                    "Expected a broadcast policy (marker={}), but found a non-broadcast policy at path={:?}",
+                                                    marker, path
+                                                ))
                                             }
                                         }
                                         SELECT_MARKER => {
@@ -210,7 +212,10 @@ impl ActorLookup for ActorStore {
                                                     RoutingGroup::new(children, select_policy);
                                                 LookupResult::Group(group)
                                             } else {
-                                                LookupResult::Err(format!("Expected a select policy (marker={}), but found a non-select policy at path={:?}", marker, path))
+                                                LookupResult::Err(format!(
+                                                    "Expected a select policy (marker={}), but found a non-select policy at path={:?}",
+                                                    marker, path
+                                                ))
                                             }
                                         }
                                         _ => unreachable!(

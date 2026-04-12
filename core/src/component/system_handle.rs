@@ -1,8 +1,7 @@
 use super::*;
 
 use crate::{
-    messaging::RegistrationResult,
-    routing::groups::StorePolicy,
+    messaging::RegistrationResult, routing::groups::StorePolicy,
     timer::timer_manager::CanCancelTimers,
 };
 use std::time::Instant;

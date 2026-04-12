@@ -4,7 +4,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 use std::{collections::HashMap, iter::Iterator};
 
@@ -21,12 +21,12 @@ pub fn component_definition(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     // Build the impl
-    let gen = impl_component_definition(&ast);
+    let generated = impl_component_definition(&ast);
 
-    //println!("Derived code:\n{}", gen);
+    //println!("Derived code:\n{}", generated);
 
     // Return the generated impl
-    gen.into()
+    generated.into()
 }
 
 type PortEntry<'a> = (&'a syn::Field, PortField);
@@ -217,7 +217,11 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                     format!("{}", quote! {#id})
                 })
                 .collect();
-            let error_msg = format!("Ambiguous port type: There are multiple fields with type {} ({:?}). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.", quote!{#ty}, ids);
+            let error_msg = format!(
+                "Ambiguous port type: There are multiple fields with type {} ({:?}). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.",
+                quote! {#ty},
+                ids
+            );
             quote! {
                 impl #impl_generics ProvideRef< #ty > for #name #ty_generics #where_clause {
                     fn provided_ref(&mut self) -> ProvidedRef< #ty > {
@@ -240,7 +244,11 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                     format!("{}", quote! {#id})
                 })
                 .collect();
-            let error_msg = format!("Ambiguous port type: There are multiple fields with type {} ({:?}). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.", quote!{#ty}, ids);
+            let error_msg = format!(
+                "Ambiguous port type: There are multiple fields with type {} ({:?}). You cannot derive ComponentDefinition in these cases, as you must resolve the ambiguity manually.",
+                quote! {#ty},
+                ids
+            );
             quote! {
                 impl #impl_generics RequireRef< #ty > for #name #ty_generics #where_clause {
                     fn provided_ref(&mut self) -> ProvidedRef< #ty > {
@@ -351,16 +359,16 @@ enum PortField {
 
 impl PortField {
     fn as_handle(&self) -> TokenStream2 {
-        match *self {
-            PortField::Provided(ref ty) => quote! { Provide::<#ty>::handle(self, event); },
-            PortField::Required(ref ty) => quote! { Require::<#ty>::handle(self, event); },
+        match self {
+            PortField::Provided(ty) => quote! { Provide::<#ty>::handle(self, event); },
+            PortField::Required(ty) => quote! { Require::<#ty>::handle(self, event); },
         }
     }
 
     fn port_type(&self) -> &syn::Type {
         match self {
-            PortField::Provided(ref ty) => ty,
-            PortField::Required(ref ty) => ty,
+            PortField::Provided(ty) => ty,
+            PortField::Required(ty) => ty,
         }
     }
 }

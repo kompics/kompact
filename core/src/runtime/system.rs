@@ -4,11 +4,7 @@ use super::*;
 use crate::utils::erased::CreateErased;
 use crate::{
     messaging::{
-        DispatchEnvelope,
-        MsgEnvelope,
-        PathResolvable,
-        RegistrationEnvelope,
-        RegistrationError,
+        DispatchEnvelope, MsgEnvelope, PathResolvable, RegistrationEnvelope, RegistrationError,
         RegistrationResult,
     },
     prelude::NetworkStatusPort,

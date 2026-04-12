@@ -438,7 +438,7 @@ mod tests {
             // Make sure we fill up a chunk per iteration:
             for _ in 0..(buffer_config.chunk_size / data_len) + 1 {
                 chunk_lease_cnt += 1; // counting chunk
-                                      // Get a BufferEncoder interface
+                // Get a BufferEncoder interface
                 let buffer_encoder = &mut EncodeBuffer::get_buffer_encoder(&mut encode_buffer)
                     .expect("Should not run out of buffers in test case");
                 // Insert the test_string

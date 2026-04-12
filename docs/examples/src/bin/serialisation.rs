@@ -304,7 +304,10 @@ pub fn main() {
             let system = run_client(bootstrap_socket, client_socket);
             system.await_termination(); // gotta quit it from command line
         }
-        x => panic!("Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!", x - 1),
+        x => panic!(
+            "Expected either 1 argument (the port for the bootstrap server to bind on) or 2 arguments (boostrap server and client port), but got {} instead!",
+            x - 1
+        ),
     }
 }
 

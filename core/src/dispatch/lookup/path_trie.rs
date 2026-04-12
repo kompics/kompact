@@ -190,11 +190,11 @@ impl<V> PathTrie<V> {
         // } else {
         //     std::mem::swap(result, &mut self.value);
         // }
-        if let Some(ref v) = self.value {
-            if !(*condition)(v) {
-                self.value = None;
-                *count += 1;
-            }
+        if let Some(ref v) = self.value
+            && !(*condition)(v)
+        {
+            self.value = None;
+            *count += 1;
         }
         self.children.retain(|_, child| {
             let delete = child.retain_recursive(condition, count);

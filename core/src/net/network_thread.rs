@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
     dispatch::{
-        lookup::{ActorLookup, LookupResult},
         NetworkConfig,
+        lookup::{ActorLookup, LookupResult},
     },
     messaging::{DispatchEnvelope, EventEnvelope, NetMessage, SerialisedFrame},
     net::{
@@ -18,11 +18,9 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use iprange::{IpRange, ToNetwork};
 use lru::LruCache;
 use mio::{
+    Events, Poll, Token,
     event::Event,
     net::{TcpListener, TcpStream, UdpSocket},
-    Events,
-    Poll,
-    Token,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::{
@@ -546,8 +544,7 @@ impl NetworkThread {
             self.reject_dispatch_data(address, data);
             trace!(
                 self.log,
-                "Rejecting UDP message to {} as socket is already shut down.",
-                address
+                "Rejecting UDP message to {} as socket is already shut down.", address
             );
         }
     }
@@ -741,9 +738,7 @@ impl NetworkThread {
                     //  Connection will be re-requested
                     trace!(
                         self.log,
-                        "Failed to connect to remote host {}, error: {:?}",
-                        &address,
-                        e
+                        "Failed to connect to remote host {}, error: {:?}", &address, e
                     );
                     self.return_buffer(buffer);
                 }
@@ -752,8 +747,7 @@ impl NetworkThread {
             self.out_of_buffers = true;
             trace!(
                 self.log,
-                "No Buffers available when attempting to connect to remote host {}",
-                &address
+                "No Buffers available when attempting to connect to remote host {}", &address
             );
         }
     }
@@ -763,8 +757,7 @@ impl NetworkThread {
             if self.block_list.ip_addr_is_blocked(&address.ip()) {
                 trace!(
                     self.log,
-                    "Rejecting connection request from blocked source: {}",
-                    &address
+                    "Rejecting connection request from blocked source: {}", &address
                 );
                 stream.shutdown(Shutdown::Both)?;
             } else if self.check_hard_connection_limit() {
@@ -1529,24 +1522,30 @@ mod tests {
         run_handshake_sequence(&mut thread1, &mut thread4);
 
         // Assert that 2, 3, 4 is connected to 1
-        assert!(thread1
-            .address_map
-            .get(&addr2)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr3)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr4)
-            .unwrap()
-            .borrow_mut()
-            .connected());
+        assert!(
+            thread1
+                .address_map
+                .get(&addr2)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr3)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr4)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
 
         // Send something to 3 and 4, to ensure that 2 is LRU
         input_queue_1_sender.send(DispatchEvent::SendTcp(addr3, empty_message()));
@@ -1560,12 +1559,14 @@ mod tests {
         run_handshake_sequence(&mut thread1, &mut thread5);
 
         // Assert that 2 is no longer connected to 1
-        assert!(!thread1
-            .address_map
-            .get(&addr2)
-            .unwrap()
-            .borrow_mut()
-            .connected());
+        assert!(
+            !thread1
+                .address_map
+                .get(&addr2)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
 
         // Receive and send bye
         poll_and_handle(&mut thread2);
@@ -1589,12 +1590,14 @@ mod tests {
 
         // Receive the incoming connection and assert that 3 (LRU) is no longer connected
         poll_and_handle(&mut thread1);
-        assert!(!thread1
-            .address_map
-            .get(&addr3)
-            .unwrap()
-            .borrow_mut()
-            .connected());
+        assert!(
+            !thread1
+                .address_map
+                .get(&addr3)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
 
         thread1.stop();
         thread2.stop();
@@ -1631,24 +1634,30 @@ mod tests {
         run_handshake_sequence(&mut thread1, &mut thread4);
 
         // Assert that 2, 3, 4 is connected to 1
-        assert!(thread1
-            .address_map
-            .get(&addr2)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr3)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr4)
-            .unwrap()
-            .borrow_mut()
-            .connected());
+        assert!(
+            thread1
+                .address_map
+                .get(&addr2)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr3)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr4)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
 
         // Initiate connection to 5, execute handshake
         input_queue_1_sender.send(DispatchEvent::Connect(addr5));
@@ -1661,24 +1670,30 @@ mod tests {
 
         // Assert channels are unchanged
         assert!(!thread1.address_map.contains_key(&addr5));
-        assert!(thread1
-            .address_map
-            .get(&addr2)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr3)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr4)
-            .unwrap()
-            .borrow_mut()
-            .connected());
+        assert!(
+            thread1
+                .address_map
+                .get(&addr2)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr3)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr4)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
 
         // Initiate new connection to 1 from 2 and execute handshake
         input_queue_5_sender.send(DispatchEvent::Connect(addr1));
@@ -1693,24 +1708,30 @@ mod tests {
 
         // Assert channels are unchanged
         assert!(!thread1.address_map.contains_key(&addr5));
-        assert!(thread1
-            .address_map
-            .get(&addr2)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr3)
-            .unwrap()
-            .borrow_mut()
-            .connected());
-        assert!(thread1
-            .address_map
-            .get(&addr4)
-            .unwrap()
-            .borrow_mut()
-            .connected());
+        assert!(
+            thread1
+                .address_map
+                .get(&addr2)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr3)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
+        assert!(
+            thread1
+                .address_map
+                .get(&addr4)
+                .unwrap()
+                .borrow_mut()
+                .connected()
+        );
 
         thread1.stop();
         thread2.stop();

@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kompact::{
     lookup::{ActorLookup, ActorStore},
     prelude::*,
@@ -134,7 +134,7 @@ fn load_data(data_size: usize) -> DataSet {
 
 mod tests {
     use super::*;
-    use criterion::{black_box, BatchSize, Bencher};
+    use criterion::{BatchSize, Bencher, black_box};
 
     pub fn bench_insert<L, F>(b: &mut Bencher, get_store: F, store_size: usize)
     where
@@ -169,7 +169,7 @@ mod tests {
             .paths
             .iter()
             .map(|(path, _)| {
-                if let PathResolvable::Segments(ref segments) = path {
+                if let PathResolvable::Segments(segments) = path {
                     segments.as_slice()
                 } else {
                     unreachable!("We only put in segments!")

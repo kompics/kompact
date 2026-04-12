@@ -4,7 +4,7 @@ use std::{
     fmt,
     ops::DerefMut,
     panic,
-    sync::{atomic::AtomicU64, Arc, Mutex, Weak},
+    sync::{Arc, Mutex, Weak, atomic::AtomicU64},
     time::Duration,
 };
 use uuid::Uuid;
