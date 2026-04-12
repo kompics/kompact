@@ -568,7 +568,7 @@ dependencies = [
  "kompact",
  "panoradix",
  "rand 0.7.3",
- "rustc-hash 1.1.0",
+ "rustc-hash",
  "rustc_version 0.2.3",
  "sequence_trie",
  "synchronoise",
@@ -1000,7 +1000,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02f98bc9db5b57a31875f14c6590bb1453930bb3c7596d180c0540b24e66d5d6"
 dependencies = [
  "crossbeam-channel",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "uuid",
 ]
 
@@ -1312,7 +1312,7 @@ dependencies = [
  "oncemutex",
  "owning_ref",
  "protobuf",
- "rustc-hash 1.1.0",
+ "rustc-hash",
  "rustc_version 0.4.1",
  "rustversion",
  "serde",
@@ -1898,12 +1898,6 @@ name = "rustc-demangle"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
