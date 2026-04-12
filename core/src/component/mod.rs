@@ -1,10 +1,10 @@
 use hocon::Hocon;
 use std::{
-    cell::{RefCell, UnsafeCell},
+    cell::RefCell,
     fmt,
     ops::DerefMut,
     panic,
-    sync::{atomic::AtomicU64, Arc, Mutex, Weak},
+    sync::{Arc, Mutex, OnceLock, Weak, atomic::AtomicU64},
     time::Duration,
 };
 use uuid::Uuid;
@@ -18,7 +18,7 @@ use crate::{
 };
 use rustc_hash::FxHashMap;
 
-#[cfg(all(nightly, feature = "type_erasure"))]
+#[cfg(feature = "type_erasure")]
 use crate::utils::erased::CreateErased;
 use owning_ref::{Erased, OwningRefMut};
 use std::any::Any;
@@ -576,8 +576,7 @@ mod tests {
                 None => self.ctx.system().register(&child),
             };
             self.child = Some(child);
-            // async move closure syntax is nightly only
-            Handled::block_on(self, move |async_self| async move {
+            Handled::block_on(self, async move |async_self| {
                 let path = f.await.expect("actor path").expect("actor path");
                 info!(async_self.log(), "Child was registered");
                 if let Some(ref child) = async_self.child {

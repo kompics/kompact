@@ -1,7 +1,7 @@
 #![allow(clippy::unused_unit)]
 use kompact::{prelude::*, serde_serialisers::*};
 use lru::LruCache;
-use rand::{distributions::Alphanumeric, rngs::SmallRng, thread_rng, Rng, SeedableRng};
+use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 use serde::{Deserialize, Serialize};
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use uuid::Uuid;
@@ -104,7 +104,7 @@ impl Client {
             cache_hits: 0,
             cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
             current_query: None,
-            rng: SmallRng::from_entropy(),
+            rng: rand::make_rng(),
         }
     }
 
@@ -126,10 +126,7 @@ impl Client {
                 let id = Uuid::new_v4();
                 trace!(
                     self.log(),
-                    "Sending query #{} ({}) with id={}",
-                    self.request_count,
-                    pattern,
-                    id
+                    "Sending query #{} ({}) with id={}", self.request_count, pattern, id
                 );
                 let query = Query { id, pattern };
                 self.current_query = Some(query.clone());
@@ -214,7 +211,7 @@ fn generate_string<R: Rng>(rng: &mut R, length: usize) -> String {
 
 fn generate_database(size: usize) -> Arc<[String]> {
     let mut data: Vec<String> = Vec::with_capacity(size);
-    let mut rng = thread_rng();
+    let mut rng = rng();
     for _i in 0..size {
         let entry = generate_string(&mut rng, ENTRY_LENGTH);
         data.push(entry);

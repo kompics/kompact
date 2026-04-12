@@ -1,10 +1,10 @@
 //! Support for routing groups and policies
 
 use crate::{
+    KompactLogger,
     actors::{ActorPath, DynActorRef},
     messaging::NetMessage,
     utils::IterExtras,
-    KompactLogger,
 };
 #[allow(unused_imports)]
 use slog::{crit, debug, error, info, trace, warn};
@@ -245,9 +245,7 @@ impl<H: BuildHasher + Clone + Send + Sync + 'static> RoutingPolicy<DynActorRef, 
         let index = self.get_bucket(&msg, members.len());
         trace!(
             logger,
-            "Routing msg with sender={} to member at index={}",
-            msg.sender,
-            index
+            "Routing msg with sender={} to member at index={}", msg.sender, index
         );
         members[index].tell(msg);
     }

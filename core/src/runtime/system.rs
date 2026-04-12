@@ -1,6 +1,6 @@
 use super::*;
 
-#[cfg(all(nightly, feature = "type_erasure"))]
+#[cfg(feature = "type_erasure")]
 use crate::utils::erased::CreateErased;
 use crate::{
     messaging::{
@@ -211,10 +211,10 @@ impl KompactSystem {
     {
         self.inner.assert_active();
         let c = Arc::new(Component::new(self.clone(), f(), self.supervision_port()));
-        unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
+        {
+            let mut mutable_core = c.mutable_core.lock().unwrap();
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
-            cd.setup(c.clone());
+            mutable_core.definition.setup(c.clone());
             c.core().set_component(cc);
         }
         c
@@ -241,7 +241,7 @@ impl KompactSystem {
     /// let c = system.create_erased(Box::new(TestComponent1::new()));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     #[inline(always)]
     pub fn create_erased<M: MessageBounds>(
         &self,
@@ -262,9 +262,9 @@ impl KompactSystem {
         C: ComponentDefinition + 'static,
     {
         let c = Arc::new(Component::without_supervisor(self.clone(), f()));
-        unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            cd.setup(c.clone());
+        {
+            let mut mutable_core = c.mutable_core.lock().unwrap();
+            mutable_core.definition.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
@@ -299,10 +299,10 @@ impl KompactSystem {
             self.supervision_port(),
             scheduler,
         ));
-        unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
+        {
+            let mut mutable_core = c.mutable_core.lock().unwrap();
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
-            cd.setup(c.clone());
+            mutable_core.definition.setup(c.clone());
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
@@ -341,10 +341,10 @@ impl KompactSystem {
             self.supervision_port(),
             scheduler,
         ));
-        unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
+        {
+            let mut mutable_core = c.mutable_core.lock().unwrap();
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
-            cd.setup(c.clone());
+            mutable_core.definition.setup(c.clone());
             c.core().set_component(cc);
         }
         promise.fulfil(c.clone()).expect("Should accept component");
@@ -371,9 +371,9 @@ impl KompactSystem {
             f(),
             scheduler,
         ));
-        unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            cd.setup(c.clone());
+        {
+            let mut mutable_core = c.mutable_core.lock().unwrap();
+            mutable_core.definition.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
@@ -407,9 +407,9 @@ impl KompactSystem {
             f(),
             scheduler,
         ));
-        unsafe {
-            let cd = &mut c.mutable_core.lock().unwrap().definition;
-            cd.setup(c.clone());
+        {
+            let mut mutable_core = c.mutable_core.lock().unwrap();
+            mutable_core.definition.setup(c.clone());
             let cc: Arc<dyn CoreContainer> = c.clone() as Arc<dyn CoreContainer>;
             c.core().set_component(cc);
         }
@@ -1148,7 +1148,7 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// let c = system.create_erased(Box::new(TestComponent1::new()));
     /// # system.shutdown().expect("shutdown");
     /// ```
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     fn create_erased<M: MessageBounds>(
         &self,
         a: Box<dyn CreateErased<M>>,

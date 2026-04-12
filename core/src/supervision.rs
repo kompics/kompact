@@ -1,9 +1,9 @@
 use super::prelude::*;
 use crate::{
-    component::ContextSystemHandle,
-    utils::{Completable, KPromise},
     ControlEvent,
     KompactLogger,
+    component::ContextSystemHandle,
+    utils::{Completable, KPromise},
 };
 
 use std::{
@@ -279,11 +279,14 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                         if count == 1 {
                             trace!(
                                 self.ctx.log(),
-                                "Component({}) was killed and deallocated.",
-                                id
+                                "Component({}) was killed and deallocated.", id
                             ); // probably^^
                         } else {
-                            debug!(self.ctx.log(), "Component({}) was killed but there are still outstanding references preventing deallocation.", id);
+                            debug!(
+                                self.ctx.log(),
+                                "Component({}) was killed but there are still outstanding references preventing deallocation.",
+                                id
+                            );
                         }
                         self.notify_listeners(&id, |l| matches!(l, ListenEvent::Destroyed(_)));
                         self.drop_listeners(&id);

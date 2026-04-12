@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Bencher, BenchmarkId, Criterion, Throughput};
+use criterion::{Bencher, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::time::{Duration, Instant};
 //use kompact::*;
 use kompact::prelude::*;
@@ -319,8 +319,7 @@ pub mod pppipelinestatic {
         fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
-                "Pinger starting run with {} iterations !",
-                event.num_iterations
+                "Pinger starting run with {} iterations !", event.num_iterations
             );
             self.remaining_send = event.num_iterations;
             self.remaining_recv = event.num_iterations;
@@ -515,8 +514,7 @@ pub mod pppipelineindexed {
         fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
-                "Pinger starting run with {} iterations !",
-                event.num_iterations
+                "Pinger starting run with {} iterations !", event.num_iterations
             );
             self.remaining_send = event.num_iterations;
             self.remaining_recv = event.num_iterations;
@@ -724,8 +722,7 @@ pub mod ppstatic {
         fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
-                "Pinger starting run with {} iterations !",
-                event.num_iterations
+                "Pinger starting run with {} iterations !", event.num_iterations
             );
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);
@@ -928,8 +925,7 @@ pub mod ppstatic {
             fn handle(&mut self, event: Run) -> Handled {
                 trace!(
                     self.ctx.log(),
-                    "Pinger starting run with {} iterations !",
-                    event.num_iterations
+                    "Pinger starting run with {} iterations !", event.num_iterations
                 );
                 self.iters = event.num_iterations;
                 self.done = Some(event.promise);
@@ -1081,8 +1077,7 @@ pub mod ppindexed {
         fn handle(&mut self, event: Run) -> Handled {
             trace!(
                 self.ctx.log(),
-                "Pinger starting run with {} iterations !",
-                event.num_iterations
+                "Pinger starting run with {} iterations !", event.num_iterations
             );
             self.remaining = event.num_iterations;
             self.done = Some(event.promise);

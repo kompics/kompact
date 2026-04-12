@@ -9,7 +9,7 @@ use crate::{
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThreadBuilder},
     prelude::NetworkConfig,
 };
-use crossbeam_channel::{unbounded as channel, RecvError, SendError, Sender};
+use crossbeam_channel::{RecvError, SendError, Sender, unbounded as channel};
 use ipnet::IpNet;
 use mio::{Interest, Waker};
 pub use std::net::SocketAddr;

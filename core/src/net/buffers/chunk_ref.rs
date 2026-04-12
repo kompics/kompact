@@ -83,9 +83,6 @@ impl Buf for ChunkRef {
         self.read_pointer += cnt;
     }
 }
-
-unsafe impl Send for ChunkRef {}
-
 #[cfg(test)]
 mod tests {
     use super::*;

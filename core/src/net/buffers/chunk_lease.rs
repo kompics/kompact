@@ -1,5 +1,5 @@
 use super::*;
-use bytes::{buf::UninitSlice, Bytes};
+use bytes::{Bytes, buf::UninitSlice};
 use std::{cmp::Ordering, ptr::NonNull};
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
@@ -20,7 +20,7 @@ pub struct ChunkLease {
 
 impl ChunkLease {
     /// Creates a new `ChunkLease` from a static byte-slice with already written bytes and a `lock`.
-    pub fn new(content: &'static mut [u8], lock: Arc<()>) -> ChunkLease {
+    pub(crate) fn new(content: &'static mut [u8], lock: Arc<()>) -> ChunkLease {
         let capacity = content.len();
         let write_pointer = content.len();
         ChunkLease {
@@ -36,6 +36,8 @@ impl ChunkLease {
 
     /// Creates an empty ChunkLease
     pub fn empty() -> ChunkLease {
+        // SAFETY: a zero-length slice never dereferences the dangling pointer, which is the
+        // standard representation for empty raw-slice construction.
         unsafe {
             ChunkLease::new(
                 std::slice::from_raw_parts_mut(NonNull::dangling().as_ptr(), 0),
@@ -109,8 +111,11 @@ impl ChunkLease {
             }
             Ordering::Less => {
                 // Split of the data in self and retain self while returning the "tail" of the split
+                // SAFETY: `position < self.chain_head_len`, so both derived slices stay within the
+                // original head allocation and are disjoint. The returned tail lease inherits the
+                // same backing allocation and lock as `self`.
                 unsafe {
-                    let content_ptr = (*self.content).as_mut_ptr();
+                    let content_ptr = self.content.as_mut_ptr();
                     let head_bytes = std::slice::from_raw_parts_mut(content_ptr, position);
                     let tail_ptr = content_ptr.add(position);
                     let tail_bytes =
@@ -155,6 +160,8 @@ impl ChunkLease {
                 panic!("Critical Bug in ChunkLease, bad chain");
             }
         } else {
+            // SAFETY: `pos < self.chain_head_len`, so the pointer arithmetic stays inside the head
+            // slice and the returned `UninitSlice` covers exactly the writable suffix from `pos`.
             unsafe {
                 let offset_ptr = self.content.as_mut_ptr().add(pos);
                 UninitSlice::from_raw_parts_mut(offset_ptr, self.chain_head_len - pos)
@@ -227,6 +234,8 @@ impl Buf for ChunkLease {
 }
 
 // BufMut currently only used for injecting a FrameHead at the front.
+// SAFETY: `ChunkLease` tracks how many bytes have been written via `write_pointer`, and
+// `chunk_mut` only exposes the remaining uninitialised tail beyond that pointer.
 unsafe impl BufMut for ChunkLease {
     fn remaining_mut(&self) -> usize {
         self.chain_len - self.write_pointer
@@ -240,8 +249,6 @@ unsafe impl BufMut for ChunkLease {
         self.get_chunk_mut_at(self.write_pointer)
     }
 }
-
-unsafe impl Send for ChunkLease {}
 
 #[cfg(test)]
 mod tests {

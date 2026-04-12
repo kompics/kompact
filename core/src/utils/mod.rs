@@ -22,7 +22,7 @@ pub use iter_extras::*;
 mod macros;
 #[allow(unused_imports)]
 pub use macros::*;
-#[cfg(all(nightly, feature = "type_erasure"))]
+#[cfg(feature = "type_erasure")]
 pub mod erased;
 
 /// This error type is returned when on [`on_dual_definition`](fn.on_dual_definition.html) fails,
@@ -146,8 +146,14 @@ impl error::Error for PromiseErr {
 impl fmt::Display for PromiseErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PromiseErr::ChannelBroken => write!(f, "The Future corresponding to this Promise was dropped without waiting for completion first."),
-            PromiseErr::AlreadyFulfilled => write!(f, "This Promise has already been fulfilled. Double fulfilling a promise is illegal."),
+            PromiseErr::ChannelBroken => write!(
+                f,
+                "The Future corresponding to this Promise was dropped without waiting for completion first."
+            ),
+            PromiseErr::AlreadyFulfilled => write!(
+                f,
+                "This Promise has already been fulfilled. Double fulfilling a promise is illegal."
+            ),
         }
     }
 }
@@ -179,11 +185,12 @@ impl<T: Send + Sized> Future for KFuture<T> {
     type Output = Result<T, PromiseDropped>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        unsafe {
-            self.map_unchecked_mut(|s| &mut s.result_channel)
-                .poll(cx)
-                .map(|res| res.map_err(|_e| PromiseDropped))
-        }
+        // `oneshot::Receiver<T>` is `Unpin`, so once we have `&mut Receiver<T>` we can safely
+        // repin it with `Pin::new` instead of doing unchecked projection from `self`.
+        let receiver = &mut self.get_mut().result_channel;
+        Pin::new(receiver)
+            .poll(cx)
+            .map(|res| res.map_err(|_e| PromiseDropped))
     }
 }
 
@@ -200,7 +207,7 @@ impl<T> error::Error for WaitErr<T> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             WaitErr::Timeout(_) => None,
-            WaitErr::PromiseDropped(ref p) => Some(p),
+            WaitErr::PromiseDropped(p) => Some(p),
         }
     }
 }
@@ -208,7 +215,7 @@ impl<T> fmt::Debug for WaitErr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WaitErr::Timeout(_) => write!(f, "WaitErr::Timeout(<some future>)"),
-            WaitErr::PromiseDropped(ref p) => fmt::Debug::fmt(p, f),
+            WaitErr::PromiseDropped(p) => fmt::Debug::fmt(p, f),
         }
     }
 }
@@ -216,7 +223,7 @@ impl<T> fmt::Display for WaitErr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WaitErr::Timeout(_) => write!(f, "The timeout expired."),
-            WaitErr::PromiseDropped(ref p) => fmt::Display::fmt(p, f),
+            WaitErr::PromiseDropped(p) => fmt::Display::fmt(p, f),
         }
     }
 }

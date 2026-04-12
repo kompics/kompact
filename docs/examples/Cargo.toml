@@ -2,7 +2,8 @@
 name = "kompact-examples"
 version = "0.11.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
-edition = "2018"
+edition = "2024"
+rust-version = "1.94.1"
 
 [features]
 type_erasure = ["kompact/type_erasure"]
@@ -13,12 +14,11 @@ slog = "2"
 slog-async = "2"
 slog-term = "2"
 serde = { version = "1", features = ["derive"] }
-trust-dns-proto = { version = "0.19", default-features = false }
-async-std-resolver = "0.19"
-dialoguer = "0.10"
+async-std-resolver = "0.24.1"
+dialoguer = "0.12"
 lru = "0.16"
 uuid = { version = "1", features = ["v4", "serde"] }
-rand = { version = "0.8", features = ["small_rng"] }
+rand = "0.10"
 
 [dependencies.kompact]
 path = "../../core/"

@@ -3,7 +3,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 /// A macro to derive empty actor implementations
 ///
@@ -17,12 +17,12 @@ pub fn actor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     // Build the impl
-    let gen = impl_actor(&ast);
+    let generated = impl_actor(&ast);
 
-    //println!("Derived code:\n{}", gen.clone().into_string());
+    //println!("Derived code:\n{}", generated.clone().into_string());
 
     // Return the generated impl
-    gen.into()
+    generated.into()
 }
 
 fn impl_actor(ast: &syn::DeriveInput) -> TokenStream2 {

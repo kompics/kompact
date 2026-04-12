@@ -208,6 +208,7 @@ impl Chunk for DefaultChunk {
 /// All modifications to the Chunk goes through the get_slice method
 pub struct BufferChunk {
     chunk: *mut dyn Chunk,
+    allocator: Arc<dyn ChunkAllocator>,
     ref_count: Arc<()>,
     locked: bool,
 }
@@ -224,29 +225,34 @@ impl Debug for BufferChunk {
 
 impl Drop for BufferChunk {
     fn drop(&mut self) {
-        unsafe {
-            let chunk = Box::from_raw(self.chunk);
-            std::mem::drop(chunk);
-        }
+        // SAFETY: `self.chunk` originated from `self.allocator.get_chunk()` and this `BufferChunk`
+        // owns the allocation uniquely at drop time.
+        unsafe { self.allocator.release(self.chunk) };
     }
 }
 
+// SAFETY: a `BufferChunk` owns a uniquely referenced allocation plus a lock counter. The raw
+// pointer is only dereferenced behind `&self`/`&mut self`, and the underlying chunk memory is not
+// shared mutably across threads without taking ownership of the whole `BufferChunk`.
 unsafe impl Send for BufferChunk {}
 
 impl BufferChunk {
     /// Allocate a new Default BufferChunk
     pub fn new(size: usize) -> Self {
+        let allocator: Arc<dyn ChunkAllocator> = Arc::new(DefaultAllocator { chunk_size: size });
         BufferChunk {
-            chunk: Box::into_raw(Box::new(DefaultChunk::new(size))),
+            chunk: allocator.get_chunk(),
+            allocator,
             ref_count: Arc::new(()),
             locked: false,
         }
     }
 
     /// Creates a BufferChunk using the given Chunk
-    pub fn from_chunk(raw_chunk: *mut dyn Chunk) -> Self {
+    pub fn from_chunk(raw_chunk: *mut dyn Chunk, allocator: Arc<dyn ChunkAllocator>) -> Self {
         BufferChunk {
             chunk: raw_chunk,
+            allocator,
             ref_count: Arc::new(()),
             locked: false,
         }
@@ -254,19 +260,32 @@ impl BufferChunk {
 
     /// Get the length of the BufferChunk
     pub fn len(&self) -> usize {
+        // SAFETY: `self.chunk` is a live chunk owned by this `BufferChunk` for the duration of
+        // `self`.
         unsafe { Chunk::len(&*self.chunk) }
     }
 
     pub fn is_empty(&self) -> bool {
+        // SAFETY: same reasoning as in `len`.
         unsafe { Chunk::is_empty(&*self.chunk) }
     }
 
-    /// Return a pointer to a subslice of the chunk
+    /// Return a subslice of the chunk.
+    ///
+    /// Internally this uses a `'static` lifetime because leases hold the lock that prevents the
+    /// backing chunk from being reused while the slice is alive.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that the returned slice does not outlive the effective lock/ownership
+    /// discipline that keeps the backing chunk from being reused.
     unsafe fn get_slice(&mut self, from: usize, to: usize) -> &'static mut [u8] {
         assert!(from < to && to <= self.len() && !self.locked);
-        let ptr = (*self.chunk).as_mut_ptr();
-        let offset_ptr = ptr.add(from);
-        std::slice::from_raw_parts_mut(offset_ptr, to - from)
+        // SAFETY: the bounds check above guarantees the pointer arithmetic stays within the chunk,
+        // and `&mut self` ensures there is no concurrent mutable access while the slice is created.
+        let ptr = unsafe { (*self.chunk).as_mut_ptr() };
+        let offset_ptr = unsafe { ptr.add(from) };
+        unsafe { std::slice::from_raw_parts_mut(offset_ptr, to - from) }
     }
 
     /// Swaps self with other in-place
@@ -278,7 +297,8 @@ impl BufferChunk {
     /// the returned lease is a consumable Buf.
     pub fn get_lease(&mut self, from: usize, to: usize) -> ChunkLease {
         let lock = self.get_lock();
-        unsafe { ChunkLease::new(self.get_slice(from, to), lock) }
+        // SAFETY: the returned lease keeps the chunk locked for the whole lifetime of the slice.
+        ChunkLease::new(unsafe { self.get_slice(from, to) }, lock)
     }
 
     /// Clones the lock, the BufferChunk will be locked until all given locks are deallocated
@@ -308,14 +328,19 @@ impl BufferChunk {
 
 /// Methods required by a ChunkAllocator
 pub trait ChunkAllocator: Send + Sync + Debug + 'static {
-    /// ChunkAllocators deliver Chunk by raw pointers
+    /// ChunkAllocators deliver Chunk by raw pointers.
+    ///
+    /// The returned chunk memory must be fully initialised for its whole reported length. Kompact's
+    /// framing path may reserve prefix bytes before writing the frame header, and later exposes that
+    /// reserved range as a normal byte slice once the header has been filled in.
     fn get_chunk(&self) -> *mut dyn Chunk;
     /// This method tells the allocator that the [Chunk](Chunk) may be deallocated
     ///
     /// # Safety
     ///
     /// The caller *must* guarantee that the memory pointed to by `ptr`
-    /// has *not* been deallocated, yet!
+    /// has *not* been deallocated, yet, and that it originated from this allocator's
+    /// `get_chunk` implementation.
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> ();
 }
 
@@ -333,7 +358,9 @@ impl ChunkAllocator for DefaultAllocator {
     }
 
     unsafe fn release(&self, ptr: *mut dyn Chunk) -> () {
-        let _ = Box::from_raw(ptr);
+        // SAFETY: `DefaultAllocator::get_chunk` creates the pointer with `Box::into_raw`, so
+        // reconstructing that `Box` here is the correct deallocation path.
+        let _ = unsafe { Box::from_raw(ptr) };
     }
 }
 

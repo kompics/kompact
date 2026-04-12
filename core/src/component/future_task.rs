@@ -2,7 +2,7 @@ use super::*;
 
 use futures::{
     future::BoxFuture,
-    task::{waker_ref, ArcWake},
+    task::{ArcWake, waker, waker_ref},
 };
 use std::{
     fmt,
@@ -162,7 +162,11 @@ where
     type Target = CD;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.raw } // poll will never be called from a context where a reference to CD would not be available
+        // SAFETY: every `ComponentDefinitionAccess` is created from an exclusive borrow of the
+        // component definition just before the future is polled. The guard never outlives the
+        // future poll that created it, and the API documentation forbids storing interior
+        // references across `await` points.
+        unsafe { &*self.raw }
     }
 }
 impl<CD> DerefMut for ComponentDefinitionAccess<CD>
@@ -170,58 +174,35 @@ where
     CD: ComponentDefinition + 'static,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.raw } // poll will never be called from a context where a mutable reference to CD would not be available
+        // SAFETY: see `Deref::deref`; the poll machinery only constructs this guard while holding
+        // the component definition mutably, so the raw pointer can be reborrowed as `&mut CD`.
+        unsafe { &mut *self.raw }
     }
 }
 
-unsafe impl<CD> Send for ComponentDefinitionAccess<CD> where CD: ComponentDefinition + 'static {} // will only be sent WITH the component, which is safe
+// SAFETY: the guard is only ever moved together with the future stored inside its owning
+// component. It must never be sent independently, which is why the type-level contract above
+// forbids extracting it from the polling context.
+unsafe impl<CD> Send for ComponentDefinitionAccess<CD> where CD: ComponentDefinition + 'static {}
 
 mod task_waker {
     use super::*;
-    use std::{
-        mem::ManuallyDrop,
-        task::{RawWaker, RawWakerVTable, Waker},
-    };
 
     pub fn create(id: Uuid, core: Arc<dyn CoreContainer>) -> Waker {
-        let task = TaskWaker { id, core };
-        let raw = Arc::into_raw(Arc::new(task)) as *const ();
-        let vtable = &TaskWaker::VTABLE;
-        unsafe { Waker::from_raw(RawWaker::new(raw, vtable)) }
+        waker(Arc::new(TaskWaker { id, core }))
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug)]
     struct TaskWaker {
         id: Uuid,
         core: Arc<dyn CoreContainer>,
     }
 
-    impl TaskWaker {
-        const VTABLE: RawWakerVTable = RawWakerVTable::new(
-            Self::clone_waker,
-            Self::wake,
-            Self::wake_by_ref,
-            Self::drop_waker,
-        );
-
-        #[allow(undropped_manually_drops)]
-        unsafe fn clone_waker(ptr: *const ()) -> RawWaker {
-            Arc::increment_strong_count(ptr as *const TaskWaker);
-            RawWaker::new(ptr, &Self::VTABLE)
-        }
-
-        unsafe fn wake(ptr: *const ()) {
-            let arc = Arc::from_raw(ptr as *const TaskWaker);
-            arc.core.enqueue_control(ControlEvent::Poll(arc.id));
-        }
-
-        unsafe fn wake_by_ref(ptr: *const ()) {
-            let arc = ManuallyDrop::new(Arc::from_raw(ptr as *const TaskWaker));
-            arc.core.enqueue_control(ControlEvent::Poll(arc.id));
-        }
-
-        unsafe fn drop_waker(ptr: *const ()) {
-            drop(Arc::from_raw(ptr as *const TaskWaker));
+    impl ArcWake for TaskWaker {
+        fn wake_by_ref(arc_self: &Arc<Self>) {
+            arc_self
+                .core
+                .enqueue_control(ControlEvent::Poll(arc_self.id));
         }
     }
 }

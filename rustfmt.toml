@@ -53,4 +53,4 @@ error_on_unformatted = false
 ignore = []
 emit_mode = "Files"
 make_backup = false
-edition = "2018"
+edition = "2024"

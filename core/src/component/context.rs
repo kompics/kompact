@@ -251,7 +251,11 @@ where
                 }
             }
         } else {
-            warn!(self.log(), "Future with tag {} was scheduled but not available. May have been scheduled after completion.", tag);
+            warn!(
+                self.log(),
+                "Future with tag {} was scheduled but not available. May have been scheduled after completion.",
+                tag
+            );
             Handled::Ok
         }
     }

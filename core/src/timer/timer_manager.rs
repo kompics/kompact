@@ -328,10 +328,9 @@ pub(crate) enum TimerHandle<C: ComponentDefinition> {
     },
 }
 
-// This isn't technically true, but I know I'm never actually sending
-// individual Rc instances to different threads. Only the whole component
-// with all its Rc instances crosses threads sometimes.
 #[allow(clippy::non_send_fields_in_send_ty)]
+// SAFETY: a `TimerHandle` is only ever moved together with its owning component during scheduler
+// handoff; the contained `Rc` is never detached and sent independently between threads.
 unsafe impl<C: ComponentDefinition> Send for TimerHandle<C> {}
 
 #[derive(Clone)]
@@ -363,7 +362,8 @@ impl TimerActorRef {
                 Ok(())
             }
             (q, c) => {
-                eprintln!("Dropping timeout as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
+                eprintln!(
+                    "Dropping timeout as target (queue? {:?}, component? {:?}) is unavailable: {:?}",
                     q.is_some(),
                     c.is_some(),
                     timeout

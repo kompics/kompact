@@ -54,7 +54,7 @@
 //!     - See [executors crate](https://docs.rs/executors/0.8.0/executors/crossbeam_workstealing_pool/struct.ThreadPool.html?search=#method.with_affinity) for more details.
 //! - `serde_support` (default)
 //!     - Build with support for [Serde](https://github.com/serde-rs/serde) serialisers.
-//! - `type_erasure` (nightly-only)
+//! - `type_erasure`
 //!     - Build with an experimental API for `dyn` type-erased components.
 //! - `use_local_executor` (default)
 //!     - Use thread-local executors to avoid cloning the handle to the system scheduler for every component scheduling.
@@ -69,10 +69,9 @@
 #![allow(clippy::match_ref_pats)]
 #![allow(clippy::new_without_default)]
 #![cfg_attr(nightly, feature(never_type))]
-#![cfg_attr(nightly, feature(unsized_fn_params))] // requires nightly > 2020-10-29
 
 #[cfg(feature = "thread_pinning")]
-pub use core_affinity::{get_core_ids, CoreId};
+pub use core_affinity::{CoreId, get_core_ids};
 
 #[cfg(feature = "protobuf")]
 pub use self::serialisation::protobuf_serialisers;
@@ -95,7 +94,7 @@ pub use executors;
 use kompact_actor_derive::*;
 use kompact_component_derive::*;
 #[allow(unused_imports)]
-use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
+use slog::{Drain, Fuse, Logger, crit, debug, error, info, o, trace, warn};
 use slog_async::Async;
 use std::convert::{From, Into};
 
@@ -164,7 +163,7 @@ pub mod config_keys {
 
 /// To get all kompact related things into scope import as `use kompact::prelude::*`.
 pub mod prelude {
-    pub use slog::{crit, debug, error, info, o, trace, warn, Drain, Fuse, Logger};
+    pub use slog::{Drain, Fuse, Logger, crit, debug, error, info, o, trace, warn};
 
     pub use bytes::{Buf, BufMut};
     pub use std::{
@@ -186,6 +185,7 @@ pub mod prelude {
     };
 
     pub use crate::{
+        Never,
         actors::{
             Actor,
             ActorPath,
@@ -234,8 +234,8 @@ pub mod prelude {
             RequireRef,
         },
         net::{
-            buffers::{BufferConfig, ChunkLease, ChunkRef},
             SessionId,
+            buffers::{BufferConfig, ChunkLease, ChunkRef},
         },
         ports::{
             Channel,
@@ -252,7 +252,6 @@ pub mod prelude {
         },
         runtime::{KompactConfig, KompactSystem, SystemHandle},
         supervision::{FaultContext, RecoveryHandler},
-        Never,
     };
 
     pub use crate::{
@@ -280,12 +279,6 @@ pub mod prelude {
     pub use crate::{
         serialisation::*,
         utils::{
-            biconnect_components,
-            biconnect_ports,
-            block_on,
-            block_until,
-            on_dual_definition,
-            promise,
             Ask,
             Completable,
             Fulfillable,
@@ -296,12 +289,18 @@ pub mod prelude {
             KPromise,
             PromiseErr,
             TryDualLockError,
+            biconnect_components,
+            biconnect_ports,
+            block_on,
+            block_until,
+            on_dual_definition,
+            promise,
         },
     };
 
     pub use crate::routing::groups::StorePolicy;
 
-    #[cfg(all(nightly, feature = "type_erasure"))]
+    #[cfg(feature = "type_erasure")]
     pub use crate::utils::erased::CreateErased;
 }
 
@@ -448,13 +447,16 @@ mod test_helpers {
 
 #[cfg(test)]
 mod tests {
-    use super::test_helpers::*;
-    use std::sync::Mutex;
-
-    use super::prelude::*;
-    use std::{fs::File, io::Write, ops::Deref, sync::Arc, thread, time, time::Duration};
-
-    use once_cell::sync::Lazy;
+    use super::{prelude::*, test_helpers::*};
+    use std::{
+        fs::File,
+        io::Write,
+        ops::Deref,
+        sync::{Arc, Mutex},
+        thread,
+        time,
+        time::Duration,
+    };
 
     struct TestPort;
 
@@ -1065,8 +1067,7 @@ mod tests {
         last_string: &'static str,
     }
 
-    static RECOVERER_CURRENT_REF: Lazy<Mutex<Option<ActorRef<StringMsg>>>> =
-        Lazy::new(|| Mutex::new(None));
+    static RECOVERER_CURRENT_REF: Mutex<Option<ActorRef<StringMsg>>> = Mutex::new(None);
 
     impl RecovererComponent {
         fn set_current_ref(aref: ActorRef<<Self as Actor>::Message>) -> () {

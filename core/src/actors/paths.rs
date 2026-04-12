@@ -512,8 +512,8 @@ impl ActorPath {
 
     fn system_mut(&mut self) -> &mut SystemPath {
         match self {
-            ActorPath::Unique(ref mut up) => up.system_mut(),
-            ActorPath::Named(ref mut np) => np.system_mut(),
+            ActorPath::Unique(up) => up.system_mut(),
+            ActorPath::Named(np) => np.system_mut(),
         }
     }
 
@@ -966,10 +966,10 @@ pub(crate) fn validate_lookup_path_segment(
         match c {
             PATH_SEP => return Err(PathParseError::IllegalCharacter(PATH_SEP)),
             BROADCAST_MARKER if !is_last && len == 1 => {
-                return Err(PathParseError::IllegalCharacter(BROADCAST_MARKER))
+                return Err(PathParseError::IllegalCharacter(BROADCAST_MARKER));
             }
             SELECT_MARKER if !is_last && len == 1 => {
-                return Err(PathParseError::IllegalCharacter(SELECT_MARKER))
+                return Err(PathParseError::IllegalCharacter(SELECT_MARKER));
             }
             UNIQUE_PATH_SEP => return Err(PathParseError::IllegalCharacter(UNIQUE_PATH_SEP)),
             _ => (), // ok

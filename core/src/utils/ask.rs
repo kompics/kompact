@@ -86,8 +86,8 @@ where
     ///     type Message = Ask<usize, usize>;
     ///
     ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
-    ///         Handled::block_on(self, move |async_self| async move {
-    ///             msg.complete_with(move |num| async move {
+    ///         Handled::block_on(self, async move |async_self| {
+    ///             msg.complete_with(async move |num| {
     ///                 num + 1 // produce response
     ///             })
     ///             .await
@@ -202,8 +202,8 @@ mod tests {
 
         fn receive_local(&mut self, msg: Self::Message) -> Handled {
             match self.mode {
-                AsyncMode::Blocking => Handled::block_on(self, move |async_self| async move {
-                    msg.complete_with(move |num| async move {
+                AsyncMode::Blocking => Handled::block_on(self, async move |async_self| {
+                    msg.complete_with(async move |num| {
                         async_self.proxee.ask(num).await.expect("result");
                     })
                     .await
@@ -212,7 +212,7 @@ mod tests {
                 AsyncMode::SpawnOff => {
                     let proxee = self.proxee.clone();
                     let handle = self.spawn_off(async move {
-                        msg.complete_with(move |num| async move {
+                        msg.complete_with(async move |num| {
                             proxee.ask(num).await.expect("result");
                         })
                         .await
@@ -222,10 +222,10 @@ mod tests {
                     Handled::Ok
                 }
                 AsyncMode::SpawnLocal => {
-                    self.spawn_local(move |async_self| async move {
+                    self.spawn_local(async move |async_self| {
                         let proxee = async_self.proxee.clone();
                         let res = msg
-                            .complete_with(move |num| async move {
+                            .complete_with(async move |num| {
                                 proxee.ask(num).await.expect("result");
                             })
                             .await;

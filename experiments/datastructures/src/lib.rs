@@ -88,31 +88,25 @@ impl<V> RadixTree<V> {
     }
 
     fn empty_children() -> RadixTree<V> {
-        let mut children: Vec<MaybeTree<V>> = Vec::with_capacity(256);
-        for _ in 0..256 {
-            children.push(MaybeTree::Empty);
+        RadixTree::Node {
+            children: Box::new(std::array::from_fn(|_| MaybeTree::Empty)),
         }
-        debug_assert_eq!(256, children.len());
-        let boxed = children.into_boxed_slice();
-        let fixed = unsafe { Box::from_raw(Box::into_raw(boxed) as *mut [MaybeTree<V>; 256]) };
-        RadixTree::Node { children: fixed }
     }
 
     fn get(&self, key: &[u8]) -> Option<&V> {
         match self {
-            RadixTree::Value {
-                ref key_suffix,
-                ref value,
-            } => {
+            RadixTree::Value { key_suffix, value } => {
                 if key == key_suffix.as_ref() {
                     Some(value)
                 } else {
                     None
                 }
             }
-            RadixTree::Node { ref children } => match key.first() {
+            RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
+                    // SAFETY: `key_pos` is a `u8`, so the computed index is always within
+                    // `0..256` for the fixed-size children array.
                     unsafe { children.get_unchecked(pos).get(&key[1..]) }
                 }
                 None => None,
@@ -125,8 +119,8 @@ impl<V> RadixTree<V> {
         let mut must_grow_pos: Option<usize> = None;
         match self {
             RadixTree::Value {
-                ref mut key_suffix,
-                value: ref mut current_value,
+                key_suffix,
+                value: current_value,
             } => {
                 if key == key_suffix.as_ref() {
                     let mut temp_value = value;
@@ -145,9 +139,11 @@ impl<V> RadixTree<V> {
                     }
                 }
             }
-            RadixTree::Node { ref mut children } => match key.first() {
+            RadixTree::Node { children } => match key.first() {
                 Some(key_pos) => {
                     let pos = (*key_pos) as usize;
+                    // SAFETY: `key_pos` is a `u8`, so the computed index is always within
+                    // `0..256` for the fixed-size children array.
                     unsafe {
                         children.get_unchecked_mut(pos).insert(&key[1..], value);
                     }
@@ -170,21 +166,21 @@ impl<V> RadixTree<V> {
                         unimplemented!("Key already ended.");
                     }
                 };
-                if let RadixTree::Node { ref mut children } = self {
+                if let RadixTree::Node { children } = self {
                     if new_pos == pos {
                         node.insert(&key[1..], value);
                     } else {
                         let new_node = RadixTree::value(&key[1..], value);
                         let new_tree = MaybeTree::from_tree(new_node);
+                        // SAFETY: `new_pos` comes from a `u8`, so it is always a valid child slot.
                         unsafe {
-                            let target = children.get_unchecked_mut(new_pos);
-                            *target = new_tree;
+                            *children.get_unchecked_mut(new_pos) = new_tree;
                         }
                     }
                     let node_tree = MaybeTree::from_tree(node);
+                    // SAFETY: `pos` was derived from a `u8`, so it is always a valid child slot.
                     unsafe {
-                        let target = children.get_unchecked_mut(pos);
-                        *target = node_tree;
+                        *children.get_unchecked_mut(pos) = node_tree;
                     }
                 } else {
                     //#[cfg(debug_assertions)]

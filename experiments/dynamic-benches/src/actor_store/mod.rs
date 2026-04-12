@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kompact::{
     lookup::{ActorLookup, ActorStore},
     prelude::*,
@@ -109,10 +109,10 @@ fn load_data(data_size: usize) -> DataSet {
     let actors: Vec<Arc<Component<NopActor>>> = (0..num_actors)
         .map(|_| system.create(NopActor::default))
         .collect();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut paths: Vec<(PathResolvable, DynActorRef)> = Vec::with_capacity(data_size);
     for i in 0..data_size {
-        let path_len = rng.gen_range(1, MAX_DEPTH);
+        let path_len = rng.random_range(1..MAX_DEPTH);
         let path: Vec<String> = (1..=path_len)
             .map(|depth| {
                 let level_width = 1.max(data_size / (depth * 2));
@@ -134,7 +134,8 @@ fn load_data(data_size: usize) -> DataSet {
 
 mod tests {
     use super::*;
-    use criterion::{black_box, BatchSize, Bencher};
+    use criterion::{BatchSize, Bencher};
+    use std::hint::black_box;
 
     pub fn bench_insert<L, F>(b: &mut Bencher, get_store: F, store_size: usize)
     where
@@ -169,7 +170,7 @@ mod tests {
             .paths
             .iter()
             .map(|(path, _)| {
-                if let PathResolvable::Segments(ref segments) = path {
+                if let PathResolvable::Segments(segments) = path {
                     segments.as_slice()
                 } else {
                     unreachable!("We only put in segments!")
@@ -199,9 +200,9 @@ mod tests {
         let actors: Vec<Arc<Component<NopActor>>> = (0..num_actors)
             .map(|_| system.create(NopActor::default))
             .collect();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for i in 0..store_size {
-            let path_len = rng.gen_range(1, MAX_DEPTH);
+            let path_len = rng.random_range(1..MAX_DEPTH);
             let mut path: Vec<String> = (1..=path_len)
                 .map(|depth| {
                     let level_width = 1.max(store_size / (depth * 2));
