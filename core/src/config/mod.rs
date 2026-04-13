@@ -199,7 +199,7 @@ impl ConfigValue {
             ConfigValueInner::Integer(v) => toml::Value::Integer(*v),
             ConfigValueInner::Real(v) => toml::Value::Float(*v),
             ConfigValueInner::Boolean(v) => toml::Value::Boolean(*v),
-            ConfigValueInner::DateTime(v) => toml::Value::Datetime(v.clone()),
+            ConfigValueInner::DateTime(v) => toml::Value::Datetime(*v),
             ConfigValueInner::Array(values) => {
                 toml::Value::Array(values.iter().map(ConfigValue::to_toml_value).collect())
             }
