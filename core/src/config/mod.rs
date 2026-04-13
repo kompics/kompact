@@ -49,31 +49,47 @@ impl Config {
     }
 
     /// Select a single top-level key from the configuration.
-    pub fn get<'a>(&'a self, key: &str) -> ConfigLookup<'a> {
+    pub fn get<'a, 'p>(&'a self, key: &'p str) -> ConfigLookup<'a, 'p> {
         match self.root.get(key) {
-            Some(value) => ConfigLookup::from_value(key.to_string(), value),
-            None => ConfigLookup::error(ConfigPathError::missing_key(key)),
+            Some(value) => ConfigLookup::from_full_path(key, value),
+            None => ConfigLookup::error_path(key, LookupErrorKind::MissingKey),
         }
     }
 
     /// Select a dotted path from the configuration.
-    pub fn select<'a>(&'a self, path: &str) -> ConfigLookup<'a> {
+    pub fn select<'a, 'p>(&'a self, path: &'p str) -> ConfigLookup<'a, 'p> {
         let mut segments = path.split(PATH_SEP);
         let Some(first) = segments.next() else {
-            return ConfigLookup::error(ConfigPathError::invalid_path(path));
+            return ConfigLookup::error_path(path, LookupErrorKind::InvalidPath);
         };
         if first.is_empty() {
-            return ConfigLookup::error(ConfigPathError::invalid_path(path));
+            return ConfigLookup::error_path(path, LookupErrorKind::InvalidPath);
         }
 
-        let mut lookup = self.get(first);
+        let Some(mut value) = self.root.get(first) else {
+            return ConfigLookup::error_path(path, LookupErrorKind::MissingKey);
+        };
         for segment in segments {
             if segment.is_empty() {
-                return ConfigLookup::error(ConfigPathError::invalid_path(path));
+                return ConfigLookup::error_path(path, LookupErrorKind::InvalidPath);
             }
-            lookup = lookup.get(segment);
+            value = match &value.inner {
+                ConfigValueInner::Table(values) => match values.get(segment) {
+                    Some(value) => value,
+                    None => return ConfigLookup::error_path(path, LookupErrorKind::MissingKey),
+                },
+                _ => {
+                    return ConfigLookup::error_path(
+                        path,
+                        LookupErrorKind::InvalidKeyAccess {
+                            key: segment,
+                            value_type: value.value_type_name(),
+                        },
+                    );
+                }
+            };
         }
-        lookup
+        ConfigLookup::from_full_path(path, value)
     }
 
     /// Read a typed config entry from this config.
@@ -297,34 +313,6 @@ impl ConfigValue {
             (current, next) => *current = next,
         }
     }
-
-    fn lookup_key<'a>(&'a self, path: &str, key: &str) -> ConfigLookup<'a> {
-        let next_path = format_key_path(path, key);
-        match &self.inner {
-            ConfigValueInner::Table(values) => match values.get(key) {
-                Some(value) => ConfigLookup::from_value(next_path, value),
-                None => ConfigLookup::error(ConfigPathError::missing_key(next_path)),
-            },
-            _ => ConfigLookup::error(ConfigPathError::invalid_key_access(
-                next_path,
-                self.value_type_name(),
-            )),
-        }
-    }
-
-    fn lookup_index<'a>(&'a self, path: &str, index: usize) -> ConfigLookup<'a> {
-        let next_path = format_index_path(path, index);
-        match &self.inner {
-            ConfigValueInner::Array(values) => match values.get(index) {
-                Some(value) => ConfigLookup::from_value(next_path, value),
-                None => ConfigLookup::error(ConfigPathError::missing_index(next_path)),
-            },
-            _ => ConfigLookup::error(ConfigPathError::invalid_index_access(
-                next_path,
-                self.value_type_name(),
-            )),
-        }
-    }
 }
 
 impl Index<&str> for ConfigValue {
@@ -365,50 +353,243 @@ impl Index<usize> for ConfigValue {
     }
 }
 
-/// A fallible config path lookup that carries the traversed path for later conversions.
-#[derive(Debug, Clone)]
-pub enum ConfigLookup<'a> {
-    /// A successful lookup.
-    Value {
-        /// The full config path traversed to reach this value.
-        path: String,
-        /// The selected config value.
-        value: &'a ConfigValue,
-    },
-    /// A failed lookup.
-    Error(ConfigPathError),
+#[derive(Debug, Clone, Copy)]
+enum PathSegment<'p> {
+    Key(&'p str),
+    Index(usize),
 }
 
-impl<'a> ConfigLookup<'a> {
-    fn from_value(path: String, value: &'a ConfigValue) -> Self {
-        ConfigLookup::Value { path, value }
+impl PathSegment<'_> {
+    fn write_to(self, out: &mut String) {
+        match self {
+            PathSegment::Key(key) => {
+                if !out.is_empty() {
+                    out.push(PATH_SEP);
+                }
+                out.push_str(key);
+            }
+            PathSegment::Index(index) => {
+                use std::fmt::Write as _;
+
+                let _ = write!(out, "[{}]", index);
+            }
+        }
+    }
+}
+
+trait LookupPath {
+    fn write_path(&self, out: &mut String);
+}
+
+#[derive(Clone, Copy)]
+enum LookupPathSource<'p> {
+    FullPath(&'p str),
+    Child {
+        parent: &'p dyn LookupPath,
+        segment: PathSegment<'p>,
+    },
+}
+
+impl LookupPathSource<'_> {
+    fn write_path(self, out: &mut String) {
+        match self {
+            LookupPathSource::FullPath(path) => out.push_str(path),
+            LookupPathSource::Child { parent, segment } => {
+                parent.write_path(out);
+                segment.write_to(out);
+            }
+        }
+    }
+}
+
+impl fmt::Debug for LookupPathSource<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut path = String::new();
+        self.write_path(&mut path);
+        f.debug_tuple("LookupPathSource").field(&path).finish()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LookupErrorKind<'p> {
+    InvalidPath,
+    MissingKey,
+    MissingIndex,
+    InvalidKeyAccess {
+        key: &'p str,
+        value_type: &'static str,
+    },
+    InvalidIndexAccess {
+        index: usize,
+        value_type: &'static str,
+    },
+}
+
+/// A fallible config path lookup that carries the traversed path for later conversions.
+#[derive(Debug, Clone, Copy)]
+pub struct ConfigLookup<'a, 'p> {
+    inner: ConfigLookupInner<'a, 'p>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ConfigLookupInner<'a, 'p> {
+    Value {
+        value: &'a ConfigValue,
+        path: LookupPathSource<'p>,
+    },
+    Error {
+        kind: LookupErrorKind<'p>,
+        path: LookupPathSource<'p>,
+    },
+}
+
+impl LookupPath for ConfigLookup<'_, '_> {
+    fn write_path(&self, out: &mut String) {
+        match self.inner {
+            ConfigLookupInner::Value { path, .. } | ConfigLookupInner::Error { path, .. } => {
+                path.write_path(out)
+            }
+        }
+    }
+}
+
+impl<'a, 'p> ConfigLookup<'a, 'p> {
+    fn from_full_path(path: &'p str, value: &'a ConfigValue) -> Self {
+        ConfigLookup {
+            inner: ConfigLookupInner::Value {
+                value,
+                path: LookupPathSource::FullPath(path),
+            },
+        }
     }
 
-    fn error(error: ConfigPathError) -> Self {
-        ConfigLookup::Error(error)
+    fn error_path(path: &'p str, kind: LookupErrorKind<'p>) -> Self {
+        ConfigLookup {
+            inner: ConfigLookupInner::Error {
+                kind,
+                path: LookupPathSource::FullPath(path),
+            },
+        }
+    }
+
+    fn path_string(&self) -> String {
+        let mut path = String::new();
+        self.write_path(&mut path);
+        path
+    }
+
+    fn to_path_error(self) -> ConfigPathError {
+        let path = self.path_string();
+        match self.inner {
+            ConfigLookupInner::Value { .. } => {
+                unreachable!("value lookups do not produce path errors")
+            }
+            ConfigLookupInner::Error {
+                kind: LookupErrorKind::InvalidPath,
+                ..
+            } => ConfigPathError::InvalidPath { path },
+            ConfigLookupInner::Error {
+                kind: LookupErrorKind::MissingKey,
+                ..
+            } => ConfigPathError::MissingKey { path },
+            ConfigLookupInner::Error {
+                kind: LookupErrorKind::MissingIndex,
+                ..
+            } => ConfigPathError::MissingIndex { path },
+            ConfigLookupInner::Error {
+                kind: LookupErrorKind::InvalidKeyAccess { key, value_type },
+                ..
+            } => ConfigPathError::InvalidKeyAccess {
+                path,
+                key: key.to_string(),
+                value_type,
+            },
+            ConfigLookupInner::Error {
+                kind: LookupErrorKind::InvalidIndexAccess { index, value_type },
+                ..
+            } => ConfigPathError::InvalidIndexAccess {
+                path,
+                index,
+                value_type,
+            },
+        }
     }
 
     /// Select a child key from the current lookup value.
-    pub fn get(self, key: &str) -> Self {
-        match self {
-            ConfigLookup::Value { path, value } => value.lookup_key(&path, key),
-            ConfigLookup::Error(error) => ConfigLookup::Error(error.with_key_fragment(key)),
+    pub fn get<'next>(&'next self, key: &'next str) -> ConfigLookup<'a, 'next> {
+        let path = LookupPathSource::Child {
+            parent: self,
+            segment: PathSegment::Key(key),
+        };
+        match self.inner {
+            ConfigLookupInner::Value { value, .. } => match &value.inner {
+                ConfigValueInner::Table(values) => match values.get(key) {
+                    Some(value) => ConfigLookup {
+                        inner: ConfigLookupInner::Value { value, path },
+                    },
+                    None => ConfigLookup {
+                        inner: ConfigLookupInner::Error {
+                            kind: LookupErrorKind::MissingKey,
+                            path,
+                        },
+                    },
+                },
+                _ => ConfigLookup {
+                    inner: ConfigLookupInner::Error {
+                        kind: LookupErrorKind::InvalidKeyAccess {
+                            key,
+                            value_type: value.value_type_name(),
+                        },
+                        path,
+                    },
+                },
+            },
+            ConfigLookupInner::Error { kind, .. } => ConfigLookup {
+                inner: ConfigLookupInner::Error { kind, path },
+            },
         }
     }
 
     /// Select a child index from the current lookup value.
-    pub fn get_index(self, index: usize) -> Self {
-        match self {
-            ConfigLookup::Value { path, value } => value.lookup_index(&path, index),
-            ConfigLookup::Error(error) => ConfigLookup::Error(error.with_index_fragment(index)),
+    pub fn get_index<'next>(&'next self, index: usize) -> ConfigLookup<'a, 'next> {
+        let path = LookupPathSource::Child {
+            parent: self,
+            segment: PathSegment::Index(index),
+        };
+        match self.inner {
+            ConfigLookupInner::Value { value, .. } => match &value.inner {
+                ConfigValueInner::Array(values) => match values.get(index) {
+                    Some(value) => ConfigLookup {
+                        inner: ConfigLookupInner::Value { value, path },
+                    },
+                    None => ConfigLookup {
+                        inner: ConfigLookupInner::Error {
+                            kind: LookupErrorKind::MissingIndex,
+                            path,
+                        },
+                    },
+                },
+                _ => ConfigLookup {
+                    inner: ConfigLookupInner::Error {
+                        kind: LookupErrorKind::InvalidIndexAccess {
+                            index,
+                            value_type: value.value_type_name(),
+                        },
+                        path,
+                    },
+                },
+            },
+            ConfigLookupInner::Error { kind, .. } => ConfigLookup {
+                inner: ConfigLookupInner::Error { kind, path },
+            },
         }
     }
 
     /// Return the underlying value or the captured path error.
     pub fn value(&self) -> Result<&'a ConfigValue, ConfigError> {
-        match self {
-            ConfigLookup::Value { value, .. } => Ok(*value),
-            ConfigLookup::Error(error) => Err(ConfigError::PathError(error.clone())),
+        match self.inner {
+            ConfigLookupInner::Value { value, .. } => Ok(value),
+            ConfigLookupInner::Error { .. } => Err(ConfigError::PathError((*self).to_path_error())),
         }
     }
 
@@ -461,9 +642,11 @@ impl<'a> ConfigLookup<'a> {
     }
 
     fn expected<T>(&self, value: &ConfigValue) -> ConfigError {
-        match self {
-            ConfigLookup::Value { path, .. } => ConfigError::expected_at::<T>(path, value),
-            ConfigLookup::Error(error) => ConfigError::PathError(error.clone()),
+        match self.inner {
+            ConfigLookupInner::Value { .. } => {
+                ConfigError::expected_at::<T>(&self.path_string(), value)
+            }
+            ConfigLookupInner::Error { .. } => ConfigError::PathError((*self).to_path_error()),
         }
     }
 }
@@ -507,113 +690,6 @@ pub enum ConfigPathError {
 }
 
 impl ConfigPathError {
-    fn invalid_path(path: &str) -> Self {
-        ConfigPathError::InvalidPath {
-            path: path.to_string(),
-        }
-    }
-
-    fn missing_key(path: impl Into<String>) -> Self {
-        ConfigPathError::MissingKey { path: path.into() }
-    }
-
-    fn missing_index(path: impl Into<String>) -> Self {
-        ConfigPathError::MissingIndex { path: path.into() }
-    }
-
-    fn invalid_key_access(path: impl Into<String>, value_type: &'static str) -> Self {
-        let path = path.into();
-        let key = path
-            .rsplit(PATH_SEP)
-            .next()
-            .expect("config path should contain a key fragment")
-            .to_string();
-        ConfigPathError::InvalidKeyAccess {
-            path,
-            key,
-            value_type,
-        }
-    }
-
-    fn invalid_index_access(path: impl Into<String>, value_type: &'static str) -> Self {
-        let path = path.into();
-        let index = path
-            .rsplit('[')
-            .next()
-            .and_then(|fragment| fragment.strip_suffix(']'))
-            .and_then(|fragment| fragment.parse::<usize>().ok())
-            .expect("config path should contain an index fragment");
-        ConfigPathError::InvalidIndexAccess {
-            path,
-            index,
-            value_type,
-        }
-    }
-
-    fn with_key_fragment(self, key: &str) -> Self {
-        match self {
-            ConfigPathError::InvalidPath { path } => ConfigPathError::InvalidPath {
-                path: format_key_path(&path, key),
-            },
-            ConfigPathError::MissingKey { path } => ConfigPathError::MissingKey {
-                path: format_key_path(&path, key),
-            },
-            ConfigPathError::MissingIndex { path } => ConfigPathError::MissingIndex {
-                path: format_key_path(&path, key),
-            },
-            ConfigPathError::InvalidKeyAccess {
-                path,
-                key: failing_key,
-                value_type,
-            } => ConfigPathError::InvalidKeyAccess {
-                path: format_key_path(&path, key),
-                key: failing_key,
-                value_type,
-            },
-            ConfigPathError::InvalidIndexAccess {
-                path,
-                index,
-                value_type,
-            } => ConfigPathError::InvalidIndexAccess {
-                path: format_key_path(&path, key),
-                index,
-                value_type,
-            },
-        }
-    }
-
-    fn with_index_fragment(self, index: usize) -> Self {
-        match self {
-            ConfigPathError::InvalidPath { path } => ConfigPathError::InvalidPath {
-                path: format_index_path(&path, index),
-            },
-            ConfigPathError::MissingKey { path } => ConfigPathError::MissingKey {
-                path: format_index_path(&path, index),
-            },
-            ConfigPathError::MissingIndex { path } => ConfigPathError::MissingIndex {
-                path: format_index_path(&path, index),
-            },
-            ConfigPathError::InvalidKeyAccess {
-                path,
-                key,
-                value_type,
-            } => ConfigPathError::InvalidKeyAccess {
-                path: format_index_path(&path, index),
-                key,
-                value_type,
-            },
-            ConfigPathError::InvalidIndexAccess {
-                path,
-                index: failing_index,
-                value_type,
-            } => ConfigPathError::InvalidIndexAccess {
-                path: format_index_path(&path, index),
-                index: failing_index,
-                value_type,
-            },
-        }
-    }
-
     /// Returns `true` if the error denotes a missing path element.
     pub fn is_missing(&self) -> bool {
         matches!(
@@ -748,22 +824,6 @@ fn insert_segments(current: &mut ConfigTable, segments: &[&str], value: ConfigVa
     insert_segments(values, &segments[1..], value);
 }
 
-fn format_key_path(prefix: &str, key: &str) -> String {
-    if prefix.is_empty() {
-        key.to_string()
-    } else {
-        format!("{}.{}", prefix, key)
-    }
-}
-
-fn format_index_path(prefix: &str, index: usize) -> String {
-    if prefix.is_empty() {
-        format!("[{}]", index)
-    } else {
-        format!("{}[{}]", prefix, index)
-    }
-}
-
 /// A validator for extracted values of `T::Value`
 pub type ValidatorFun<T> = fn(&<T as ConfigValueType>::Value) -> Result<(), String>;
 
@@ -810,7 +870,7 @@ where
     }
 
     /// Select the entry corresponding to this key from the given config.
-    pub fn select<'a>(&self, conf: &'a Config) -> ConfigLookup<'a> {
+    pub fn select<'a>(&self, conf: &'a Config) -> ConfigLookup<'a, 'static> {
         conf.select(self.key)
     }
 

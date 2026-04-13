@@ -42,17 +42,16 @@ impl BufferConfig {
     pub fn from_config(config: &Config) -> Self {
         let mut buffer_config = BufferConfig::default();
         let buffer_section = config.get("buffer_config");
-        if let Ok(chunk_size) = buffer_section.clone().get("chunk_size").as_bytes() {
+        if let Ok(chunk_size) = buffer_section.get("chunk_size").as_bytes() {
             buffer_config.chunk_size = chunk_size
                 .try_into()
                 .expect("Invalid byte number for chunk_size");
         }
-        if let Ok(initial_chunk_count) = buffer_section.clone().get("initial_chunk_count").as_i64()
-        {
+        if let Ok(initial_chunk_count) = buffer_section.get("initial_chunk_count").as_i64() {
             buffer_config.initial_chunk_count =
                 usize::try_from(initial_chunk_count).expect("Invalid initial_chunk_count");
         }
-        if let Ok(max_chunk_count) = buffer_section.clone().get("max_chunk_count").as_i64() {
+        if let Ok(max_chunk_count) = buffer_section.get("max_chunk_count").as_i64() {
             buffer_config.max_chunk_count =
                 usize::try_from(max_chunk_count).expect("Invalid max_chunk_count")
         }
