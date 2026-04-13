@@ -12,7 +12,7 @@ impl ConfigValueType for StringValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::String(value)
+        ConfigValue::string(value)
     }
 }
 
@@ -27,7 +27,7 @@ impl ConfigValueType for IntegerValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::Integer(value)
+        ConfigValue::integer(value)
     }
 }
 
@@ -42,7 +42,7 @@ impl ConfigValueType for RealValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::Real(value)
+        ConfigValue::real(value)
     }
 }
 
@@ -57,7 +57,7 @@ impl ConfigValueType for BooleanValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::Boolean(value)
+        ConfigValue::boolean(value)
     }
 }
 
@@ -72,7 +72,7 @@ impl ConfigValueType for BytesValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::String(format!("{}B", value))
+        ConfigValue::string(format!("{}B", value))
     }
 }
 
@@ -87,7 +87,7 @@ impl ConfigValueType for DurationValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::String(humantime::format_duration(value).to_string())
+        ConfigValue::string(humantime::format_duration(value).to_string())
     }
 }
 
@@ -106,7 +106,7 @@ impl<T: ConfigValueType> ConfigValueType for ArrayOfValues<T> {
     type Value = Vec<T::Value>;
 
     fn from_conf(conf: &ConfigValue) -> Result<Self::Value, ConfigError> {
-        if let ConfigValue::Array(values) = conf {
+        if let ConfigValueInner::Array(values) = &conf.inner {
             values
                 .iter()
                 .try_fold(Vec::with_capacity(values.len()), |mut acc, c| {
@@ -121,7 +121,7 @@ impl<T: ConfigValueType> ConfigValueType for ArrayOfValues<T> {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::Array(value.into_iter().map(T::into_config_value).collect())
+        ConfigValue::array(value.into_iter().map(T::into_config_value).collect())
     }
 }
 

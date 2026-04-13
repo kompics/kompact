@@ -3,7 +3,7 @@ use super::*;
 #[cfg(feature = "type_erasure")]
 use crate::utils::erased::CreateErased;
 use crate::{
-    config::{ConfigValue, insert_config_value, parse_config_file, parse_config_str},
+    config::Config,
     messaging::{
         DispatchEnvelope,
         MsgEnvelope,
@@ -18,7 +18,7 @@ use crate::{
     timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
 use oncemutex::{OnceMutex, OnceMutexGuard};
-use std::{any::TypeId, collections::BTreeMap, fmt, sync::Mutex, time::Instant};
+use std::{any::TypeId, fmt, sync::Mutex, time::Instant};
 
 /// A Kompact system is a collection of components and services
 ///
@@ -54,23 +54,15 @@ use std::{any::TypeId, collections::BTreeMap, fmt, sync::Mutex, time::Instant};
 #[derive(Clone)]
 pub struct KompactSystem {
     inner: Arc<KompactRuntime>,
-    config: Arc<ConfigValue>,
+    config: Arc<Config>,
     scheduler: Box<dyn Scheduler>,
 }
 
 impl KompactSystem {
-    fn load_config(conf: &KompactConfig) -> Result<ConfigValue, KompactError> {
-        let mut config = ConfigValue::Table(BTreeMap::new());
+    fn load_config(conf: &KompactConfig) -> Result<Config, KompactError> {
+        let mut config = Config::new();
         for source in &conf.config_sources {
-            let next = match source {
-                ConfigSource::File(path) => parse_config_file(path)?,
-                ConfigSource::Str(s) => parse_config_str(s)?,
-                ConfigSource::Value { key, value } => {
-                    let mut overlay = ConfigValue::Table(BTreeMap::new());
-                    insert_config_value(&mut overlay, key, value.clone());
-                    overlay
-                }
-            };
+            let next = source.load()?;
             config.merge(next);
         }
         Ok(config)
@@ -150,7 +142,7 @@ impl KompactSystem {
     /// Get a reference to the system configuration
     ///
     /// Use [load_config_str](KompactConfig::load_config_str) or
-    /// or [load_config_file](KompactConfig::load_config_file)
+    /// [load_config_file](KompactConfig::load_config_file)
     /// to load values into the config object.
     ///
     /// # Example
@@ -163,12 +155,12 @@ impl KompactSystem {
     /// let system = conf.build().expect("system");
     /// assert_eq!(Some(7i64), system.config()["a"].as_i64());
     /// ```
-    pub fn config(&self) -> &ConfigValue {
+    pub fn config(&self) -> &Config {
         self.config.as_ref()
     }
 
     /// Get a owned reference to the system configuration
-    pub fn config_owned(&self) -> Arc<ConfigValue> {
+    pub fn config_owned(&self) -> Arc<Config> {
         self.config.clone()
     }
 

@@ -1277,7 +1277,7 @@ mod tests {
     #[test]
     fn test_config_from_file() -> () {
         //let default_values = r#"a = 7"#;
-        let config_file_path = Fixture::blank("application.toml");
+        let config_file_path = Fixture::blank("test_settings.toml");
         let mut config_file = File::create(config_file_path.deref()).expect("config file");
         config_file.write_all(b"a = 7").expect("write config file");
         let mut conf = KompactConfig::default();
@@ -1294,7 +1294,7 @@ mod tests {
     #[test]
     fn test_config_merged() -> () {
         let default_values = r#"a = 5"#;
-        let config_file_path = Fixture::blank("application.toml");
+        let config_file_path = Fixture::blank("test_settings.toml");
         let mut config_file = File::create(config_file_path.deref()).expect("config file");
         config_file.write_all(b"a = 7").expect("write config file");
         let mut conf = KompactConfig::default();

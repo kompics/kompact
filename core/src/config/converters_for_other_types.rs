@@ -14,7 +14,7 @@ impl ConfigValueType for UsizeValue {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::Integer(value.try_into().expect("usize should fit into i64"))
+        ConfigValue::integer(value.try_into().expect("usize should fit into i64"))
     }
 }
 
@@ -30,7 +30,7 @@ impl ConfigValueType for F32Value {
     }
 
     fn into_config_value(value: Self::Value) -> ConfigValue {
-        ConfigValue::Real(value.into())
+        ConfigValue::real(value.into())
     }
 }
 

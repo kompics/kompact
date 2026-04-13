@@ -1,4 +1,4 @@
-use crate::{config::ConfigValue, dispatch::lookup::*};
+use crate::{config::Config, dispatch::lookup::*};
 use arc_swap::ArcSwap;
 
 mod defaults {
@@ -67,9 +67,14 @@ impl ActorRefReaper {
         }
     }
 
-    pub fn from_config(conf: &ConfigValue) -> Self {
+    pub fn from_config(conf: &Config) -> Self {
         // TODO(Adam): Make all parameters configurable
-        let algorithm = match conf[config_keys::ALGORITHM].as_string().as_deref() {
+        let algorithm = match conf
+            .select(config_keys::ALGORITHM)
+            .as_string()
+            .ok()
+            .as_deref()
+        {
             Some("AIMD") => FeedbackAlgorithm::Aimd,
             Some("MIMD") => FeedbackAlgorithm::Mimd,
             Some(s) => panic!(

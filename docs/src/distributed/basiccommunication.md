@@ -54,7 +54,7 @@ There is a bit of state we need to keep track of in our `EventualLeaderElector` 
 {{#rustdoc_include ../../examples/src/bin/leader_election.rs:state}}
 ```
 
-In order to load our configuration values from a file, we need to put something like the following into an `application.toml` file in the current working directory:
+In order to load our configuration values from a file, we need to put something like the following into an `app_settings.toml` file in the current working directory:
 
 ```toml
 [omega]

@@ -4,7 +4,7 @@ Since it is often inconvenient to pass around a large number of parameters when 
 
 Configuration options must be set on the `KompactConfig` instance before the system is started and the resulting configuration remains immutable for the lifetime of the system. A configuration can be loaded from a file by passing a path to the file to the `load_config_file(...)` function. Alternatively, configuration values can be loaded directly from a string using `load_config_str(...)`.
 
-Within each component the configuration instance can be accessed via the context and individual keys via bracket notation, e.g. `self.ctx.config()["my-key"]`. The configuration can also be accessed outside a component via `KompactSystem::config()`.
+Within each component the configuration instance can be accessed via the context and individual keys via bracket notation, e.g. `self.ctx.config()["my-key"]`. This panics on invalid access, just like normal Rust indexing. For fallible path-aware access with detailed errors, use `self.ctx.config().get("my-key")` or `self.ctx.config().select("my-group.my-key")` instead. The configuration can also be accessed outside a component via `KompactSystem::config()`.
 
 In addition to component configuration, many parts of Kompact's runtime can also be configured via this mechanism. The complete set of available configuration keys and their effects is described in the modules below [kompact::config_keys](https://docs.rs/kompact/latest/kompact/config_keys/index.html).
 
@@ -12,13 +12,13 @@ In addition to component configuration, many parts of Kompact's runtime can also
 
 We are going to reuse the `Buncher` from the [timers](timers.md) section and pass its two parameters, `batch_size` and `timeout`, via configuration instead of the constructor.
 
-We'll start off by creating a configuration file `application.toml` in the working directory, so its easy to find later. Something like this:
+We'll start off by creating a configuration file `app_settings.toml` in the working directory, so its easy to find later. Something like this:
 
 ```toml
-{{#rustdoc_include ../../examples/application.toml}}
+{{#rustdoc_include ../../examples/app_settings.toml}}
 ```
 
-We can then add this file to the `KompicsConfig` instance using the `load_config_file(...)` function: 
+We can then add this file to the `KompactConfig` instance using the `load_config_file(...)` function:
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/buncher_config.rs:config_file}}
@@ -42,7 +42,7 @@ And, of course, we must also update the matching `create(...)` call in the main 
 {{#rustdoc_include ../../examples/src/bin/buncher_config.rs:create_buncher}}
 ```
 
-Finally, the actual config access happens in the `on_start`code. At this point the component is properly initialised and we have acceess to configuration values. The Kompact config type has convenient conversion functions, so we can get a `Duration` directly from the `"100 ms"` string in the file, for example. Once we have read the values for `batch_size` and `timeout`, we can also go ahead and reserve the required additional space in the `current_batch` vector.
+Finally, the actual config access happens in the `on_start` code. At this point the component is properly initialised and we have access to configuration values. The Kompact config type has convenient conversion functions, so we can get a `Duration` directly from the `"100 ms"` string in the file, for example. Once we have read the values for `batch_size` and `timeout`, we can also go ahead and reserve the required additional space in the `current_batch` vector.
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/buncher_config.rs:on_start}}

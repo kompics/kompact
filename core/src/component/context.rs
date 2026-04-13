@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::{
-    config::ConfigValue,
+    config::Config,
     net::buffers::{BufferConfig, ChunkAllocator, ChunkRef},
 };
 use std::task::Poll;
@@ -36,7 +36,7 @@ struct ComponentContextInner<CD: ComponentTraits> {
     pub(super) component: Weak<Component<CD>>,
     logger: KompactLogger,
     actor_ref: ActorRef<CD::Message>,
-    config: Arc<ConfigValue>,
+    config: Arc<Config>,
     id: Uuid,
 }
 
@@ -165,7 +165,7 @@ where
     /// system.start(&c);
     /// system.await_termination();
     /// ```
-    pub fn config(&self) -> &ConfigValue {
+    pub fn config(&self) -> &Config {
         self.inner_ref().config.as_ref()
     }
 

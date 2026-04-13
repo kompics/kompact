@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::{
-    config::{ConfigEntry, ConfigError, ConfigValue, ConfigValueExt, ConfigValueType},
+    config::{Config, ConfigEntry, ConfigError, ConfigLoadingError, ConfigValue, ConfigValueType},
     messaging::DispatchEnvelope,
 };
 use executors::*;
@@ -138,6 +138,20 @@ pub(crate) enum ConfigSource {
         key: &'static str,
         value: ConfigValue,
     },
+}
+
+impl ConfigSource {
+    pub(crate) fn load(&self) -> Result<Config, ConfigLoadingError> {
+        match self {
+            ConfigSource::File(path) => crate::config::parse_config_file(path),
+            ConfigSource::Str(config) => crate::config::parse_config_str(config),
+            ConfigSource::Value { key, value } => {
+                let mut config = Config::new();
+                config.insert_value(key, value.clone());
+                Ok(config)
+            }
+        }
+    }
 }
 
 /// A configuration builder for Kompact systems
@@ -541,12 +555,12 @@ impl KompactConfig {
         mmf as usize
     }
 
-    pub(crate) fn override_from_config(&mut self, conf: &ConfigValue) -> Result<(), ConfigError> {
-        self.label = conf.get_or_default(&keys::LABEL)?;
-        self.throughput = conf.get_or_default(&keys::THROUGHPUT)?;
-        self.msg_priority = conf.get_or_default(&keys::MESSAGE_PRIORITY)?;
-        self.threads = conf.get_or_default(&keys::THREADS)?;
-        let scheduler_option = conf.get_or_default(&keys::SCHEDULER)?;
+    pub(crate) fn override_from_config(&mut self, conf: &Config) -> Result<(), ConfigError> {
+        self.label = conf.read_or_default(&keys::LABEL)?;
+        self.throughput = conf.read_or_default(&keys::THROUGHPUT)?;
+        self.msg_priority = conf.read_or_default(&keys::MESSAGE_PRIORITY)?;
+        self.threads = conf.read_or_default(&keys::THREADS)?;
+        let scheduler_option = conf.read_or_default(&keys::SCHEDULER)?;
         match scheduler_option.as_ref() {
             "auto" => {
                 self.scheduler_builder = if self.threads <= 32 {
