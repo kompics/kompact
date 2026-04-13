@@ -392,7 +392,7 @@ impl<'a> ConfigLookup<'a> {
     pub fn get(self, key: &str) -> Self {
         match self {
             ConfigLookup::Value { path, value } => value.lookup_key(&path, key),
-            ConfigLookup::Error(error) => ConfigLookup::Error(error),
+            ConfigLookup::Error(error) => ConfigLookup::Error(error.with_key_fragment(key)),
         }
     }
 
@@ -400,7 +400,7 @@ impl<'a> ConfigLookup<'a> {
     pub fn get_index(self, index: usize) -> Self {
         match self {
             ConfigLookup::Value { path, value } => value.lookup_index(&path, index),
-            ConfigLookup::Error(error) => ConfigLookup::Error(error),
+            ConfigLookup::Error(error) => ConfigLookup::Error(error.with_index_fragment(index)),
         }
     }
 
@@ -490,6 +490,8 @@ pub enum ConfigPathError {
     InvalidKeyAccess {
         /// The full config path that was being traversed.
         path: String,
+        /// The key fragment whose access failed.
+        key: String,
         /// The type of the parent value that rejected the key access.
         value_type: &'static str,
     },
@@ -497,6 +499,8 @@ pub enum ConfigPathError {
     InvalidIndexAccess {
         /// The full config path that was being traversed.
         path: String,
+        /// The index fragment whose access failed.
+        index: usize,
         /// The type of the parent value that rejected the index access.
         value_type: &'static str,
     },
@@ -518,16 +522,95 @@ impl ConfigPathError {
     }
 
     fn invalid_key_access(path: impl Into<String>, value_type: &'static str) -> Self {
+        let path = path.into();
+        let key = path
+            .rsplit(PATH_SEP)
+            .next()
+            .expect("config path should contain a key fragment")
+            .to_string();
         ConfigPathError::InvalidKeyAccess {
-            path: path.into(),
+            path,
+            key,
             value_type,
         }
     }
 
     fn invalid_index_access(path: impl Into<String>, value_type: &'static str) -> Self {
+        let path = path.into();
+        let index = path
+            .rsplit('[')
+            .next()
+            .and_then(|fragment| fragment.strip_suffix(']'))
+            .and_then(|fragment| fragment.parse::<usize>().ok())
+            .expect("config path should contain an index fragment");
         ConfigPathError::InvalidIndexAccess {
-            path: path.into(),
+            path,
+            index,
             value_type,
+        }
+    }
+
+    fn with_key_fragment(self, key: &str) -> Self {
+        match self {
+            ConfigPathError::InvalidPath { path } => ConfigPathError::InvalidPath {
+                path: format_key_path(&path, key),
+            },
+            ConfigPathError::MissingKey { path } => ConfigPathError::MissingKey {
+                path: format_key_path(&path, key),
+            },
+            ConfigPathError::MissingIndex { path } => ConfigPathError::MissingIndex {
+                path: format_key_path(&path, key),
+            },
+            ConfigPathError::InvalidKeyAccess {
+                path,
+                key: failing_key,
+                value_type,
+            } => ConfigPathError::InvalidKeyAccess {
+                path: format_key_path(&path, key),
+                key: failing_key,
+                value_type,
+            },
+            ConfigPathError::InvalidIndexAccess {
+                path,
+                index,
+                value_type,
+            } => ConfigPathError::InvalidIndexAccess {
+                path: format_key_path(&path, key),
+                index,
+                value_type,
+            },
+        }
+    }
+
+    fn with_index_fragment(self, index: usize) -> Self {
+        match self {
+            ConfigPathError::InvalidPath { path } => ConfigPathError::InvalidPath {
+                path: format_index_path(&path, index),
+            },
+            ConfigPathError::MissingKey { path } => ConfigPathError::MissingKey {
+                path: format_index_path(&path, index),
+            },
+            ConfigPathError::MissingIndex { path } => ConfigPathError::MissingIndex {
+                path: format_index_path(&path, index),
+            },
+            ConfigPathError::InvalidKeyAccess {
+                path,
+                key,
+                value_type,
+            } => ConfigPathError::InvalidKeyAccess {
+                path: format_index_path(&path, index),
+                key,
+                value_type,
+            },
+            ConfigPathError::InvalidIndexAccess {
+                path,
+                index: failing_index,
+                value_type,
+            } => ConfigPathError::InvalidIndexAccess {
+                path: format_index_path(&path, index),
+                index: failing_index,
+                value_type,
+            },
         }
     }
 
@@ -548,15 +631,23 @@ impl fmt::Display for ConfigPathError {
             ConfigPathError::MissingIndex { path } => {
                 write!(f, "missing config index at `{}`", path)
             }
-            ConfigPathError::InvalidKeyAccess { path, value_type } => write!(
+            ConfigPathError::InvalidKeyAccess {
+                path,
+                key,
+                value_type,
+            } => write!(
                 f,
-                "cannot access key at `{}` because the parent value is a {}",
-                path, value_type
+                "cannot access key `{}` at `{}` because the parent value is a {}",
+                key, path, value_type
             ),
-            ConfigPathError::InvalidIndexAccess { path, value_type } => write!(
+            ConfigPathError::InvalidIndexAccess {
+                path,
+                index,
+                value_type,
+            } => write!(
                 f,
-                "cannot access index at `{}` because the parent value is a {}",
-                path, value_type
+                "cannot access index [{}] at `{}` because the parent value is a {}",
+                index, path, value_type
             ),
         }
     }
@@ -571,18 +662,6 @@ pub enum ConfigLoadingError {
     Io(std::io::Error),
     /// Parsing TOML failed.
     Parse(toml::de::Error),
-}
-
-impl PartialEq for ConfigLoadingError {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (ConfigLoadingError::Io(lhs), ConfigLoadingError::Io(rhs)) => lhs.kind() == rhs.kind(),
-            (ConfigLoadingError::Parse(lhs), ConfigLoadingError::Parse(rhs)) => {
-                lhs.to_string() == rhs.to_string()
-            }
-            _ => false,
-        }
-    }
 }
 
 impl fmt::Display for ConfigLoadingError {
@@ -1056,6 +1135,26 @@ mod tests {
         assert_eq!(
             Err(ConfigError::PathError(ConfigPathError::InvalidKeyAccess {
                 path: "kompact.my-test-key.inner".to_string(),
+                key: "inner".to_string(),
+                value_type: "string"
+            })),
+            res
+        );
+    }
+
+    #[test]
+    fn lookup_propagates_additional_key_fragments_after_failure() {
+        let conf = parse_config_str(EXAMPLE_CONFIG).expect("config");
+        let res = conf
+            .get("kompact")
+            .get("my-test-key")
+            .get("inner")
+            .get("leaf")
+            .as_string();
+        assert_eq!(
+            Err(ConfigError::PathError(ConfigPathError::InvalidKeyAccess {
+                path: "kompact.my-test-key.inner.leaf".to_string(),
+                key: "inner".to_string(),
                 value_type: "string"
             })),
             res

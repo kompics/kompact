@@ -94,9 +94,14 @@ impl PartialEq for KompactError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (KompactError::Poisoned, KompactError::Poisoned) => true,
-            (KompactError::ConfigLoadingError(she), KompactError::ConfigLoadingError(ohe)) => {
-                she == ohe
-            }
+            (
+                KompactError::ConfigLoadingError(ConfigLoadingError::Io(lhs)),
+                KompactError::ConfigLoadingError(ConfigLoadingError::Io(rhs)),
+            ) => lhs.kind() == rhs.kind(),
+            (
+                KompactError::ConfigLoadingError(ConfigLoadingError::Parse(lhs)),
+                KompactError::ConfigLoadingError(ConfigLoadingError::Parse(rhs)),
+            ) => lhs.to_string() == rhs.to_string(),
             (KompactError::ConfigError(se), KompactError::ConfigError(oe)) => se == oe,
             _ => false,
         }

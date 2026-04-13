@@ -41,24 +41,22 @@ impl BufferConfig {
     /// if it fails to read from the config.
     pub fn from_config(config: &Config) -> Self {
         let mut buffer_config = BufferConfig::default();
-        if let Ok(chunk_size) = config.select("buffer_config.chunk_size").as_bytes() {
+        let buffer_section = config.get("buffer_config");
+        if let Ok(chunk_size) = buffer_section.clone().get("chunk_size").as_bytes() {
             buffer_config.chunk_size = chunk_size
                 .try_into()
                 .expect("Invalid byte number for chunk_size");
         }
-        if let Ok(initial_chunk_count) = config.select("buffer_config.initial_chunk_count").as_i64()
+        if let Ok(initial_chunk_count) = buffer_section.clone().get("initial_chunk_count").as_i64()
         {
             buffer_config.initial_chunk_count =
                 usize::try_from(initial_chunk_count).expect("Invalid initial_chunk_count");
         }
-        if let Ok(max_chunk_count) = config.select("buffer_config.max_chunk_count").as_i64() {
+        if let Ok(max_chunk_count) = buffer_section.clone().get("max_chunk_count").as_i64() {
             buffer_config.max_chunk_count =
                 usize::try_from(max_chunk_count).expect("Invalid max_chunk_count")
         }
-        if let Ok(encode_min_remaining) = config
-            .select("buffer_config.encode_min_remaining")
-            .as_bytes()
-        {
+        if let Ok(encode_min_remaining) = buffer_section.get("encode_min_remaining").as_bytes() {
             buffer_config.encode_buf_min_free_space = encode_min_remaining
                 .try_into()
                 .expect("Invalid byte number for encode_min_remaining");
