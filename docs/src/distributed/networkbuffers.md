@@ -64,18 +64,17 @@ impl ComponentLifecycle for CustomBufferConfigActor {
 ```
 
 #### Configuring All Actors
-If a programmer wishes for all actors to use the same `BufferConfig` configuration, a Hocon string can be inserted into the `KompactConfig` or loaded from a Hocon-file ([see configuration chapter on loading configurations](./../local/configuration.md)), for example: 
+If a programmer wishes for all actors to use the same `BufferConfig` configuration, a TOML string can be inserted into the `KompactConfig` or loaded from a TOML file ([see configuration chapter on loading configurations](./../local/configuration.md)), for example: 
 ```rust,edition2018,no_run,noplaypen
 let mut cfg = KompactConfig::new();
 cfg.load_config_str(
-    r#"{
-        buffer_config {
-            chunk_size: "256KB",
-            initial_chunk_count: 3,
-            max_chunk_count: 4,
-            encode_min_remaining: "20B",
-        }
-        }"#,
+    r#"
+        [buffer_config]
+        chunk_size = "256KB"
+        initial_chunk_count = 3
+        max_chunk_count = 4
+        encode_min_remaining = "20B"
+        "#,
 );
 ...
 let system = cfg.build().expect("KompactSystem");

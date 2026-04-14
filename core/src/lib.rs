@@ -1262,7 +1262,7 @@ mod tests {
 
     #[test]
     fn test_config_from_string() -> () {
-        let default_values = r#"{ a = 7 }"#;
+        let default_values = r#"a = 7"#;
         let mut conf = KompactConfig::default();
         conf.load_config_str(default_values);
         let system = conf.build().expect("system");
@@ -1276,12 +1276,10 @@ mod tests {
 
     #[test]
     fn test_config_from_file() -> () {
-        //let default_values = r#"{ a = 7 }"#;
-        let config_file_path = Fixture::blank("application.conf");
+        //let default_values = r#"a = 7"#;
+        let config_file_path = Fixture::blank("test_settings.toml");
         let mut config_file = File::create(config_file_path.deref()).expect("config file");
-        config_file
-            .write_all(b"{ a = 7 }")
-            .expect("write config file");
+        config_file.write_all(b"a = 7").expect("write config file");
         let mut conf = KompactConfig::default();
         conf.load_config_file(config_file_path.to_path_buf());
         let system = conf.build().expect("system");
@@ -1295,12 +1293,10 @@ mod tests {
 
     #[test]
     fn test_config_merged() -> () {
-        let default_values = r#"{ a = 5 }"#;
-        let config_file_path = Fixture::blank("application.conf");
+        let default_values = r#"a = 5"#;
+        let config_file_path = Fixture::blank("test_settings.toml");
         let mut config_file = File::create(config_file_path.deref()).expect("config file");
-        config_file
-            .write_all(b"{ a = 7 }")
-            .expect("write config file");
+        config_file.write_all(b"a = 7").expect("write config file");
         let mut conf = KompactConfig::default();
         conf.load_config_str(default_values)
             .load_config_file(config_file_path.to_path_buf());

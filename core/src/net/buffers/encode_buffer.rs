@@ -332,8 +332,8 @@ unsafe impl BufMut for BufferEncoder<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::parse_config_str;
     use bytes::Bytes;
-    use hocon::HoconLoader;
 
     // This test instantiates an EncodeBuffer and writes the same string into it enough times that
     // the EncodeBuffer should overload multiple times and will have to succeed in reusing >=1 Chunk
@@ -391,23 +391,20 @@ mod tests {
         );
     }
 
-    // As above, except we create small buffers from a Hocon config.
+    // As above, except we create small buffers from a TOML config.
     #[test]
-    fn encode_buffer_overload_reuse_hocon_configured_small_buffers() {
-        let hocon = HoconLoader::new()
-            .load_str(
-                r#"{
-            buffer_config {
-                chunk_size: 128,
-                initial_chunk_count: 2,
-                max_pool_count: 2,
-                encode_min_remaining: 2,
-                }
-            }"#,
-            )
-            .unwrap()
-            .hocon();
-        let buffer_config = BufferConfig::from_config(&hocon.unwrap());
+    fn encode_buffer_overload_reuse_toml_configured_small_buffers() {
+        let config = parse_config_str(
+            r#"
+            [buffer_config]
+            chunk_size = 128
+            initial_chunk_count = 2
+            max_chunk_count = 2
+            encode_min_remaining = 2
+            "#,
+        )
+        .unwrap();
+        let buffer_config = BufferConfig::from_config(&config);
         // Ensure we successfully parsed the Config
         assert_eq!(buffer_config.encode_buf_min_free_space, 2usize);
         let data_len = buffer_config.chunk_size - buffer_config.encode_buf_min_free_space - 8;

@@ -1,11 +1,10 @@
 use super::*;
 
 use crate::{
-    config::{ConfigEntry, ConfigError, ConfigValueType, HoconExt},
+    config::{Config, ConfigEntry, ConfigError, ConfigLoadingError, ConfigValue, ConfigValueType},
     messaging::DispatchEnvelope,
 };
 use executors::*;
-use hocon::Hocon;
 use std::{fmt, path::PathBuf, rc::Rc};
 
 /// Configuration keys for Kompact systems.
@@ -135,6 +134,24 @@ The default value is `auto`.
 pub(crate) enum ConfigSource {
     File(PathBuf),
     Str(String),
+    Value {
+        key: &'static str,
+        value: ConfigValue,
+    },
+}
+
+impl ConfigSource {
+    pub(crate) fn load(&self) -> Result<Config, ConfigLoadingError> {
+        match self {
+            ConfigSource::File(path) => crate::config::parse_config_file(path),
+            ConfigSource::Str(config) => crate::config::parse_config_str(config),
+            ConfigSource::Value { key, value } => {
+                let mut config = Config::new();
+                config.insert_value(key, value.clone());
+                Ok(config)
+            }
+        }
+    }
 }
 
 /// A configuration builder for Kompact systems
@@ -198,11 +215,10 @@ impl fmt::Debug for KompactConfig {
 /// - It sets the event/message throughput to 2, split evenly between events and messages.
 /// - It runs with a single thread on a [small pool](crossbeam_workstealing_pool::small_pool).
 pub const MINIMAL_CONFIG: &str = r#"
-    kompact.system {
-        throughput = 2
-        message-priority = 0.5
-        threads = 1
-    }
+[kompact.runtime]
+throughput = 2
+message-priority = 0.5
+threads = 1
 "#;
 
 impl KompactConfig {
@@ -461,13 +477,11 @@ impl KompactConfig {
         self
     }
 
-    /// Load a HOCON config from a file at `path`
+    /// Load a TOML config from a file at `path`
     ///
     /// This method can be called multiple times, and the resulting configurations will be merged.
     ///
     /// It matters in which order configs are loaded and values are set.
-    /// See [HoconLoader](hocon::HoconLoader) for more information.
-    ///
     /// The loaded config can be accessed via [`system.config()`](KompactSystem::config
     /// or from within a component via [`self.ctx().config()`](ComponentContext::config.
     pub fn load_config_file<P>(&mut self, path: P) -> &mut Self
@@ -479,13 +493,11 @@ impl KompactConfig {
         self
     }
 
-    /// Load a HOCON config from a string
+    /// Load a TOML config from a string
     ///
     /// This method can be called multiple times, and the resulting configurations will be merged.
     ///
     /// It matters in which order configs are loaded and values are set.
-    /// See [HoconLoader](hocon::HoconLoader) for more information.
-    ///
     /// The loaded config can be accessed via [`system.config()`](KompactSystem::config
     /// or from within a component via [`self.ctx().config()`](ComponentContext::config.
     pub fn load_config_str<S>(&mut self, config: S) -> &mut Self
@@ -497,12 +509,11 @@ impl KompactConfig {
         self
     }
 
-    /// Override a single value in the HOCON config
+    /// Override a single value in the config
     ///
     /// This method can be called multiple times and the resulting configurations will be merged.
     ///
     /// It matters in which order configs are loaded and values are set.
-    /// See [HoconLoader](hocon::HoconLoader) for more information.
     pub fn set_config_value<T>(
         &mut self,
         config: &ConfigEntry<T>,
@@ -511,11 +522,10 @@ impl KompactConfig {
     where
         T: ConfigValueType,
     {
-        let value_string = <T as ConfigValueType>::config_string(value);
-        self.config_sources.push(ConfigSource::Str(format!(
-            "{} = {}",
-            config.key, value_string
-        )));
+        self.config_sources.push(ConfigSource::Value {
+            key: config.key,
+            value: <T as ConfigValueType>::into_config_value(value),
+        });
         self
     }
 
@@ -545,12 +555,12 @@ impl KompactConfig {
         mmf as usize
     }
 
-    pub(crate) fn override_from_hocon(&mut self, conf: &Hocon) -> Result<(), ConfigError> {
-        self.label = conf.get_or_default(&keys::LABEL)?;
-        self.throughput = conf.get_or_default(&keys::THROUGHPUT)?;
-        self.msg_priority = conf.get_or_default(&keys::MESSAGE_PRIORITY)?;
-        self.threads = conf.get_or_default(&keys::THREADS)?;
-        let scheduler_option = conf.get_or_default(&keys::SCHEDULER)?;
+    pub(crate) fn override_from_config(&mut self, conf: &Config) -> Result<(), ConfigError> {
+        self.label = conf.read_or_default(&keys::LABEL)?;
+        self.throughput = conf.read_or_default(&keys::THROUGHPUT)?;
+        self.msg_priority = conf.read_or_default(&keys::MESSAGE_PRIORITY)?;
+        self.threads = conf.read_or_default(&keys::THREADS)?;
+        let scheduler_option = conf.read_or_default(&keys::SCHEDULER)?;
         match scheduler_option.as_ref() {
             "auto" => {
                 self.scheduler_builder = if self.threads <= 32 {
@@ -601,7 +611,7 @@ impl Default for KompactConfig {
     /// It uses all default components, without networking, with the default timer and default logger.
     fn default() -> Self {
         // NOTE: Most of the values we are setting in here don't actually matter
-        // They will be overwritten by the default values of the config keys in `KompactConfig::override_from_hocon`
+        // They will be overwritten by the default values of the config keys in `KompactConfig::override_from_config`
         let scheduler_builder: Rc<SchedulerBuilder> =
             Rc::new(|t| ExecutorScheduler::from(crossbeam_workstealing_pool::small_pool(t)));
         KompactConfig {

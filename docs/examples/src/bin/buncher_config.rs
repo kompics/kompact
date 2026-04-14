@@ -99,7 +99,7 @@ pub fn main() {
     // ANCHOR: system
     let mut conf = KompactConfig::default();
     // ANCHOR: config_file
-    conf.load_config_file("./application.conf")
+    conf.load_config_file("./app_settings.toml")
         // ANCHOR_END: config_file
         .load_config_str("buncher.batch-size = 50");
     let system = conf.build().expect("system");

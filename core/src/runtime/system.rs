@@ -3,6 +3,7 @@ use super::*;
 #[cfg(feature = "type_erasure")]
 use crate::utils::erased::CreateErased;
 use crate::{
+    config::Config,
     messaging::{
         DispatchEnvelope,
         MsgEnvelope,
@@ -16,7 +17,6 @@ use crate::{
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
     timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
-use hocon::{Hocon, HoconLoader};
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{any::TypeId, fmt, sync::Mutex, time::Instant};
 
@@ -54,31 +54,24 @@ use std::{any::TypeId, fmt, sync::Mutex, time::Instant};
 #[derive(Clone)]
 pub struct KompactSystem {
     inner: Arc<KompactRuntime>,
-    config: Arc<Hocon>,
+    config: Arc<Config>,
     scheduler: Box<dyn Scheduler>,
 }
 
 impl KompactSystem {
-    fn load_config(conf: &KompactConfig) -> Result<Hocon, KompactError> {
-        let config_loader_initial: Result<HoconLoader, hocon::Error> =
-            Result::Ok(HoconLoader::new());
-        let config = conf
-            .config_sources
-            .iter()
-            .fold(config_loader_initial, |config_loader, source| {
-                config_loader.and_then(|cl| match source {
-                    ConfigSource::File(path) => cl.load_file(path),
-                    ConfigSource::Str(s) => cl.load_str(s),
-                })
-            })?
-            .hocon()?;
+    fn load_config(conf: &KompactConfig) -> Result<Config, KompactError> {
+        let mut config = Config::new();
+        for source in &conf.config_sources {
+            let next = source.load()?;
+            config.merge(next);
+        }
         Ok(config)
     }
 
     /// Use the [build](KompactConfig::build) method instead.
     pub(crate) fn try_new(mut conf: KompactConfig) -> Result<Self, KompactError> {
         let config = Self::load_config(&conf)?;
-        conf.override_from_hocon(&config)?;
+        conf.override_from_config(&config)?;
 
         let scheduler = (*conf.scheduler_builder)(conf.threads);
         let sc_builder = conf.sc_builder.clone();
@@ -149,25 +142,25 @@ impl KompactSystem {
     /// Get a reference to the system configuration
     ///
     /// Use [load_config_str](KompactConfig::load_config_str) or
-    /// or [load_config_file](KompactConfig::load_config_file)
+    /// [load_config_file](KompactConfig::load_config_file)
     /// to load values into the config object.
     ///
     /// # Example
     ///
     /// ```
     /// use kompact::prelude::*;
-    /// let default_values = r#"{ a = 7 }"#;
+    /// let default_values = r#"a = 7"#;
     /// let mut conf = KompactConfig::default();
     /// conf.load_config_str(default_values);
     /// let system = conf.build().expect("system");
     /// assert_eq!(Some(7i64), system.config()["a"].as_i64());
     /// ```
-    pub fn config(&self) -> &Hocon {
+    pub fn config(&self) -> &Config {
         self.config.as_ref()
     }
 
     /// Get a owned reference to the system configuration
-    pub fn config_owned(&self) -> Arc<Hocon> {
+    pub fn config_owned(&self) -> Arc<Config> {
         self.config.clone()
     }
 

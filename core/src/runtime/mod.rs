@@ -11,7 +11,7 @@ use std::{
     },
 };
 
-use crate::config::ConfigError;
+use crate::config::{ConfigError, ConfigLoadingError};
 
 mod config;
 mod lifecycle;
@@ -72,8 +72,8 @@ type TimerBuilder = dyn Fn() -> Box<dyn TimerComponent>;
 pub enum KompactError {
     /// A mutex in the system has been poisoned
     Poisoned,
-    /// An error occurred loading the HOCON config
-    ConfigLoadingError(hocon::Error),
+    /// An error occurred loading the TOML config
+    ConfigLoadingError(ConfigLoadingError),
     /// An error occurred reading values from the loaded config
     ConfigError(ConfigError),
     /// Something else occurred
@@ -94,17 +94,22 @@ impl PartialEq for KompactError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (KompactError::Poisoned, KompactError::Poisoned) => true,
-            (KompactError::ConfigLoadingError(she), KompactError::ConfigLoadingError(ohe)) => {
-                she == ohe
-            }
+            (
+                KompactError::ConfigLoadingError(ConfigLoadingError::Io(lhs)),
+                KompactError::ConfigLoadingError(ConfigLoadingError::Io(rhs)),
+            ) => lhs.kind() == rhs.kind(),
+            (
+                KompactError::ConfigLoadingError(ConfigLoadingError::Parse(lhs)),
+                KompactError::ConfigLoadingError(ConfigLoadingError::Parse(rhs)),
+            ) => lhs.to_string() == rhs.to_string(),
             (KompactError::ConfigError(se), KompactError::ConfigError(oe)) => se == oe,
             _ => false,
         }
     }
 }
 
-impl From<hocon::Error> for KompactError {
-    fn from(e: hocon::Error) -> Self {
+impl From<ConfigLoadingError> for KompactError {
+    fn from(e: ConfigLoadingError) -> Self {
         KompactError::ConfigLoadingError(e)
     }
 }

@@ -1,8 +1,10 @@
 use super::*;
-use crate::messaging::DispatchEnvelope;
+use crate::{
+    config::{Config, parse_config_file},
+    messaging::DispatchEnvelope,
+};
 use bytes::{Buf, BufMut};
 use core::{cmp, fmt, ptr};
-use hocon::{Hocon, HoconLoader};
 use std::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Formatter},
@@ -37,24 +39,23 @@ impl BufferConfig {
     ///
     /// Returns the same values as [BufferConfig::default](BufferConfig::default)
     /// if it fails to read from the config.
-    pub fn from_config(config: &Hocon) -> Self {
+    pub fn from_config(config: &Config) -> Self {
         let mut buffer_config = BufferConfig::default();
-        if let Some(chunk_size) = config["buffer_config"]["chunk_size"].as_bytes() {
+        let buffer_section = config.get("buffer_config");
+        if let Ok(chunk_size) = buffer_section.get("chunk_size").as_bytes() {
             buffer_config.chunk_size = chunk_size
                 .try_into()
                 .expect("Invalid byte number for chunk_size");
         }
-        if let Some(initial_chunk_count) = config["buffer_config"]["initial_chunk_count"].as_i64() {
+        if let Ok(initial_chunk_count) = buffer_section.get("initial_chunk_count").as_i64() {
             buffer_config.initial_chunk_count =
                 usize::try_from(initial_chunk_count).expect("Invalid initial_chunk_count");
         }
-        if let Some(max_chunk_count) = config["buffer_config"]["max_chunk_count"].as_i64() {
+        if let Ok(max_chunk_count) = buffer_section.get("max_chunk_count").as_i64() {
             buffer_config.max_chunk_count =
                 usize::try_from(max_chunk_count).expect("Invalid max_chunk_count")
         }
-        if let Some(encode_min_remaining) =
-            config["buffer_config"]["encode_min_remaining"].as_bytes()
-        {
+        if let Ok(encode_min_remaining) = buffer_section.get("encode_min_remaining").as_bytes() {
             buffer_config.encode_buf_min_free_space = encode_min_remaining
                 .try_into()
                 .expect("Invalid byte number for encode_min_remaining");
@@ -63,24 +64,20 @@ impl BufferConfig {
         buffer_config
     }
 
-    /// Tries to deserialise a `BufferConfig` from a HOCON file at `path`
+    /// Tries to deserialise a `BufferConfig` from a TOML file at `path`
     ///
     /// Returns the same values as [BufferConfig::default](BufferConfig::default)
     /// if it fails to read from the config.
     ///
     /// # Panics
     ///
-    /// Panics if it fails to load the file or fails to load the file as HOCON.
+    /// Panics if it fails to load the file or fails to load the file as TOML.
     pub fn from_config_file<P>(path: P) -> BufferConfig
     where
         P: Into<PathBuf>,
     {
         let p: PathBuf = path.into();
-        let doc = HoconLoader::new()
-            .load_file(p)
-            .expect("Failed to load file")
-            .hocon()
-            .expect("Failed to load as HOCON");
+        let doc = parse_config_file(p).expect("Failed to load as TOML");
         Self::from_config(&doc)
     }
 
@@ -385,8 +382,7 @@ impl fmt::Display for BufferError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use hocon::HoconLoader;
+    use crate::{config::parse_config_str, prelude::*};
     use std::time::Duration;
     const START_ACTOR_TIMEOUT: Duration = Duration::from_millis(1000);
 
@@ -395,21 +391,16 @@ mod tests {
     #[ignore]
     #[should_panic(expected = "initial_chunk_count may not be greater than max_chunk_count")]
     fn invalid_pool_counts_config_validation() {
-        let hocon = HoconLoader::new()
-            .load_str(
-                r#"{
-            buffer_config {
-                chunk_size: 64,
-                initial_chunk_count: 3,
-                max_chunk_count: 2,
-                encode_min_remaining: 2,
-                }
-            }"#,
-            )
-            .unwrap()
-            .hocon();
-        // This should succeed
-        let cfg = hocon.unwrap();
+        let cfg = parse_config_str(
+            r#"
+            [buffer_config]
+            chunk_size = 64
+            initial_chunk_count = 3
+            max_chunk_count = 2
+            encode_min_remaining = 2
+            "#,
+        )
+        .unwrap();
 
         // Validation should panic
         let _ = BufferConfig::from_config(&cfg);
@@ -501,14 +492,13 @@ mod tests {
         network_buffer_config.max_chunk_count(3);
         network_buffer_config.encode_buf_min_free_space(10);
         cfg.load_config_str(
-            r#"{
-                buffer_config {
-                    chunk_size: "256B",
-                    initial_chunk_count: 3,
-                    max_chunk_count: 4,
-                    encode_min_remaining: "20B",
-                }
-                }"#,
+            r#"
+                [buffer_config]
+                chunk_size = "256B"
+                initial_chunk_count = 3
+                max_chunk_count = 4
+                encode_min_remaining = "20B"
+                "#,
         );
         cfg.system_components(DeadletterBox::new, {
             NetworkConfig::with_buffer_config(
@@ -519,11 +509,11 @@ mod tests {
         });
         cfg.build().expect("KompactSystem")
     }
-    // This integration test sets up a KompactSystem with a Hocon BufferConfig,
+    // This integration test sets up a KompactSystem with a TOML BufferConfig,
     // then runs init_buffers on an Actor with different settings (in the on_start method of dummy),
     // and finally asserts that the actors buffers were set up using the on_start parameters.
     #[test]
-    fn buffer_config_init_buffers_overrides_hocon_and_default() {
+    fn buffer_config_init_buffers_overrides_toml_and_default() {
         let system = buffer_config_testing_system();
         let mut dummy_actor = BufferTestActor::with_custom_buffer();
         let future = dummy_actor.get_started_future();
@@ -552,7 +542,7 @@ mod tests {
     }
 
     #[test]
-    fn buffer_config_hocon_overrides_default() {
+    fn buffer_config_toml_overrides_default() {
         let system = buffer_config_testing_system();
         let mut dummy_actor = BufferTestActor::without_custom_buffer();
         let future = dummy_actor.get_started_future();
@@ -573,7 +563,7 @@ mod tests {
                 buffer_write_pointer = encode_buffer.get_write_offset();
             }
         });
-        // Assert that the buffer was initialized with parameters in the hocon config string
+        // Assert that the buffer was initialized with parameters in the TOML config string
         assert_eq!(buffer_len, 256);
         // Check that the buffer was used
         assert_ne!(buffer_write_pointer, 0);
