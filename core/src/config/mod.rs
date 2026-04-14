@@ -49,7 +49,7 @@ impl Config {
     }
 
     /// Select a single top-level key from the configuration.
-    pub fn get<'a, 'p>(&'a self, key: &'p str) -> ConfigLookup<'a, 'p> {
+    pub fn get<'config, 'path>(&'config self, key: &'path str) -> ConfigLookup<'config, 'path> {
         match self.root.get(key) {
             Some(value) => ConfigLookup::from_full_path(key, value),
             None => ConfigLookup::error_path(key, LookupErrorKind::MissingKey),
@@ -57,7 +57,7 @@ impl Config {
     }
 
     /// Select a dotted path from the configuration.
-    pub fn select<'a, 'p>(&'a self, path: &'p str) -> ConfigLookup<'a, 'p> {
+    pub fn select<'config, 'path>(&'config self, path: &'path str) -> ConfigLookup<'config, 'path> {
         let mut segments = path.split(PATH_SEP);
         let Some(first) = segments.next() else {
             return ConfigLookup::error_path(path, LookupErrorKind::InvalidPath);
@@ -354,49 +354,44 @@ impl Index<usize> for ConfigValue {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum PathSegment<'p> {
-    Key(&'p str),
+enum PathSegment<'path> {
+    Key(&'path str),
     Index(usize),
 }
 
-impl PathSegment<'_> {
-    fn write_to(self, out: &mut String) {
+impl fmt::Display for PathSegment<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PathSegment::Key(key) => {
-                if !out.is_empty() {
-                    out.push(PATH_SEP);
-                }
-                out.push_str(key);
-            }
-            PathSegment::Index(index) => {
-                use std::fmt::Write as _;
-
-                let _ = write!(out, "[{}]", index);
-            }
+            PathSegment::Key(key) => write!(f, "{}", key),
+            PathSegment::Index(index) => write!(f, "[{}]", index),
         }
     }
 }
 
-trait LookupPath {
-    fn write_path(&self, out: &mut String);
-}
-
 #[derive(Clone, Copy)]
-enum LookupPathSource<'p> {
-    FullPath(&'p str),
+enum LookupPathSource<'path> {
+    FullPath(&'path str),
     Child {
-        parent: &'p dyn LookupPath,
-        segment: PathSegment<'p>,
+        parent: &'path dyn fmt::Display,
+        segment: PathSegment<'path>,
+        prepend_separator: bool,
     },
 }
 
-impl LookupPathSource<'_> {
-    fn write_path(self, out: &mut String) {
+impl fmt::Display for LookupPathSource<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LookupPathSource::FullPath(path) => out.push_str(path),
-            LookupPathSource::Child { parent, segment } => {
-                parent.write_path(out);
-                segment.write_to(out);
+            LookupPathSource::FullPath(path) => write!(f, "{}", path),
+            LookupPathSource::Child {
+                parent,
+                segment,
+                prepend_separator,
+            } => {
+                write!(f, "{}", parent)?;
+                if *prepend_separator {
+                    write!(f, "{}", PATH_SEP)?;
+                }
+                write!(f, "{}", segment)
             }
         }
     }
@@ -404,19 +399,17 @@ impl LookupPathSource<'_> {
 
 impl fmt::Debug for LookupPathSource<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut path = String::new();
-        self.write_path(&mut path);
-        f.debug_tuple("LookupPathSource").field(&path).finish()
+        write!(f, "LookupPathSource({})", self)
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-enum LookupErrorKind<'p> {
+enum LookupErrorKind<'path> {
     InvalidPath,
     MissingKey,
     MissingIndex,
     InvalidKeyAccess {
-        key: &'p str,
+        key: &'path str,
         value_type: &'static str,
     },
     InvalidIndexAccess {
@@ -426,35 +419,49 @@ enum LookupErrorKind<'p> {
 }
 
 /// A fallible config path lookup that carries the traversed path for later conversions.
+///
+/// - `'config`: lifetime of the selected value borrowed from the underlying config tree.
+/// - `'path`: lifetime of any borrowed path fragments and the parent lookup chain that are
+///   used to render detailed path errors lazily.
 #[derive(Debug, Clone, Copy)]
-pub struct ConfigLookup<'a, 'p> {
-    inner: ConfigLookupInner<'a, 'p>,
+pub struct ConfigLookup<'config, 'path> {
+    inner: ConfigLookupInner<'config, 'path>,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum ConfigLookupInner<'a, 'p> {
+enum ConfigLookupInner<'config, 'path> {
     Value {
-        value: &'a ConfigValue,
-        path: LookupPathSource<'p>,
+        value: &'config ConfigValue,
+        path: LookupPathSource<'path>,
     },
     Error {
-        kind: LookupErrorKind<'p>,
-        path: LookupPathSource<'p>,
+        kind: LookupErrorKind<'path>,
+        path: LookupPathSource<'path>,
     },
 }
 
-impl LookupPath for ConfigLookup<'_, '_> {
-    fn write_path(&self, out: &mut String) {
+impl ConfigLookup<'_, '_> {
+    fn is_empty_path(&self) -> bool {
         match self.inner {
             ConfigLookupInner::Value { path, .. } | ConfigLookupInner::Error { path, .. } => {
-                path.write_path(out)
+                matches!(path, LookupPathSource::FullPath(""))
             }
         }
     }
 }
 
-impl<'a, 'p> ConfigLookup<'a, 'p> {
-    fn from_full_path(path: &'p str, value: &'a ConfigValue) -> Self {
+impl fmt::Display for ConfigLookup<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.inner {
+            ConfigLookupInner::Value { path, .. } | ConfigLookupInner::Error { path, .. } => {
+                write!(f, "{}", path)
+            }
+        }
+    }
+}
+
+impl<'config, 'path> ConfigLookup<'config, 'path> {
+    fn from_full_path(path: &'path str, value: &'config ConfigValue) -> Self {
         ConfigLookup {
             inner: ConfigLookupInner::Value {
                 value,
@@ -463,7 +470,7 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
         }
     }
 
-    fn error_path(path: &'p str, kind: LookupErrorKind<'p>) -> Self {
+    fn error_path(path: &'path str, kind: LookupErrorKind<'path>) -> Self {
         ConfigLookup {
             inner: ConfigLookupInner::Error {
                 kind,
@@ -472,14 +479,7 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
         }
     }
 
-    fn path_string(&self) -> String {
-        let mut path = String::new();
-        self.write_path(&mut path);
-        path
-    }
-
-    fn to_path_error(self) -> ConfigPathError {
-        let path = self.path_string();
+    fn path_error(&self) -> ConfigPathError {
         match self.inner {
             ConfigLookupInner::Value { .. } => {
                 unreachable!("value lookups do not produce path errors")
@@ -487,20 +487,26 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
             ConfigLookupInner::Error {
                 kind: LookupErrorKind::InvalidPath,
                 ..
-            } => ConfigPathError::InvalidPath { path },
+            } => ConfigPathError::InvalidPath {
+                path: self.to_string(),
+            },
             ConfigLookupInner::Error {
                 kind: LookupErrorKind::MissingKey,
                 ..
-            } => ConfigPathError::MissingKey { path },
+            } => ConfigPathError::MissingKey {
+                path: self.to_string(),
+            },
             ConfigLookupInner::Error {
                 kind: LookupErrorKind::MissingIndex,
                 ..
-            } => ConfigPathError::MissingIndex { path },
+            } => ConfigPathError::MissingIndex {
+                path: self.to_string(),
+            },
             ConfigLookupInner::Error {
                 kind: LookupErrorKind::InvalidKeyAccess { key, value_type },
                 ..
             } => ConfigPathError::InvalidKeyAccess {
-                path,
+                path: self.to_string(),
                 key: key.to_string(),
                 value_type,
             },
@@ -508,7 +514,7 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
                 kind: LookupErrorKind::InvalidIndexAccess { index, value_type },
                 ..
             } => ConfigPathError::InvalidIndexAccess {
-                path,
+                path: self.to_string(),
                 index,
                 value_type,
             },
@@ -516,10 +522,11 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
     }
 
     /// Select a child key from the current lookup value.
-    pub fn get<'next>(&'next self, key: &'next str) -> ConfigLookup<'a, 'next> {
+    pub fn get<'step>(&'step self, key: &'step str) -> ConfigLookup<'config, 'step> {
         let path = LookupPathSource::Child {
             parent: self,
             segment: PathSegment::Key(key),
+            prepend_separator: !self.is_empty_path(),
         };
         match self.inner {
             ConfigLookupInner::Value { value, .. } => match &value.inner {
@@ -551,10 +558,11 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
     }
 
     /// Select a child index from the current lookup value.
-    pub fn get_index<'next>(&'next self, index: usize) -> ConfigLookup<'a, 'next> {
+    pub fn get_index<'step>(&'step self, index: usize) -> ConfigLookup<'config, 'step> {
         let path = LookupPathSource::Child {
             parent: self,
             segment: PathSegment::Index(index),
+            prepend_separator: false,
         };
         match self.inner {
             ConfigLookupInner::Value { value, .. } => match &value.inner {
@@ -586,10 +594,10 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
     }
 
     /// Return the underlying value or the captured path error.
-    pub fn value(&self) -> Result<&'a ConfigValue, ConfigError> {
+    pub fn value(&self) -> Result<&'config ConfigValue, ConfigError> {
         match self.inner {
             ConfigLookupInner::Value { value, .. } => Ok(value),
-            ConfigLookupInner::Error { .. } => Err(ConfigError::PathError((*self).to_path_error())),
+            ConfigLookupInner::Error { .. } => Err(ConfigError::PathError(self.path_error())),
         }
     }
 
@@ -620,7 +628,7 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
     }
 
     /// Return the selected value as a TOML datetime.
-    pub fn as_datetime(&self) -> Result<&'a toml::value::Datetime, ConfigError> {
+    pub fn as_datetime(&self) -> Result<&'config toml::value::Datetime, ConfigError> {
         let value = self.value()?;
         value
             .as_datetime()
@@ -644,9 +652,9 @@ impl<'a, 'p> ConfigLookup<'a, 'p> {
     fn expected<T>(&self, value: &ConfigValue) -> ConfigError {
         match self.inner {
             ConfigLookupInner::Value { .. } => {
-                ConfigError::expected_at::<T>(&self.path_string(), value)
+                ConfigError::expected_at::<T>(&self.to_string(), value)
             }
-            ConfigLookupInner::Error { .. } => ConfigError::PathError((*self).to_path_error()),
+            ConfigLookupInner::Error { .. } => ConfigError::PathError(self.path_error()),
         }
     }
 }
@@ -870,7 +878,7 @@ where
     }
 
     /// Select the entry corresponding to this key from the given config.
-    pub fn select<'a>(&self, conf: &'a Config) -> ConfigLookup<'a, 'static> {
+    pub fn select<'config>(&self, conf: &'config Config) -> ConfigLookup<'config, 'static> {
         conf.select(self.key)
     }
 
@@ -1017,7 +1025,7 @@ impl From<std::num::TryFromIntError> for ConfigError {
     fn from(error: std::num::TryFromIntError) -> Self {
         ConfigError::ConversionError {
             path: None,
-            description: format!("{}", error),
+            description: error.to_string(),
         }
     }
 }
@@ -1050,7 +1058,7 @@ impl Error for ConfigError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             ConfigError::PathError(error) => Some(error),
-            _ => None,
+            ConfigError::ConversionError { .. } | ConfigError::InvalidValue { .. } => None,
         }
     }
 }
