@@ -29,6 +29,9 @@ default-features = false
 features = ["distributed", "silent_logging", "ser_id_64", "use_local_executor"]
 # features = ["silent_logging", "ser_id_64"]
 
+[dependencies.kompact-net]
+path = "../../network/"
+
 [dependencies.datastructures]
 path = "../datastructures"
 

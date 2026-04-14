@@ -1,7 +1,20 @@
 use super::*;
 use crate::{
+    actors::DynActorRefFactory,
+    dispatch::lookup::{ActorLookup, ActorStore, LookupResult},
     dispatch::NetworkStatusPort,
-    messaging::DispatchEnvelope,
+    messaging::{
+        ActorRegistration,
+        DispatchData,
+        DispatchEnvelope,
+        MsgEnvelope,
+        PathResolvable,
+        PolicyRegistration,
+        RegistrationEnvelope,
+        RegistrationError,
+        RegistrationEvent,
+        RegistrationPromise,
+    },
     timer::timer_manager::TimerRefFactory,
 };
 #[cfg(feature = "distributed")]
@@ -252,6 +265,8 @@ impl ComponentLifecycle for DeadletterBox {
 pub struct LocalDispatcher {
     ctx: ComponentContext<LocalDispatcher>,
     notify_ready: Option<KPromise<()>>,
+    lookup: ActorStore,
+    system_path: SystemPath,
 }
 
 impl LocalDispatcher {
@@ -263,6 +278,119 @@ impl LocalDispatcher {
         LocalDispatcher {
             ctx: ComponentContext::uninitialised(),
             notify_ready: Some(notify_ready),
+            lookup: ActorStore::new(),
+            system_path: SystemPath::new(Transport::Local, "127.0.0.1".parse().unwrap(), 0),
+        }
+    }
+
+    fn deadletter_path(&self) -> ActorPath {
+        ActorPath::Named(NamedPath::with_system(self.system_path.clone(), Vec::new()))
+    }
+
+    fn resolve_path(&self, resolvable: &PathResolvable) -> Result<ActorPath, PathParseError> {
+        match resolvable {
+            PathResolvable::Path(actor_path) => Ok(actor_path.clone()),
+            PathResolvable::Alias(alias) => self
+                .system_path
+                .clone()
+                .into_named_with_string(alias)
+                .map(|p| p.into()),
+            PathResolvable::Segments(segments) => self
+                .system_path
+                .clone()
+                .into_named_with_vec(segments.to_vec())
+                .map(|p| p.into()),
+            PathResolvable::ActorId(id) => Ok(self.system_path.clone().into_unique(*id).into()),
+            PathResolvable::System => Ok(self.deadletter_path()),
+        }
+    }
+
+    fn route_local(&mut self, dst: ActorPath, msg: DispatchData) -> () {
+        let lookup_result = self.lookup.get_by_actor_path(&dst);
+        match msg.into_local() {
+            Ok(netmsg) => match lookup_result {
+                LookupResult::Ref(actor) => actor.tell(netmsg),
+                LookupResult::Group(group) => group.route(netmsg, self.log()),
+                LookupResult::None => {
+                    warn!(
+                        self.ctx.log(),
+                        "No local actor found at {:?}. Forwarding to DeadletterBox",
+                        netmsg.receiver,
+                    );
+                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                }
+                LookupResult::Err(e) => {
+                    error!(
+                        self.ctx.log(),
+                        "Local lookup failed at {:?}. Forwarding to DeadletterBox. Error was: {}",
+                        netmsg.receiver,
+                        e
+                    );
+                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                }
+            },
+            Err(e) => error!(self.log(), "Could not serialise msg: {:?}. Dropping...", e),
+        }
+    }
+
+    fn register_actor(
+        &mut self,
+        registration: ActorRegistration,
+        update: bool,
+        promise: RegistrationPromise,
+    ) {
+        let ActorRegistration { actor, path } = registration;
+        let res = self
+            .resolve_path(&path)
+            .map_err(RegistrationError::InvalidPath)
+            .and_then(|ap| {
+                if self.lookup.contains(&path) && !update {
+                    Err(RegistrationError::DuplicateEntry)
+                } else {
+                    self.lookup
+                        .insert(path.clone(), actor)
+                        .map(|_| ap)
+                        .map_err(RegistrationError::InvalidPath)
+                }
+            });
+        match promise {
+            RegistrationPromise::Fulfil(promise) => {
+                promise.fulfil(res).unwrap_or_else(|e| {
+                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                });
+            }
+            RegistrationPromise::None => (),
+        }
+    }
+
+    fn register_policy(
+        &mut self,
+        registration: PolicyRegistration,
+        update: bool,
+        promise: RegistrationPromise,
+    ) {
+        let PolicyRegistration { policy, path } = registration;
+        let path_res = PathResolvable::Segments(path.clone());
+        let res = self
+            .resolve_path(&path_res)
+            .map_err(RegistrationError::InvalidPath)
+            .and_then(|ap| {
+                if self.lookup.contains(&path_res) && !update {
+                    Err(RegistrationError::DuplicateEntry)
+                } else {
+                    self.lookup
+                        .set_routing_policy(&path, policy)
+                        .map(|_| ap)
+                        .map_err(RegistrationError::InvalidPath)
+                }
+            });
+        match promise {
+            RegistrationPromise::Fulfil(promise) => {
+                promise.fulfil(res).unwrap_or_else(|e| {
+                    error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
+                });
+            }
+            RegistrationPromise::None => (),
         }
     }
 }
@@ -271,21 +399,52 @@ impl Actor for LocalDispatcher {
     type Message = DispatchEnvelope;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
-        use crate::messaging::{RegistrationEnvelope, RegistrationError, RegistrationPromise};
-        warn!(
-            self.ctx.log(),
-            "LocalDispatcher received {:?}, but doesn't know what to do with it (hint: implement dispatching ;)",
-            msg,
-        );
-        if let DispatchEnvelope::Registration(RegistrationEnvelope { promise, .. }) = msg {
-            if let RegistrationPromise::Fulfil(p) = promise {
-                p.fulfil(Err(RegistrationError::Unsupported))
-                    .unwrap_or_else(|e| {
-                        error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
-                    });
+        match msg {
+            DispatchEnvelope::Msg { dst, msg, .. } => {
+                if dst.system() == &self.system_path || dst.protocol() == Transport::Local {
+                    self.route_local(dst, msg);
+                } else {
+                    warn!(
+                        self.ctx.log(),
+                        "Dropping remote dispatch to {:?}; LocalDispatcher only supports local routing",
+                        dst,
+                    );
+                }
             }
-        } else {
-            error!(self.ctx.log(), "Ignoring message {:?}.", msg);
+            DispatchEnvelope::ForwardedMsg { msg } => {
+                if msg.receiver.system() == &self.system_path
+                    || msg.receiver.protocol() == Transport::Local
+                {
+                    self.route_local(msg.receiver.clone(), DispatchData::NetMessage(msg));
+                } else {
+                    warn!(
+                        self.ctx.log(),
+                        "Dropping forwarded remote dispatch to {:?}; LocalDispatcher only supports local routing",
+                        msg.receiver,
+                    );
+                }
+            }
+            DispatchEnvelope::Registration(reg) => {
+                let RegistrationEnvelope {
+                    event,
+                    update,
+                    promise,
+                } = reg;
+                match event {
+                    RegistrationEvent::Actor(registration) => {
+                        self.register_actor(registration, update, promise)
+                    }
+                    RegistrationEvent::Policy(registration) => {
+                        self.register_policy(registration, update, promise)
+                    }
+                }
+            }
+            DispatchEnvelope::Event(ev) => {
+                warn!(self.ctx.log(), "Ignoring dispatcher event {:?} in LocalDispatcher", ev);
+            }
+            DispatchEnvelope::LockedChunk(_trash) => {
+                // Dropping the chunk is sufficient in the local-only dispatcher.
+            }
         }
         Handled::Ok
     }
@@ -302,7 +461,7 @@ impl Actor for LocalDispatcher {
 
 impl Dispatcher for LocalDispatcher {
     fn system_path(&mut self) -> SystemPath {
-        SystemPath::new(Transport::Local, "127.0.0.1".parse().unwrap(), 0)
+        self.system_path.clone()
     }
 
     fn network_status_port(&mut self) -> &mut ProvidedPort<NetworkStatusPort> {
@@ -313,6 +472,9 @@ impl Dispatcher for LocalDispatcher {
 impl ComponentLifecycle for LocalDispatcher {
     fn on_start(&mut self) -> Handled {
         debug!(self.ctx.log(), "Starting LocalDispatcher");
+        self.lookup
+            .insert(PathResolvable::System, self.ctx.deadletter_ref().dyn_ref())
+            .expect("deadletter path should always be insertable");
         if let Some(promise) = self.notify_ready.take() {
             promise.complete().unwrap_or(())
         }
@@ -323,6 +485,9 @@ impl ComponentLifecycle for LocalDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::routing::groups::BroadcastRouting;
+    use bytes::{Buf, BufMut};
+    use std::any::Any;
     use crate::timer::timer_manager::Timer;
     use std::{sync::mpsc, time::Duration};
 
@@ -339,6 +504,76 @@ mod tests {
                 fired,
             }
         }
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    struct Ping;
+
+    impl Serialisable for Ping {
+        fn ser_id(&self) -> SerId {
+            Self::SER_ID
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(0)
+        }
+
+        fn serialise(&self, _buf: &mut dyn BufMut) -> Result<(), SerError> {
+            Ok(())
+        }
+
+        fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
+            Ok(self)
+        }
+
+        fn cloned(&self) -> Option<Box<dyn Serialisable>> {
+            Some(Box::new(*self))
+        }
+    }
+
+    impl Deserialiser<Ping> for Ping {
+        const SER_ID: SerId = 4242;
+
+        fn deserialise(_buf: &mut dyn Buf) -> Result<Ping, SerError> {
+            Ok(Ping)
+        }
+    }
+
+    #[derive(ComponentDefinition)]
+    struct PathProbe {
+        ctx: ComponentContext<Self>,
+        received: usize,
+        delivered: mpsc::Sender<()>,
+    }
+
+    impl PathProbe {
+        fn new(delivered: mpsc::Sender<()>) -> Self {
+            Self {
+                ctx: ComponentContext::uninitialised(),
+                received: 0,
+                delivered,
+            }
+        }
+    }
+
+    ignore_lifecycle!(PathProbe);
+
+    impl NetworkActor for PathProbe {
+        type Message = Ping;
+        type Deserialiser = Ping;
+
+        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> Handled {
+            self.received += 1;
+            self.delivered
+                .send(())
+                .expect("probe receiver must stay live");
+            Handled::Ok
+        }
+    }
+
+    fn expect_delivery(rx: &mpsc::Receiver<()>) {
+        rx.recv_timeout(Duration::from_secs(1))
+            .expect("path message should be delivered");
     }
 
     impl ComponentLifecycle for TimerProbe {
@@ -387,6 +622,84 @@ mod tests {
         rx.recv_timeout(Duration::from_secs(1))
             .expect("manual timer should fire after explicit advance");
 
+        system.shutdown().expect("shutdown KompactSystem");
+    }
+
+    #[test]
+    fn local_dispatcher_routes_unique_path_messages() {
+        let system = KompactConfig::default().build().expect("build KompactSystem");
+        let (tx, rx) = mpsc::channel();
+        let probe = system.create(|| PathProbe::new(tx));
+
+        system
+            .start_notify(&probe)
+            .wait_timeout(Duration::from_secs(1))
+            .expect("PathProbe should start");
+
+        let path = system
+            .register(&probe)
+            .wait_expect(Duration::from_secs(1), "unique registration should succeed");
+        path.tell(Ping, &system);
+
+        expect_delivery(&rx);
+        probe.on_definition(|cd| assert_eq!(cd.received, 1));
+        system.shutdown().expect("shutdown KompactSystem");
+    }
+
+    #[test]
+    fn local_dispatcher_routes_alias_messages() {
+        let system = KompactConfig::default().build().expect("build KompactSystem");
+        let (tx, rx) = mpsc::channel();
+        let probe = system.create(|| PathProbe::new(tx));
+
+        system
+            .start_notify(&probe)
+            .wait_timeout(Duration::from_secs(1))
+            .expect("PathProbe should start");
+
+        let path = system
+            .register_by_alias(&probe, "tests/path-probe")
+            .wait_expect(Duration::from_secs(1), "alias registration should succeed");
+        path.tell(Ping, &system);
+
+        expect_delivery(&rx);
+        probe.on_definition(|cd| assert_eq!(cd.received, 1));
+        system.shutdown().expect("shutdown KompactSystem");
+    }
+
+    #[test]
+    fn local_dispatcher_routes_broadcast_groups() {
+        let system = KompactConfig::default().build().expect("build KompactSystem");
+        let (tx1, rx1) = mpsc::channel();
+        let (tx2, rx2) = mpsc::channel();
+        let probe1 = system.create(|| PathProbe::new(tx1));
+        let probe2 = system.create(|| PathProbe::new(tx2));
+
+        system
+            .start_notify(&probe1)
+            .wait_timeout(Duration::from_secs(1))
+            .expect("first PathProbe should start");
+        system
+            .start_notify(&probe2)
+            .wait_timeout(Duration::from_secs(1))
+            .expect("second PathProbe should start");
+
+        let group = system
+            .set_routing_policy(BroadcastRouting::default(), "tests/group", false)
+            .wait_expect(Duration::from_secs(1), "routing policy registration should succeed");
+        system
+            .register_by_alias(&probe1, "tests/group/one")
+            .wait_expect(Duration::from_secs(1), "first alias registration should succeed");
+        system
+            .register_by_alias(&probe2, "tests/group/two")
+            .wait_expect(Duration::from_secs(1), "second alias registration should succeed");
+
+        group.tell(Ping, &system);
+
+        expect_delivery(&rx1);
+        expect_delivery(&rx2);
+        probe1.on_definition(|cd| assert_eq!(cd.received, 1));
+        probe2.on_definition(|cd| assert_eq!(cd.received, 1));
         system.shutdown().expect("shutdown KompactSystem");
     }
 }

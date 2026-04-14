@@ -227,5 +227,16 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
   - `cargo check -p kompact` passes
   - `cargo check -p kompact --no-default-features --features 'serde_support ser_id_64 use_local_executor implicit_routes'` passes
   - `cargo test -p dynamic-benches --benches --no-run` passes
-- P18.5 `kompact-net` extraction not yet started.
-- P18.6 Docs/examples not yet updated.
+- P18.5 `kompact-net` crate added to the workspace.
+  - current shape is a thin wrapper over the existing networking surface in `kompact`
+  - the benchmark crate now depends on `kompact-net` for its networked benches
+- P18.6 `LocalDispatcher` now supports the minimum useful local distributed flow:
+  - unique registration
+  - alias registration
+  - local routing-group delivery
+  - deadletter fallback for unresolved local paths
+- P18.7 Local distributed coverage added:
+  - unique-path delivery test
+  - alias delivery test
+  - local broadcast-group delivery test
+- P18.8 Docs/examples not yet updated.

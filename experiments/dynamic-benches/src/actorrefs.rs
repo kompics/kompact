@@ -1,5 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use kompact::prelude::*;
+use kompact_net::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Ping;

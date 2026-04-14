@@ -703,6 +703,7 @@ dependencies = [
  "fnv",
  "im",
  "kompact",
+ "kompact-net",
  "panoradix",
  "rand 0.10.1",
  "rustc-hash",
@@ -1434,6 +1435,13 @@ dependencies = [
  "slog-async",
  "slog-term",
  "uuid",
+]
+
+[[package]]
+name = "kompact-net"
+version = "0.11.3"
+dependencies = [
+ "kompact",
 ]
 
 [[package]]

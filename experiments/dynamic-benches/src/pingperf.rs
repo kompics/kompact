@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use kompact::prelude::*;
+use kompact_net::prelude::*;
 use std::{fmt, sync::Arc};
 use synchronoise::CountdownEvent;
 

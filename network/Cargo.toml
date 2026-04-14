@@ -1,0 +1,23 @@
+[package]
+name = "kompact-net"
+version = "0.11.3"
+authors = [
+    "Lars Kroll <lkroll@kth.se>",
+    "Johan Mickos <johanmi@kth.se>",
+    "Max Meldrum <mmeldrum@kth.se>",
+    "Adam Hasselberg <adamhas@kth.se>",
+]
+edition = "2024"
+rust-version = "1.94.1"
+
+description = "Socket-based networking backend for Kompact."
+homepage = "https://kompics.github.io/kompact/"
+repository = "https://github.com/kompics/kompact"
+license = "MIT"
+
+[features]
+default = []
+distributed = ["kompact/distributed"]
+
+[dependencies]
+kompact = { version = "0.11.3", path = "../core" }

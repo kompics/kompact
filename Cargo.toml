@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "core",
+    "network",
     "macros/component-definition-derive",
     "macros/actor-derive",
     "macros/macro-test",

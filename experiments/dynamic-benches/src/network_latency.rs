@@ -1,7 +1,7 @@
 use criterion::{Bencher, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::time::{Duration, Instant};
 //use kompact::*;
-use kompact::prelude::*;
+use kompact_net::prelude::*;
 //use kompact::default_components::DeadletterBox;
 
 const MSG_COUNT: u64 = 1000;
@@ -898,7 +898,7 @@ pub mod ppstatic {
 
     pub mod pipelined {
         use super::{ExperimentPort, Ping, Pong, Run};
-        use kompact::prelude::*;
+        use kompact_net::prelude::*;
         use std::time::{Duration, Instant};
 
         #[derive(ComponentDefinition)]
