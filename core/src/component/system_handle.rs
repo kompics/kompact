@@ -14,6 +14,10 @@ impl ContextSystemHandle {
     pub(super) fn from(component: Arc<dyn CoreContainer>) -> Self {
         ContextSystemHandle { component }
     }
+
+    pub(crate) fn dispatcher_ref(&self) -> DispatcherRef {
+        self.component.system().dispatcher_ref()
+    }
 }
 
 impl SystemHandle for ContextSystemHandle {
@@ -85,6 +89,7 @@ impl SystemHandle for ContextSystemHandle {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl Dispatching for ContextSystemHandle {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.component.system().dispatcher_ref()

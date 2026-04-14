@@ -436,12 +436,14 @@ impl<CD: ComponentTraits> DynActorRefFactory for Arc<Component<CD>> {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> UniqueRegistrable for Arc<Component<CD>> {
     fn component_id(&self) -> Uuid {
         self.id()
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> Dispatching for CD {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx().dispatcher_ref()

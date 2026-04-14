@@ -218,5 +218,14 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
 
 - P18.1 Tracker file created.
 - P18.2 Baseline benchmarks collected.
-- P18.3 Architectural implementation not yet started.
-- P18.4 Docs/examples not yet updated.
+- P18.3 Feature split started.
+  - `distributed` feature added to `kompact` as the switch for the distributed surface.
+  - `SystemHandle` split into a base handle and `DistributedSystemHandle`.
+  - `Actor::receive_network` is now only required when `distributed` is enabled.
+  - distributed-facing `KompactSystem`, `Dispatching`, and `ActorPathFactory` APIs are being gated instead of merely hidden from the prelude.
+- P18.4 Current validation checkpoint:
+  - `cargo check -p kompact` passes
+  - `cargo check -p kompact --no-default-features --features 'serde_support ser_id_64 use_local_executor implicit_routes'` passes
+  - `cargo test -p dynamic-benches --benches --no-run` passes
+- P18.5 `kompact-net` extraction not yet started.
+- P18.6 Docs/examples not yet updated.

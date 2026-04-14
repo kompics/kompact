@@ -121,6 +121,11 @@ impl KompactSystem {
         self.inner.get_internal_components().get_system_components()
     }
 
+    pub(crate) fn dispatcher_ref(&self) -> DispatcherRef {
+        self.inner.assert_active();
+        self.inner.dispatcher_ref()
+    }
+
     pub(crate) fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
         self.scheduler.schedule(c);
     }
@@ -434,6 +439,7 @@ impl KompactSystem {
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
         self.inner.assert_active();
         let id = c.component_id();
@@ -463,6 +469,7 @@ impl KompactSystem {
     /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn create_and_register<C, F>(
         &self,
         f: F,
@@ -511,6 +518,7 @@ impl KompactSystem {
     /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn register_by_alias<A>(
         &self,
         c: &dyn DynActorRefFactory,
@@ -558,6 +566,7 @@ impl KompactSystem {
     /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn update_alias_registration<A>(
         &self,
         c: &dyn DynActorRefFactory,
@@ -609,6 +618,7 @@ impl KompactSystem {
     /// // sending to broadcast_path now will send to c1 and c2
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn set_routing_policy<P>(
         &self,
         policy: P,
@@ -670,6 +680,7 @@ impl KompactSystem {
     ///     system.connect_network_status_port(&mut c.network_status_port);
     /// })
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn connect_network_status_port(
         &self,
         required: &mut RequiredPort<NetworkStatusPort>,
@@ -990,6 +1001,7 @@ impl KompactSystem {
         });
     }
 
+    #[cfg(feature = "distributed")]
     /// Return the system path of this Kompact system
     ///
     /// The system path forms a prefix for every [ActorPath](prelude::ActorPath).
@@ -998,6 +1010,7 @@ impl KompactSystem {
         self.inner.system_path()
     }
 
+    #[cfg(feature = "distributed")]
     /// Generate an unique path for the given component
     ///
     /// Produces a unique id [ActorPath](prelude::ActorPath) for `component`
@@ -1049,6 +1062,7 @@ impl KompactSystem {
         self.inner.supervision_port()
     }
 
+    #[cfg(feature = "distributed")]
     /// The remote path for the deadletter box
     pub fn deadletter_path(&self) -> ActorPath {
         ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
@@ -1065,6 +1079,7 @@ impl ActorRefFactory for KompactSystem {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl Dispatching for KompactSystem {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.inner.assert_active();
@@ -1072,6 +1087,7 @@ impl Dispatching for KompactSystem {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl ActorPathFactory for KompactSystem {
     fn actor_path(&self) -> ActorPath {
         self.deadletter_path()

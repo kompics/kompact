@@ -1041,6 +1041,7 @@ impl Actor for NetworkDispatcher {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         warn!(self.ctx.log(), "Received network message: {:?}", msg,);
         Handled::Ok

@@ -1,4 +1,5 @@
 use super::*;
+use crate::messaging::NetMessage;
 
 use std::{fmt, ops::Deref};
 use uuid::Uuid;

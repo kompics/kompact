@@ -156,6 +156,7 @@ impl fmt::Debug for dyn CoreContainer {
     }
 }
 
+#[cfg(feature = "distributed")]
 /// A trait for component views that can be used for unique actor registration
 pub trait UniqueRegistrable: DynActorRefFactory {
     /// Returns the unique id of a component

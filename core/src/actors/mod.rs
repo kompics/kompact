@@ -2,8 +2,10 @@ use super::*;
 use crate::{
     component::Handled,
     dispatch::NetworkStatusPort,
-    messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, UnpackError},
+    messaging::{DispatchEnvelope, MsgEnvelope},
 };
+#[cfg(feature = "distributed")]
+use crate::messaging::UnpackError;
 use std::{
     fmt,
     sync::{Arc, Weak},
@@ -78,7 +80,7 @@ pub trait ActorRaw {
     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled;
 }
 
-/// A slightly higher level Actor API that handles both local and networked messages
+/// A slightly higher level Actor API that handles local messages, and optionally distributed ones
 ///
 /// This trait should generally be preferred over [ActorRaw](ActorRaw), as it abstracts
 /// away the message envelope enum used internally.
@@ -104,6 +106,7 @@ pub trait ActorRaw {
 ///         Handled::Ok
 ///     }
 ///
+///     #[cfg(feature = "distributed")]
 ///     fn receive_network(&mut self, msg: NetMessage) -> Handled {
 ///         info!(self.log(), "Got a network message: {:?}", msg);
 ///         Handled::Ok
@@ -125,6 +128,7 @@ pub trait Actor {
     /// you shouldn't ever block in this method unless you know what you are doing.
     fn receive_local(&mut self, msg: Self::Message) -> Handled;
 
+    #[cfg(feature = "distributed")]
     /// Handle an incoming network message
     ///
     /// Network messages are of type [NetMessage](NetMessage) and
@@ -138,7 +142,7 @@ pub trait Actor {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive_network(&mut self, msg: NetMessage) -> Handled;
+    fn receive_network(&mut self, msg: crate::messaging::NetMessage) -> Handled;
 }
 
 /// A dispatcher is a system component that knows how to route messages and create system paths
@@ -164,7 +168,10 @@ where
     fn receive(&mut self, env: MsgEnvelope<M>) -> Handled {
         match env {
             MsgEnvelope::Typed(m) => self.receive_local(m),
+            #[cfg(feature = "distributed")]
             MsgEnvelope::Net(nm) => self.receive_network(nm),
+            #[cfg(not(feature = "distributed"))]
+            MsgEnvelope::Net(_nm) => unreachable!("network messages require the `distributed` feature"),
         }
     }
 }
@@ -180,17 +187,19 @@ pub trait ActorRefFactory {
 
 /// A trait for things that can deal with [network messages](NetMessage)
 pub trait DynActorRefFactory {
-    /// Returns a version of an actor ref that can only be used for [network messages](NetMessage),
+    /// Returns a version of an actor ref that can only be used for [network messages](crate::messaging::NetMessage),
     /// but not for typed messages
     fn dyn_ref(&self) -> DynActorRef;
 }
 
+#[cfg(feature = "distributed")]
 /// A trait for accessing [dispatcher references](DispatcherRef)
 pub trait Dispatching {
     /// Returns the associated dispatcher reference
     fn dispatcher_ref(&self) -> DispatcherRef;
 }
 
+#[cfg(feature = "distributed")]
 /// A trait for actors that handle the same set of messages locally and remotely
 ///
 /// Implementing this trait is roughly equivalent to the default assumptions in most
@@ -244,7 +253,10 @@ pub trait NetworkActor: ComponentLogging {
     /// Handle errors during unpacking of network messages
     ///
     /// The default implementation logs every error as a warning.
-    fn on_error(&mut self, error: UnpackError<NetMessage>) -> Handled {
+    fn on_error(
+        &mut self,
+        error: UnpackError<crate::messaging::NetMessage>,
+    ) -> Handled {
         warn!(
             self.log(),
             "Could not deserialise a message with Deserialiser with id={}. Error was: {:?}",
@@ -255,6 +267,7 @@ pub trait NetworkActor: ComponentLogging {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<A, M, D> Actor for A
 where
     M: MessageBounds,
@@ -269,7 +282,7 @@ where
     }
 
     #[inline(always)]
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: crate::messaging::NetMessage) -> Handled {
         match msg.try_into_deserialised::<_, <Self as NetworkActor>::Deserialiser>() {
             Ok(m) => self.receive(Some(m.sender), m.content),
             Err(e) => self.on_error(e),

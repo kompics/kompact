@@ -1,9 +1,11 @@
 use super::*;
 use crate::{
     dispatch::NetworkStatusPort,
-    messaging::{DispatchEnvelope, NetMessage},
+    messaging::DispatchEnvelope,
     timer::timer_manager::TimerRefFactory,
 };
+#[cfg(feature = "distributed")]
+use crate::messaging::NetMessage;
 use std::sync::Arc;
 
 pub(crate) struct DefaultComponents {
@@ -221,6 +223,7 @@ impl Actor for DeadletterBox {
         unimplemented!(); // this can't actually happen
     }
 
+    #[cfg(feature = "distributed")]
     /// Handles (serialised or reflected) messages from the network.
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         info!(
@@ -287,6 +290,7 @@ impl Actor for LocalDispatcher {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         info!(
             self.ctx.log(),
@@ -355,6 +359,7 @@ mod tests {
             unreachable!("Never type is empty")
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("TimerProbe does not use network actor messages")
         }

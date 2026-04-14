@@ -1,6 +1,7 @@
 use super::*;
+#[cfg(feature = "distributed")]
 use crate::{
-    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, SerialisedFrame},
+    messaging::{DispatchData, DispatchEnvelope, MsgEnvelope, NetMessage, SerialisedFrame},
     net::buffers::ChunkRef,
 };
 use std::{
@@ -243,12 +244,14 @@ impl SystemField for SystemPath {
     }
 }
 
+#[cfg(feature = "distributed")]
 /// A factory trait for things that have associated [actor paths](ActorPath)
 pub trait ActorPathFactory {
     /// Returns the associated actor path
     fn actor_path(&self) -> ActorPath;
 }
 
+#[cfg(feature = "distributed")]
 /// A temporary combination of an [ActorPath](ActorPath)
 /// and something that can [dispatch](Dispatching) stuff
 ///
@@ -264,12 +267,14 @@ pub struct DispatchingPath<'a, 'b> {
     ctx: &'b dyn Dispatching,
 }
 
+#[cfg(feature = "distributed")]
 impl Dispatching for DispatchingPath<'_, '_> {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx.dispatcher_ref()
     }
 }
 
+#[cfg(feature = "distributed")]
 impl ActorPathFactory for DispatchingPath<'_, '_> {
     fn actor_path(&self) -> ActorPath {
         self.path.clone()
@@ -326,6 +331,7 @@ impl ActorPath {
     /// As this method has some overhead in the case where it is certain
     /// that `m` will definitely go over the network, you can use
     /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
+    #[cfg(feature = "distributed")]
     pub fn tell<S, B>(&self, m: B, from: &S) -> ()
     where
         S: ActorPathFactory + Dispatching,
@@ -349,6 +355,7 @@ impl ActorPath {
     /// As this method has some overhead in the case where it is certain
     /// that `m` will definitely go over the network, you can use
     /// [tell_serialised](ActorPath::tell_serialised) to force eager serialisation instead.
+    #[cfg(feature = "distributed")]
     pub fn tell_with_sender<B, D>(&self, m: B, dispatch: &D, from: ActorPath) -> ()
     where
         B: Into<Box<dyn Serialisable>>,
@@ -368,6 +375,7 @@ impl ActorPath {
     ///
     /// This function has the same effect as [tell](ActorPath::tell),
     /// but serialises eagerly into a Pooled buffer (pre-allocated and bounded).
+    #[cfg(feature = "distributed")]
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
     where
         CD: ComponentTraits + ComponentLifecycle + ActorPathFactory,
@@ -382,6 +390,7 @@ impl ActorPath {
     ///
     /// This function has the same effect as [tell](ActorPath::tell),
     /// but serialises eagerly into a Pooled buffer (pre-allocated and bounded).
+    #[cfg(feature = "distributed")]
     pub fn tell_serialised_with_sender<CD, B>(
         &self,
         m: B,
@@ -419,6 +428,7 @@ impl ActorPath {
     ///
     /// Use [self.ctx.preserialise(m)](component::ComponentContext#preserialise)
     /// to preserialise data into a `ChunkRef`
+    #[cfg(feature = "distributed")]
     pub fn tell_preserialised<CD>(&self, content: ChunkRef, from: &CD) -> Result<(), SerError>
     where
         CD: ComponentTraits + ComponentLifecycle + ActorPathFactory,
@@ -434,6 +444,7 @@ impl ActorPath {
     /// requires the content to be pre-serialised into a [ChunkRef](net::buffers::ChunkRef).
     ///
     /// Use [self.ctx.preserialise(m)](component::ComponentContext#preserialise) to preserialise data into a `ChunkRef`
+    #[cfg(feature = "distributed")]
     pub fn tell_preserialised_with_sender<CD: ComponentTraits + ComponentLifecycle>(
         &self,
         content: ChunkRef,
@@ -459,6 +470,7 @@ impl ActorPath {
     ///
     /// This can be used for routing protocls where the final recipient is supposed to reply
     /// to the original sender, not the intermediaries.
+    #[cfg(feature = "distributed")]
     pub fn forward_with_original_sender<D>(
         &self,
         mut serialised_message: NetMessage,
@@ -475,6 +487,7 @@ impl ActorPath {
     }
 
     /// Forwards the still serialised message to this path replacing the sender with the given one
+    #[cfg(feature = "distributed")]
     pub fn forward_with_sender<D>(
         &self,
         mut serialised_message: NetMessage,
@@ -500,6 +513,7 @@ impl ActorPath {
     /// but still need to use the component's dispatcher for the message.
     /// This is useful for forwarding components, for example, when trying to
     /// preserve the original sender.
+    #[cfg(feature = "distributed")]
     pub fn using_dispatcher<'a, 'b>(
         &'a self,
         disp: &'b dyn Dispatching,
