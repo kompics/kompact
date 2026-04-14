@@ -4,10 +4,10 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 
 use crate::{
+    dispatch::NetworkConfig,
     dispatch::NetworkStatus,
     messaging::{DispatchData, DispatchEnvelope, EventEnvelope},
     net::{events::DispatchEvent, frames::*, network_thread::NetworkThreadBuilder},
-    prelude::NetworkConfig,
 };
 use crossbeam_channel::{RecvError, SendError, Sender, unbounded as channel};
 use ipnet::IpNet;
@@ -488,6 +488,7 @@ pub(crate) fn out_of_buffers(err: &SerError) -> bool {
 }
 
 /// A module with helper functions for testing network configurations/implementations
+#[cfg(feature = "distributed")]
 pub mod net_test_helpers {
     use crate::{
         messaging::{DispatchData, SerialisedFrame},

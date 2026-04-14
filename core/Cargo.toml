@@ -36,6 +36,7 @@ default = [
     "ser_id_64",
     "use_local_executor",
     "implicit_routes",
+    "distributed",
 ]
 silent_logging = [
     "serde_support",
@@ -52,6 +53,7 @@ serde_support = ["serde", "bytes/serde"]
 type_erasure = []
 use_local_executor = []
 implicit_routes = []
+distributed = []
 
 [dependencies]
 log = "0.4"

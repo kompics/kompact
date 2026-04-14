@@ -1,10 +1,8 @@
 use super::*;
 
-use crate::{
-    messaging::RegistrationResult,
-    routing::groups::StorePolicy,
-    timer::timer_manager::CanCancelTimers,
-};
+use crate::timer::timer_manager::CanCancelTimers;
+#[cfg(feature = "distributed")]
+use crate::{messaging::RegistrationResult, routing::groups::StorePolicy};
 use std::time::Instant;
 
 /// The [SystemHandle](SystemHandle) provided by a [ComponentContext](ComponentContext)
@@ -39,6 +37,62 @@ impl SystemHandle for ContextSystemHandle {
         self.component.system().create_erased(a)
     }
 
+    fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        self.component.system().start(c)
+    }
+
+    fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        self.component.system().start_notify(c)
+    }
+
+    fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        self.component.system().stop(c)
+    }
+
+    fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        self.component.system().stop_notify(c)
+    }
+
+    fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
+        self.component.system().kill(c)
+    }
+
+    fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        self.component.system().kill_notify(c)
+    }
+
+    fn throughput(&self) -> usize {
+        self.component.system().throughput()
+    }
+
+    fn max_messages(&self) -> usize {
+        self.component.system().max_messages()
+    }
+
+    fn shutdown_async(&self) -> () {
+        self.component.system().shutdown_async()
+    }
+
+    fn deadletter_ref(&self) -> ActorRef<Never> {
+        self.component.system().actor_ref()
+    }
+
+    fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        self.component.system().spawn(future)
+    }
+}
+
+impl Dispatching for ContextSystemHandle {
+    fn dispatcher_ref(&self) -> DispatcherRef {
+        self.component.system().dispatcher_ref()
+    }
+}
+
+#[cfg(feature = "distributed")]
+impl DistributedSystemHandle for ContextSystemHandle {
     fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
         self.component.system().register(c)
     }
@@ -87,61 +141,8 @@ impl SystemHandle for ContextSystemHandle {
             .set_routing_policy(policy, path, update)
     }
 
-    fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
-        self.component.system().start(c)
-    }
-
-    fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
-        self.component.system().start_notify(c)
-    }
-
-    fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
-        self.component.system().stop(c)
-    }
-
-    fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
-        self.component.system().stop_notify(c)
-    }
-
-    fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
-        self.component.system().kill(c)
-    }
-
-    fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
-        self.component.system().kill_notify(c)
-    }
-
-    fn throughput(&self) -> usize {
-        self.component.system().throughput()
-    }
-
-    fn max_messages(&self) -> usize {
-        self.component.system().max_messages()
-    }
-
-    fn shutdown_async(&self) -> () {
-        self.component.system().shutdown_async()
-    }
-
     fn system_path(&self) -> SystemPath {
         self.component.system().system_path()
-    }
-
-    fn deadletter_ref(&self) -> ActorRef<Never> {
-        self.component.system().actor_ref()
-    }
-
-    fn spawn<R: Send + 'static>(
-        &self,
-        future: impl futures::Future<Output = R> + 'static + Send,
-    ) -> JoinHandle<R> {
-        self.component.system().spawn(future)
-    }
-}
-
-impl Dispatching for ContextSystemHandle {
-    fn dispatcher_ref(&self) -> DispatcherRef {
-        self.component.system().dispatcher_ref()
     }
 }
 

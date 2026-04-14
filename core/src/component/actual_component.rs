@@ -448,6 +448,7 @@ impl<CD: ComponentTraits> Dispatching for CD {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> ActorPathFactory for CD {
     fn actor_path(&self) -> ActorPath {
         self.ctx().actor_path()

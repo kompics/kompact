@@ -25,8 +25,7 @@ use crate::{
         RegistrationEvent,
         RegistrationPromise,
     },
-    net::{ConnectionState, NetworkBridgeErr, Protocol, SocketAddr, buffers::*},
-    prelude::SessionId,
+    net::{ConnectionState, NetworkBridgeErr, Protocol, SessionId, SocketAddr, buffers::*},
     timer::timer_manager::Timer,
 };
 use arc_swap::ArcSwap;

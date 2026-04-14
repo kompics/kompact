@@ -1,9 +1,11 @@
 //! Messaging types for sending and receiving messages between remote actors.
 use crate::{
     actors::{ActorPath, DynActorRef, MessageBounds, PathParseError},
+    dispatch::NetworkStatus,
     net::{
         buffers::{BufferChunk, BufferEncoder, ChunkLease, ChunkRef},
         frames::FRAME_HEAD_LEN,
+        SocketAddr,
     },
     serialisation::{
         Deserialiser,
@@ -28,7 +30,6 @@ pub use serialised::*;
 pub(crate) mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
-use crate::{net::SocketAddr, prelude::NetworkStatus};
 #[allow(unused_imports)]
 pub use deser_macro::*;
 pub mod bitfields;

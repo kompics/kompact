@@ -370,7 +370,7 @@ impl ActorPath {
     /// but serialises eagerly into a Pooled buffer (pre-allocated and bounded).
     pub fn tell_serialised<CD, B>(&self, m: B, from: &CD) -> Result<(), SerError>
     where
-        CD: ComponentTraits + ComponentLifecycle,
+        CD: ComponentTraits + ComponentLifecycle + ActorPathFactory,
         B: Serialisable + 'static,
     {
         let mut src = from.actor_path();
@@ -421,7 +421,7 @@ impl ActorPath {
     /// to preserialise data into a `ChunkRef`
     pub fn tell_preserialised<CD>(&self, content: ChunkRef, from: &CD) -> Result<(), SerError>
     where
-        CD: ComponentTraits + ComponentLifecycle,
+        CD: ComponentTraits + ComponentLifecycle + ActorPathFactory,
     {
         let mut src = from.actor_path();
         src.set_protocol(self.protocol());

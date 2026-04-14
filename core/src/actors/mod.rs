@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
     component::Handled,
+    dispatch::NetworkStatusPort,
     messaging::{DispatchEnvelope, MsgEnvelope, NetMessage, UnpackError},
-    prelude::NetworkStatusPort,
 };
 use std::{
     fmt,

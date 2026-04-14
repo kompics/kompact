@@ -6,7 +6,7 @@ use bytes::{Buf, BufMut};
 //use bytes::IntoBuf;
 use std::{self, fmt::Debug, io};
 
-use crate::{net::buffers::ChunkLease, prelude::SessionId};
+use crate::net::{SessionId, buffers::ChunkLease};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 //use stream::StreamId;

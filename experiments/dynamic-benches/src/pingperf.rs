@@ -762,7 +762,7 @@ mod ask_pingpong {
                 self.received += 1;
                 if self.sent < self.repeat {
                     if let Some(ref ponger) = self.ponger {
-                        let f = ponger.ask(Ask::of(Ping));
+                        let f = ponger.ask(Ping);
                         self.sent += 1;
                         self.spawn_local(move |mut async_self| async move {
                             let _pong = f.await.expect("pong");
@@ -792,7 +792,7 @@ mod ask_pingpong {
                 let remaining = std::cmp::min(MAX_BATCH, self.repeat);
                 for _ in 0..remaining {
                     //println!("Sending Ping {}", self.sent);
-                    let f = ponger.ask(Ask::of(Ping));
+                    let f = ponger.ask(Ping);
                     self.sent += 1;
                     self.spawn_local(move |mut async_self| async move {
                         let _pong = f.await.expect("pong");
@@ -872,7 +872,7 @@ mod ask_pingpong {
                 //println!("Sending Ping {}", self.sent);
                 Handled::block_on(self, move |mut async_self| async move {
                     while async_self.received < async_self.repeat {
-                        let _pong = ponger.ask(Ask::of(Ping)).await.expect("pong");
+                        let _pong = ponger.ask(Ping).await.expect("pong");
                         async_self.received += 1;
                     }
                     let _ = latch.decrement();

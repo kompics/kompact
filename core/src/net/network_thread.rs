@@ -6,11 +6,12 @@ use crate::{
     },
     messaging::{DispatchEnvelope, EventEnvelope, NetMessage, SerialisedFrame},
     net::{
+        SessionId,
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
     },
-    prelude::{NetworkStatus, SessionId},
+    dispatch::NetworkStatus,
     serialisation::ser_helpers::deserialise_chunk_lease,
 };
 use crossbeam_channel::Receiver as Recv;

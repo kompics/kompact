@@ -1,5 +1,5 @@
 use super::*;
-use crate::prelude::SessionId;
+use crate::net::SessionId;
 
 /// An incoming message from the networking subsystem
 ///

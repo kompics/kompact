@@ -287,7 +287,7 @@ where
     }
 
     /// Returns a handle to the Kompact system this component is a part of
-    pub fn system(&self) -> impl SystemHandle {
+    pub fn system(&self) -> ContextSystemHandle {
         self.context_system()
     }
 
@@ -438,12 +438,17 @@ where
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD> ActorPathFactory for ComponentContext<CD>
 where
     CD: ComponentTraits + ComponentLifecycle,
 {
     fn actor_path(&self) -> ActorPath {
         let id = *self.id();
-        ActorPath::Unique(UniquePath::with_system(self.system().system_path(), id))
+        let system = self.system();
+        ActorPath::Unique(UniquePath::with_system(
+            DistributedSystemHandle::system_path(&system),
+            id,
+        ))
     }
 }
