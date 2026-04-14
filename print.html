@@ -8233,23 +8233,22 @@ cat /tmp/myloggingfile
 </code></pre>
 </blockquote>
 <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<p>Since it is often inconvenient to pass around a large number of parameters when setting up a component system, Kompact also offers a configuration system allowing parameters to be loaded from a file or provided as a large string at the top level, for example. This system is powered by the <a href="https://crates.io/crates/hocon">Hocon</a> crate and uses its APIs with very little additional support. </p>
+<p>Since it is often inconvenient to pass around a large number of parameters when setting up a component system, Kompact also offers a configuration system allowing parameters to be loaded from a file or provided as a large string at the top level, for example. The configuration format is TOML and the parsed values can be accessed directly via the Kompact config API.</p>
 <p>Configuration options must be set on the <code>KompactConfig</code> instance before the system is started and the resulting configuration remains immutable for the lifetime of the system. A configuration can be loaded from a file by passing a path to the file to the <code>load_config_file(...)</code> function. Alternatively, configuration values can be loaded directly from a string using <code>load_config_str(...)</code>.</p>
-<p>Within each component the <a href="https://docs.rs/hocon/latest/hocon/enum.Hocon.html">Hocon</a> configuration instance can be accessed via the context and individual keys via bracket notation, e.g. <code>self.ctx.config()[&quot;my-key&quot;]</code>. The configuration can also be accessed outside a component via <code>KompactSystem::config()</code>.</p>
+<p>Within each component the configuration instance can be accessed via the context and individual keys via bracket notation, e.g. <code>self.ctx.config()[&quot;my-key&quot;]</code>. This panics on invalid access, just like normal Rust indexing. For fallible path-aware access with detailed errors, use <code>self.ctx.config().get(&quot;my-key&quot;)</code> or <code>self.ctx.config().select(&quot;my-group.my-key&quot;)</code> instead. The configuration can also be accessed outside a component via <code>KompactSystem::config()</code>.</p>
 <p>In addition to component configuration, many parts of Kompact’s runtime can also be configured via this mechanism. The complete set of available configuration keys and their effects is described in the modules below <a href="https://docs.rs/kompact/latest/kompact/config_keys/index.html">kompact::config_keys</a>.</p>
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>We are going to reuse the <code>Buncher</code> from the <a href="local/timers.html">timers</a> section and pass its two parameters, <code>batch_size</code> and <code>timeout</code>, via configuration instead of the constructor.</p>
-<p>We’ll start off by creating a configuration file <code>application.conf</code> in the working directory, so its easy to find later. Something like this:</p>
-<pre><code class="language-hocon">buncher {
-	batch-size = 100
-	timeout = 100 ms
-}
-omega {
-	initial-period = 10 ms
-	delta = 1 ms
-}
+<p>We’ll start off by creating a configuration file <code>app_settings.toml</code> in the working directory, so its easy to find later. Something like this:</p>
+<pre><code class="language-toml">[buncher]
+batch-size = 100
+timeout = &quot;100 ms&quot;
+
+[omega]
+initial-period = &quot;10 ms&quot;
+delta = &quot;1 ms&quot;
 </code></pre>
-<p>We can then add this file to the <code>KompicsConfig</code> instance using the <code>load_config_file(...)</code> function: </p>
+<p>We can then add this file to the <code>KompactConfig</code> instance using the <code>load_config_file(...)</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
 </span><span class="boring">use kompact_examples::batching::*;
@@ -8345,7 +8344,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span>    conf.load_config_file(&quot;./application.conf&quot;)
+</span>    conf.load_config_file(&quot;./app_settings.toml&quot;)
 <span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -8481,7 +8480,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span>    let mut conf = KompactConfig::default();
-    conf.load_config_file(&quot;./application.conf&quot;)
+    conf.load_config_file(&quot;./app_settings.toml&quot;)
         .load_config_str(&quot;buncher.batch-size = 50&quot;);
     let system = conf.build().expect(&quot;system&quot;);
 <span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -8617,7 +8616,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -8753,7 +8752,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -8793,7 +8792,7 @@ omega {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<p>Finally, the actual config access happens in the <code>on_start</code>code. At this point the component is properly initialised and we have acceess to configuration values. The <a href="https://docs.rs/hocon/latest/hocon/enum.Hocon.html">Hocon</a> type has a bunch of very convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>100 ms</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
+<p>Finally, the actual config access happens in the <code>on_start</code> code. At this point the component is properly initialised and we have access to configuration values. The Kompact config type has convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>&quot;100 ms&quot;</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
 </span><span class="boring">use kompact_examples::batching::*;
@@ -8889,7 +8888,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -11977,7 +11976,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -12185,7 +12184,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -12237,11 +12236,10 @@ struct EventualLeaderElector {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<p>In order to load our configuration values from a file, we need to put something like the following into an <code>application.conf</code> file in the current working directory:</p>
-<pre><code class="language-hocon">omega {
-	initial-period = 10 ms
-	delta = 1 ms
-}
+<p>In order to load our configuration values from a file, we need to put something like the following into an <code>app_settings.toml</code> file in the current working directory:</p>
+<pre><code class="language-toml">[omega]
+initial-period = &quot;10 ms&quot;
+delta = &quot;1 ms&quot;
 </code></pre>
 <p>And then we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -12391,7 +12389,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -12592,7 +12590,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -12793,7 +12791,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -12996,7 +12994,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -13198,7 +13196,7 @@ pub fn run_systems(num_systems: usize) {
     let mut systems: Vec&lt;KompactSystem&gt; = {
         let system = || {
             let mut cfg = KompactConfig::default();
-            cfg.load_config_file(&quot;./application.conf&quot;);
+            cfg.load_config_file(&quot;./app_settings.toml&quot;);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
             cfg.build().expect(&quot;KompactSystem&quot;)
         };
@@ -13479,7 +13477,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -13506,7 +13504,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -13779,7 +13777,7 @@ impl BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -13806,7 +13804,7 @@ impl BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -14078,7 +14076,7 @@ impl EventualLeaderElector {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -14105,7 +14103,7 @@ impl EventualLeaderElector {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -14378,7 +14376,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -14405,7 +14403,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -14677,7 +14675,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -14704,7 +14702,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -14996,7 +14994,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -15023,7 +15021,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -15303,7 +15301,7 @@ The syntax for each different message case in the macro is basically:</p>
 
 pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
     let mut cfg = KompactConfig::default();
-    cfg.load_config_file(&quot;./application.conf&quot;);
+    cfg.load_config_file(&quot;./app_settings.toml&quot;);
     cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 
     let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -15330,7 +15328,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -15603,7 +15601,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -15630,7 +15628,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span>pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
     let mut cfg = KompactConfig::default();
-    cfg.load_config_file(&quot;./application.conf&quot;);
+    cfg.load_config_file(&quot;./app_settings.toml&quot;);
     cfg.system_components(
         DeadletterBox::new,
         NetworkConfig::new(client_socket).build(),
@@ -15903,7 +15901,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -15930,7 +15928,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -18636,7 +18634,7 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -18663,7 +18661,7 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -19028,7 +19026,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -19055,7 +19053,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -19416,7 +19414,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -19443,7 +19441,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -19803,7 +19801,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -19830,7 +19828,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -20194,7 +20192,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
 </span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
@@ -20221,7 +20219,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
-</span><span class="boring">    cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(
 </span><span class="boring">        DeadletterBox::new,
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
@@ -20325,17 +20323,16 @@ unnoticeable to the actor initiating the message sending, and both will lead to 
 }
 </code></pre>
 <h4 id="configuring-all-actors"><a class="header" href="#configuring-all-actors">Configuring All Actors</a></h4>
-<p>If a programmer wishes for all actors to use the same <code>BufferConfig</code> configuration, a Hocon string can be inserted into the <code>KompactConfig</code> or loaded from a Hocon-file (<a href="distributed/./../local/configuration.html">see configuration chapter on loading configurations</a>), for example: </p>
+<p>If a programmer wishes for all actors to use the same <code>BufferConfig</code> configuration, a TOML string can be inserted into the <code>KompactConfig</code> or loaded from a TOML file (<a href="distributed/./../local/configuration.html">see configuration chapter on loading configurations</a>), for example: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen">let mut cfg = KompactConfig::new();
 cfg.load_config_str(
-    r#&quot;{
-        buffer_config {
-            chunk_size: &quot;256KB&quot;,
-            initial_chunk_count: 3,
-            max_chunk_count: 4,
-            encode_min_remaining: &quot;20B&quot;,
-        }
-        }&quot;#,
+    r#&quot;
+        [buffer_config]
+        chunk_size = &quot;256KB&quot;
+        initial_chunk_count = 3
+        max_chunk_count = 4
+        encode_min_remaining = &quot;20B&quot;
+        &quot;#,
 );
 ...
 let system = cfg.build().expect(&quot;KompactSystem&quot;);

@@ -220,17 +220,16 @@ unnoticeable to the actor initiating the message sending, and both will lead to 
 }
 </code></pre>
 <h4 id="configuring-all-actors"><a class="header" href="#configuring-all-actors">Configuring All Actors</a></h4>
-<p>If a programmer wishes for all actors to use the same <code>BufferConfig</code> configuration, a Hocon string can be inserted into the <code>KompactConfig</code> or loaded from a Hocon-file (<a href="./../local/configuration.html">see configuration chapter on loading configurations</a>), for example: </p>
+<p>If a programmer wishes for all actors to use the same <code>BufferConfig</code> configuration, a TOML string can be inserted into the <code>KompactConfig</code> or loaded from a TOML file (<a href="./../local/configuration.html">see configuration chapter on loading configurations</a>), for example: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen">let mut cfg = KompactConfig::new();
 cfg.load_config_str(
-    r#&quot;{
-        buffer_config {
-            chunk_size: &quot;256KB&quot;,
-            initial_chunk_count: 3,
-            max_chunk_count: 4,
-            encode_min_remaining: &quot;20B&quot;,
-        }
-        }&quot;#,
+    r#&quot;
+        [buffer_config]
+        chunk_size = &quot;256KB&quot;
+        initial_chunk_count = 3
+        max_chunk_count = 4
+        encode_min_remaining = &quot;20B&quot;
+        &quot;#,
 );
 ...
 let system = cfg.build().expect(&quot;KompactSystem&quot;);

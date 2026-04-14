@@ -171,23 +171,22 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<p>Since it is often inconvenient to pass around a large number of parameters when setting up a component system, Kompact also offers a configuration system allowing parameters to be loaded from a file or provided as a large string at the top level, for example. This system is powered by the <a href="https://crates.io/crates/hocon">Hocon</a> crate and uses its APIs with very little additional support. </p>
+<p>Since it is often inconvenient to pass around a large number of parameters when setting up a component system, Kompact also offers a configuration system allowing parameters to be loaded from a file or provided as a large string at the top level, for example. The configuration format is TOML and the parsed values can be accessed directly via the Kompact config API.</p>
 <p>Configuration options must be set on the <code>KompactConfig</code> instance before the system is started and the resulting configuration remains immutable for the lifetime of the system. A configuration can be loaded from a file by passing a path to the file to the <code>load_config_file(...)</code> function. Alternatively, configuration values can be loaded directly from a string using <code>load_config_str(...)</code>.</p>
-<p>Within each component the <a href="https://docs.rs/hocon/latest/hocon/enum.Hocon.html">Hocon</a> configuration instance can be accessed via the context and individual keys via bracket notation, e.g. <code>self.ctx.config()[&quot;my-key&quot;]</code>. The configuration can also be accessed outside a component via <code>KompactSystem::config()</code>.</p>
+<p>Within each component the configuration instance can be accessed via the context and individual keys via bracket notation, e.g. <code>self.ctx.config()[&quot;my-key&quot;]</code>. This panics on invalid access, just like normal Rust indexing. For fallible path-aware access with detailed errors, use <code>self.ctx.config().get(&quot;my-key&quot;)</code> or <code>self.ctx.config().select(&quot;my-group.my-key&quot;)</code> instead. The configuration can also be accessed outside a component via <code>KompactSystem::config()</code>.</p>
 <p>In addition to component configuration, many parts of Kompact’s runtime can also be configured via this mechanism. The complete set of available configuration keys and their effects is described in the modules below <a href="https://docs.rs/kompact/latest/kompact/config_keys/index.html">kompact::config_keys</a>.</p>
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>We are going to reuse the <code>Buncher</code> from the <a href="timers.html">timers</a> section and pass its two parameters, <code>batch_size</code> and <code>timeout</code>, via configuration instead of the constructor.</p>
-<p>We’ll start off by creating a configuration file <code>application.conf</code> in the working directory, so its easy to find later. Something like this:</p>
-<pre><code class="language-hocon">buncher {
-	batch-size = 100
-	timeout = 100 ms
-}
-omega {
-	initial-period = 10 ms
-	delta = 1 ms
-}
+<p>We’ll start off by creating a configuration file <code>app_settings.toml</code> in the working directory, so its easy to find later. Something like this:</p>
+<pre><code class="language-toml">[buncher]
+batch-size = 100
+timeout = &quot;100 ms&quot;
+
+[omega]
+initial-period = &quot;10 ms&quot;
+delta = &quot;1 ms&quot;
 </code></pre>
-<p>We can then add this file to the <code>KompicsConfig</code> instance using the <code>load_config_file(...)</code> function: </p>
+<p>We can then add this file to the <code>KompactConfig</code> instance using the <code>load_config_file(...)</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
 </span><span class="boring">use kompact_examples::batching::*;
@@ -283,7 +282,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span>    conf.load_config_file(&quot;./application.conf&quot;)
+</span>    conf.load_config_file(&quot;./app_settings.toml&quot;)
 <span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -419,7 +418,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span>    let mut conf = KompactConfig::default();
-    conf.load_config_file(&quot;./application.conf&quot;)
+    conf.load_config_file(&quot;./app_settings.toml&quot;)
         .load_config_str(&quot;buncher.batch-size = 50&quot;);
     let system = conf.build().expect(&quot;system&quot;);
 <span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -555,7 +554,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -691,7 +690,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
@@ -731,7 +730,7 @@ omega {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<p>Finally, the actual config access happens in the <code>on_start</code>code. At this point the component is properly initialised and we have acceess to configuration values. The <a href="https://docs.rs/hocon/latest/hocon/enum.Hocon.html">Hocon</a> type has a bunch of very convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>100 ms</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
+<p>Finally, the actual config access happens in the <code>on_start</code> code. At this point the component is properly initialised and we have access to configuration values. The Kompact config type has convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>&quot;100 ms&quot;</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
 </span><span class="boring">use kompact_examples::batching::*;
@@ -827,7 +826,7 @@ omega {
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
 </span><span class="boring">    let mut conf = KompactConfig::default();
-</span><span class="boring">    conf.load_config_file(&quot;./application.conf&quot;)
+</span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
 </span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);

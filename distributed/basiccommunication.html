@@ -453,7 +453,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -661,7 +661,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -713,11 +713,10 @@ struct EventualLeaderElector {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
-<p>In order to load our configuration values from a file, we need to put something like the following into an <code>application.conf</code> file in the current working directory:</p>
-<pre><code class="language-hocon">omega {
-	initial-period = 10 ms
-	delta = 1 ms
-}
+<p>In order to load our configuration values from a file, we need to put something like the following into an <code>app_settings.toml</code> file in the current working directory:</p>
+<pre><code class="language-toml">[omega]
+initial-period = &quot;10 ms&quot;
+delta = &quot;1 ms&quot;
 </code></pre>
 <p>And then we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -867,7 +866,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -1068,7 +1067,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -1269,7 +1268,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -1472,7 +1471,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    let mut systems: Vec&lt;KompactSystem&gt; = {
 </span><span class="boring">        let system = || {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
-</span><span class="boring">            cfg.load_config_file(&quot;./application.conf&quot;);
+</span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
 </span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
@@ -1674,7 +1673,7 @@ pub fn run_systems(num_systems: usize) {
     let mut systems: Vec&lt;KompactSystem&gt; = {
         let system = || {
             let mut cfg = KompactConfig::default();
-            cfg.load_config_file(&quot;./application.conf&quot;);
+            cfg.load_config_file(&quot;./app_settings.toml&quot;);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
             cfg.build().expect(&quot;KompactSystem&quot;)
         };
