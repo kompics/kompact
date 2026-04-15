@@ -211,8 +211,84 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
 
 ### R17 Post-change comparison
 
-- R17.1 Status: pending
-- R17.2 Notes: stop after collecting these results and review before doc/example updates.
+- R17.1 Status: collected, awaiting review
+- R17.2 Environment:
+  - run outside the sandbox
+  - same focused suite as the baseline
+  - `network_latency` still hit transient UDP bind races during repeated system boot/shutdown, but the retry logic recovered and the bench completed
+- R17.3 Representative post-change figures:
+  - `actorrefs`
+    - clone `ActorRef`: `3.16 ns`
+    - clone `Recipient`: `18.23 ns`
+    - clone `ActorPath`: `0.807 ns`
+    - tell `ActorRef`: `35.04 ns`
+    - tell `Recipient`: `31.57 ns`
+    - tell strong `ActorRef`: `32.17 ns`
+    - trigger port: `21.39 ns`
+  - `actor_store`
+    - insert `SequenceTrie/10000`: `1.859 ms`
+    - insert `PathTrie/10000`: `1.162 ms`
+    - lookup `SequenceTrie/10000`: `479.28 us`
+    - lookup `PathTrie/10000`: `203.81 us`
+    - group lookup `SequenceTrie/10000`: `370.32 us`
+    - group lookup `PathTrie/10000`: `126.71 us`
+    - cleanup `SequenceTrie/10000`: `1.535 ms`
+    - cleanup `PathTrie/10000`: `602.20 us`
+  - `network_latency`
+    - RTT static: `65.35 us`
+    - RTT indexed: `65.10 us`
+    - RTT pipeline all static: `9.90 us`
+    - RTT pipeline all indexed: `3.46 us`
+    - RTT static by threadpool size:
+      - `1`: `63.18 us`
+      - `2`: `64.29 us`
+      - `3`: `66.51 us`
+      - `4`: `65.80 us`
+      - `5`: `66.25 us`
+      - `6`: `63.87 us`
+      - `7`: `66.77 us`
+    - throughput with pipelining:
+      - `1`: `30.38 Kelem/s`
+      - `10`: `246.72 Kelem/s`
+      - `100`: `407.14 Kelem/s`
+      - `1000`: `432.77 Kelem/s`
+  - `pingperf`
+    - throughput `ports/1`: `58.47 Melem/s`
+    - throughput `strong-refs/1`: `61.99 Melem/s`
+    - throughput `weak-refs/1`: `45.89 Melem/s`
+    - throughput `ask/1`: `1.78 Melem/s`
+    - throughput `ports/16`: `284.85 Melem/s`
+    - throughput `strong-refs/16`: `167.96 Melem/s`
+    - throughput `weak-refs/16`: `196.48 Melem/s`
+    - throughput `ask/16`: `2.72 Melem/s`
+    - latency `ports/1`: `1.162 ms`
+    - latency `strong-refs/1`: `1.246 ms`
+    - latency `weak-refs/1`: `1.325 ms`
+    - latency `ask/1`: `1.242 ms`
+- R17.4 Summary:
+  - `actorrefs` improved across the recorded points
+  - most `actor_store` points improved, but `GroupLookups/PathTrie/10000` regressed sharply and was re-run in isolation with the same result (`~140 us`)
+  - `network_latency` is mixed: indexed pipeline improved, several RTT points are roughly flat, but static pipeline RTT regressed noticeably
+  - `pingperf` is mixed: some strong-ref throughput improved, `ask` throughput regressed, and the rest is mostly within a small band
+- R17.5 Notes: stop here and review before doc/example updates.
+
+## Regression Follow-up
+
+### T19 Investigations
+
+- T19.1 `actor_store`: investigate `GroupLookups/PathTrie/10000`
+  - baseline: `6.29 ns`
+  - post-change: `126.71 us`
+  - isolated rerun: `~140 us`
+  - goal: determine whether the baseline was invalid or whether the current `PathTrie` group-lookup path is genuinely slower
+- T19.2 `network_latency`: investigate `Ping Pong RTT Pipeline All (Static)`
+  - baseline: `5.84 us`
+  - post-change: `9.90 us`
+  - goal: identify whether the regression comes from the dispatcher/runtime split, benchmark noise from repeated system boot/shutdown, or some other runtime effect
+- T19.3 `pingperf`: investigate `ask/1` throughput
+  - baseline: `2.00 Melem/s`
+  - post-change: `1.78 Melem/s`
+  - goal: determine whether this is a real behavioural regression or just run-to-run variance in the lower-throughput `ask` path
 
 ## Progress
 
