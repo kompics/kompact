@@ -12,13 +12,17 @@ use crate::{
         RegistrationError,
         RegistrationResult,
     },
-    dispatch::NetworkStatusPort,
     routing::groups::StorePolicy,
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
     timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
 use oncemutex::{OnceMutex, OnceMutexGuard};
-use std::{any::TypeId, fmt, sync::Mutex, time::Instant};
+use std::{
+    any::{Any, TypeId},
+    fmt,
+    sync::Mutex,
+    time::Instant,
+};
 
 /// A Kompact system is a collection of components and services
 ///
@@ -654,38 +658,14 @@ impl KompactSystem {
         c.enqueue_control(ControlEvent::Start);
     }
 
-    /// Subscribes the given component to the systems `NetworkStatusPort`.
+    /// Allows backend crates to interact with the concrete dispatcher definition.
     ///
-    /// The status port pushes notifications about the systems Network layer, when new connections
-    /// are set-up, when connections are lost, closed, or dropped. It may also receive requests
-    /// for information about what remote systems the local system is currently connected to.
-    ///
-    /// The `component` must implement [Require](component::Require) for
-    /// [NetworkStatusPort](dispatch::NetworkStatusPort). The system must be set-up with a
-    /// `NetworkingConfig`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use kompact::prelude::*;
-    /// # use kompact::net::net_test_helpers::NetworkStatusCounter;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let status_counter = system.create(NetworkStatusCounter::new);
-    /// status_counter.on_definition(|c|{
-    ///     system.connect_network_status_port(&mut c.network_status_port);
-    /// })
-    /// ```
+    /// The callback receives the dispatcher definition erased as [`Any`].
+    /// Backend crates can downcast it to their concrete dispatcher type in order to
+    /// wire backend-specific ports or query backend-specific state.
     #[cfg(feature = "distributed")]
-    pub fn connect_network_status_port(
-        &self,
-        required: &mut RequiredPort<NetworkStatusPort>,
-    ) -> () {
-        self.inner.connect_network_status_port(required);
+    pub fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+        self.inner.with_dispatcher_definition(f);
     }
 
     /// Start a component and complete a future once it has started
@@ -1447,8 +1427,8 @@ pub trait SystemComponents: Send + Sync + 'static {
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
-    /// Allow subscribing to `NetworkStatusUpdate` messages
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> ();
+    /// Allow backend crates to interact with the concrete dispatcher definition.
+    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> ();
 }
 
 impl dyn SystemComponents {
@@ -1511,8 +1491,8 @@ impl InternalComponents {
         self.system_components.dispatcher_ref()
     }
 
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
-        self.system_components.connect_network_status_port(required)
+    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+        self.system_components.with_dispatcher_definition(f)
     }
 
     fn system_path(&self) -> SystemPath {
@@ -1679,9 +1659,9 @@ impl KompactRuntime {
         }
     }
 
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
+    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
         match *self.internal_components {
-            Some(ref sc) => sc.connect_network_status_port(required),
+            Some(ref sc) => sc.with_dispatcher_definition(f),
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }

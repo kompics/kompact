@@ -1,6 +1,7 @@
-use super::*;
-use bytes::{Bytes, buf::UninitSlice};
-use std::{cmp::Ordering, ptr::NonNull};
+use super::ChunkRef;
+use crate::net::frames::FrameHead;
+use bytes::{Buf, BufMut, Bytes, buf::UninitSlice};
+use std::{cmp::Ordering, ptr::NonNull, sync::Arc};
 
 /// A ChunkLease is a smart-pointer to a byte-slice, implementing [Buf](bytes::Buf) and
 /// [BufMut](bytes::BufMut) interfaces. They are created with one or many distinct slices of
@@ -253,7 +254,8 @@ unsafe impl BufMut for ChunkLease {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
+    use crate::net::buffers::{BufferConfig, EncodeBuffer};
+    use bytes::{Buf, BufMut, Bytes};
 
     // Use different data sizes and buffer sizes to test different kinds of chains/splits.
     // Creates two test-strings both of length data_len

@@ -21,7 +21,8 @@ use rustc_hash::FxHashMap;
 use std::ops::Deref;
 use uuid::Uuid;
 
-pub(crate) mod gc;
+#[allow(missing_docs)]
+pub mod gc;
 pub(crate) mod path_trie;
 use path_trie::*;
 

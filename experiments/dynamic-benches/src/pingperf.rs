@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kompact_net::prelude::*;
 use std::{fmt, sync::Arc};
 use synchronoise::CountdownEvent;

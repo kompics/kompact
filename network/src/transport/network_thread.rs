@@ -1,5 +1,6 @@
 use super::*;
 use crate::{
+    NetworkStatus,
     dispatch::{
         NetworkConfig,
         lookup::{ActorLookup, LookupResult},
@@ -8,15 +9,16 @@ use crate::{
     net::{
         SessionId,
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
+    },
+    transport::{
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
     },
-    dispatch::NetworkStatus,
-    serialisation::ser_helpers::deserialise_chunk_lease,
 };
 use crossbeam_channel::Receiver as Recv;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use iprange::{IpRange, ToNetwork};
+use kompact::prelude::deserialise_chunk_lease;
 use lru::LruCache;
 use mio::{
     Events,
@@ -563,7 +565,7 @@ impl NetworkThread {
         let lease_lookup = self.lookup.load();
         match lease_lookup.get_by_actor_path(&envelope.receiver) {
             LookupResult::Ref(actor) => {
-                actor.enqueue(envelope);
+                actor.tell(envelope);
             }
             LookupResult::Group(group) => {
                 group.route(envelope, &self.log);
@@ -623,11 +625,13 @@ impl NetworkThread {
                         self.lost_connection(other_channel);
                     }
                 }
-                ChannelState::Requested(_, other_id) if other_id.0 > start.id.0 => {
+                ChannelState::Requested(_, other_id) if other_id.as_u128() > start.id.as_u128() => {
                     self.drop_channel(channel);
                     return;
                 }
-                ChannelState::Initialised(_, other_id) if other_id.0 > start.id.0 => {
+                ChannelState::Initialised(_, other_id)
+                    if other_id.as_u128() > start.id.as_u128() =>
+                {
                     self.drop_channel(channel);
                     return;
                 }

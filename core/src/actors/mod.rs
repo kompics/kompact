@@ -1,11 +1,10 @@
 use super::*;
-use crate::{
-    component::Handled,
-    dispatch::NetworkStatusPort,
-    messaging::{DispatchEnvelope, MsgEnvelope},
-};
 #[cfg(feature = "distributed")]
 use crate::messaging::UnpackError;
+use crate::{
+    component::Handled,
+    messaging::{DispatchEnvelope, MsgEnvelope},
+};
 use std::{
     fmt,
     sync::{Arc, Weak},
@@ -154,9 +153,6 @@ pub trait Actor {
 pub trait Dispatcher: ActorRaw<Message = DispatchEnvelope> {
     /// Returns the system path for this dispatcher
     fn system_path(&mut self) -> SystemPath;
-    /// Returns a mutable pointer to the dispatchers provided NetworkStatusPort
-    /// Can be unimplemented in systems where the NetworkStatusPort is not used
-    fn network_status_port(&mut self) -> &mut ProvidedPort<NetworkStatusPort>;
 }
 
 impl<A, M: MessageBounds> ActorRaw for A
@@ -171,7 +167,9 @@ where
             #[cfg(feature = "distributed")]
             MsgEnvelope::Net(nm) => self.receive_network(nm),
             #[cfg(not(feature = "distributed"))]
-            MsgEnvelope::Net(_nm) => unreachable!("network messages require the `distributed` feature"),
+            MsgEnvelope::Net(_nm) => {
+                unreachable!("network messages require the `distributed` feature")
+            }
         }
     }
 }
@@ -253,10 +251,7 @@ pub trait NetworkActor: ComponentLogging {
     /// Handle errors during unpacking of network messages
     ///
     /// The default implementation logs every error as a warning.
-    fn on_error(
-        &mut self,
-        error: UnpackError<crate::messaging::NetMessage>,
-    ) -> Handled {
+    fn on_error(&mut self, error: UnpackError<crate::messaging::NetMessage>) -> Handled {
         warn!(
             self.log(),
             "Could not deserialise a message with Deserialiser with id={}. Error was: {:?}",

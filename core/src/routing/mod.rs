@@ -81,13 +81,7 @@ pub(crate) mod test_helpers {
     }
 
     pub fn new_kompact_system() -> KompactSystem {
-        let mut cfg = KompactConfig::default();
-        cfg.system_components(DeadletterBox::new, {
-            let net_config =
-                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-            net_config.build()
-        });
-        cfg.build().expect("Kompact System")
+        KompactConfig::default().build().expect("Kompact System")
     }
 }
 

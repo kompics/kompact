@@ -29,7 +29,7 @@ impl UdpState {
         network_config: &NetworkConfig,
     ) -> Self {
         // If chunk_size is smaller than MAX_PACKET_SIZE we will use that size as the limit instead.
-        let chunk_size = network_config.get_buffer_config().chunk_size;
+        let chunk_size = network_config.get_buffer_config().chunk_size_bytes();
         let max_packet_size = min(chunk_size, MAX_PACKET_SIZE);
         UdpState {
             logger,
@@ -134,7 +134,7 @@ impl UdpState {
     fn decode_message(&mut self, source: SocketAddr) {
         match self.input_buffer.get_frame() {
             Ok(Frame::Data(frame)) => {
-                use serialisation::ser_helpers::deserialise_chunk_lease;
+                use kompact::prelude::deserialise_chunk_lease;
                 let buf = frame.payload();
                 match deserialise_chunk_lease(buf) {
                     Ok(envelope) => self.incoming_messages.push_back(envelope),

@@ -88,7 +88,7 @@ The one thing that sets our bootstrap server creation apart from any other actor
 1. Make sure that the Kompact system actually runs on localhost at the given port, and
 2. register a named path alias for the `BootstrapServer` with the name `"bootstrap"`.
 
-To achieve the first part, we create the `NetworkDispatcher` from a `SocketAddr` instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call `KompactSystem::register_by_alias(...)` with the target component and the path to register. The rest is more or less as before.
+To achieve the first part, we create the `NetworkDispatcher` from `kompact-net` using a `SocketAddr` instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call `KompactSystem::register_by_alias(...)` with the target component and the path to register. The rest is more or less as before.
 
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:server}}

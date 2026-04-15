@@ -1,24 +1,20 @@
-use super::*;
-use crate::{
-    config::{Config, parse_config_file},
-    messaging::DispatchEnvelope,
-};
-use bytes::{Buf, BufMut};
-use core::{cmp, fmt, ptr};
+use crate::config::{Config, parse_config_file};
+use bytes::Buf;
+use core::fmt;
 use std::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Formatter},
     sync::Arc,
 };
 
-pub(crate) mod buffer_pool;
+#[allow(missing_docs)]
+pub mod buffer_pool;
 pub mod chunk_lease;
 pub mod chunk_ref;
 pub(crate) mod decode_buffer;
 pub(crate) mod encode_buffer;
 
-pub(crate) use self::buffer_pool::*;
-pub use self::{chunk_lease::*, chunk_ref::*, decode_buffer::*, encode_buffer::*};
+pub use self::{buffer_pool::*, chunk_lease::*, chunk_ref::*, decode_buffer::*, encode_buffer::*};
 use std::path::PathBuf;
 
 /// The configuration for the network buffers
@@ -89,6 +85,11 @@ impl BufferConfig {
     /// Must be at least 128 bytes, and must also be greater than [encode_buf_min_free_space](BufferConfig::encode_buf_min_free_space).
     pub fn chunk_size(&mut self, size: usize) -> () {
         self.chunk_size = size;
+    }
+
+    /// Returns the configured chunk size in bytes.
+    pub fn chunk_size_bytes(&self) -> usize {
+        self.chunk_size
     }
 
     /// Sets the `initial_chunk_count` to the given number.
@@ -486,11 +487,6 @@ mod tests {
     }
     fn buffer_config_testing_system() -> KompactSystem {
         let mut cfg = KompactConfig::default();
-        let mut network_buffer_config = BufferConfig::default();
-        network_buffer_config.chunk_size(512);
-        network_buffer_config.initial_chunk_count(2);
-        network_buffer_config.max_chunk_count(3);
-        network_buffer_config.encode_buf_min_free_space(10);
         cfg.load_config_str(
             r#"
                 [buffer_config]
@@ -500,13 +496,6 @@ mod tests {
                 encode_min_remaining = "20B"
                 "#,
         );
-        cfg.system_components(DeadletterBox::new, {
-            NetworkConfig::with_buffer_config(
-                "127.0.0.1:0".parse().expect("Address should work"),
-                network_buffer_config,
-            )
-            .build()
-        });
         cfg.build().expect("KompactSystem")
     }
     // This integration test sets up a KompactSystem with a TOML BufferConfig,

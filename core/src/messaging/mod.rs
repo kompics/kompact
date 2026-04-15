@@ -3,9 +3,9 @@ use crate::{
     actors::{ActorPath, DynActorRef, MessageBounds, PathParseError},
     dispatch::NetworkStatus,
     net::{
+        SocketAddr,
         buffers::{BufferChunk, BufferEncoder, ChunkLease, ChunkRef},
         frames::FRAME_HEAD_LEN,
-        SocketAddr,
     },
     serialisation::{
         Deserialiser,

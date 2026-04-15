@@ -621,9 +621,7 @@ mod tests {
 
     #[test]
     fn child_unique_registration_test() -> () {
-        let mut conf = KompactConfig::default();
-        conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = conf.build().expect("system");
+        let system = KompactConfig::default().build().expect("system");
         let parent = system.create(ParentComponent::unique);
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -644,9 +642,7 @@ mod tests {
 
     #[test]
     fn child_alias_registration_test() -> () {
-        let mut conf = KompactConfig::default();
-        conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = conf.build().expect("system");
+        let system = KompactConfig::default().build().expect("system");
         let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
         system.start(&parent);
         thread::sleep(TIMEOUT);

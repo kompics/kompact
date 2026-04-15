@@ -1,5 +1,7 @@
-use super::*;
-use bytes::buf::UninitSlice;
+use super::{BufferChunk, BufferConfig, BufferPool, ChunkAllocator, ChunkLease};
+use crate::{actors::DispatcherRef, messaging::DispatchEnvelope, serialisation::SerError};
+use bytes::{BufMut, buf::UninitSlice};
+use std::{cmp, ptr, sync::Arc};
 
 /// Structure used by components to continuously extract leases from BufferChunks swapped with the internal/private BufferPool
 /// Using get_buffer_encoder() we get a BufferEncoder which implements BufMut interface for the underlying Chunks
@@ -333,7 +335,7 @@ unsafe impl BufMut for BufferEncoder<'_> {
 mod tests {
     use super::*;
     use crate::config::parse_config_str;
-    use bytes::Bytes;
+    use bytes::{Buf, BufMut, Bytes};
 
     // This test instantiates an EncodeBuffer and writes the same string into it enough times that
     // the EncodeBuffer should overload multiple times and will have to succeed in reusing >=1 Chunk

@@ -127,6 +127,8 @@ pub mod timer;
 mod utils;
 
 pub use dispatch::lookup;
+#[cfg(feature = "distributed")]
+pub use dispatch::{NetworkStatus, NetworkStatusPort, NetworkStatusRequest};
 
 /// A more readable placeholder for a stable Never (`!`) type.
 ///
@@ -272,13 +274,6 @@ pub mod prelude {
     #[cfg(feature = "distributed")]
     pub use crate::{
         default_components::{CustomComponents, LocalDispatcher},
-        dispatch::{
-            NetworkConfig,
-            NetworkDispatcher,
-            NetworkStatus,
-            NetworkStatusPort,
-            NetworkStatusRequest,
-        },
         messaging::{
             DispatchEnvelope,
             NetMessage,
@@ -325,8 +320,6 @@ pub mod prelude {
 ///
 /// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
-    #[cfg(feature = "distributed")]
-    pub use crate::net::net_test_helpers;
     pub use crate::serialisation::ser_test_helpers;
 }
 

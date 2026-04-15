@@ -1379,12 +1379,10 @@ dependencies = [
  "hierarchical_hash_wheel_timer",
  "humantime",
  "ipnet",
- "iprange",
  "kompact-actor-derive",
  "kompact-component-derive",
  "log",
  "lru",
- "mio",
  "num_cpus",
  "oncemutex",
  "owning_ref",
@@ -1428,6 +1426,7 @@ dependencies = [
  "async-std-resolver",
  "dialoguer",
  "kompact",
+ "kompact-net",
  "lru",
  "rand 0.10.1",
  "serde",
@@ -1441,7 +1440,18 @@ dependencies = [
 name = "kompact-net"
 version = "0.11.3"
 dependencies = [
+ "arc-swap",
+ "async-std",
+ "bytes",
+ "crossbeam-channel",
+ "futures",
+ "ipnet",
+ "iprange",
  "kompact",
+ "lru",
+ "mio",
+ "rustc-hash",
+ "uuid",
 ]
 
 [[package]]

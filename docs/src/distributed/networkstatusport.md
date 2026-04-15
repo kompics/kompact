@@ -1,18 +1,17 @@
 # Network Status Port
 
-The `NetworkDispatcher` provides a `NetworkStatusPort` which any Component may use to subscribe to information about the 
-Network, or make requests to the Network Layer.
+The provided socket transport in `kompact-net` exposes a `NetworkStatusPort` which any Component may use to subscribe to information about the 
+network, or make requests to the transport layer.
 
 ## Using the Network Status Port
 
-To subscribe to the import a component must implement `Require` for `NetworkStatusPort`. The system must be set-up with 
-a `NetworkingConfig` to enable Networking. When the component is instantiated it must be explicitly connected to the 
-`NetworkStatusPort`. `KompactSystem` exposes the convenience method 
-`connect_network_status_port<C>(&self, required: &mut RequiredPort<NetworkStatusPort>)` to subscribe a component to the 
-port, and may be used as in the example below.
+To subscribe to the port a component must implement `Require` for `NetworkStatusPort`. The system must be set up with the
+`kompact-net` transport. When the component is instantiated it must be explicitly connected to the `NetworkStatusPort`.
+`kompact-net` provides the convenience trait `NetworkSystemExt`, which adds
+`connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>)` for systems using the provided
+transport, and may be used as in the example below.
 ```
-# use kompact::prelude::*;
-# use kompact::net::net_test_helpers::NetworkStatusCounter;
+# use kompact_net::{net_test_helpers::NetworkStatusCounter, prelude::*};
 let mut cfg = KompactConfig::new();
 cfg.system_components(DeadletterBox::new, {
     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect(""));

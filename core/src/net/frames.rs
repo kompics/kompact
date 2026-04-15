@@ -272,7 +272,8 @@ impl Data {
     }
 
     /// Consumes this frame and returns the raw payload buffer
-    pub(crate) fn payload(self) -> ChunkLease {
+    #[doc(hidden)]
+    pub fn payload(self) -> ChunkLease {
         self.payload
     }
 }

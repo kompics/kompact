@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-pub(crate) struct BufferPool {
+pub struct BufferPool {
     pool: VecDeque<BufferChunk>,
     // Counts the number of BufferChunks allocated by this pool
     pool_size: usize,
@@ -133,7 +133,8 @@ impl BufferPool {
 
     /// Returns the number of allocated buffers and the current number of buffers in the pool
     #[allow(dead_code)]
-    pub(crate) fn get_pool_sizes(&self) -> (usize, usize) {
+    #[doc(hidden)]
+    pub fn get_pool_sizes(&self) -> (usize, usize) {
         (self.pool_size, self.pool.len())
     }
 

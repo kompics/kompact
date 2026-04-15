@@ -265,12 +265,81 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
     - latency `strong-refs/1`: `1.246 ms`
     - latency `weak-refs/1`: `1.325 ms`
     - latency `ask/1`: `1.242 ms`
+- R17.3a Refreshed figures after splitting local and networked benchmark features:
+  - commands:
+    - `cargo bench -p dynamic-benches --bench actor_store`
+    - `cargo bench -p dynamic-benches --features bench-network --bench pingperf`
+    - `cargo bench -p dynamic-benches --features bench-network --bench network_latency -- Pipeline\ All`
+  - `actor_store`
+    - group lookup `PathTrie/10000`: `5.8540 ns`
+  - `network_latency`
+    - RTT pipeline all static: `7.3227 us`
+    - RTT pipeline all indexed: `4.1711 us`
+  - `pingperf`
+    - throughput `ask/1`: `2.0272 Melem/s`
+    - throughput `ask/16`: `2.8063 Melem/s`
+    - latency `ask/1`: `1.2259 ms`
 - R17.4 Summary:
   - `actorrefs` improved across the recorded points
-  - most `actor_store` points improved, but `GroupLookups/PathTrie/10000` regressed sharply and was re-run in isolation with the same result (`~140 us`)
-  - `network_latency` is mixed: indexed pipeline improved, several RTT points are roughly flat, but static pipeline RTT regressed noticeably
-  - `pingperf` is mixed: some strong-ref throughput improved, `ask` throughput regressed, and the rest is mostly within a small band
+  - `actor_store` no longer shows the apparent `PathTrie` group-lookup regression once the local bench is isolated from `kompact-net`; this was a benchmark feature-unification artefact
+  - `network_latency` is still mixed: the static pipeline RTT remains slower than baseline, but the refreshed result is markedly better than the earlier `9.90 us` run
+  - `pingperf` no longer shows an `ask` throughput regression in the refreshed run; both `ask/1` and `ask/16` are slightly above baseline
 - R17.5 Notes: stop here and review before doc/example updates.
+
+### R18 Post-doc rerun
+
+- R18.1 Status: collected after the crate extraction and docs/example updates.
+- R18.2 Environment:
+  - run outside the sandbox
+  - machine was on battery, so treat small deltas as noisy
+  - `network_latency` still hit transient UDP bind races during repeated system boot/shutdown, but the retry logic recovered and the bench completed
+- R18.3 Commands:
+  - `cargo bench -p dynamic-benches --bench actor_store`
+  - `cargo bench -p dynamic-benches --features bench-network --bench actorrefs`
+  - `cargo bench -p dynamic-benches --features bench-network --bench pingperf`
+  - `cargo bench -p dynamic-benches --features bench-network --bench network_latency`
+  - focused reruns:
+    - `cargo bench -p dynamic-benches --features bench-network --bench actorrefs -- "bench tell ActorRef"`
+    - `cargo bench -p dynamic-benches --features bench-network --bench pingperf -- "Ping Benches/ports/1"`
+- R18.4 Representative figures versus the recorded upstream baseline:
+  - `actorrefs`
+    - tell `ActorRef`: broad rerun `36.79 ns`, focused rerun `33.88 ns`, baseline `36.14 ns`
+    - trigger port: `22.29 ns` vs baseline `25.75 ns`
+    - conclusion: no stable regression found; the candidate `tell ActorRef` slowdown disappeared in the focused rerun
+  - `actor_store`
+    - insert `SequenceTrie/10000`: `1.894 ms` vs baseline `2.191 ms`
+    - insert `PathTrie/10000`: `1.178 ms` vs baseline `1.323 ms`
+    - lookup `SequenceTrie/10000`: `475.27 us` vs baseline `517.36 us`
+    - lookup `PathTrie/10000`: `204.02 us` vs baseline `238.76 us`
+    - group lookup `SequenceTrie/10000`: `380.61 us` vs baseline `418.17 us`
+    - group lookup `PathTrie/10000`: `5.51 ns` vs baseline `6.29 ns`
+    - cleanup `SequenceTrie/10000`: `1.580 ms` vs baseline `2.038 ms`
+    - cleanup `PathTrie/10000`: `622.64 us` vs baseline `720.39 us`
+    - conclusion: no regressions relative to baseline
+  - `network_latency`
+    - RTT static: `63.52 us` vs baseline `63.24 us`
+    - RTT indexed: `63.44 us` vs baseline `63.65 us`
+    - RTT pipeline all static: `5.42 us` vs baseline `5.84 us`
+    - RTT pipeline all indexed: `3.42 us` vs baseline `3.86 us`
+    - throughput with pipelining:
+      - `1`: `31.72 Kelem/s` vs baseline `31.54 Kelem/s`
+      - `10`: `259.19 Kelem/s` vs baseline `255.38 Kelem/s`
+      - `100`: `395.81 Kelem/s` vs baseline `406.07 Kelem/s`
+      - `1000`: `430.20 Kelem/s` vs baseline `433.76 Kelem/s`
+    - conclusion: the previously concerning static pipeline RTT is no longer regressed; the only remaining negative movement is a small throughput dip at higher pipeline depths
+  - `pingperf`
+    - throughput `ask/1`: `2.000 Melem/s` vs baseline `2.00 Melem/s`
+    - throughput `ask/16`: `2.808 Melem/s` vs baseline `2.79 Melem/s`
+    - latency `ports/1`: `1.152 ms` vs baseline `1.173 ms`
+    - latency `strong-refs/1`: `1.234 ms` vs baseline `1.254 ms`
+    - latency `weak-refs/1`: `1.312 ms` vs baseline `1.310 ms`
+    - latency `ask/1`: `1.257 ms` vs baseline `1.295 ms`
+    - throughput `ports/1`: broad rerun `52.40 Melem/s`, focused rerun `55.00 Melem/s`, baseline `57.34 Melem/s`
+    - conclusion: `ask` remains fine; the only candidate regression is `ports/1` throughput, but it moved materially between reruns and does not look stable enough to treat as actionable under the current measurement conditions
+- R18.5 Summary:
+  - no new stable regressions were found in the rerun after the extraction/docs work
+  - the broad rerun still shows normal benchmark wobble, especially in `pingperf`
+  - if we want tighter transport numbers, rerun the network benches again on mains power before treating the remaining small deltas as real
 
 ## Regression Follow-up
 
@@ -278,17 +347,20 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
 
 - T19.1 `actor_store`: investigate `GroupLookups/PathTrie/10000`
   - baseline: `6.29 ns`
-  - post-change: `126.71 us`
-  - isolated rerun: `~140 us`
-  - goal: determine whether the baseline was invalid or whether the current `PathTrie` group-lookup path is genuinely slower
+  - first post-change run: `126.71 us`
+  - isolated rerun with `kompact-net` still in the graph: `~140 us`
+  - refreshed run after splitting local and networked benchmark features: `5.8540 ns`
+  - status: resolved as a benchmark configuration artefact caused by Cargo feature unification enabling `implicit_routes`
 - T19.2 `network_latency`: investigate `Ping Pong RTT Pipeline All (Static)`
   - baseline: `5.84 us`
-  - post-change: `9.90 us`
-  - goal: identify whether the regression comes from the dispatcher/runtime split, benchmark noise from repeated system boot/shutdown, or some other runtime effect
+  - first post-change run: `9.90 us`
+  - refreshed run after benchmark split: `7.3227 us`
+  - status: still regressed relative to baseline, but materially better than the earlier rerun
 - T19.3 `pingperf`: investigate `ask/1` throughput
   - baseline: `2.00 Melem/s`
-  - post-change: `1.78 Melem/s`
-  - goal: determine whether this is a real behavioural regression or just run-to-run variance in the lower-throughput `ask` path
+  - first post-change run: `1.78 Melem/s`
+  - refreshed run after benchmark split: `2.0272 Melem/s`
+  - status: no longer regressed in the refreshed run; likely run-to-run variance rather than a stable behavioural slowdown
 
 ## Progress
 
@@ -304,7 +376,6 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
   - `cargo check -p kompact --no-default-features --features 'serde_support ser_id_64 use_local_executor implicit_routes'` passes
   - `cargo test -p dynamic-benches --benches --no-run` passes
 - P18.5 `kompact-net` crate added to the workspace.
-  - current shape is a thin wrapper over the existing networking surface in `kompact`
   - the benchmark crate now depends on `kompact-net` for its networked benches
 - P18.6 `LocalDispatcher` now supports the minimum useful local distributed flow:
   - unique registration
@@ -315,4 +386,29 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
   - unique-path delivery test
   - alias delivery test
   - local broadcast-group delivery test
-- P18.8 Docs/examples not yet updated.
+- P18.8 `kompact-net` now compiles its own copied socket transport implementation.
+  - `NetworkDispatcher`, `NetworkConfig`, the socket bridge, the network thread, and queue management compile from `network/`
+  - `kompact` no longer exports the provided networking backend from its prelude
+  - `kompact-net` provides the `NetworkSystemExt` trait to reconnect `NetworkStatusPort`
+- P18.9 Validation after the extraction slice:
+  - `cargo check -p kompact` passes
+  - `cargo check -p kompact --no-default-features --features 'serde_support ser_id_64 use_local_executor implicit_routes'` passes
+  - `cargo check -p kompact-net` passes
+  - `cargo test -p dynamic-benches --benches --no-run` passes
+  - `cargo test -p dynamic-benches --benches --no-run --features bench-network` passes
+  - `cargo test -p kompact local_dispatcher_routes --lib` passes
+- P18.10 Transport-specific integration tests now live with `kompact-net`.
+  - `core/tests/dispatch_integration_tests.rs` moved to `network/tests/dispatch_integration_tests.rs`
+  - `cargo test -p kompact --tests --no-run` passes
+  - `cargo test -p kompact-net --tests --no-run` passes
+- P18.11 Docs/examples updated for the crate split.
+  - networked example binaries in `docs/examples` now depend on `kompact-net`
+  - the distributed documentation now points transport-specific setup and status-port usage at `kompact-net`
+  - `cargo check -p kompact-examples` passes
+- P18.12 `kompact` now only keeps the shared networking primitives.
+  - `core/src/dispatch/mod.rs` now exposes only the shared status types used across the split
+  - `core/src/net/mod.rs` now exposes only `SessionId`, shared buffers, shared frames, and `SocketAddr`
+  - the dead legacy socket transport sources have been removed from `core/src/net/`
+  - `core/Cargo.toml` no longer depends on `mio` or `iprange`
+  - `cargo check -p kompact` passes
+  - `cargo check -p kompact-net` passes

@@ -1,8 +1,9 @@
 use super::*;
+#[cfg(feature = "distributed")]
+use crate::messaging::NetMessage;
 use crate::{
     actors::DynActorRefFactory,
     dispatch::lookup::{ActorLookup, ActorStore, LookupResult},
-    dispatch::NetworkStatusPort,
     messaging::{
         ActorRegistration,
         DispatchData,
@@ -17,9 +18,7 @@ use crate::{
     },
     timer::timer_manager::TimerRefFactory,
 };
-#[cfg(feature = "distributed")]
-use crate::messaging::NetMessage;
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -74,8 +73,8 @@ impl SystemComponents for DefaultComponents {
         self.stop(system);
     }
 
-    fn connect_network_status_port(&self, _required: &mut RequiredPort<NetworkStatusPort>) -> () {
-        unimplemented!("System must have a NetworkDispatcher to use the NetworkStatusPort")
+    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+        self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
 
@@ -198,10 +197,8 @@ where
         self.deadletter_box.wait_ended();
     }
 
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
-        self.dispatcher.on_definition(|d| {
-            utils::biconnect_ports(d.network_status_port(), required);
-        })
+    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+        self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
 
@@ -440,7 +437,10 @@ impl Actor for LocalDispatcher {
                 }
             }
             DispatchEnvelope::Event(ev) => {
-                warn!(self.ctx.log(), "Ignoring dispatcher event {:?} in LocalDispatcher", ev);
+                warn!(
+                    self.ctx.log(),
+                    "Ignoring dispatcher event {:?} in LocalDispatcher", ev
+                );
             }
             DispatchEnvelope::LockedChunk(_trash) => {
                 // Dropping the chunk is sufficient in the local-only dispatcher.
@@ -463,10 +463,6 @@ impl Dispatcher for LocalDispatcher {
     fn system_path(&mut self) -> SystemPath {
         self.system_path.clone()
     }
-
-    fn network_status_port(&mut self) -> &mut ProvidedPort<NetworkStatusPort> {
-        unimplemented!("The LocalDispatcher does not provide a NetworkStatusPort");
-    }
 }
 
 impl ComponentLifecycle for LocalDispatcher {
@@ -485,11 +481,9 @@ impl ComponentLifecycle for LocalDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::routing::groups::BroadcastRouting;
+    use crate::{routing::groups::BroadcastRouting, timer::timer_manager::Timer};
     use bytes::{Buf, BufMut};
-    use std::any::Any;
-    use crate::timer::timer_manager::Timer;
-    use std::{sync::mpsc, time::Duration};
+    use std::{any::Any, sync::mpsc, time::Duration};
 
     #[derive(ComponentDefinition)]
     struct TimerProbe {
@@ -559,8 +553,8 @@ mod tests {
     ignore_lifecycle!(PathProbe);
 
     impl NetworkActor for PathProbe {
-        type Message = Ping;
         type Deserialiser = Ping;
+        type Message = Ping;
 
         fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> Handled {
             self.received += 1;
@@ -627,7 +621,9 @@ mod tests {
 
     #[test]
     fn local_dispatcher_routes_unique_path_messages() {
-        let system = KompactConfig::default().build().expect("build KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let probe = system.create(|| PathProbe::new(tx));
 
@@ -648,7 +644,9 @@ mod tests {
 
     #[test]
     fn local_dispatcher_routes_alias_messages() {
-        let system = KompactConfig::default().build().expect("build KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let probe = system.create(|| PathProbe::new(tx));
 
@@ -669,7 +667,9 @@ mod tests {
 
     #[test]
     fn local_dispatcher_routes_broadcast_groups() {
-        let system = KompactConfig::default().build().expect("build KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .expect("build KompactSystem");
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
         let probe1 = system.create(|| PathProbe::new(tx1));
@@ -686,13 +686,22 @@ mod tests {
 
         let group = system
             .set_routing_policy(BroadcastRouting::default(), "tests/group", false)
-            .wait_expect(Duration::from_secs(1), "routing policy registration should succeed");
+            .wait_expect(
+                Duration::from_secs(1),
+                "routing policy registration should succeed",
+            );
         system
             .register_by_alias(&probe1, "tests/group/one")
-            .wait_expect(Duration::from_secs(1), "first alias registration should succeed");
+            .wait_expect(
+                Duration::from_secs(1),
+                "first alias registration should succeed",
+            );
         system
             .register_by_alias(&probe2, "tests/group/two")
-            .wait_expect(Duration::from_secs(1), "second alias registration should succeed");
+            .wait_expect(
+                Duration::from_secs(1),
+                "second alias registration should succeed",
+            );
 
         group.tell(Ping, &system);
 

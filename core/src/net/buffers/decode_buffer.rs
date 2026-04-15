@@ -1,5 +1,17 @@
-use super::*;
-use std::cmp::Ordering;
+use super::{BufferChunk, BufferConfig, ChunkLease};
+use crate::net::frames::{
+    Data,
+    FRAME_HEAD_LEN,
+    Frame,
+    FrameExt,
+    FrameHead,
+    FrameType,
+    FramingError,
+    Hello,
+    Start,
+};
+use bytes::Buf;
+use std::{cmp::Ordering, fmt::Formatter, io};
 
 /// Used to allow extraction of data frames in between inserting data
 /// And can replace the underlying BufferChunk with new ones
@@ -80,7 +92,8 @@ impl DecodeBuffer {
     }
 
     /// Returns true if there is data to be decoded, else false
-    pub(crate) fn has_frame(&mut self) -> io::Result<bool> {
+    #[doc(hidden)]
+    pub fn has_frame(&mut self) -> io::Result<bool> {
         self.decode_frame_head()?;
         if let Some(head) = &self.next_frame_head
             && self.readable_len() >= head.content_length()
@@ -215,7 +228,8 @@ impl DecodeBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::{Bytes, BytesMut};
+    use crate::net::buffers::BufferPool;
+    use bytes::{BufMut, Bytes, BytesMut};
 
     fn test_frame_with_reference_bytes(len: usize) -> (Vec<u8>, Bytes) {
         let mut head = FrameHead::new(FrameType::Data, len - 9);

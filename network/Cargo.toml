@@ -16,8 +16,20 @@ repository = "https://github.com/kompics/kompact"
 license = "MIT"
 
 [features]
-default = []
+default = ["distributed"]
 distributed = ["kompact/distributed"]
+low_latency = ["kompact/low_latency"]
 
 [dependencies]
 kompact = { version = "0.11.3", path = "../core" }
+arc-swap = "1.9"
+async-std = "1.13"
+bytes = "1.11"
+crossbeam-channel = "0.5"
+futures = "0.3"
+ipnet = "2.12"
+iprange = "0.6"
+lru = "0.16"
+mio = { version = "1", features = ["net", "os-poll"] }
+rustc-hash = "2"
+uuid = { version = "1.23", features = ["v4"] }

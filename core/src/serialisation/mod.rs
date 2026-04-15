@@ -15,7 +15,7 @@ pub mod ser_helpers;
 #[allow(clippy::needless_lifetimes)]
 pub mod serde_serialisers;
 
-pub use self::{core::*, default_serialisers::*};
+pub use self::{core::*, default_serialisers::*, ser_helpers::deserialise_chunk_lease};
 
 /// A trait that allows to determine the number of bytes in a `SerId`.
 pub trait SerIdSize {

@@ -446,7 +446,8 @@ impl<M: MessageBounds> ActorRef<M> {
         ActorRef { component }
     }
 
-    pub(crate) fn enqueue(&self, env: MsgEnvelope<M>) -> () {
+    #[doc(hidden)]
+    pub fn enqueue(&self, env: MsgEnvelope<M>) -> () {
         if let Some(c) = self.component.upgrade() {
             let q = c.message_queue();
             let sd = c.core().increment_work();

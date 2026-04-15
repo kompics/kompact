@@ -26,6 +26,9 @@ default-features = true
 # features = ["silent_logging", "low_latency"]
 # features = ["silent_logging", "ser_id_8"]
 
+[dependencies.kompact-net]
+path = "../../network/"
+
 [[bin]]
 name = "dynamic_components"
 required-features = ["type_erasure"]

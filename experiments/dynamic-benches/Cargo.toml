@@ -31,6 +31,7 @@ features = ["distributed", "silent_logging", "ser_id_64", "use_local_executor"]
 
 [dependencies.kompact-net]
 path = "../../network/"
+optional = true
 
 [dependencies.datastructures]
 path = "../datastructures"
@@ -40,6 +41,7 @@ rustc_version = "0.4"
 
 [features]
 default = []
+bench-network = ["dep:kompact-net"]
 bench-hashes = []
 
 #[dev-dependencies]
@@ -49,6 +51,7 @@ bench-hashes = []
 name = "network_latency"
 path = "src/network_latency.rs"
 harness = false
+required-features = ["bench-network"]
 
 [[bench]]
 name = "hashes"
@@ -60,6 +63,7 @@ required-features = ["bench-hashes"]
 name = "actorrefs"
 path = "src/actorrefs.rs"
 harness = false
+required-features = ["bench-network"]
 
 [[bench]]
 name = "loop_opts"
@@ -70,6 +74,7 @@ harness = false
 name = "pingperf"
 path = "src/pingperf.rs"
 harness = false
+required-features = ["bench-network"]
 
 [[bench]]
 name = "actor_store"
