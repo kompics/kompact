@@ -59,35 +59,35 @@ distributed = []
 log = "0.4"
 kompact-component-derive = { version = "0.11.3", path = "../macros/component-definition-derive/" }
 kompact-actor-derive = { version = "0.11.3", path = "../macros/actor-derive/" }
-crossbeam-channel = "0.5"
+crossbeam-channel = { workspace = true }
 crossbeam-queue = "0.3"
 crossbeam-utils = "0.8"
-arc-swap = "1.9"
+arc-swap = { workspace = true }
 synchronoise = "1.0"
-uuid = { version = "1.23", features = ["v4"] }
+uuid = { workspace = true }
 num_cpus = "1"
 oncemutex = "0.1"
 slog = "2"
 slog-async = "2"
 slog-term = "2"
-rustc-hash = "2"
+rustc-hash = { workspace = true }
 toml = "1"
 humantime = "2"
 byte-unit = "5"
 hierarchical_hash_wheel_timer = "1.4"
 owning_ref = "0.4"
-futures = "0.3"
-async-std = "1.13"
+futures = { workspace = true }
+async-std = { workspace = true }
 executors = "0.10"
-lru = "0.16"
+lru = { workspace = true }
 
 # Optional
 protobuf = { version = "3", optional = true, features = ["with-bytes"] }
 serde = { version = "1.0", optional = true }
 core_affinity = { version = "0.8", optional = true }
 
-bytes = "1.11"
-ipnet = "2.12"
+bytes = { workspace = true }
+ipnet = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

@@ -142,7 +142,8 @@ pub struct DynActorRef {
     component: Weak<dyn CoreContainer>,
 }
 impl DynActorRef {
-    pub(crate) fn enqueue(&self, msg: NetMessage) -> () {
+    /// Enqueue a preconstructed [`NetMessage`] directly into the dynamic mailbox.
+    pub fn enqueue(&self, msg: NetMessage) -> () {
         if let Some(c) = self.component.upgrade() {
             let q = c.dyn_message_queue();
             let sd = c.core().increment_work();
@@ -389,6 +390,7 @@ impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
         self.weak_ref()
     }
 }
+#[cfg(feature = "distributed")]
 impl<M: MessageBounds> DynActorRefFactory for ActorRefStrong<M> {
     fn dyn_ref(&self) -> DynActorRef {
         self.actor_ref().dyn_ref()
@@ -446,7 +448,11 @@ impl<M: MessageBounds> ActorRef<M> {
         ActorRef { component }
     }
 
-    #[doc(hidden)]
+    /// Enqueue a fully prepared message envelope directly into the actor mailbox.
+    ///
+    /// This bypasses the `Into<M>` conversion used by [tell](ActorRef::tell) and is
+    /// primarily intended for advanced integrations that already operate on
+    /// [`MsgEnvelope`](crate::messaging::MsgEnvelope) values.
     pub fn enqueue(&self, env: MsgEnvelope<M>) -> () {
         if let Some(c) = self.component.upgrade() {
             let q = c.message_queue();
@@ -665,6 +671,7 @@ impl<M: MessageBounds> ActorRefFactory for ActorRef<M> {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<M: MessageBounds> DynActorRefFactory for ActorRef<M> {
     fn dyn_ref(&self) -> DynActorRef {
         match self.component.upgrade() {

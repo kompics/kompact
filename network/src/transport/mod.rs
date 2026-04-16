@@ -4,9 +4,10 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 
 use crate::{
+    events::NetworkDispatcherEvent,
     NetworkStatus,
     dispatch::NetworkConfig,
-    messaging::{DispatchData, DispatchEnvelope, EventEnvelope},
+    messaging::{DispatchData, DispatchEnvelope},
     net::{SessionId, events::DispatchEvent, frames::*, network_thread::NetworkThreadBuilder},
 };
 use crossbeam_channel::{RecvError, SendError, Sender, unbounded as channel};
@@ -118,6 +119,7 @@ impl BridgeConfig {
     /// Create a new config
     ///
     /// This is the same as the [Default](std::default::Default) implementation.
+    #[allow(dead_code)]
     pub fn new() -> Self {
         BridgeConfig::default()
     }
@@ -387,8 +389,8 @@ fn run_network_thread(
                         e.type_id()
                     );
                 }
-                dispatcher_ref.tell(DispatchEnvelope::Event(EventEnvelope::Network(
-                    NetworkStatus::CriticalNetworkFailure,
+                dispatcher_ref.tell(DispatchEnvelope::Event(Box::new(
+                    NetworkDispatcherEvent::Network(NetworkStatus::CriticalNetworkFailure),
                 )))
             }
         })
@@ -458,7 +460,6 @@ pub(crate) fn out_of_buffers(err: &SerError) -> bool {
 }
 
 /// A module with helper functions for testing network configurations/implementations
-#[cfg(feature = "distributed")]
 pub mod net_test_helpers {
     use crate::{
         NetworkStatus,

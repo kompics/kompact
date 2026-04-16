@@ -127,8 +127,6 @@ pub mod timer;
 mod utils;
 
 pub use dispatch::lookup;
-#[cfg(feature = "distributed")]
-pub use dispatch::{NetworkStatus, NetworkStatusPort, NetworkStatusRequest};
 
 /// A more readable placeholder for a stable Never (`!`) type.
 ///

@@ -11,12 +11,13 @@ use crate::{
         Transport::Tcp,
     },
     component::{Component, ComponentContext, ExecuteResult},
+    events::{NetworkDispatcherEvent, NetworkStatus, NetworkStatusPort, NetworkStatusRequest},
     lookup::{ActorLookup, ActorStore, InsertResult, LookupResult},
     messaging::{
         ActorRegistration,
         DispatchData,
+        DispatchEvent,
         DispatchEnvelope,
-        EventEnvelope,
         MsgEnvelope,
         NetMessage,
         PathResolvable,
@@ -497,9 +498,19 @@ impl NetworkDispatcher {
         );
     }
 
-    fn on_event(&mut self, ev: EventEnvelope) {
+    fn on_event(&mut self, ev: Box<dyn DispatchEvent>) {
+        let ev = match ev.into_any().downcast::<NetworkDispatcherEvent>() {
+            Ok(ev) => *ev,
+            Err(_) => {
+                warn!(
+                    self.ctx.log(),
+                    "Ignoring unexpected dispatcher event in NetworkDispatcher",
+                );
+                return;
+            }
+        };
         match ev {
-            EventEnvelope::Network(ev) => match ev {
+            NetworkDispatcherEvent::Network(ev) => match ev {
                 NetworkStatus::ConnectionEstablished(system_path, session) => {
                     self.connection_established(system_path, session)
                 }
@@ -549,7 +560,7 @@ impl NetworkDispatcher {
                     .trigger(NetworkStatus::HardConnectionLimitReached),
                 NetworkStatus::CriticalNetworkFailure => self.handle_network_failure(),
             },
-            EventEnvelope::RejectedData((addr, data)) => {
+            NetworkDispatcherEvent::RejectedData((addr, data)) => {
                 // These are messages which we routed to a network-thread before they lost the connection.
                 self.queue_manager.enqueue_priority_data(*data, addr);
                 self.retry_map.entry(addr).or_insert(0);
@@ -967,7 +978,6 @@ impl Actor for NetworkDispatcher {
         Handled::Ok
     }
 
-    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         warn!(self.ctx.log(), "Received network message: {:?}", msg,);
         Handled::Ok
@@ -1297,7 +1307,7 @@ mod tests {
 
         // Assertion 1: The Network_Dispatcher on system1 has >0 buffers to cleanup
         let mut garbage_len = 0;
-        system1.with_dispatcher_definition(&mut |dispatcher| {
+        system1.with_dispatcher_definition(|dispatcher| {
             let dispatcher = dispatcher
                 .downcast_mut::<NetworkDispatcher>()
                 .expect("expected kompact-net NetworkDispatcher");
@@ -1320,7 +1330,7 @@ mod tests {
         thread::sleep(Duration::from_millis(10000));
 
         // Assertion 2: The Network_Dispatcher on system1 now has 0 buffers to cleanup.
-        system1.with_dispatcher_definition(&mut |dispatcher| {
+        system1.with_dispatcher_definition(|dispatcher| {
             let dispatcher = dispatcher
                 .downcast_mut::<NetworkDispatcher>()
                 .expect("expected kompact-net NetworkDispatcher");

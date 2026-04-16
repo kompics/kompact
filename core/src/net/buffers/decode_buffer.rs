@@ -13,8 +13,11 @@ use crate::net::frames::{
 use bytes::Buf;
 use std::{cmp::Ordering, fmt::Formatter, io};
 
-/// Used to allow extraction of data frames in between inserting data
-/// And can replace the underlying BufferChunk with new ones
+/// Incremental frame decoder backed by pooled [`BufferChunk`] storage.
+///
+/// It supports decoding complete frames while the backing buffer is being filled,
+/// and can chain overflow data across chunk boundaries when a frame spans
+/// multiple pooled buffers.
 pub struct DecodeBuffer {
     buffer: BufferChunk,
     write_offset: usize,
@@ -51,7 +54,7 @@ impl DecodeBuffer {
         }
     }
 
-    /// Returns the length of the read-portion of the buffer AND the chain_head
+    /// Returns the number of readable bytes currently buffered.
     pub fn readable_len(&self) -> usize {
         let mut len = 0;
         if let Some(chain_head) = &self.chain_head {
@@ -61,18 +64,20 @@ impl DecodeBuffer {
         len
     }
 
-    /// Returns the length of the write-portion of the buffer
+    /// Returns the number of writable bytes remaining in the current chunk.
     pub fn writeable_len(&self) -> usize {
         self.buffer.len() - self.write_offset
     }
 
-    /// Advances the write pointer by num_bytes
+    /// Advances the write pointer by `num_bytes`.
     pub fn advance_writeable(&mut self, num_bytes: usize) -> () {
         self.write_offset += num_bytes;
     }
 
-    /// Returns an Write compatible slice of the writeable end of the buffer
-    /// If something is written to the slice advance writeable must be called after
+    /// Returns a writable slice at the current write position.
+    ///
+    /// If something is written to the slice, [advance_writeable](Self::advance_writeable)
+    /// must be called afterwards.
     pub fn get_writeable(&mut self) -> Option<&mut [u8]> {
         // If the readable portion of the buffer would have less than `encode_buf_min_free_space`
         // Or if we would return less than 8 readable bytes we don't allow further writing into
@@ -92,7 +97,7 @@ impl DecodeBuffer {
     }
 
     /// Returns true if there is data to be decoded, else false
-    #[doc(hidden)]
+    /// Returns `true` once a complete frame is available for decoding.
     pub fn has_frame(&mut self) -> io::Result<bool> {
         self.decode_frame_head()?;
         if let Some(head) = &self.next_frame_head
@@ -103,7 +108,8 @@ impl DecodeBuffer {
         Ok(false)
     }
 
-    /// Swaps the underlying buffer in place with other
+    /// Swaps the underlying buffer in place with `other`.
+    ///
     /// Afterwards `other` owns the used up bytes and is locked.
     ///
     /// `get_frame()` should be called repeatedly until it returns `FramingError::NoData`
@@ -176,7 +182,7 @@ impl DecodeBuffer {
         }
     }
 
-    /// Tries to decode one frame from the readable part of the buffer
+    /// Tries to decode one frame from the readable part of the buffer.
     pub fn get_frame(&mut self) -> Result<Frame, FramingError> {
         self.decode_frame_head()?;
         if let Some(head) = &self.next_frame_head

@@ -11,3 +11,14 @@ members = [
     "experiments/datastructures",
     "docs/examples"
 ]
+
+[workspace.dependencies]
+arc-swap = "1.9"
+async-std = "1.13"
+bytes = "1.11"
+crossbeam-channel = "0.5"
+futures = "0.3"
+ipnet = "2.12"
+lru = "0.16"
+rustc-hash = "2"
+uuid = { version = "1.23", features = ["v4"] }

@@ -13,8 +13,10 @@ mod defaults {
     pub const ALGORITHM: FeedbackAlgorithm = super::FeedbackAlgorithm::Aimd;
 }
 
+/// Configuration keys for tuning actor-reference garbage collection.
 pub mod config_keys {
     // TODO(Adam): Convert to the new config mechanism
+    /// Selects the feedback algorithm used for reaper interval updates.
     pub const ALGORITHM: &str = "kompact.dispatch.actor-lookup.gc.algorithm";
 }
 
@@ -34,9 +36,12 @@ pub struct UpdateStrategy {
     algo: FeedbackAlgorithm,
 }
 
+/// Controls how the reaper adapts its next collection interval.
 pub enum FeedbackAlgorithm {
-    Aimd, // additive increase/multiplicative decrease
-    Mimd, // multiplicative increase/multiplicative decrease
+    /// Additive increase and multiplicative decrease.
+    Aimd,
+    /// Multiplicative increase and multiplicative decrease.
+    Mimd,
 }
 
 impl Default for ActorRefReaper {
@@ -53,6 +58,7 @@ impl Default for ActorRefReaper {
 }
 
 impl ActorRefReaper {
+    /// Creates a reaper with the provided interval update parameters.
     pub fn new(
         initial_interval: u64,
         min: u64,
@@ -67,6 +73,7 @@ impl ActorRefReaper {
         }
     }
 
+    /// Builds a reaper from the Kompact configuration.
     pub fn from_config(conf: &Config) -> Self {
         // TODO(Adam): Make all parameters configurable
         let algorithm = match conf
@@ -106,24 +113,29 @@ impl ActorRefReaper {
         removed
     }
 
+    /// Returns the current interval update strategy.
     pub fn strategy(&self) -> &UpdateStrategy {
         &self.strategy
     }
 
+    /// Returns the mutable interval update strategy.
     pub fn strategy_mut(&mut self) -> &mut UpdateStrategy {
         &mut self.strategy
     }
 
+    /// Marks the reaper as scheduled.
     pub fn schedule(&mut self) {
         self.scheduled = true;
     }
 
+    /// Returns whether the reaper is already scheduled.
     pub fn is_scheduled(&self) -> bool {
         self.scheduled
     }
 }
 
 impl UpdateStrategy {
+    /// Creates a new interval update strategy.
     pub fn new(
         curr: u64,
         min: u64,
@@ -142,6 +154,7 @@ impl UpdateStrategy {
         }
     }
 
+    /// Returns the current interval in milliseconds.
     pub fn curr(&self) -> u64 {
         self.curr
     }

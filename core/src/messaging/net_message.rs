@@ -1,10 +1,14 @@
 use super::*;
 use crate::net::SessionId;
 
-/// An incoming message from the networking subsystem
+/// An incoming message from the distributed dispatch subsystem
 ///
 /// Provides actor paths for the `sender` of the message and the
 /// `receiver` in addition to the actual `data`.
+///
+/// This type stays in `kompact` rather than `kompact-net`, because local path-based
+/// dispatch and alternative transport backends use the same envelope type even when
+/// no socket-backed transport is involved.
 ///
 /// It is recommend to use [try_deserialise](NetData::try_deserialise) or
 /// [try_deserialise_unchecked](NetData::try_deserialise_unchecked) to unpack

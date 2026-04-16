@@ -6,7 +6,7 @@ use kompact_net::prelude::*;
 
 const MSG_COUNT: u64 = 1000;
 const SYSTEM_BOOT_RETRIES: usize = 5;
-const SOCKET_RELEASE_WAIT: Duration = Duration::from_millis(50);
+const BOOT_RETRY_WAIT: Duration = Duration::from_millis(50);
 
 pub fn kompact_network_latency(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Pong RTT");
@@ -138,7 +138,6 @@ where
     drop(ponger);
     sys1.shutdown().expect("System 1 did not shut down!");
     sys2.shutdown().expect("System 2 did not shut down!");
-    std::thread::sleep(SOCKET_RELEASE_WAIT);
     res
 }
 
@@ -159,7 +158,7 @@ fn setup_system(name: &'static str, threads: usize) -> KompactSystem {
                 eprintln!(
                     "retrying benchmark system boot for {name} after transient error: {err:?}"
                 );
-                std::thread::sleep(SOCKET_RELEASE_WAIT);
+                std::thread::sleep(BOOT_RETRY_WAIT);
             }
             Err(err) => panic!("KompactSystem after {SYSTEM_BOOT_RETRIES} attempts: {err:?}"),
         }
@@ -259,7 +258,6 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     drop(ponger);
     sys1.shutdown().expect("System 1 did not shut down!");
     sys2.shutdown().expect("System 2 did not shut down!");
-    std::thread::sleep(SOCKET_RELEASE_WAIT);
 }
 
 criterion_group!(

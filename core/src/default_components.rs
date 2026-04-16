@@ -2,7 +2,6 @@ use super::*;
 #[cfg(feature = "distributed")]
 use crate::messaging::NetMessage;
 use crate::{
-    actors::DynActorRefFactory,
     dispatch::lookup::{ActorLookup, ActorStore, LookupResult},
     messaging::{
         ActorRegistration,
@@ -73,7 +72,7 @@ impl SystemComponents for DefaultComponents {
         self.stop(system);
     }
 
-    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+    fn with_dispatcher_definition_dyn(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
         self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
@@ -197,7 +196,7 @@ where
         self.deadletter_box.wait_ended();
     }
 
-    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+    fn with_dispatcher_definition_dyn(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
         self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
@@ -356,7 +355,9 @@ impl LocalDispatcher {
                     error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
                 });
             }
-            RegistrationPromise::None => (),
+            RegistrationPromise::None => {
+                trace!(self.ctx.log(), "Actor registration completed without listeners");
+            }
         }
     }
 
@@ -387,7 +388,9 @@ impl LocalDispatcher {
                     error!(self.ctx.log(), "Could not notify listeners: {:?}", e)
                 });
             }
-            RegistrationPromise::None => (),
+            RegistrationPromise::None => {
+                trace!(self.ctx.log(), "Routing policy registration completed without listeners");
+            }
         }
     }
 }
@@ -401,11 +404,24 @@ impl Actor for LocalDispatcher {
                 if dst.system() == &self.system_path || dst.protocol() == Transport::Local {
                     self.route_local(dst, msg);
                 } else {
-                    warn!(
-                        self.ctx.log(),
-                        "Dropping remote dispatch to {:?}; LocalDispatcher only supports local routing",
-                        dst,
-                    );
+                    match msg.into_local() {
+                        Ok(netmsg) => {
+                            warn!(
+                                self.ctx.log(),
+                                "Forwarding unresolved remote dispatch to DeadletterBox: {:?}",
+                                dst,
+                            );
+                            self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                        }
+                        Err(e) => {
+                            error!(
+                                self.ctx.log(),
+                                "Could not serialise remote dispatch to {:?} for deadletters: {:?}",
+                                dst,
+                                e,
+                            );
+                        }
+                    }
                 }
             }
             DispatchEnvelope::ForwardedMsg { msg } => {
@@ -416,9 +432,10 @@ impl Actor for LocalDispatcher {
                 } else {
                     warn!(
                         self.ctx.log(),
-                        "Dropping forwarded remote dispatch to {:?}; LocalDispatcher only supports local routing",
+                        "Forwarding unresolved remote dispatch to DeadletterBox: {:?}",
                         msg.receiver,
                     );
+                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(msg));
                 }
             }
             DispatchEnvelope::Registration(reg) => {
@@ -468,6 +485,7 @@ impl Dispatcher for LocalDispatcher {
 impl ComponentLifecycle for LocalDispatcher {
     fn on_start(&mut self) -> Handled {
         debug!(self.ctx.log(), "Starting LocalDispatcher");
+        #[cfg(feature = "distributed")]
         self.lookup
             .insert(PathResolvable::System, self.ctx.deadletter_ref().dyn_ref())
             .expect("deadletter path should always be insertable");

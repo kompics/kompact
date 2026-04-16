@@ -430,6 +430,7 @@ impl<M: MessageBounds> ActorRefFactory for Arc<dyn AbstractComponent<Message = M
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> DynActorRefFactory for Arc<Component<CD>> {
     fn dyn_ref(&self) -> DynActorRef {
         self.actor_ref().dyn_ref()

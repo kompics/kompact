@@ -1,9 +1,7 @@
 //! Messaging types for sending and receiving messages between remote actors.
 use crate::{
     actors::{ActorPath, DynActorRef, MessageBounds, PathParseError},
-    dispatch::NetworkStatus,
     net::{
-        SocketAddr,
         buffers::{BufferChunk, BufferEncoder, ChunkLease, ChunkRef},
         frames::FRAME_HEAD_LEN,
     },
@@ -34,17 +32,6 @@ mod deser_macro;
 pub use deser_macro::*;
 pub mod bitfields;
 pub mod framing;
-
-/// An event from the network
-///
-/// This is left as an enum for future extension.
-#[derive(Debug)]
-pub enum EventEnvelope {
-    /// An event from the network
-    Network(NetworkStatus),
-    /// Rejected DispatchData, NetworkThread is unable to send it
-    RejectedData((SocketAddr, Box<DispatchData>)),
-}
 
 /// A message that is accepted by an actor's mailbox
 #[derive(Debug)]

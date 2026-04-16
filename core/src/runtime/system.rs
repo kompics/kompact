@@ -664,7 +664,10 @@ impl KompactSystem {
     /// Backend crates can downcast it to their concrete dispatcher type in order to
     /// wire backend-specific ports or query backend-specific state.
     #[cfg(feature = "distributed")]
-    pub fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+    pub fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        F: FnMut(&mut dyn Any),
+    {
         self.inner.with_dispatcher_definition(f);
     }
 
@@ -1059,11 +1062,133 @@ impl ActorRefFactory for KompactSystem {
     }
 }
 
+impl SystemHandle for KompactSystem {
+    fn now(&self) -> Instant {
+        KompactSystem::now(self)
+    }
+
+    fn create<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        KompactSystem::create(self, f)
+    }
+
+    #[cfg(feature = "type_erasure")]
+    fn create_erased<M: MessageBounds>(
+        &self,
+        a: Box<dyn CreateErased<M>>,
+    ) -> Arc<dyn AbstractComponent<Message = M>> {
+        KompactSystem::create_erased(self, a)
+    }
+
+    fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        KompactSystem::start(self, c)
+    }
+
+    fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        KompactSystem::start_notify(self, c)
+    }
+
+    fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        KompactSystem::stop(self, c)
+    }
+
+    fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        KompactSystem::stop_notify(self, c)
+    }
+
+    fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
+        KompactSystem::kill(self, c)
+    }
+
+    fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        KompactSystem::kill_notify(self, c)
+    }
+
+    fn throughput(&self) -> usize {
+        KompactSystem::throughput(self)
+    }
+
+    fn max_messages(&self) -> usize {
+        KompactSystem::max_messages(self)
+    }
+
+    fn shutdown_async(&self) -> () {
+        KompactSystem::shutdown_async(self)
+    }
+
+    fn deadletter_ref(&self) -> ActorRef<Never> {
+        self.actor_ref()
+    }
+
+    fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        KompactSystem::spawn(self, future)
+    }
+}
+
 #[cfg(feature = "distributed")]
 impl Dispatching for KompactSystem {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.inner.assert_active();
         self.inner.dispatcher_ref()
+    }
+}
+
+#[cfg(feature = "distributed")]
+impl DistributedSystemHandle for KompactSystem {
+    fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
+        self.register(c)
+    }
+
+    fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        self.create_and_register(f)
+    }
+
+    fn register_by_alias<A>(
+        &self,
+        c: &dyn DynActorRefFactory,
+        alias: A,
+    ) -> KFuture<RegistrationResult>
+    where
+        A: Into<String>,
+    {
+        self.register_by_alias(c, alias)
+    }
+
+    fn update_alias_registration<A>(
+        &self,
+        c: &dyn DynActorRefFactory,
+        alias: A,
+    ) -> KFuture<RegistrationResult>
+    where
+        A: Into<String>,
+    {
+        self.update_alias_registration(c, alias)
+    }
+
+    fn set_routing_policy<P>(
+        &self,
+        policy: P,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult>
+    where
+        P: Into<StorePolicy>,
+    {
+        self.set_routing_policy(policy, path, update)
+    }
+
+    fn system_path(&self) -> SystemPath {
+        self.system_path()
     }
 }
 
@@ -1367,7 +1492,7 @@ pub trait SystemHandle: CanCancelTimers {
 
 /// Distributed-only extensions for a [SystemHandle].
 #[cfg(feature = "distributed")]
-pub trait DistributedSystemHandle: Dispatching {
+pub trait DistributedSystemHandle: SystemHandle + Dispatching {
     /// Attempts to register `c` with the dispatcher using its unique id.
     fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult>;
 
@@ -1428,7 +1553,7 @@ pub trait SystemComponents: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
     /// Allow backend crates to interact with the concrete dispatcher definition.
-    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> ();
+    fn with_dispatcher_definition_dyn(&self, f: &mut dyn FnMut(&mut dyn Any)) -> ();
 }
 
 impl dyn SystemComponents {
@@ -1491,8 +1616,11 @@ impl InternalComponents {
         self.system_components.dispatcher_ref()
     }
 
-    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
-        self.system_components.with_dispatcher_definition(f)
+    fn with_dispatcher_definition<F>(&self, mut f: F) -> ()
+    where
+        F: FnMut(&mut dyn Any),
+    {
+        self.system_components.with_dispatcher_definition_dyn(&mut f)
     }
 
     fn system_path(&self) -> SystemPath {
@@ -1659,7 +1787,10 @@ impl KompactRuntime {
         }
     }
 
-    fn with_dispatcher_definition(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+    fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        F: FnMut(&mut dyn Any),
+    {
         match *self.internal_components {
             Some(ref sc) => sc.with_dispatcher_definition(f),
             None => panic!("KompactRuntime was not properly initialised!"),

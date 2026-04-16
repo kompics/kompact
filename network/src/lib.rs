@@ -1,8 +1,5 @@
 pub use kompact::{
     KompactLogger,
-    NetworkStatus,
-    NetworkStatusPort,
-    NetworkStatusRequest,
     component,
     config,
     default_components,
@@ -47,11 +44,13 @@ pub mod net {
 }
 
 mod dispatcher;
+mod events;
 mod queue_manager;
 mod transport;
 
 pub use crate::{
     dispatcher::{NetworkConfig, NetworkDispatcher},
+    events::{NetworkStatus, NetworkStatusPort, NetworkStatusRequest},
     transport::net_test_helpers,
 };
 
@@ -62,7 +61,7 @@ pub trait NetworkSystemExt {
 impl NetworkSystemExt for KompactSystem {
     fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
         let mut connected = false;
-        self.with_dispatcher_definition(&mut |dispatcher| {
+        self.with_dispatcher_definition(|dispatcher| {
             let dispatcher = dispatcher
                 .downcast_mut::<NetworkDispatcher>()
                 .expect("System dispatcher is not provided by kompact-net");

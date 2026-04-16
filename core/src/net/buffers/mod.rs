@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-#[allow(missing_docs)]
+/// Buffer-pool implementation details and allocation helpers.
 pub mod buffer_pool;
 pub mod chunk_lease;
 pub mod chunk_ref;

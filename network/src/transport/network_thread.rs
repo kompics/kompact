@@ -1,11 +1,12 @@
 use super::*;
 use crate::{
+    events::NetworkDispatcherEvent,
     NetworkStatus,
     dispatch::{
         NetworkConfig,
         lookup::{ActorLookup, LookupResult},
     },
-    messaging::{DispatchEnvelope, EventEnvelope, NetMessage, SerialisedFrame},
+    messaging::{DispatchEnvelope, NetMessage, SerialisedFrame},
     net::{
         SessionId,
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
@@ -565,7 +566,7 @@ impl NetworkThread {
         let lease_lookup = self.lookup.load();
         match lease_lookup.get_by_actor_path(&envelope.receiver) {
             LookupResult::Ref(actor) => {
-                actor.tell(envelope);
+                actor.enqueue(envelope);
             }
             LookupResult::Group(group) => {
                 group.route(envelope, &self.log);
@@ -941,15 +942,16 @@ impl NetworkThread {
 
     fn notify_network_status(&self, status: NetworkStatus) {
         self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::Network(status)))
+            .tell(DispatchEnvelope::Event(Box::new(
+                NetworkDispatcherEvent::Network(status),
+            )))
     }
 
     fn reject_dispatch_data(&self, address: SocketAddr, data: DispatchData) {
         self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::RejectedData((
-                address,
-                Box::new(data),
-            ))));
+            .tell(DispatchEnvelope::Event(Box::new(
+                NetworkDispatcherEvent::RejectedData((address, Box::new(data))),
+            )));
     }
 
     fn next_token(&mut self) -> () {

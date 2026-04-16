@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+/// Pool of reusable [`BufferChunk`] allocations for serialisation and framing.
 pub struct BufferPool {
     pool: VecDeque<BufferChunk>,
     // Counts the number of BufferChunks allocated by this pool
@@ -59,15 +60,21 @@ impl BufferPool {
         )
     }
 
+    /// Returns a reusable buffer if one is currently available.
+    ///
+    /// The pool first tries to reclaim an unlocked returned buffer and only allocates
+    /// a fresh chunk if the configured pool limit still allows it.
     pub fn get_buffer(&mut self) -> Option<BufferChunk> {
         self.try_reclaim()
     }
 
+    /// Returns a buffer to the pool after use.
     pub fn return_buffer(&mut self, mut buffer: BufferChunk) -> () {
         buffer.lock();
         self.pool.push_back(buffer);
     }
 
+    /// Drains all returned buffers from the pool in oldest-to-newest order.
     pub fn drain_returned(&mut self) -> Drain<'_, BufferChunk> {
         self.pool.drain(0..)
     }
@@ -133,7 +140,7 @@ impl BufferPool {
 
     /// Returns the number of allocated buffers and the current number of buffers in the pool
     #[allow(dead_code)]
-    #[doc(hidden)]
+    /// Returns the number of allocated buffers and the current number of idle buffers in the pool.
     pub fn get_pool_sizes(&self) -> (usize, usize) {
         (self.pool_size, self.pool.len())
     }
