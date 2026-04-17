@@ -31,6 +31,10 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
+      # Keep the local and net examples out of the shared workspace runs:
+      # Cargo feature unification would otherwise compile the local examples
+      # with `distributed` enabled via `kompact-net`, which defeats the point
+      # of testing the local-only default configuration separately.
       - name: Run workspace tests
         run: cargo test --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --verbose
       - name: Run ignored workspace tests
@@ -103,6 +107,9 @@ jobs:
           components: clippy, rustfmt
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
+      # As above for tests: lint the workspace core separately so the local
+      # examples are checked under plain default `kompact`, not under a
+      # feature-unified graph that pulled in `distributed` through `kompact-net`.
       - name: Run cargo clippy (workspace)
         run: cargo clippy --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --all-targets -- -D warnings
       - name: Run cargo clippy (macro-test)
