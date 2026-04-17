@@ -1535,7 +1535,7 @@ pub trait SystemComponents: Send + Sync + 'static {
     /// This takes a boxed callback instead of `impl FnOnce(...)`, because
     /// `SystemComponents` is used behind a trait object and generic methods would
     /// make the trait non-object-safe.
-    fn with_dispatcher_definition_dyn<'a>(&self, f: Box<dyn FnOnce(&mut dyn Any) + 'a>) -> ();
+    fn with_dispatcher_definition_dyn<'a>(&self, f: DispatcherDefinitionCallback<'a>) -> ();
 
     /// Convenience wrapper for callers that work with a concrete system-components type.
     fn with_dispatcher_definition<F>(&self, f: F) -> ()
@@ -1546,6 +1546,8 @@ pub trait SystemComponents: Send + Sync + 'static {
         self.with_dispatcher_definition_dyn(Box::new(f))
     }
 }
+
+pub(crate) type DispatcherDefinitionCallback<'a> = Box<dyn FnOnce(&mut dyn Any) + 'a>;
 
 impl dyn SystemComponents {
     // Implementation copied from std::any::Any

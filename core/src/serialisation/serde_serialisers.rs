@@ -946,7 +946,7 @@ mod tests {
         seq: Vec<String>,
     }
     impl SerialisationId for Test {
-        const SER_ID: SerId = 12345;
+        const SER_ID: SerId = 45;
     }
 
     #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -957,7 +957,7 @@ mod tests {
         Struct { a: u32 },
     }
     impl SerialisationId for E {
-        const SER_ID: SerId = 12346;
+        const SER_ID: SerId = 46;
     }
 
     fn ser_deser_roundtrip<T>(v: T) -> Result<T, SerError>

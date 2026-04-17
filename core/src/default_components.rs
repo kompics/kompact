@@ -15,9 +15,10 @@ use crate::{
         RegistrationEvent,
         RegistrationPromise,
     },
+    runtime::DispatcherDefinitionCallback,
     timer::timer_manager::TimerRefFactory,
 };
-use std::{any::Any, sync::Arc};
+use std::sync::Arc;
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -72,7 +73,7 @@ impl SystemComponents for DefaultComponents {
         self.stop(system);
     }
 
-    fn with_dispatcher_definition_dyn<'a>(&self, f: Box<dyn FnOnce(&mut dyn Any) + 'a>) -> () {
+    fn with_dispatcher_definition_dyn<'a>(&self, f: DispatcherDefinitionCallback<'a>) -> () {
         self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
@@ -196,7 +197,7 @@ where
         self.deadletter_box.wait_ended();
     }
 
-    fn with_dispatcher_definition_dyn<'a>(&self, f: Box<dyn FnOnce(&mut dyn Any) + 'a>) -> () {
+    fn with_dispatcher_definition_dyn<'a>(&self, f: DispatcherDefinitionCallback<'a>) -> () {
         self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
@@ -570,7 +571,7 @@ mod tests {
 
     #[cfg(feature = "distributed")]
     impl Deserialiser<Ping> for Ping {
-        const SER_ID: SerId = 4242;
+        const SER_ID: SerId = 42;
 
         fn deserialise(_buf: &mut dyn Buf) -> Result<Ping, SerError> {
             Ok(Ping)

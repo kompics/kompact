@@ -31,10 +31,22 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
-      - name: Run tests
-        run: cargo test --verbose
-      - name: Run ignored tests
-        run: cargo test --verbose -- --ignored
+      - name: Run workspace tests
+        run: cargo test --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --verbose
+      - name: Run ignored workspace tests
+        run: cargo test --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --verbose -- --ignored
+      - name: Run macro-test
+        run: cargo test -p macro-test --verbose
+      - name: Run ignored macro-test cases
+        run: cargo test -p macro-test --verbose -- --ignored
+      - name: Run local examples tests
+        run: cargo test -p kompact-examples-local --verbose
+      - name: Run ignored local examples tests
+        run: cargo test -p kompact-examples-local --verbose -- --ignored
+      - name: Run net examples tests
+        run: cargo test -p kompact-examples-net --verbose
+      - name: Run ignored net examples tests
+        run: cargo test -p kompact-examples-net --verbose -- --ignored
 
   test-core-distributed-serde-features:
     runs-on: ubuntu-latest
@@ -91,8 +103,14 @@ jobs:
           components: clippy, rustfmt
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
-      - name: Run cargo clippy (default)
-        run: cargo clippy --all-targets -- -D warnings
+      - name: Run cargo clippy (workspace)
+        run: cargo clippy --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --all-targets -- -D warnings
+      - name: Run cargo clippy (macro-test)
+        run: cargo clippy -p macro-test --all-targets -- -D warnings
+      - name: Run cargo clippy (local examples)
+        run: cargo clippy -p kompact-examples-local --all-targets -- -D warnings
+      - name: Run cargo clippy (net examples)
+        run: cargo clippy -p kompact-examples-net --all-targets -- -D warnings
       - name: Run cargo clippy (ser_id_8)
         run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --no-default-features --features distributed,serde_support,ser_id_8 -- -D warnings
       - name: Run cargo clippy (thread_pinning)
