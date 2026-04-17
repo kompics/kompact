@@ -55,31 +55,30 @@ pub fn ping_throughput_benches(c: &mut Criterion) {
 
 pub fn ping_latency_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Latency Benches");
-    for pairs in [1usize].iter() {
-        g.throughput(Throughput::Elements(
-            2u64 * LATENCY_MSG_COUNT * (*pairs as u64),
-        ));
-        g.bench_with_input(
-            BenchmarkId::new("ports", pairs),
-            pairs,
-            tests::ping_pong_latency_ports,
-        );
-        g.bench_with_input(
-            BenchmarkId::new("strong-refs", pairs),
-            pairs,
-            tests::ping_pong_latency_strong_ref,
-        );
-        g.bench_with_input(
-            BenchmarkId::new("weak-refs", pairs),
-            pairs,
-            tests::ping_pong_latency_weak_ref,
-        );
-        g.bench_with_input(
-            BenchmarkId::new("ask", pairs),
-            pairs,
-            tests::ping_pong_latency_ask,
-        );
-    }
+    let pairs = 1usize;
+    g.throughput(Throughput::Elements(
+        2u64 * LATENCY_MSG_COUNT * (pairs as u64),
+    ));
+    g.bench_with_input(
+        BenchmarkId::new("ports", pairs),
+        &pairs,
+        tests::ping_pong_latency_ports,
+    );
+    g.bench_with_input(
+        BenchmarkId::new("strong-refs", pairs),
+        &pairs,
+        tests::ping_pong_latency_strong_ref,
+    );
+    g.bench_with_input(
+        BenchmarkId::new("weak-refs", pairs),
+        &pairs,
+        tests::ping_pong_latency_weak_ref,
+    );
+    g.bench_with_input(
+        BenchmarkId::new("ask", pairs),
+        &pairs,
+        tests::ping_pong_latency_ask,
+    );
     g.finish();
 }
 
@@ -99,6 +98,7 @@ mod port_pingpong {
 
     #[derive(Clone, Debug)]
     pub struct Ping;
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct Pong;
 
@@ -283,6 +283,7 @@ mod strong_ref_pingpong {
 
     #[derive(Clone, Debug)]
     pub struct Ping;
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct Pong;
 
@@ -496,6 +497,7 @@ mod weak_ref_pingpong {
 
     #[derive(Clone, Debug)]
     pub struct Ping;
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct Pong;
 
@@ -908,6 +910,11 @@ mod tests {
     use criterion::{BatchSize, Bencher};
     use std::time::Duration;
 
+    type AskStartRefs = Vec<(
+        ActorRefStrong<ask_pingpong::PingerStart>,
+        ActorRefStrong<Ask<ask_pingpong::Ping, ask_pingpong::Pong>>,
+    )>;
+
     fn setup_kompact_system() -> KompactSystem {
         KompactConfig::default().build().expect("KompactSystem")
     }
@@ -1276,8 +1283,7 @@ mod tests {
 
         let system = setup_kompact_system();
         let mut pingers: Vec<Arc<Component<Pinger>>> = Vec::with_capacity(pairs);
-        let mut start_refs: Vec<(ActorRefStrong<PingerStart>, ActorRefStrong<Ask<Ping, Pong>>)> =
-            Vec::with_capacity(pairs);
+        let mut start_refs: AskStartRefs = Vec::with_capacity(pairs);
         let mut pongers: Vec<Arc<Component<Ponger>>> = Vec::with_capacity(pairs);
         for _ in 0..pairs {
             let pingerc = system.create(|| Pinger::with(MSG_COUNT));
@@ -1339,8 +1345,7 @@ mod tests {
 
         let system = setup_kompact_system();
         let mut pingers: Vec<Arc<Component<Pinger>>> = Vec::with_capacity(pairs);
-        let mut start_refs: Vec<(ActorRefStrong<PingerStart>, ActorRefStrong<Ask<Ping, Pong>>)> =
-            Vec::with_capacity(pairs);
+        let mut start_refs: AskStartRefs = Vec::with_capacity(pairs);
         let mut pongers: Vec<Arc<Component<Ponger>>> = Vec::with_capacity(pairs);
         for _ in 0..pairs {
             let pingerc = system.create(|| Pinger::with(LATENCY_MSG_COUNT));

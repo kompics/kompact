@@ -384,6 +384,12 @@ pub mod pppipelinestatic {
         ctx: ComponentContext<Self>,
     }
 
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -578,6 +584,12 @@ pub mod pppipelineindexed {
     #[derive(ComponentDefinition)]
     pub struct Ponger {
         ctx: ComponentContext<Self>,
+    }
+
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Ponger {
@@ -786,6 +798,12 @@ pub mod ppstatic {
     #[derive(ComponentDefinition)]
     pub struct Ponger {
         ctx: ComponentContext<Self>,
+    }
+
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Ponger {
@@ -1018,6 +1036,12 @@ pub mod ppstatic {
             ctx: ComponentContext<Self>,
         }
 
+        impl Default for Ponger {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+
         impl Ponger {
             pub fn new() -> Ponger {
                 Ponger {
@@ -1140,6 +1164,12 @@ pub mod ppindexed {
     #[derive(ComponentDefinition)]
     pub struct Ponger {
         ctx: ComponentContext<Self>,
+    }
+
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Ponger {

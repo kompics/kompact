@@ -110,8 +110,17 @@ jobs:
       # As above for tests: lint the workspace core separately so the local
       # examples are checked under plain default `kompact`, not under a
       # feature-unified graph that pulled in `distributed` through `kompact-net`.
+      # Keep `dynamic-benches` out of the shared pass as well: its bench targets
+      # intentionally exercise three different feature graphs (local,
+      # distributed, network), which a single workspace invocation would unify.
       - name: Run cargo clippy (workspace)
-        run: cargo clippy --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude dynamic-benches --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --all-targets -- -D warnings
+      - name: Run cargo clippy (dynamic benches, local)
+        run: cargo clippy -p dynamic-benches --all-targets -- -D warnings
+      - name: Run cargo clippy (dynamic benches, distributed)
+        run: cargo clippy -p dynamic-benches --all-targets --features bench-distributed -- -D warnings
+      - name: Run cargo clippy (dynamic benches, network)
+        run: cargo clippy -p dynamic-benches --all-targets --features bench-network -- -D warnings
       - name: Run cargo clippy (macro-test)
         run: cargo clippy -p macro-test --all-targets -- -D warnings
       - name: Run cargo clippy (local examples)

@@ -34,6 +34,12 @@ impl TestActor {
     }
 }
 
+impl Default for TestActor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 ignore_lifecycle!(TestActor);
 
 impl Provide<TestPort> for TestActor {

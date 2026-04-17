@@ -6,7 +6,6 @@ extern crate test;
 
 #[cfg(feature = "bench-distributed")]
 pub mod actor_store;
-pub mod actorrefs;
 pub mod do_with;
 pub mod hashes;
 pub mod loop_opts;
