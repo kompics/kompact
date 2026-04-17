@@ -4,8 +4,8 @@
 #[cfg(nightly)]
 extern crate test;
 
+#[cfg(feature = "bench-distributed")]
 pub mod actor_store;
-#[cfg(feature = "bench-network")]
 pub mod actorrefs;
 pub mod do_with;
 pub mod hashes;

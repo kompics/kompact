@@ -26,7 +26,7 @@ criterion = { version = "0.8" }
 path = "../../core/"
 default-features = false
 # features = ["silent_logging", "low_latency"]
-features = ["distributed", "silent_logging", "ser_id_64", "use_local_executor"]
+features = ["silent_logging", "use_local_executor"]
 # features = ["silent_logging", "ser_id_64"]
 
 [dependencies.kompact-net]
@@ -41,7 +41,8 @@ rustc_version = "0.4"
 
 [features]
 default = []
-bench-network = ["dep:kompact-net"]
+bench-distributed = ["kompact/distributed"]
+bench-network = ["bench-distributed", "dep:kompact-net"]
 bench-hashes = []
 
 #[dev-dependencies]
@@ -63,7 +64,6 @@ required-features = ["bench-hashes"]
 name = "actorrefs"
 path = "src/actorrefs.rs"
 harness = false
-required-features = ["bench-network"]
 
 [[bench]]
 name = "loop_opts"
@@ -74,9 +74,9 @@ harness = false
 name = "pingperf"
 path = "src/pingperf.rs"
 harness = false
-required-features = ["bench-network"]
 
 [[bench]]
 name = "actor_store"
 path = "src/actor_store/mod.rs"
 harness = false
+required-features = ["bench-distributed"]
