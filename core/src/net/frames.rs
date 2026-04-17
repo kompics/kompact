@@ -6,7 +6,7 @@ use bytes::{Buf, BufMut};
 //use bytes::IntoBuf;
 use std::{self, fmt::Debug, io};
 
-use crate::{net::buffers::ChunkLease, prelude::SessionId};
+use crate::net::{SessionId, buffers::ChunkLease};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 //use stream::StreamId;
@@ -272,7 +272,7 @@ impl Data {
     }
 
     /// Consumes this frame and returns the raw payload buffer
-    pub(crate) fn payload(self) -> ChunkLease {
+    pub fn payload(self) -> ChunkLease {
         self.payload
     }
 }

@@ -21,7 +21,11 @@ use rustc_hash::FxHashMap;
 use std::ops::Deref;
 use uuid::Uuid;
 
-pub(crate) mod gc;
+/// Garbage-collection helpers for dispatch tables and dynamic actor references.
+///
+/// This remains public so alternative distributed backends can reuse the same
+/// actor-store cleanup support as the provided `kompact-net` transport.
+pub mod gc;
 pub(crate) mod path_trie;
 use path_trie::*;
 

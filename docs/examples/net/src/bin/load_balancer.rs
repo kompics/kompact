@@ -1,5 +1,6 @@
 #![allow(clippy::unused_unit)]
-use kompact::{prelude::*, serde_serialisers::*};
+use kompact::serde_serialisers::*;
+use kompact_net::prelude::*;
 use lru::LruCache;
 use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 use serde::{Deserialize, Serialize};

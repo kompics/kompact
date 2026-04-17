@@ -2,6 +2,7 @@
 use kompact::prelude::*;
 use std::time::Duration;
 
+// ANCHOR: messages
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CurrentCount {
     messages: u64,
@@ -15,7 +16,9 @@ impl Port for CounterPort {
     type Indication = CurrentCount;
     type Request = CountMe;
 }
+// ANCHOR_END: messages
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct Counter {
     ctx: ComponentContext<Self>,
@@ -40,6 +43,9 @@ impl Counter {
         }
     }
 }
+// ANCHOR_END: state
+
+// ANCHOR: behaviour
 impl ComponentLifecycle for Counter {
     fn on_start(&mut self) -> Handled {
         info!(self.ctx.log(), "Got a start event!");
@@ -59,6 +65,7 @@ impl ComponentLifecycle for Counter {
         Handled::Ok
     }
 }
+
 impl Provide<CounterPort> for Counter {
     fn handle(&mut self, _event: CountMe) -> Handled {
         info!(self.ctx.log(), "Got a counter event!");
@@ -80,18 +87,13 @@ impl Actor for Counter {
         .expect("complete");
         Handled::Ok
     }
-
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!("We are still ignoring network messages.");
-    }
 }
+// ANCHOR_END: behaviour
 
+// ANCHOR: main
 pub fn main() {
     // ANCHOR: system
-    use kompact::config_keys::system;
-    let mut conf = KompactConfig::default();
-    conf.set_config_value(&system::THREADS, 1usize);
-    let system = conf.build().expect("system");
+    let system = KompactConfig::default().build().expect("system");
     // ANCHOR_END: system
     let counter = system.create(Counter::new);
     system.start(&counter);
@@ -112,6 +114,7 @@ pub fn main() {
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));
 }
+// ANCHOR_END: main
 
 #[cfg(test)]
 mod tests {

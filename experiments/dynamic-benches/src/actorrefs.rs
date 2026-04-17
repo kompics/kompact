@@ -34,6 +34,12 @@ impl TestActor {
     }
 }
 
+impl Default for TestActor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 ignore_lifecycle!(TestActor);
 
 impl Provide<TestPort> for TestActor {
@@ -49,16 +55,20 @@ impl Actor for TestActor {
         Handled::Ok // discard
     }
 
+    #[cfg(feature = "bench-distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         Handled::Ok // discard
     }
 }
 
+#[cfg(feature = "bench-distributed")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PingSer;
 
+#[cfg(feature = "bench-distributed")]
 pub const PING_SER: PingSer = PingSer;
 
+#[cfg(feature = "bench-distributed")]
 impl Serialiser<Ping> for PingSer {
     fn ser_id(&self) -> SerId {
         42 // because why not^^
@@ -77,6 +87,7 @@ pub fn clone_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Clone Benches");
     g.bench_function("bench clone ActorRef", tests::bench_clone_actor_ref);
     g.bench_function("bench clone Recipient", tests::bench_clone_recipient);
+    #[cfg(feature = "bench-distributed")]
     g.bench_function("bench clone ActorPath", tests::bench_clone_actor_path);
     g.finish();
 }
@@ -97,6 +108,7 @@ pub fn tell_benches(c: &mut Criterion) {
 mod tests {
     use super::*;
     use criterion::Bencher;
+    #[cfg(feature = "bench-distributed")]
     use std::time::Duration;
 
     pub fn bench_clone_recipient(b: &mut Bencher) {
@@ -202,11 +214,12 @@ mod tests {
         sys.shutdown().expect("System didn't shut down :(");
     }
 
+    #[cfg(feature = "bench-distributed")]
     pub fn bench_clone_actor_path(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+            cfg.system_components(DeadletterBox::new, LocalDispatcher::new);
             cfg.build().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
@@ -224,11 +237,12 @@ mod tests {
     }
 
     #[allow(dead_code)]
+    #[cfg(feature = "bench-distributed")]
     pub fn bench_tell_actor_path(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
+            cfg.system_components(DeadletterBox::new, LocalDispatcher::new);
             cfg.build().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);

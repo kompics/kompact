@@ -31,12 +31,28 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
-      - name: Run tests
-        run: cargo test --verbose
-      - name: Run ignored tests
-        run: cargo test --verbose -- --ignored
+      # Keep the local and net examples out of the shared workspace runs:
+      # Cargo feature unification would otherwise compile the local examples
+      # with `distributed` enabled via `kompact-net`, which defeats the point
+      # of testing the local-only default configuration separately.
+      - name: Run workspace tests
+        run: cargo test --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --verbose
+      - name: Run ignored workspace tests
+        run: cargo test --workspace --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --verbose -- --ignored
+      - name: Run macro-test
+        run: cargo test -p macro-test --verbose
+      - name: Run ignored macro-test cases
+        run: cargo test -p macro-test --verbose -- --ignored
+      - name: Run local examples tests
+        run: cargo test -p kompact-examples-local --verbose
+      - name: Run ignored local examples tests
+        run: cargo test -p kompact-examples-local --verbose -- --ignored
+      - name: Run net examples tests
+        run: cargo test -p kompact-examples-net --verbose
+      - name: Run ignored net examples tests
+        run: cargo test -p kompact-examples-net --verbose -- --ignored
 
-  test-core-serde-features:
+  test-core-distributed-serde-features:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -53,9 +69,9 @@ jobs:
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
       - name: Run tests
-        run: cargo test --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }}
+        run: cargo test --manifest-path=core/Cargo.toml --no-default-features --features distributed,serde_support,${{ matrix.feature }}
       - name: Run ignored tests
-        run: cargo test --manifest-path=core/Cargo.toml --no-default-features --features ${{ matrix.feature }} -- --ignored
+        run: cargo test --manifest-path=core/Cargo.toml --no-default-features --features distributed,serde_support,${{ matrix.feature }} -- --ignored
 
   test-core-misc-features:
     runs-on: ubuntu-latest
@@ -91,10 +107,28 @@ jobs:
           components: clippy, rustfmt
       - name: Cache cargo state
         uses: Swatinem/rust-cache@v2
-      - name: Run cargo clippy (default)
-        run: cargo clippy --all-targets -- -D warnings
+      # As above for tests: lint the workspace core separately so the local
+      # examples are checked under plain default `kompact`, not under a
+      # feature-unified graph that pulled in `distributed` through `kompact-net`.
+      # Keep `dynamic-benches` out of the shared pass as well: its bench targets
+      # intentionally exercise three different feature graphs (local,
+      # distributed, network), which a single workspace invocation would unify.
+      - name: Run cargo clippy (workspace)
+        run: cargo clippy --workspace --exclude dynamic-benches --exclude kompact-examples-local --exclude kompact-examples-net --exclude macro-test --all-targets -- -D warnings
+      - name: Run cargo clippy (dynamic benches, local)
+        run: cargo clippy -p dynamic-benches --all-targets -- -D warnings
+      - name: Run cargo clippy (dynamic benches, distributed)
+        run: cargo clippy -p dynamic-benches --all-targets --features bench-distributed -- -D warnings
+      - name: Run cargo clippy (dynamic benches, network)
+        run: cargo clippy -p dynamic-benches --all-targets --features bench-network -- -D warnings
+      - name: Run cargo clippy (macro-test)
+        run: cargo clippy -p macro-test --all-targets -- -D warnings
+      - name: Run cargo clippy (local examples)
+        run: cargo clippy -p kompact-examples-local --all-targets -- -D warnings
+      - name: Run cargo clippy (net examples)
+        run: cargo clippy -p kompact-examples-net --all-targets -- -D warnings
       - name: Run cargo clippy (ser_id_8)
-        run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --no-default-features --features ser_id_8 -- -D warnings
+        run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --no-default-features --features distributed,serde_support,ser_id_8 -- -D warnings
       - name: Run cargo clippy (thread_pinning)
         run: cargo clippy --manifest-path=core/Cargo.toml --all-targets --features thread_pinning -- -D warnings
       - name: Run cargo clippy (low_latency)

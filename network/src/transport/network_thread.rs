@@ -1,21 +1,25 @@
 use super::*;
 use crate::{
+    NetworkStatus,
     dispatch::{
         NetworkConfig,
         lookup::{ActorLookup, LookupResult},
     },
-    messaging::{DispatchEnvelope, EventEnvelope, NetMessage, SerialisedFrame},
+    events::NetworkDispatcherEvent,
+    messaging::{DispatchEnvelope, NetMessage, SerialisedFrame},
     net::{
+        SessionId,
         buffers::{BufferChunk, BufferPool, EncodeBuffer},
+    },
+    transport::{
         network_channel::{ChannelState, TcpChannel},
         udp_state::UdpState,
     },
-    prelude::{NetworkStatus, SessionId},
-    serialisation::ser_helpers::deserialise_chunk_lease,
 };
 use crossbeam_channel::Receiver as Recv;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use iprange::{IpRange, ToNetwork};
+use kompact::prelude::deserialise_chunk_lease;
 use lru::LruCache;
 use mio::{
     Events,
@@ -182,7 +186,7 @@ pub struct NetworkThread {
 }
 
 impl NetworkThread {
-    pub fn run(mut self) -> () {
+    pub fn run(mut self) {
         trace!(self.log, "NetworkThread starting");
         let mut events = Events::with_capacity(MAX_POLL_EVENTS);
         loop {
@@ -256,7 +260,7 @@ impl NetworkThread {
         }
     }
 
-    fn retry_event(&mut self, event: &EventWithRetries) -> () {
+    fn retry_event(&mut self, event: &EventWithRetries) {
         if event.retries <= self.network_config.get_max_connection_retry_attempts() {
             self.retry_queue.push_back(event.get_retry_event());
         } else if let Some(channel) = self.get_channel_by_token(&event.token) {
@@ -264,7 +268,7 @@ impl NetworkThread {
         }
     }
 
-    fn enqueue_writeable_event(&mut self, token: &Token) -> () {
+    fn enqueue_writeable_event(&mut self, token: &Token) {
         self.retry_queue
             .push_back(EventWithRetries::writeable_with_token(token));
     }
@@ -273,7 +277,7 @@ impl NetworkThread {
         self.buffer_pool.borrow_mut().get_buffer()
     }
 
-    fn return_buffer(&self, buffer: BufferChunk) -> () {
+    fn return_buffer(&self, buffer: BufferChunk) {
         self.buffer_pool.borrow_mut().return_buffer(buffer)
     }
 
@@ -334,7 +338,7 @@ impl NetworkThread {
         self.token_map.get(token).cloned()
     }
 
-    fn update_lru(&mut self, token: &Token) -> () {
+    fn update_lru(&mut self, token: &Token) {
         let _ = self.token_map.get(token);
     }
 
@@ -342,17 +346,13 @@ impl NetworkThread {
         self.address_map.get(address).cloned()
     }
 
-    fn reregister_channel_address(
-        &mut self,
-        old_address: SocketAddr,
-        new_address: SocketAddr,
-    ) -> () {
+    fn reregister_channel_address(&mut self, old_address: SocketAddr, new_address: SocketAddr) {
         if let Some(channel_rc) = self.address_map.remove(&old_address) {
             self.address_map.insert(new_address, channel_rc);
         }
     }
 
-    fn read_tcp(&mut self, event: &EventWithRetries) -> () {
+    fn read_tcp(&mut self, event: &EventWithRetries) {
         if let Some(channel_rc) = self.get_channel_by_token(&event.token) {
             let mut channel = channel_rc.borrow_mut();
             loop {
@@ -416,7 +416,7 @@ impl NetworkThread {
         }
     }
 
-    fn read_udp(&mut self, udp_state: &mut UdpState, event: EventWithRetries) -> () {
+    fn read_udp(&mut self, udp_state: &mut UdpState, event: EventWithRetries) {
         match udp_state.try_read(&self.buffer_pool) {
             Ok(_) => {}
             Err(e) if no_buffer_space(&e) => {
@@ -436,7 +436,7 @@ impl NetworkThread {
         }
     }
 
-    fn write_tcp(&mut self, token: &Token) -> () {
+    fn write_tcp(&mut self, token: &Token) {
         if let Some(channel_rc) = self.get_channel_by_token(token) {
             let mut channel = channel_rc.borrow_mut();
             match channel.try_drain() {
@@ -467,7 +467,7 @@ impl NetworkThread {
         }
     }
 
-    fn write_udp(&mut self, udp_state: &mut UdpState) -> () {
+    fn write_udp(&mut self, udp_state: &mut UdpState) {
         match udp_state.try_write() {
             Ok(_) => {}
             Err(e) => {
@@ -551,14 +551,14 @@ impl NetworkThread {
         }
     }
 
-    fn handle_data_frame(&self, data: Data, session: SessionId) -> () {
+    fn handle_data_frame(&self, data: Data, session: SessionId) {
         let buf = data.payload();
         let mut envelope = deserialise_chunk_lease(buf).expect("s11n errors");
         envelope.set_session(session);
         self.deliver_net_message(envelope);
     }
 
-    fn deliver_net_message(&self, envelope: NetMessage) -> () {
+    fn deliver_net_message(&self, envelope: NetMessage) {
         let lease_lookup = self.lookup.load();
         match lease_lookup.get_by_actor_path(&envelope.receiver) {
             LookupResult::Ref(actor) => {
@@ -622,11 +622,13 @@ impl NetworkThread {
                         self.lost_connection(other_channel);
                     }
                 }
-                ChannelState::Requested(_, other_id) if other_id.0 > start.id.0 => {
+                ChannelState::Requested(_, other_id) if other_id.as_u128() > start.id.as_u128() => {
                     self.drop_channel(channel);
                     return;
                 }
-                ChannelState::Initialised(_, other_id) if other_id.0 > start.id.0 => {
+                ChannelState::Initialised(_, other_id)
+                    if other_id.as_u128() > start.id.as_u128() =>
+                {
                     self.drop_channel(channel);
                     return;
                 }
@@ -645,7 +647,7 @@ impl NetworkThread {
         ));
     }
 
-    fn handle_bye(&mut self, channel: &mut TcpChannel) -> () {
+    fn handle_bye(&mut self, channel: &mut TcpChannel) {
         match channel.state {
             ChannelState::Closed(addr, id) => {
                 debug!(self.log, "Connection shutdown gracefully");
@@ -663,7 +665,7 @@ impl NetworkThread {
         }
     }
 
-    fn handle_closed_ack(&mut self, address: SocketAddr) -> () {
+    fn handle_closed_ack(&mut self, address: SocketAddr) {
         if let Some(channel_rc) = self.get_channel_by_address(&address) {
             let mut channel = channel_rc.borrow_mut();
             if let ChannelState::Connected(_, _) = channel.state {
@@ -820,7 +822,7 @@ impl NetworkThread {
     }
 
     /// Checks the current active channel count and initiates a graceful shutdown of the LRU channel.
-    fn check_soft_connection_limit(&mut self) -> () {
+    fn check_soft_connection_limit(&mut self) {
         let limit = self.network_config.get_soft_connection_limit() as usize;
         // First condition allows for early returns without doing the count
         if self.token_map.len() > limit && self.count_active_connections() > limit {
@@ -866,7 +868,7 @@ impl NetworkThread {
     }
 
     /// Initiates a graceful closing sequence if the channel is connected or
-    fn close_connection(&mut self, addr: SocketAddr) -> () {
+    fn close_connection(&mut self, addr: SocketAddr) {
         if let Some(channel) = self.get_channel_by_address(&addr) {
             let mut channel_mut = channel.borrow_mut();
             if channel_mut.connected() {
@@ -879,7 +881,7 @@ impl NetworkThread {
     }
 
     /// Handles all logic necessary to shutdown a channel for which the connection has been lost.
-    fn lost_connection(&mut self, mut channel: RefMut<TcpChannel>) -> () {
+    fn lost_connection(&mut self, mut channel: RefMut<TcpChannel>) {
         trace!(self.log, "Lost connection to address {}", channel.address());
         if let Some(id) = channel.session_id() {
             self.notify_network_status(NetworkStatus::ConnectionLost(
@@ -894,13 +896,13 @@ impl NetworkThread {
         channel.shutdown();
     }
 
-    fn reject_outbound_for_channel(&mut self, channel: &mut TcpChannel) -> () {
+    fn reject_outbound_for_channel(&mut self, channel: &mut TcpChannel) {
         for rejected_frame in channel.take_outbound() {
             self.reject_dispatch_data(channel.address(), DispatchData::Serialised(rejected_frame));
         }
     }
 
-    fn stop(&mut self) -> () {
+    fn stop(&mut self) {
         for (_, channel_rc) in self.address_map.drain() {
             let mut channel = channel_rc.borrow_mut();
             debug!(
@@ -926,7 +928,7 @@ impl NetworkThread {
         self.stopped = true;
     }
 
-    fn kill(&mut self) -> () {
+    fn kill(&mut self) {
         trace!(self.log, "Killing the NetworkThread");
         for (_, channel_rc) in self.address_map.drain() {
             channel_rc.borrow_mut().kill();
@@ -935,19 +937,18 @@ impl NetworkThread {
     }
 
     fn notify_network_status(&self, status: NetworkStatus) {
-        self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::Network(status)))
+        self.dispatcher_ref.tell(DispatchEnvelope::Event(Box::new(
+            NetworkDispatcherEvent::Network(status),
+        )))
     }
 
     fn reject_dispatch_data(&self, address: SocketAddr, data: DispatchData) {
-        self.dispatcher_ref
-            .tell(DispatchEnvelope::Event(EventEnvelope::RejectedData((
-                address,
-                Box::new(data),
-            ))));
+        self.dispatcher_ref.tell(DispatchEnvelope::Event(Box::new(
+            NetworkDispatcherEvent::RejectedData((address, Box::new(data))),
+        )));
     }
 
-    fn next_token(&mut self) -> () {
+    fn next_token(&mut self) {
         let next = self.token.0 + 1;
         self.token = Token(next);
     }
@@ -1165,7 +1166,7 @@ impl BlockList {
         true
     }
 
-    fn block_ip_net(&mut self, ip_net: IpNet) -> () {
+    fn block_ip_net(&mut self, ip_net: IpNet) {
         match ip_net {
             IpNet::V4(net) => {
                 self.ipv4_set.add(net);
@@ -1176,7 +1177,7 @@ impl BlockList {
         }
     }
 
-    fn allow_ip_net(&mut self, ip_net: IpNet) -> () {
+    fn allow_ip_net(&mut self, ip_net: IpNet) {
         match ip_net {
             IpNet::V4(net) => {
                 self.ipv4_set.remove(net);
@@ -1259,7 +1260,7 @@ mod tests {
     use std::str::FromStr;
 
     // Cleaner test-cases for manually running the thread
-    fn poll_and_handle(thread: &mut NetworkThread) -> () {
+    fn poll_and_handle(thread: &mut NetworkThread) {
         let mut events = Events::with_capacity(10);
         thread
             .poll
@@ -1325,7 +1326,7 @@ mod tests {
     }
 
     #[test]
-    fn merge_connections_basic() -> () {
+    fn merge_connections_basic() {
         // Sets up two NetworkThreads and does mutual connection request
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::default());
         let (mut thread2, input_queue_2_sender) = setup_network_thread(&NetworkConfig::default());
@@ -1396,7 +1397,7 @@ mod tests {
     }
 
     #[test]
-    fn merge_connections_tricky() -> () {
+    fn merge_connections_tricky() {
         // Sets up two NetworkThreads and does mutual connection request
         // This test uses a different order of events than basic
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&NetworkConfig::default());
@@ -1472,7 +1473,7 @@ mod tests {
     }
 
     #[test]
-    fn network_thread_custom_buffer_config() -> () {
+    fn network_thread_custom_buffer_config() {
         let addr = "127.0.0.1:0".parse().expect("Address should work");
         let mut buffer_config = BufferConfig::default();
         buffer_config.chunk_size(128);
@@ -1500,7 +1501,7 @@ mod tests {
     // asserts that the 2nd is disconnected, sends something on 3rd
     // then the 2nd connects to 1, and we asserts that 4 is dropped by 1.
     #[test]
-    fn soft_channel_limit() -> () {
+    fn soft_channel_limit() {
         let mut network_config = NetworkConfig::default();
         network_config.set_soft_connection_limit(3);
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&network_config);
@@ -1612,7 +1613,7 @@ mod tests {
     // asserts that the 5th is refused.
     // Then attempts to connect 5 to 1 and asserts that it's refused again
     #[test]
-    fn hard_channel_limit() -> () {
+    fn hard_channel_limit() {
         let mut network_config = NetworkConfig::default();
         network_config.set_hard_connection_limit(3);
         let (mut thread1, input_queue_1_sender) = setup_network_thread(&network_config);

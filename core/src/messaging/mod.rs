@@ -28,22 +28,10 @@ pub use serialised::*;
 pub(crate) mod dispatch;
 pub use dispatch::*;
 mod deser_macro;
-use crate::{net::SocketAddr, prelude::NetworkStatus};
 #[allow(unused_imports)]
 pub use deser_macro::*;
 pub mod bitfields;
 pub mod framing;
-
-/// An event from the network
-///
-/// This is left as an enum for future extension.
-#[derive(Debug)]
-pub enum EventEnvelope {
-    /// An event from the network
-    Network(NetworkStatus),
-    /// Rejected DispatchData, NetworkThread is unable to send it
-    RejectedData((SocketAddr, Box<DispatchData>)),
-}
 
 /// A message that is accepted by an actor's mailbox
 #[derive(Debug)]
@@ -52,6 +40,7 @@ pub enum MsgEnvelope<M: MessageBounds> {
     /// A message of the actor's `Message` type
     Typed(M),
     /// A message from the network
+    #[cfg(feature = "distributed")]
     Net(NetMessage),
 }
 

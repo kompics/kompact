@@ -9,7 +9,7 @@ What we are missing here is a way to predict an `ActorPath` for a particular act
 For the bootstrapping communication we require a new `CheckIn` message. It doesn't actually need any content, since we really only care about the `ActorPath` of the sender. We will reply to this message with our `UpdateProcesses` message from the previous section. However, since that has to go over the network now, we need to make it serialisable. We also aren't locally sharing the process set anymore, so we turn the `Arc<[ActorPath]>` into a simple `Vec<ActorPath>`.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:messages}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:messages}}
 ```
 
 ## State
@@ -17,13 +17,13 @@ For the bootstrapping communication we require a new `CheckIn` message. It doesn
 Our bootstrap server's state is almost trivial. All it needs to keep track of is the current process set.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:state}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:state}}
 ```
 
 We also need to alter our leader elector a bit. First it needs to know the actor path of the bootstrap server, so it can actually check in. And second, we need to adapt the type of `processes` to be in line with our changes to `UpdateProcesses`. We'll make it a `Box<[ActorPath]>` instead of `Arc<[ActorPath]>` and do the conversion from `Vec<ActorPath>` whenever we receive an update.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:ele_state}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:ele_state}}
 ```
 
 ## Behaviours
@@ -31,13 +31,13 @@ We also need to alter our leader elector a bit. First it needs to know the actor
 The behaviour of the bootstrap server is very simple. Whenever it gets a `CheckIn`, it adds the source of the message to its process set and then broadcasts the new process set to every process in the set. We will use the `NetworkActor` trait to implement the actor part here instead of `Actor`. `NetworkActor` is a convenience trait for actors that handle the same set of messages locally and remotely and ignore all other remote messages. It handles the deserialisation part for us, but we must tell it both the `Message` type and the `Deserialiser` type to use. Of course, in this case we don't actually do anything for local messages, since we only need the sender and local messages simply don't have a sender attached.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:behaviour}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:behaviour}}
 ```
 
 We must also make some small changes to the behaviour of the leader elector itself. First of all we must now send the `CheckIn` when we are being started. As before we are using `Serde` as a serialisation mechanism, so we really only have to add the following line to the `on_start` function:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:checkin}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:checkin}}
 ```
 
 We also have to change how we handle `UpdateProcesses` slightly, since they are now coming in over the network. We thus have to move the code from `receive_local` to `receive_network`. But now we have two different possible network messages we could deserialise whenever we get a `NetMessage`: It could either be a `Heartbeat` or an `UpdateProcesses`. Since trying through them individually one by one is somewhat inefficient, what we really want is something like this:
@@ -73,7 +73,7 @@ For cases where `MessageType = DeserialiserType` the `[using DeserialiserType]` 
 Using this macro, our new actor implementation becomes the following:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:actor}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:actor}}
 ```
 
 
@@ -88,10 +88,10 @@ The one thing that sets our bootstrap server creation apart from any other actor
 1. Make sure that the Kompact system actually runs on localhost at the given port, and
 2. register a named path alias for the `BootstrapServer` with the name `"bootstrap"`.
 
-To achieve the first part, we create the `NetworkDispatcher` from a `SocketAddr` instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call `KompactSystem::register_by_alias(...)` with the target component and the path to register. The rest is more or less as before.
+To achieve the first part, we create the `NetworkDispatcher` from `kompact-net` using a `SocketAddr` instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call `KompactSystem::register_by_alias(...)` with the target component and the path to register. The rest is more or less as before.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:server}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:server}}
 ```
 
 ### Client
@@ -99,7 +99,7 @@ To achieve the first part, we create the `NetworkDispatcher` from a `SocketAddr`
 The client setup works almost the same as in the previous section, except that we need to construct the required `ActorPath` instance for the bootstrap server given its `SocketAddr` now. We can do so using `NamedPath::with_socket(...)` which will construct a `NamedPath` instance that can easily be converted into an `ActorPath`. We pass this instance to the leader elector component during construction.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:client}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:client}}
 ```
 
 ### Running with Commandline Arguments
@@ -107,7 +107,7 @@ The client setup works almost the same as in the previous section, except that w
 All that is left to do is to convert the port numbers given on the command line to the required `SocketAddr` instances and calling the correct method. When we are given 1 argument (port number) we will start a bootstrap server, and if we are given 2 arguments (server port and client port) we will start a client instead.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/bootstrapping.rs:main}}
+{{#rustdoc_include ../../examples/net/src/bin/bootstrapping.rs:main}}
 ```
 
 Now we can run this by first starting a server in one shell and then a few clients in a few other shells. We can also see changes in trust events as we kill and add processes.

@@ -8,13 +8,13 @@ The execution model of a component model always ensures that the state variables
 In the Kompact implementation, a *component definition* is simply a Rust struct that contains a `ComponentContext` as a field and implements the `ComponentDefinition` trait, which is typically just derived automatically, as we saw in the "Hello World"-example:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/helloworld.rs:declaration}}
+{{#rustdoc_include ../../examples/local/src/bin/helloworld.rs:declaration}}
 ```
 
 The *component core* itself is hidden from us in Kompact, but we can interact with it using the `ComponentContext` field from within a component. When we actually instantiate a component as part of a Kompact system, we are given an `Arc<Component>`, which is a combined reference to the component definition and core. The creation of this structure is what really happened when we invoked `system.create(...)` in the "Hello World"-example:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/helloworld.rs:create}}
+{{#rustdoc_include ../../examples/local/src/bin/helloworld.rs:create}}
 ```
 
 ## Events and Ports
@@ -62,7 +62,7 @@ This mechanism is similar to the concept of *event handlers* in the Kompics mode
 In Kompact, however, the `ControlPort` is not exposed (anymore since version `0.10.0`), but instead we must implement the `ComponentLifecycle` trait to react to (some of) its events, as we did in the `HelloWorldComponent` example:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/helloworld.rs:lifecycle}}
+{{#rustdoc_include ../../examples/local/src/bin/helloworld.rs:lifecycle}}
 ```
 
 ### Channels

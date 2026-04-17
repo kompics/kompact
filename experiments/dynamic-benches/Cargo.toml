@@ -1,6 +1,6 @@
 [package]
 name = "dynamic-benches"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2024"
 rust-version = "1.94.1"
@@ -26,8 +26,12 @@ criterion = { version = "0.8" }
 path = "../../core/"
 default-features = false
 # features = ["silent_logging", "low_latency"]
-features = ["silent_logging", "ser_id_64", "use_local_executor"]
+features = ["silent_logging", "use_local_executor"]
 # features = ["silent_logging", "ser_id_64"]
+
+[dependencies.kompact-net]
+path = "../../network/"
+optional = true
 
 [dependencies.datastructures]
 path = "../datastructures"
@@ -35,35 +39,44 @@ path = "../datastructures"
 [build-dependencies]
 rustc_version = "0.4"
 
+[features]
+default = []
+bench-distributed = ["kompact/distributed"]
+bench-network = ["bench-distributed", "dep:kompact-net"]
+bench-hashes = []
+
 #[dev-dependencies]
 #criterion = {version = "0.3", features=['real_blackbox']}
 
-# [[bench]]
-# name = "network_latency"
-# path = "src/network_latency.rs"
-# harness = false
+[[bench]]
+name = "network_latency"
+path = "src/network_latency.rs"
+harness = false
+required-features = ["bench-network"]
 
-# [[bench]]
-# name = "hashes"
-# path = "src/hashes.rs"
-# harness = false
+[[bench]]
+name = "hashes"
+path = "src/hashes.rs"
+harness = false
+required-features = ["bench-hashes"]
 
-# [[bench]]
-# name = "actorrefs"
-# path = "src/actorrefs.rs"
-# harness = false
+[[bench]]
+name = "actorrefs"
+path = "src/actorrefs.rs"
+harness = false
 
-# [[bench]]
-# name = "loop_opts"
-# path = "src/loop_opts.rs"
-# harness = false
+[[bench]]
+name = "loop_opts"
+path = "src/loop_opts.rs"
+harness = false
 
-# [[bench]]
-# name = "pingperf"
-# path = "src/pingperf.rs"
-# harness = false
+[[bench]]
+name = "pingperf"
+path = "src/pingperf.rs"
+harness = false
 
 [[bench]]
 name = "actor_store"
 path = "src/actor_store/mod.rs"
 harness = false
+required-features = ["bench-distributed"]

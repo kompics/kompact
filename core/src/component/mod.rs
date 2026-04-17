@@ -156,6 +156,7 @@ impl fmt::Debug for dyn CoreContainer {
     }
 }
 
+#[cfg(feature = "distributed")]
 /// A trait for component views that can be used for unique actor registration
 pub trait UniqueRegistrable: DynActorRefFactory {
     /// Returns the unique id of a component
@@ -174,7 +175,9 @@ pub trait MsgQueueContainer: CoreContainer {
     fn downgrade_dyn(self: Arc<Self>) -> Weak<dyn CoreContainer>;
 }
 
+#[cfg(feature = "distributed")]
 pub(crate) struct FakeCoreContainer;
+#[cfg(feature = "distributed")]
 impl CoreContainer for FakeCoreContainer {
     fn id(&self) -> Uuid {
         unreachable!("FakeCoreContainer should only be used as a Sized type for `Weak::new()`!");
@@ -441,6 +444,7 @@ mod tests {
     use futures::channel::oneshot;
     use std::{sync::Arc, thread, time::Duration};
 
+    #[cfg(feature = "distributed")]
     use std::ops::Deref;
 
     const TIMEOUT: Duration = Duration::from_millis(3000);
@@ -485,8 +489,10 @@ mod tests {
         // ignore
     }
 
+    #[cfg(feature = "distributed")]
     #[derive(Debug, Copy, Clone)]
     struct TestMessage;
+    #[cfg(feature = "distributed")]
     impl Serialisable for TestMessage {
         fn ser_id(&self) -> SerId {
             Self::SER_ID
@@ -504,6 +510,7 @@ mod tests {
             Ok(self)
         }
     }
+    #[cfg(feature = "distributed")]
     impl Deserialiser<TestMessage> for TestMessage {
         // whatever
         const SER_ID: SerId = 42;
@@ -513,11 +520,13 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     #[derive(ComponentDefinition)]
     struct ChildComponent {
         ctx: ComponentContext<Self>,
         got_message: bool,
     }
+    #[cfg(feature = "distributed")]
     impl ChildComponent {
         fn new() -> Self {
             ChildComponent {
@@ -526,7 +535,9 @@ mod tests {
             }
         }
     }
+    #[cfg(feature = "distributed")]
     ignore_lifecycle!(ChildComponent);
+    #[cfg(feature = "distributed")]
     impl NetworkActor for ChildComponent {
         type Deserialiser = TestMessage;
         type Message = TestMessage;
@@ -538,17 +549,20 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     #[derive(Debug)]
     enum ParentMessage {
         GetChild(KPromise<Arc<Component<ChildComponent>>>),
     }
 
+    #[cfg(feature = "distributed")]
     #[derive(ComponentDefinition)]
     struct ParentComponent {
         ctx: ComponentContext<Self>,
         alias_opt: Option<String>,
         child: Option<Arc<Component<ChildComponent>>>,
     }
+    #[cfg(feature = "distributed")]
     impl ParentComponent {
         fn unique() -> Self {
             ParentComponent {
@@ -567,6 +581,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     impl ComponentLifecycle for ParentComponent {
         fn on_start(&mut self) -> Handled {
             let child = self.ctx.system().create(ChildComponent::new);
@@ -597,6 +612,7 @@ mod tests {
             Handled::Ok
         }
     }
+    #[cfg(feature = "distributed")]
     impl Actor for ParentComponent {
         type Message = ParentMessage;
 
@@ -613,16 +629,16 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("Shouldn't be used");
         }
     }
 
+    #[cfg(feature = "distributed")]
     #[test]
     fn child_unique_registration_test() -> () {
-        let mut conf = KompactConfig::default();
-        conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = conf.build().expect("system");
+        let system = KompactConfig::default().build().expect("system");
         let parent = system.create(ParentComponent::unique);
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -639,13 +655,13 @@ mod tests {
         system.shutdown().expect("shutdown");
     }
 
+    #[cfg(feature = "distributed")]
     const TEST_ALIAS: &str = "test";
 
+    #[cfg(feature = "distributed")]
     #[test]
     fn child_alias_registration_test() -> () {
-        let mut conf = KompactConfig::default();
-        conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
-        let system = conf.build().expect("system");
+        let system = KompactConfig::default().build().expect("system");
         let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -786,6 +802,7 @@ mod tests {
             }
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("No networking here!");
         }
@@ -985,6 +1002,7 @@ mod tests {
             }
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("No networking here!");
         }
@@ -1105,6 +1123,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("No networking in this test");
         }
@@ -1140,6 +1159,7 @@ mod tests {
             unreachable!("Never type is empty")
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!("No networking in this test");
         }

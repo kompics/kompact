@@ -645,7 +645,7 @@ checksum = "d7a1e2f27636f116493b8b860f5546edb47c8d8f8ea73e1d2a20be88e28d1fea"
 
 [[package]]
 name = "datastructures"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "rustc_version",
 ]
@@ -696,13 +696,14 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "dynamic-benches"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "datastructures",
  "fnv",
  "im",
  "kompact",
+ "kompact-net",
  "panoradix",
  "rand 0.10.1",
  "rustc-hash",
@@ -1363,7 +1364,7 @@ dependencies = [
 
 [[package]]
 name = "kompact"
-version = "0.11.3"
+version = "0.12.0"
 dependencies = [
  "arc-swap",
  "async-std",
@@ -1378,12 +1379,10 @@ dependencies = [
  "hierarchical_hash_wheel_timer",
  "humantime",
  "ipnet",
- "iprange",
  "kompact-actor-derive",
  "kompact-component-derive",
  "log",
  "lru",
- "mio",
  "num_cpus",
  "oncemutex",
  "owning_ref",
@@ -1404,7 +1403,7 @@ dependencies = [
 
 [[package]]
 name = "kompact-actor-derive"
-version = "0.11.3"
+version = "0.12.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1413,7 +1412,7 @@ dependencies = [
 
 [[package]]
 name = "kompact-component-derive"
-version = "0.11.3"
+version = "0.12.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1421,18 +1420,47 @@ dependencies = [
 ]
 
 [[package]]
-name = "kompact-examples"
-version = "0.11.0"
+name = "kompact-examples-local"
+version = "0.12.0"
 dependencies = [
  "async-std-resolver",
  "dialoguer",
  "kompact",
  "lru",
  "rand 0.10.1",
- "serde",
  "slog",
  "slog-async",
  "slog-term",
+ "uuid",
+]
+
+[[package]]
+name = "kompact-examples-net"
+version = "0.12.0"
+dependencies = [
+ "kompact",
+ "kompact-net",
+ "lru",
+ "rand 0.10.1",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "kompact-net"
+version = "0.12.0"
+dependencies = [
+ "arc-swap",
+ "async-std",
+ "bytes",
+ "crossbeam-channel",
+ "futures",
+ "ipnet",
+ "iprange",
+ "kompact",
+ "lru",
+ "mio",
+ "rustc-hash",
  "uuid",
 ]
 
@@ -1519,7 +1547,7 @@ dependencies = [
 
 [[package]]
 name = "macro-test"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kompact",
 ]
@@ -1828,7 +1856,7 @@ dependencies = [
 
 [[package]]
 name = "protobuf-test"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bytes",
  "kompact",

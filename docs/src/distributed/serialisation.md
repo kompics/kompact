@@ -63,7 +63,7 @@ pub trait Serialiser<T>: Send {
 This behaves essentually the same, except that it doesn't serialise itself, but an instance of another type `T`. In order to use an instance `t: T` with a `Serialiser<T>` we can simply pass a pair of the two to the `ActorPath::tell(...)` function, as we have already seen in the previous section, for example with `Serde`:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/serialisation.rs:send_heartbeats}}
+{{#rustdoc_include ../../examples/net/src/bin/serialisation.rs:send_heartbeats}}
 ```
 
 ### Incoming Path
@@ -81,7 +81,7 @@ To show how custom serialisers can be implemented, we will show two examples re-
 In our example, `CheckIn` is a *zero-sized type* (ZST), since we don't really care about the message, only about the sender. Since ZSTs have no content, we can uniquely identify them by their serialisation id alone and all the serialisers for them are basically identical, in that their `serialise(...)` function consists simply of `Ok(())`. For this example, instead of using `Serde` for `CheckIn`, we will write our own `Serialiser` implementation for ZSTs and then use it for `CheckIn`. We could also use it for `Heartbeat`, but we won't, so as to leave it as a reference for the other approach.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/serialisation.rs:zstser}}
+{{#rustdoc_include ../../examples/net/src/bin/serialisation.rs:zstser}}
 ```
 
 We continue using the `SerialisationId` trait like we did for Serde, because we need to write id of the ZST not of the `ZstSerialiser`, which can serialise and deserialise many different ZSTs.
@@ -91,7 +91,7 @@ In order to create the correct type instance during deserialisation, we use the 
 It is clear that this serialiser is basically trivial. We can use it by creating a pair of `Checkin` with a reference to our static instance `CHECK_IN_SER`, which simply specialises the `ZstSerialiser` for `CheckIn`, as we did before: 
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/serialisation.rs:checkin}}
+{{#rustdoc_include ../../examples/net/src/bin/serialisation.rs:checkin}}
 ```
 
 #### Serialisable
@@ -99,7 +99,7 @@ It is clear that this serialiser is basically trivial. We can use it by creating
 Since the previous example was somewhat trivial, we will do a slightly trickier one for the `Serialisable` example. We will make the `UpdateProcesses` type both `Serialisable` and `Deserialiser<UpdateProcesses>`. This type contains a vector of `ActorPath` instances, which we must handle correctly. We will reuse the `Serialisable` and `Deserialiser<ActorPath>` implementations that are already provided for the `ActorPath` type.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/serialisation.rs:serialisable}}
+{{#rustdoc_include ../../examples/net/src/bin/serialisation.rs:serialisable}}
 ```
 
 It would be easy to just iterate through the vector during serialisation and write one path at a time using its own `serialise(...)` implementation. But during deserialisation we need to know how many paths we have to take out of the buffer. We could simply try taking until the buffer refuses us, but this kind of approach often makes it difficult to detect bugs in one's serialiser implementations. We will instead write the length of the vector before we serialise the actor paths, and during deserialisation we will read it first and allocate a vector of appropriate size. If we are concerned about the space the length wastes, we could try to use some better integer encoding like Protocol Buffers do, for example. But for now we don't care so much and simply write a full `u64`. Those extra 8 bytes make little different compared to the sizes of a bunch of actor paths.
@@ -115,7 +115,7 @@ As mentioned above, using `ActorPath::tell(...)` may cause a stack-to-heap move 
 To show an easy usage for this approach, we use eager serialisation in the `BootstrapServer::broadcast_processess` function: 
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/serialisation.rs:tell_serialised}}
+{{#rustdoc_include ../../examples/net/src/bin/serialisation.rs:tell_serialised}}
 ```
 
 As you can see above, another feature of eager serialisation is that you can (and must) deal with serialisaition errors, which you have no control over using lazy serialisation. In particular, your memory allocation may prevent your local buffer pool from allocating a buffer large enough to fit your data at the time of serialisation. In this case you will get a `SerError::BufferError` and must decide how to handle that. You could either retry at a later time, or switch to *lazy serialisation* and hope the network's buffers still have capacity (assuming they likely have priority over component local buffer pools).

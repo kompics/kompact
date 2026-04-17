@@ -1,6 +1,6 @@
 [package]
 name = "datastructures"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2024"
 rust-version = "1.94.1"

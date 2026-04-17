@@ -1,6 +1,6 @@
 use crossbeam_channel::Receiver as Rcv;
 use ipnet::IpNet;
-use kompact::{prelude::*, prelude_test::net_test_helpers::*};
+use kompact_net::{NetworkStatus, NetworkStatusRequest, net_test_helpers::*, prelude::*};
 use std::{
     cell::Cell,
     net::SocketAddr,

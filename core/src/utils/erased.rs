@@ -67,6 +67,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }

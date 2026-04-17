@@ -94,6 +94,7 @@ where
     ///             .expect("complete");
     ///         })
     ///     }
+    /// #   #[cfg(feature = "distributed")]
     /// #   fn receive_network(&mut self, msg: NetMessage) -> Handled { unimplemented!() }
     /// }
     /// ```
@@ -109,6 +110,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "distributed")]
     use crate::messaging::NetMessage;
 
     const WAIT_TIMEOUT: Duration = Duration::from_millis(1000);
@@ -141,6 +143,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }
@@ -239,6 +242,7 @@ mod tests {
             }
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }

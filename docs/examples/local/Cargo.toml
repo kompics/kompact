@@ -1,6 +1,6 @@
 [package]
-name = "kompact-examples"
-version = "0.11.0"
+name = "kompact-examples-local"
+version = "0.12.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2024"
 rust-version = "1.94.1"
@@ -13,7 +13,6 @@ silent_logging = ["kompact/silent_logging"]
 slog = "2"
 slog-async = "2"
 slog-term = "2"
-serde = { version = "1", features = ["derive"] }
 async-std-resolver = "0.24.1"
 dialoguer = "0.12"
 lru = "0.16"
@@ -21,10 +20,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 rand = "0.10"
 
 [dependencies.kompact]
-path = "../../core/"
-default-features = true
-# features = ["silent_logging", "low_latency"]
-# features = ["silent_logging", "ser_id_8"]
+path = "../../../core/"
 
 [[bin]]
 name = "dynamic_components"

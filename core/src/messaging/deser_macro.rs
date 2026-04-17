@@ -9,6 +9,8 @@
 ///
 /// ```
 /// use kompact::prelude::*;
+/// # #[cfg(feature = "distributed")]
+/// # {
 /// # use kompact::doctest_helpers;
 /// use bytes::BytesMut;
 ///
@@ -29,6 +31,7 @@
 ///         msg(test_res): String [using String] => assert_eq!(test_str, test_res),
 ///     }
 /// }
+/// # }
 /// ```
 ///
 /// You can specify the [Deserialiser](crate::prelude::Deserialiser) to use as `D` via `[using D]`
@@ -40,6 +43,8 @@
 ///
 /// ```
 /// use kompact::prelude::*;
+/// # #[cfg(feature = "distributed")]
+/// # {
 /// # use kompact::doctest_helpers;
 /// use bytes::BytesMut;
 ///
@@ -62,6 +67,7 @@
 ///         default(_)                           => unreachable!("It's definitely not...whatever this is..."),
 ///     }
 /// }
+/// # }
 /// ```
 /// # Note
 ///

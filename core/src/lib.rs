@@ -42,27 +42,30 @@
 //! - `low_latency`
 //!     - Prevents thread pool threads from going to sleep when using the default pool.
 //!     - This can improve reaction time to incoming network events, at the cost of much higher CPU utilisation.
-//! - `ser_id_64` (default), `ser_id_32`, `ser_id_16`, `ser_id_8`
-//!     - Selects the bit-width of serialisation identifiers.
+//! - `ser_id_64`, `ser_id_32`, `ser_id_16`, `ser_id_8`
+//!     - Selects the bit-width of serialisation identifiers for serialised or distributed messaging.
 //!     - Trying to use a serialisation id that is too large for the selected width will result in a compile-time error.
-//!     - All values are mutually exclusive and all but the default of `ser_id_64` must be used with `--no-default-features`.
+//!     - All values are mutually exclusive. If none of these feature flags is selected, Kompact uses `u64` serialisation ids.
 //! - `thread_pinning`
 //!     - Enables support for pinning pool threads to CPU cores (or rather processing units).
 //!     - This flag has no effect if the runtime OS does not support thread pinning.
 //!     - Enabling this will cause as many threads as there are PUs to be pinned by default.
 //!     - Assignments can be customised by providing a custom scheduler with the desired settings.
 //!     - See [executors crate](https://docs.rs/executors/0.8.0/executors/crossbeam_workstealing_pool/struct.ThreadPool.html?search=#method.with_affinity) for more details.
-//! - `serde_support` (default)
+//! - `serde_support`
 //!     - Build with support for [Serde](https://github.com/serde-rs/serde) serialisers.
 //! - `type_erasure`
 //!     - Build with an experimental API for `dyn` type-erased components.
 //! - `use_local_executor` (default)
 //!     - Use thread-local executors to avoid cloning the handle to the system scheduler for every component scheduling.
 //!     - Not all scheduler implementations support this feature, so you might have to disable it via `--no-default-features` if you are using a custom scheduler.
-//! - `implicit_routes` (default)
+//! - `implicit_routes`
 //!     - Allow default broadcast and select actor paths on any node in the tree, not just where explicitly set via [set_routing_policy](KompactSystem::set_routing_policy).
 //!     - While this feature is convenient, it may open up your system to DoS attacks via broadcast on high-level nodes (e.g. `tcp://1.2.3.4:8000/*`).
-//!     - If you are concered about this security risk, you can disable this feature by using `--no-default-features`.
+//!     - This is only meaningful together with the `distributed` feature.
+//! - `distributed`
+//!     - Enables the distributed dispatching surface, such as actor paths, registration, aliasing, and routing.
+//!     - Plain default `kompact` is local-only. Enable this feature explicitly when you want path-based dispatching without the provided network backend from `kompact-net`.
 #![allow(internal_features)]
 #![deny(missing_docs)]
 #![allow(clippy::unused_unit)]
@@ -188,32 +191,12 @@ pub mod prelude {
         Never,
         actors::{
             Actor,
-            ActorPath,
-            ActorPathFactory,
             ActorRaw,
             ActorRef,
             ActorRefFactory,
             ActorRefStrong,
-            Dispatcher,
-            DispatcherRef,
-            Dispatching,
-            DispatchingPath,
-            DynActorRef,
-            DynActorRefFactory,
             MessageBounds,
-            NamedPath,
-            NetworkActor,
-            PathParseError,
-            Receiver,
             Recipient,
-            Request,
-            SystemField,
-            SystemPath,
-            Transport,
-            UniquePath,
-            WithRecipient,
-            WithSender,
-            WithSenderStrong,
         },
         component::{
             Component,
@@ -233,10 +216,6 @@ pub mod prelude {
             Require,
             RequireRef,
         },
-        net::{
-            SessionId,
-            buffers::{BufferConfig, ChunkLease, ChunkRef},
-        },
         ports::{
             Channel,
             DisconnectError,
@@ -254,18 +233,43 @@ pub mod prelude {
         supervision::{FaultContext, RecoveryHandler},
     };
 
+    #[cfg(feature = "distributed")]
     pub use crate::{
-        default_components::{CustomComponents, DeadletterBox, LocalDispatcher},
-        dispatch::{
-            NetworkConfig,
-            NetworkDispatcher,
-            NetworkStatus,
-            NetworkStatusPort,
-            NetworkStatusRequest,
+        actors::{
+            ActorPath,
+            ActorPathFactory,
+            Dispatcher,
+            DispatcherRef,
+            Dispatching,
+            DispatchingPath,
+            DynActorRef,
+            DynActorRefFactory,
+            NamedPath,
+            NetworkActor,
+            PathParseError,
+            SystemField,
+            SystemPath,
+            Transport,
+            UniquePath,
         },
+        net::{
+            SessionId,
+            buffers::{BufferConfig, ChunkLease, ChunkRef},
+        },
+    };
+
+    pub use crate::{
+        actors::{Receiver, Request, WithRecipient, WithSender, WithSenderStrong},
+        default_components::DeadletterBox,
+        messaging::MsgEnvelope,
+        timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},
+    };
+
+    #[cfg(feature = "distributed")]
+    pub use crate::{
+        default_components::{CustomComponents, LocalDispatcher},
         messaging::{
             DispatchEnvelope,
-            MsgEnvelope,
             NetMessage,
             PathResolvable,
             RegistrationError,
@@ -273,7 +277,6 @@ pub mod prelude {
             Serialised,
             UnpackError,
         },
-        timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},
     };
 
     pub use crate::{
@@ -300,6 +303,9 @@ pub mod prelude {
 
     pub use crate::routing::groups::StorePolicy;
 
+    #[cfg(feature = "distributed")]
+    pub use crate::runtime::DistributedSystemHandle;
+
     #[cfg(feature = "type_erasure")]
     pub use crate::utils::erased::CreateErased;
 }
@@ -308,7 +314,7 @@ pub mod prelude {
 ///
 /// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
-    pub use crate::{net::net_test_helpers, serialisation::ser_test_helpers};
+    pub use crate::serialisation::ser_test_helpers;
 }
 
 /// A module containing helper functions for benchmarking
@@ -518,6 +524,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             error!(self.ctx.log(), "Got unexpected network message: {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
@@ -648,6 +655,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
@@ -829,6 +837,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
@@ -838,7 +847,7 @@ mod tests {
     #[test]
     fn test_start_stop() -> () {
         let system = KompactConfig::default().build().expect("KompactSystem");
-        let (cc, _) = system.create_and_register(CounterComponent::new);
+        let cc = system.create(CounterComponent::new);
         let ccref = cc.actor_ref();
 
         ccref.tell(Box::new(String::from("MsgTest")) as Box<dyn Any + Send>);
@@ -942,6 +951,7 @@ mod tests {
             panic!("Test panic please ignore");
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
@@ -1150,6 +1160,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }

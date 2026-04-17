@@ -1,6 +1,6 @@
 [package]
 name = "kompact-component-derive"
-version = "0.11.3"
+version = "0.12.0"
 authors = ["Lars Kroll <lkroll@kth.se>", "Max Meldrum <mmeldrum@kth.se>"]
 edition = "2024"
 rust-version = "1.94.1"

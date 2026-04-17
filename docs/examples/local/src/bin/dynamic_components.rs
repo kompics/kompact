@@ -25,10 +25,6 @@ impl Actor for Adder {
         info!(self.log(), "Adder result = {}", res);
         Handled::Ok
     }
-
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!()
-    }
 }
 
 struct SetOffset;
@@ -70,10 +66,6 @@ impl Actor for Multiplier {
         let res = a * self.scale;
         info!(self.log(), "Multiplier result = {}", res);
         Handled::Ok
-    }
-
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!()
     }
 }
 
@@ -120,10 +112,6 @@ impl Actor for Linear {
         let res = a * self.scale + self.offset;
         info!(self.log(), "Linear result = {}", res);
         Handled::Ok
-    }
-
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!()
     }
 }
 
@@ -242,10 +230,6 @@ impl Actor for DynamicManager {
         }
 
         Handled::Ok
-    }
-
-    fn receive_network(&mut self, _: NetMessage) -> Handled {
-        unimplemented!()
     }
 }
 

@@ -2,11 +2,24 @@
 resolver = "3"
 members = [
     "core",
+    "network",
     "macros/component-definition-derive",
     "macros/actor-derive",
     "macros/macro-test",
     "feature-tests/protobuf-test",
     "experiments/dynamic-benches",
     "experiments/datastructures",
-    "docs/examples"
+    "docs/examples/local",
+    "docs/examples/net"
 ]
+
+[workspace.dependencies]
+arc-swap = "1.9"
+async-std = "1.13"
+bytes = "1.11"
+crossbeam-channel = "0.5"
+futures = "0.3"
+ipnet = "2.12"
+lru = "0.16"
+rustc-hash = "2"
+uuid = { version = "1.23", features = ["v4"] }

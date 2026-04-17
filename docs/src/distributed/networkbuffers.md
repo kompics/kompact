@@ -6,8 +6,8 @@ Before we begin describing the Network Buffers we remind the reader that there a
 1. **Lazy serialisation** `dst.tell(msg: M, from: S);`
 2. **Eager serialisation** `dst.tell_serialised(msg: M, from: &self);`
 
-With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the `NetworkDispatcher`, which later serialises the message into its (the `NetworkDispatcher`'s) own buffers.   
-Eager serialisation serialises the data immediately into the Actor's buffers, and then transfers ownership of the serialised the data to the `NetworkDispatcher`.
+With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the `NetworkDispatcher`, which later serialises the message into its own buffers.   
+Eager serialisation serialises the data immediately into the Actor's buffers, and then transfers ownership of the serialised data to the `NetworkDispatcher`.
 
 Lazy serialisation may fail due to two reasons: A serialisation error, or there are no available buffers. Both will be
 unnoticeable to the actor initiating the message sending, and both will lead to the message being lost.
@@ -81,8 +81,8 @@ let system = cfg.build().expect("KompactSystem");
 ```
 If a `BufferConfig` is loaded into the systems `KompactConfig` then all actors will use that configuration instead of the default `BufferConfig`, however individual actors may still override the configuration by using the `init_buffers(...)` method.
 
-#### Configuring the NetworkDispatcher and NetworkThread
-The `NetworkDispatcher` and `NetworkThread` are configured separately from the Actors and use their buffers for lazy serialisation and receiving data from the network. To configure their buffers the `NetworkConfig` may be created using the method `::with_buffer_config(...)` as in the example below:
+#### Configuring the `kompact-net` transport
+The provided transport in `kompact-net` configures its `NetworkDispatcher` and `NetworkThread` separately from the Actors and uses its own buffers for lazy serialisation and receiving data from the network. To configure those buffers, create the `NetworkConfig` with `::with_buffer_config(...)` as in the example below:
 
 ```rust,edition2018,no_run,noplaypen
 let mut cfg = KompactConfig::new();

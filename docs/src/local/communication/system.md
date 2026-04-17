@@ -13,13 +13,13 @@ When a Kompact system is not used anymore it should be shut down via the `shutdo
 For our worker pool example, we will simply use the default configuration, and start a `Manager` component with a configurable number of workers. We then create some data array of a configurable size and send a work request with it and an aggregation function to the manager instance. We'll use simple addition with overflow as our aggregation function, which means our neutral element is `0u64`. The data array we'll generate is simply the integers from `1` to `data_size`, which means our aggregate will actually calculate a [triangular number](https://en.wikipedia.org/wiki/Triangular_number) (modulo overflows, for which we probably don't have enough memory for the data array anyway). Since that particular number has a much simpler solution, i.e. \\( \sum_{k=1}^n k = \frac{n\cdot(n+1)}{2} \\), we will also use an assertion to verify we are actually producing the right result (again, this probably won't work if we actually do overflow during aggregration, but oh well...details ;).
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers.rs:main_run}}
+{{#rustdoc_include ../../../examples/local/src/bin/workers.rs:main_run}}
 ```
 
 Now all we are missing are values for the two parameters; `num_workers` and `data_size`. We'll read those from command-line so we can play around with them.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers.rs:main}}
+{{#rustdoc_include ../../../examples/local/src/bin/workers.rs:main}}
 ```
 
 Now we can run our example, by giving it some parameters, say `4 100000` to run 4 workers and calculate the 100000th triangular number. If you play with larger numbers you'll see that a) it uses more and more memory and b) it will spend most of its time creating the original array, as our aggregration function is very simple and parallelisable, while data creation is done sequentially. Of course, in a real worker pool we'd probably read data from disk somewhere or from an already memory resident set, perhaps. But this is good enough for our little example.

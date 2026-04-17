@@ -1,6 +1,6 @@
 [package]
 name = "protobuf-test"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Lars Kroll <lkroll@kth.se>"]
 edition = "2024"
 rust-version = "1.94.1"

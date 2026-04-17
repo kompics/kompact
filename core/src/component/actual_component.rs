@@ -430,24 +430,28 @@ impl<M: MessageBounds> ActorRefFactory for Arc<dyn AbstractComponent<Message = M
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> DynActorRefFactory for Arc<Component<CD>> {
     fn dyn_ref(&self) -> DynActorRef {
         self.actor_ref().dyn_ref()
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> UniqueRegistrable for Arc<Component<CD>> {
     fn component_id(&self) -> Uuid {
         self.id()
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> Dispatching for CD {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.ctx().dispatcher_ref()
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<CD: ComponentTraits> ActorPathFactory for CD {
     fn actor_path(&self) -> ActorPath {
         self.ctx().actor_path()

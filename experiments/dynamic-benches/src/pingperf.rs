@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use kompact::prelude::*;
 use std::{fmt, sync::Arc};
 use synchronoise::CountdownEvent;
@@ -10,6 +10,20 @@ use synchronoise::CountdownEvent;
 
 const MSG_COUNT: u64 = 50000;
 const LATENCY_MSG_COUNT: u64 = 10000;
+
+#[cfg(feature = "bench-distributed")]
+macro_rules! bench_receive_network {
+    () => {
+        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+            unimplemented!("not needed");
+        }
+    };
+}
+
+#[cfg(not(feature = "bench-distributed"))]
+macro_rules! bench_receive_network {
+    () => {};
+}
 
 pub fn ping_throughput_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Benches");
@@ -41,31 +55,30 @@ pub fn ping_throughput_benches(c: &mut Criterion) {
 
 pub fn ping_latency_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Latency Benches");
-    for pairs in [1usize].iter() {
-        g.throughput(Throughput::Elements(
-            2u64 * LATENCY_MSG_COUNT * (*pairs as u64),
-        ));
-        g.bench_with_input(
-            BenchmarkId::new("ports", pairs),
-            pairs,
-            tests::ping_pong_latency_ports,
-        );
-        g.bench_with_input(
-            BenchmarkId::new("strong-refs", pairs),
-            pairs,
-            tests::ping_pong_latency_strong_ref,
-        );
-        g.bench_with_input(
-            BenchmarkId::new("weak-refs", pairs),
-            pairs,
-            tests::ping_pong_latency_weak_ref,
-        );
-        g.bench_with_input(
-            BenchmarkId::new("ask", pairs),
-            pairs,
-            tests::ping_pong_latency_ask,
-        );
-    }
+    let pairs = 1usize;
+    g.throughput(Throughput::Elements(
+        2u64 * LATENCY_MSG_COUNT * (pairs as u64),
+    ));
+    g.bench_with_input(
+        BenchmarkId::new("ports", pairs),
+        &pairs,
+        tests::ping_pong_latency_ports,
+    );
+    g.bench_with_input(
+        BenchmarkId::new("strong-refs", pairs),
+        &pairs,
+        tests::ping_pong_latency_strong_ref,
+    );
+    g.bench_with_input(
+        BenchmarkId::new("weak-refs", pairs),
+        &pairs,
+        tests::ping_pong_latency_weak_ref,
+    );
+    g.bench_with_input(
+        BenchmarkId::new("ask", pairs),
+        &pairs,
+        tests::ping_pong_latency_ask,
+    );
     g.finish();
 }
 
@@ -85,6 +98,7 @@ mod port_pingpong {
 
     #[derive(Clone, Debug)]
     pub struct Ping;
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct Pong;
 
@@ -139,6 +153,8 @@ mod port_pingpong {
         impl Actor for Pinger {
             type Message = Start;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 self.sent = 0;
                 self.received = 0;
@@ -149,10 +165,6 @@ mod port_pingpong {
                     self.sent += 1;
                 }
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
 
@@ -226,15 +238,13 @@ mod port_pingpong {
         impl Actor for Pinger {
             type Message = Start;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 self.received = 0;
                 self.latch = Some(msg.0);
                 self.ppp.trigger(Ping);
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
 
@@ -273,6 +283,7 @@ mod strong_ref_pingpong {
 
     #[derive(Clone, Debug)]
     pub struct Ping;
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct Pong;
 
@@ -327,6 +338,8 @@ mod strong_ref_pingpong {
         impl Actor for Pinger {
             type Message = PingerMsg;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
@@ -356,10 +369,6 @@ mod strong_ref_pingpong {
                 }
                 Handled::Ok
             }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
-            }
         }
 
         #[derive(ComponentDefinition)]
@@ -384,14 +393,12 @@ mod strong_ref_pingpong {
         impl Actor for Ponger {
             type Message = Ping;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, _msg: Self::Message) -> Handled {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
     }
@@ -425,6 +432,8 @@ mod strong_ref_pingpong {
         impl Actor for Pinger {
             type Message = PingerMsg;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
@@ -447,10 +456,6 @@ mod strong_ref_pingpong {
                     }
                 }
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
 
@@ -476,14 +481,12 @@ mod strong_ref_pingpong {
         impl Actor for Ponger {
             type Message = Ping;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, _msg: Self::Message) -> Handled {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
     }
@@ -494,6 +497,7 @@ mod weak_ref_pingpong {
 
     #[derive(Clone, Debug)]
     pub struct Ping;
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct Pong;
 
@@ -548,6 +552,8 @@ mod weak_ref_pingpong {
         impl Actor for Pinger {
             type Message = PingerMsg;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
@@ -577,10 +583,6 @@ mod weak_ref_pingpong {
                 }
                 Handled::Ok
             }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
-            }
         }
 
         #[derive(ComponentDefinition)]
@@ -605,14 +607,12 @@ mod weak_ref_pingpong {
         impl Actor for Ponger {
             type Message = Ping;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, _msg: Self::Message) -> Handled {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
     }
@@ -646,6 +646,8 @@ mod weak_ref_pingpong {
         impl Actor for Pinger {
             type Message = PingerMsg;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
@@ -668,10 +670,6 @@ mod weak_ref_pingpong {
                     }
                 }
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
 
@@ -697,14 +695,12 @@ mod weak_ref_pingpong {
         impl Actor for Ponger {
             type Message = Ping;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, _msg: Self::Message) -> Handled {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
     }
@@ -762,7 +758,7 @@ mod ask_pingpong {
                 self.received += 1;
                 if self.sent < self.repeat {
                     if let Some(ref ponger) = self.ponger {
-                        let f = ponger.ask(Ask::of(Ping));
+                        let f = ponger.ask(Ping);
                         self.sent += 1;
                         self.spawn_local(move |mut async_self| async move {
                             let _pong = f.await.expect("pong");
@@ -784,6 +780,8 @@ mod ask_pingpong {
         impl Actor for Pinger {
             type Message = PingerStart;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 let PingerStart { ponger, latch } = msg;
                 self.sent = 0;
@@ -792,7 +790,7 @@ mod ask_pingpong {
                 let remaining = std::cmp::min(MAX_BATCH, self.repeat);
                 for _ in 0..remaining {
                     //println!("Sending Ping {}", self.sent);
-                    let f = ponger.ask(Ask::of(Ping));
+                    let f = ponger.ask(Ping);
                     self.sent += 1;
                     self.spawn_local(move |mut async_self| async move {
                         let _pong = f.await.expect("pong");
@@ -802,10 +800,6 @@ mod ask_pingpong {
                 self.ponger = Some(ponger);
 
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
 
@@ -829,14 +823,12 @@ mod ask_pingpong {
         impl Actor for Ponger {
             type Message = Ask<Ping, Pong>;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 self.received += 1;
                 msg.complete(|_| Pong).expect("should send pong");
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
     }
@@ -866,21 +858,19 @@ mod ask_pingpong {
         impl Actor for Pinger {
             type Message = PingerStart;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 let PingerStart { ponger, latch } = msg;
                 self.received = 0;
                 //println!("Sending Ping {}", self.sent);
                 Handled::block_on(self, move |mut async_self| async move {
                     while async_self.received < async_self.repeat {
-                        let _pong = ponger.ask(Ask::of(Ping)).await.expect("pong");
+                        let _pong = ponger.ask(Ping).await.expect("pong");
                         async_self.received += 1;
                     }
                     let _ = latch.decrement();
                 })
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
 
@@ -904,14 +894,12 @@ mod ask_pingpong {
         impl Actor for Ponger {
             type Message = Ask<Ping, Pong>;
 
+            bench_receive_network!();
+
             fn receive_local(&mut self, msg: Self::Message) -> Handled {
                 self.received += 1;
                 msg.complete(|_| Pong).expect("should send pong");
                 Handled::Ok
-            }
-
-            fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-                unimplemented!("not needed");
             }
         }
     }
@@ -921,6 +909,11 @@ mod tests {
     use super::*;
     use criterion::{BatchSize, Bencher};
     use std::time::Duration;
+
+    type AskStartRefs = Vec<(
+        ActorRefStrong<ask_pingpong::PingerStart>,
+        ActorRefStrong<Ask<ask_pingpong::Ping, ask_pingpong::Pong>>,
+    )>;
 
     fn setup_kompact_system() -> KompactSystem {
         KompactConfig::default().build().expect("KompactSystem")
@@ -1290,8 +1283,7 @@ mod tests {
 
         let system = setup_kompact_system();
         let mut pingers: Vec<Arc<Component<Pinger>>> = Vec::with_capacity(pairs);
-        let mut start_refs: Vec<(ActorRefStrong<PingerStart>, ActorRefStrong<Ask<Ping, Pong>>)> =
-            Vec::with_capacity(pairs);
+        let mut start_refs: AskStartRefs = Vec::with_capacity(pairs);
         let mut pongers: Vec<Arc<Component<Ponger>>> = Vec::with_capacity(pairs);
         for _ in 0..pairs {
             let pingerc = system.create(|| Pinger::with(MSG_COUNT));
@@ -1353,8 +1345,7 @@ mod tests {
 
         let system = setup_kompact_system();
         let mut pingers: Vec<Arc<Component<Pinger>>> = Vec::with_capacity(pairs);
-        let mut start_refs: Vec<(ActorRefStrong<PingerStart>, ActorRefStrong<Ask<Ping, Pong>>)> =
-            Vec::with_capacity(pairs);
+        let mut start_refs: AskStartRefs = Vec::with_capacity(pairs);
         let mut pongers: Vec<Arc<Component<Ponger>>> = Vec::with_capacity(pairs);
         for _ in 0..pairs {
             let pingerc = system.create(|| Pinger::with(LATENCY_MSG_COUNT));

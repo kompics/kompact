@@ -1,4 +1,5 @@
 use super::*;
+use crate::messaging::NetMessage;
 
 use std::{fmt, ops::Deref};
 use uuid::Uuid;
@@ -41,6 +42,7 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
 }
 impl<M: MessageBounds> DynMsgQueue for TypedMsgQueue<M> {
     #[inline(always)]
+    #[cfg(feature = "distributed")]
     fn push_net(&self, value: NetMessage) {
         self.push(MsgEnvelope::Net(value));
     }
@@ -49,6 +51,7 @@ impl<M: MessageBounds> DynMsgQueue for TypedMsgQueue<M> {
 /// A message queue handle that only deals with
 /// net messages.
 pub trait DynMsgQueue: fmt::Debug + Sync + Send {
+    #[cfg(feature = "distributed")]
     fn push_net(&self, value: NetMessage);
 }
 pub(crate) trait AdaptedQueueContainer<M>: fmt::Debug + Sync + Send {
@@ -141,7 +144,9 @@ pub struct DynActorRef {
     component: Weak<dyn CoreContainer>,
 }
 impl DynActorRef {
-    pub(crate) fn enqueue(&self, msg: NetMessage) -> () {
+    /// Enqueue a preconstructed [`NetMessage`] directly into the dynamic mailbox.
+    #[cfg(feature = "distributed")]
+    pub fn enqueue(&self, msg: NetMessage) -> () {
         if let Some(c) = self.component.upgrade() {
             let q = c.dyn_message_queue();
             let sd = c.core().increment_work();
@@ -164,12 +169,22 @@ impl DynActorRef {
     }
 
     /// Send a network message to the target actor
+    #[cfg(feature = "distributed")]
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<NetMessage>,
     {
         let msg: NetMessage = v.into();
         self.enqueue(msg)
+    }
+
+    /// Send a network message to the target actor
+    #[cfg(not(feature = "distributed"))]
+    pub fn tell<I>(&self, _v: I) -> ()
+    where
+        I: Into<NetMessage>,
+    {
+        unreachable!("network dispatch requires the `distributed` feature");
     }
 }
 impl fmt::Debug for DynActorRef {
@@ -272,6 +287,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     ///         Handled::Ok
     ///     }
     ///
+    /// #    #[cfg(feature = "distributed")]
     /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
@@ -351,6 +367,7 @@ where
     ///         Handled::Ok
     ///     }
     ///
+    /// #    #[cfg(feature = "distributed")]
     /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
@@ -388,6 +405,7 @@ impl<M: MessageBounds> ActorRefFactory for ActorRefStrong<M> {
         self.weak_ref()
     }
 }
+#[cfg(feature = "distributed")]
 impl<M: MessageBounds> DynActorRefFactory for ActorRefStrong<M> {
     fn dyn_ref(&self) -> DynActorRef {
         self.actor_ref().dyn_ref()
@@ -445,7 +463,12 @@ impl<M: MessageBounds> ActorRef<M> {
         ActorRef { component }
     }
 
-    pub(crate) fn enqueue(&self, env: MsgEnvelope<M>) -> () {
+    /// Enqueue a fully prepared message envelope directly into the actor mailbox.
+    ///
+    /// This bypasses the `Into<M>` conversion used by [tell](ActorRef::tell) and is
+    /// primarily intended for advanced integrations that already operate on
+    /// [`MsgEnvelope`](crate::messaging::MsgEnvelope) values.
+    pub fn enqueue(&self, env: MsgEnvelope<M>) -> () {
         if let Some(c) = self.component.upgrade() {
             let q = c.message_queue();
             let sd = c.core().increment_work();
@@ -517,6 +540,7 @@ impl<M: MessageBounds> ActorRef<M> {
     ///         Handled::Ok
     ///     }
     ///
+    /// #    #[cfg(feature = "distributed")]
     /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
@@ -625,6 +649,7 @@ where
     ///         Handled::Ok
     ///     }
     ///
+    /// #    #[cfg(feature = "distributed")]
     /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
@@ -663,6 +688,7 @@ impl<M: MessageBounds> ActorRefFactory for ActorRef<M> {
     }
 }
 
+#[cfg(feature = "distributed")]
 impl<M: MessageBounds> DynActorRefFactory for ActorRef<M> {
     fn dyn_ref(&self) -> DynActorRef {
         match self.component.upgrade() {
@@ -1002,7 +1028,7 @@ impl<T> Receiver<T> for Recipient<T> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "distributed"))]
 mod tests {
 
     use crate::prelude::*;
@@ -1072,6 +1098,7 @@ mod tests {
         }
 
         /// Handles (serialised or reflected) messages from the network.
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }

@@ -1,0 +1,34 @@
+[package]
+name = "kompact-net"
+version = "0.12.0"
+authors = [
+    "Lars Kroll <lkroll@kth.se>",
+    "Johan Mickos <johanmi@kth.se>",
+    "Max Meldrum <mmeldrum@kth.se>",
+    "Adam Hasselberg <adamhas@kth.se>",
+]
+edition = "2024"
+rust-version = "1.94.1"
+
+description = "Socket-based networking backend for Kompact."
+homepage = "https://kompics.github.io/kompact/"
+repository = "https://github.com/kompics/kompact"
+license = "MIT"
+
+[features]
+default = []
+low_latency = ["kompact/low_latency"]
+
+[dependencies]
+kompact = { version = "0.12.0", path = "../core", features = ["distributed"] }
+arc-swap = { workspace = true }
+async-std = { workspace = true }
+bytes = { workspace = true }
+crossbeam-channel = { workspace = true }
+futures = { workspace = true }
+ipnet = { workspace = true }
+iprange = "0.6"
+lru = { workspace = true }
+mio = { version = "1", features = ["net", "os-poll"] }
+rustc-hash = { workspace = true }
+uuid = { workspace = true }

@@ -1,3 +1,5 @@
+#![cfg(feature = "distributed")]
+
 use kompact::prelude::*;
 use std::time::Duration;
 
@@ -81,9 +83,7 @@ impl Actor for SelfCaller {
 
 #[test]
 fn repeated_blocking_self_messages() {
-    let mut cfg = KompactConfig::default();
-    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-    let system = cfg.build().expect("system");
+    let system = KompactConfig::default().build().expect("system");
     let comp = system.create(SelfCaller::new);
     let reg_f = system.update_alias_registration(&comp, "TEST_ME");
     reg_f.wait_expect(Duration::from_millis(100), "initial registration");

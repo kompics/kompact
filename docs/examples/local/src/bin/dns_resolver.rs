@@ -79,10 +79,6 @@ impl Actor for DnsComponent {
             panic!("Component should have been initialised first!")
         }
     }
-
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!("ignore networking");
-    }
 }
 // ANCHOR_END: actor
 

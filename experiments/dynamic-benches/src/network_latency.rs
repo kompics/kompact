@@ -1,10 +1,12 @@
 use criterion::{Bencher, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::time::{Duration, Instant};
 //use kompact::*;
-use kompact::prelude::*;
+use kompact_net::prelude::*;
 //use kompact::default_components::DeadletterBox;
 
 const MSG_COUNT: u64 = 1000;
+const SYSTEM_BOOT_RETRIES: usize = 5;
+const BOOT_RETRY_WAIT: Duration = Duration::from_millis(50);
 
 pub fn kompact_network_latency(c: &mut Criterion) {
     let mut g = c.benchmark_group("Ping Pong RTT");
@@ -141,14 +143,27 @@ where
 
 fn setup_system(name: &'static str, threads: usize) -> KompactSystem {
     use kompact::config_keys::system;
-    let mut cfg = KompactConfig::default();
-    cfg.set_config_value(&system::LABEL, name.to_string());
-    cfg.set_config_value(&system::THREADS, threads);
-    cfg.system_components(DeadletterBox::new, {
-        let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-        net_config.build()
-    });
-    cfg.build().expect("KompactSystem")
+    for attempt in 0..SYSTEM_BOOT_RETRIES {
+        let mut cfg = KompactConfig::default();
+        cfg.set_config_value(&system::LABEL, name.to_string());
+        cfg.set_config_value(&system::THREADS, threads);
+        cfg.system_components(DeadletterBox::new, {
+            let net_config =
+                NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
+            net_config.build()
+        });
+        match cfg.build() {
+            Ok(system) => return system,
+            Err(err) if attempt + 1 < SYSTEM_BOOT_RETRIES => {
+                eprintln!(
+                    "retrying benchmark system boot for {name} after transient error: {err:?}"
+                );
+                std::thread::sleep(BOOT_RETRY_WAIT);
+            }
+            Err(err) => panic!("KompactSystem after {SYSTEM_BOOT_RETRIES} attempts: {err:?}"),
+        }
+    }
+    unreachable!("system boot retry loop must return or panic")
 }
 
 pub fn ping_pong_throughput_static(b: &mut Bencher, pipeline: &u64) {
@@ -369,6 +384,12 @@ pub mod pppipelinestatic {
         ctx: ComponentContext<Self>,
     }
 
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -563,6 +584,12 @@ pub mod pppipelineindexed {
     #[derive(ComponentDefinition)]
     pub struct Ponger {
         ctx: ComponentContext<Self>,
+    }
+
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Ponger {
@@ -773,6 +800,12 @@ pub mod ppstatic {
         ctx: ComponentContext<Self>,
     }
 
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl Ponger {
         pub fn new() -> Ponger {
             Ponger {
@@ -881,7 +914,7 @@ pub mod ppstatic {
 
     pub mod pipelined {
         use super::{ExperimentPort, Ping, Pong, Run};
-        use kompact::prelude::*;
+        use kompact_net::prelude::*;
         use std::time::{Duration, Instant};
 
         #[derive(ComponentDefinition)]
@@ -1001,6 +1034,12 @@ pub mod ppstatic {
         #[derive(ComponentDefinition)]
         pub struct Ponger {
             ctx: ComponentContext<Self>,
+        }
+
+        impl Default for Ponger {
+            fn default() -> Self {
+                Self::new()
+            }
         }
 
         impl Ponger {
@@ -1125,6 +1164,12 @@ pub mod ppindexed {
     #[derive(ComponentDefinition)]
     pub struct Ponger {
         ctx: ComponentContext<Self>,
+    }
+
+    impl Default for Ponger {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Ponger {

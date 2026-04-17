@@ -353,23 +353,25 @@ impl KompactConfig {
 
     /// Set a particular set of system components
     ///
-    /// In particular, this allows exchanging the default dispatcher for the
-    /// [NetworkDispatcher](prelude::NetworkDispatcher), which enables the created Kompact system
-    /// to perform network communication.
+    /// In particular, this allows exchanging the default dispatcher for a custom one.
+    ///
+    /// The default transport-backed dispatcher lives in the separate `kompact-net` crate.
     ///
     /// # Example
     ///
-    /// For using the network dispatcher, with the default deadletter box:
+    /// For configuring an explicit local dispatcher, with the default deadletter box:
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # use kompact::default_components::LocalDispatcher;
     ///
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
+    /// cfg.system_components(DeadletterBox::new, LocalDispatcher::new);
     /// let system = cfg.build().expect("KompactSystem");
     /// # system.shutdown().expect("shutdown");
+    /// # }
     /// ```
     pub fn system_components<B, C, FB, FC>(
         &mut self,

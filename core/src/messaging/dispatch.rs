@@ -1,5 +1,6 @@
 use super::*;
 use crate::serialisation::ser_helpers::deserialise_bytes;
+use std::{any::Any, fmt};
 
 /// An abstraction over lazy or eagerly serialised data sent to the dispatcher
 #[derive(Debug)]
@@ -59,6 +60,21 @@ impl DispatchData {
     }
 }
 
+/// An erased dispatcher event used by backend-specific transport implementations.
+pub trait DispatchEvent: Any + Send + fmt::Debug {
+    /// Convert this event into an erased [`Any`] payload for downcasting.
+    fn into_any(self: Box<Self>) -> Box<dyn Any + Send>;
+}
+
+impl<T> DispatchEvent for T
+where
+    T: Any + Send + fmt::Debug,
+{
+    fn into_any(self: Box<Self>) -> Box<dyn Any + Send> {
+        self
+    }
+}
+
 /// Envelope with messages for the system'sdispatcher
 #[derive(Debug)]
 pub enum DispatchEnvelope {
@@ -78,8 +94,8 @@ pub enum DispatchEnvelope {
     },
     /// A request for actor path registration
     Registration(RegistrationEnvelope),
-    /// An event from the network
-    Event(EventEnvelope),
+    /// A transport-specific dispatcher event.
+    Event(Box<dyn DispatchEvent>),
     /// Killed components send their BufferChunks to the Dispatcher for safe de-allocation
     LockedChunk(BufferChunk),
 }

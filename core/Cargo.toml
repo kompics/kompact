@@ -1,6 +1,6 @@
 [package]
 name = "kompact"
-version = "0.11.3"
+version = "0.12.0"
 authors = [
     "Lars Kroll <lkroll@kth.se>",
     "Johan Mickos <johanmi@kth.se>",
@@ -30,65 +30,59 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = [
-    "serde_support",
     "slog/max_level_trace",
     "slog/release_max_level_info",
-    "ser_id_64",
     "use_local_executor",
-    "implicit_routes",
 ]
 silent_logging = [
-    "serde_support",
     "slog/max_level_info",
     "slog/release_max_level_error",
 ]
 low_latency = ["executors/ws-no-park"]
-ser_id_64 = []
-ser_id_32 = []
-ser_id_16 = []
-ser_id_8 = []
+ser_id_64 = ["distributed"]
+ser_id_32 = ["distributed"]
+ser_id_16 = ["distributed"]
+ser_id_8 = ["distributed"]
 thread_pinning = ["core_affinity", "executors/numa-aware"]
-serde_support = ["serde", "bytes/serde"]
+serde_support = ["serde", "bytes/serde", "distributed"]
 type_erasure = []
 use_local_executor = []
-implicit_routes = []
+implicit_routes = ["distributed"]
+distributed = []
 
 [dependencies]
 log = "0.4"
-kompact-component-derive = { version = "0.11.3", path = "../macros/component-definition-derive/" }
-kompact-actor-derive = { version = "0.11.3", path = "../macros/actor-derive/" }
-crossbeam-channel = "0.5"
+kompact-component-derive = { version = "0.12.0", path = "../macros/component-definition-derive/" }
+kompact-actor-derive = { version = "0.12.0", path = "../macros/actor-derive/" }
+crossbeam-channel = { workspace = true }
 crossbeam-queue = "0.3"
 crossbeam-utils = "0.8"
-arc-swap = "1.9"
+arc-swap = { workspace = true }
 synchronoise = "1.0"
-uuid = { version = "1.23", features = ["v4"] }
+uuid = { workspace = true }
 num_cpus = "1"
 oncemutex = "0.1"
 slog = "2"
 slog-async = "2"
 slog-term = "2"
-rustc-hash = "2"
+rustc-hash = { workspace = true }
 toml = "1"
 humantime = "2"
 byte-unit = "5"
 hierarchical_hash_wheel_timer = "1.4"
 owning_ref = "0.4"
-futures = "0.3"
-async-std = "1.13"
+futures = { workspace = true }
+async-std = { workspace = true }
 executors = "0.10"
-lru = "0.16"
+lru = { workspace = true }
 
 # Optional
 protobuf = { version = "3", optional = true, features = ["with-bytes"] }
 serde = { version = "1.0", optional = true }
 core_affinity = { version = "0.8", optional = true }
 
-# Network-specific
-bytes = "1.11"
-mio = { version = "1", features = ["net", "os-poll"] }
-iprange = "0.6"
-ipnet = "2.12"
+bytes = { workspace = true }
+ipnet = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

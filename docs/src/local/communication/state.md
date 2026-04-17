@@ -7,7 +7,7 @@ Of course, we are going to need some component state to make this aggregation po
 Our workers are pretty much stateless, apart from the component context and the *provided* `WorkerPort` instance. Both of these fields, we always simply initialise with the `new()` function.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers.rs:worker_definition}}
+{{#rustdoc_include ../../../examples/local/src/bin/workers.rs:worker_definition}}
 ```
 
 ## Manager
@@ -23,5 +23,5 @@ We also need to put the partial results from each worker somewhere and figure ou
 And finally, of course, we also need a component context and we need to *require* the `WorkerPort`.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers.rs:manager_definition}}
+{{#rustdoc_include ../../../examples/local/src/bin/workers.rs:manager_definition}}
 ```

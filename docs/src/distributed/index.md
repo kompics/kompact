@@ -1,6 +1,8 @@
 # Distributed Kompact
 
-Each Kompact system can be configured to use a networking library, called a `Dispatcher`, to communicate with other remote systems. In order to send messages to remote components, a special kind of actor reference is needed: an `ActorPath`. This is different from an `ActorRef` in that it contains the necessary information to route a message to the target component, not a reference to a queue. The queue for this kind of message is the system wide `Dispatcher`, which is responsible for figuring out how to get the message to the target indicated in the `ActorPath`. The implementation provided in the `NetworkDispatcher` that ships with Kompact will automatically establish and maintain the needed network links for any target you are sending to.
+The distributed layer in Kompact builds on `ActorPath` and a system-wide `Dispatcher`. `ActorPath` differs from an `ActorRef` in that it contains the information required to route a message to the target component instead of just a queue reference. The dispatcher is then responsible for resolving and delivering that path-addressed message.
+
+Path-based dispatching lives in `kompact` behind the `distributed` feature. Plain `kompact` now defaults to the local-only runtime surface, so distributed path APIs must be enabled explicitly when you use `kompact` directly. If you want the provided socket transport, use the companion crate `kompact-net`, which supplies the `NetworkDispatcher`, `NetworkConfig`, and related transport APIs on top of the same distributed core.
 
 ## Actor Paths
 
@@ -21,7 +23,7 @@ Examples of actor path string representations are:
 
 ### System Paths
 
-A system path is essentially the same as you would address a server over a network. It specifies the transport protocol to use, the IP address, and the port. Different dispatchers are free to implement whichever set of transport protocols they wish to support. The provided `NetworkDispatcher` currently only offers TCP, in addition to the "fake" `local` protocol, which simply specifies an actor path within the same system via the dispatcher.
+A system path is essentially the same as you would address a server over a network. It specifies the transport protocol to use, the IP address, and the port. Different dispatchers are free to implement whichever set of transport protocols they wish to support. The provided `NetworkDispatcher` from `kompact-net` currently offers TCP, in addition to the "fake" `local` protocol, which simply specifies an actor path within the same system via the dispatcher.
 
 The `SystemPath` type specifies a system path alone, and can be acquired via `KompactSystem::system_path()`, for example. It doesn't have any function by itself, but can be used to build up a full actor path or for comparisons, for example.
 

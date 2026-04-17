@@ -4,6 +4,11 @@ use super::*;
 use crate::utils::erased::CreateErased;
 use crate::{
     config::Config,
+    supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
+    timer::timer_manager::{CanCancelTimers, TimerRefFactory},
+};
+#[cfg(feature = "distributed")]
+use crate::{
     messaging::{
         DispatchEnvelope,
         MsgEnvelope,
@@ -12,13 +17,15 @@ use crate::{
         RegistrationError,
         RegistrationResult,
     },
-    prelude::NetworkStatusPort,
     routing::groups::StorePolicy,
-    supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
-    timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
 use oncemutex::{OnceMutex, OnceMutexGuard};
-use std::{any::TypeId, fmt, sync::Mutex, time::Instant};
+use std::{
+    any::{Any, TypeId},
+    fmt,
+    sync::Mutex,
+    time::Instant,
+};
 
 /// A Kompact system is a collection of components and services
 ///
@@ -119,6 +126,11 @@ impl KompactSystem {
     // Only used in testing
     pub(crate) fn get_system_components(&self) -> &dyn SystemComponents {
         self.inner.get_internal_components().get_system_components()
+    }
+
+    pub(crate) fn dispatcher_ref(&self) -> DispatcherRef {
+        self.inner.assert_active();
+        self.inner.dispatcher_ref()
     }
 
     pub(crate) fn schedule(&self, c: Arc<dyn CoreContainer>) -> () {
@@ -424,16 +436,12 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let c = system.create(TestComponent1::new);
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
         self.inner.assert_active();
         let id = c.component_id();
@@ -453,16 +461,12 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let (c, registration_future) = system.create_and_register(TestComponent1::new);
     /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn create_and_register<C, F>(
         &self,
         f: F,
@@ -499,18 +503,14 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
     /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// let alias_registration_future = system.register_by_alias(&c, "test");
     /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn register_by_alias<A>(
         &self,
         c: &dyn DynActorRefFactory,
@@ -544,12 +544,7 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
     /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// let alias_registration_future = system.update_alias_registration(&c, "test");
@@ -558,6 +553,7 @@ impl KompactSystem {
     /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn update_alias_registration<A>(
         &self,
         c: &dyn DynActorRefFactory,
@@ -592,12 +588,7 @@ impl KompactSystem {
     /// use kompact::routing::groups::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let policy_registration_future = system.set_routing_policy(BroadcastRouting::default(), "broadcast-me", false);
     /// let broadcast_path = policy_registration_future.wait_expect(Duration::from_millis(1000), "Failed to set broadcast policy");
     /// let c1 = system.create(TestComponent1::new);
@@ -609,6 +600,7 @@ impl KompactSystem {
     /// // sending to broadcast_path now will send to c1 and c2
     /// # system.shutdown().expect("shutdown");
     /// ```
+    #[cfg(feature = "distributed")]
     pub fn set_routing_policy<P>(
         &self,
         policy: P,
@@ -644,37 +636,17 @@ impl KompactSystem {
         c.enqueue_control(ControlEvent::Start);
     }
 
-    /// Subscribes the given component to the systems `NetworkStatusPort`.
+    /// Allows backend crates to interact with the concrete dispatcher definition.
     ///
-    /// The status port pushes notifications about the systems Network layer, when new connections
-    /// are set-up, when connections are lost, closed, or dropped. It may also receive requests
-    /// for information about what remote systems the local system is currently connected to.
-    ///
-    /// The `component` must implement [Require](component::Require) for
-    /// [NetworkStatusPort](dispatch::NetworkStatusPort). The system must be set-up with a
-    /// `NetworkingConfig`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use kompact::prelude::*;
-    /// # use kompact::net::net_test_helpers::NetworkStatusCounter;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let status_counter = system.create(NetworkStatusCounter::new);
-    /// status_counter.on_definition(|c|{
-    ///     system.connect_network_status_port(&mut c.network_status_port);
-    /// })
-    /// ```
-    pub fn connect_network_status_port(
-        &self,
-        required: &mut RequiredPort<NetworkStatusPort>,
-    ) -> () {
-        self.inner.connect_network_status_port(required);
+    /// The callback receives the dispatcher definition erased as [`Any`].
+    /// Backend crates can downcast it to their concrete dispatcher type in order to
+    /// wire backend-specific ports or query backend-specific state.
+    #[cfg(feature = "distributed")]
+    pub fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        F: FnOnce(&mut dyn Any),
+    {
+        self.inner.with_dispatcher_definition(f);
     }
 
     /// Start a component and complete a future once it has started
@@ -990,6 +962,7 @@ impl KompactSystem {
         });
     }
 
+    #[cfg(feature = "distributed")]
     /// Return the system path of this Kompact system
     ///
     /// The system path forms a prefix for every [ActorPath](prelude::ActorPath).
@@ -998,6 +971,7 @@ impl KompactSystem {
         self.inner.system_path()
     }
 
+    #[cfg(feature = "distributed")]
     /// Generate an unique path for the given component
     ///
     /// Produces a unique id [ActorPath](prelude::ActorPath) for `component`
@@ -1049,6 +1023,7 @@ impl KompactSystem {
         self.inner.supervision_port()
     }
 
+    #[cfg(feature = "distributed")]
     /// The remote path for the deadletter box
     pub fn deadletter_path(&self) -> ActorPath {
         ActorPath::Named(NamedPath::with_system(self.system_path(), Vec::new()))
@@ -1065,6 +1040,76 @@ impl ActorRefFactory for KompactSystem {
     }
 }
 
+impl SystemHandle for KompactSystem {
+    fn now(&self) -> Instant {
+        KompactSystem::now(self)
+    }
+
+    fn create<C, F>(&self, f: F) -> Arc<Component<C>>
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        KompactSystem::create(self, f)
+    }
+
+    #[cfg(feature = "type_erasure")]
+    fn create_erased<M: MessageBounds>(
+        &self,
+        a: Box<dyn CreateErased<M>>,
+    ) -> Arc<dyn AbstractComponent<Message = M>> {
+        KompactSystem::create_erased(self, a)
+    }
+
+    fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        KompactSystem::start(self, c)
+    }
+
+    fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        KompactSystem::start_notify(self, c)
+    }
+
+    fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
+        KompactSystem::stop(self, c)
+    }
+
+    fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        KompactSystem::stop_notify(self, c)
+    }
+
+    fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
+        KompactSystem::kill(self, c)
+    }
+
+    fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
+        KompactSystem::kill_notify(self, c)
+    }
+
+    fn throughput(&self) -> usize {
+        KompactSystem::throughput(self)
+    }
+
+    fn max_messages(&self) -> usize {
+        KompactSystem::max_messages(self)
+    }
+
+    fn shutdown_async(&self) -> () {
+        KompactSystem::shutdown_async(self)
+    }
+
+    fn deadletter_ref(&self) -> ActorRef<Never> {
+        self.actor_ref()
+    }
+
+    fn spawn<R: Send + 'static>(
+        &self,
+        future: impl futures::Future<Output = R> + 'static + Send,
+    ) -> JoinHandle<R> {
+        KompactSystem::spawn(self, future)
+    }
+}
+
+#[cfg(feature = "distributed")]
 impl Dispatching for KompactSystem {
     fn dispatcher_ref(&self) -> DispatcherRef {
         self.inner.assert_active();
@@ -1072,6 +1117,60 @@ impl Dispatching for KompactSystem {
     }
 }
 
+#[cfg(feature = "distributed")]
+impl DistributedSystemHandle for KompactSystem {
+    fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
+        self.register(c)
+    }
+
+    fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static,
+    {
+        self.create_and_register(f)
+    }
+
+    fn register_by_alias<A>(
+        &self,
+        c: &dyn DynActorRefFactory,
+        alias: A,
+    ) -> KFuture<RegistrationResult>
+    where
+        A: Into<String>,
+    {
+        self.register_by_alias(c, alias)
+    }
+
+    fn update_alias_registration<A>(
+        &self,
+        c: &dyn DynActorRefFactory,
+        alias: A,
+    ) -> KFuture<RegistrationResult>
+    where
+        A: Into<String>,
+    {
+        self.update_alias_registration(c, alias)
+    }
+
+    fn set_routing_policy<P>(
+        &self,
+        policy: P,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult>
+    where
+        P: Into<StorePolicy>,
+    {
+        self.set_routing_policy(policy, path, update)
+    }
+
+    fn system_path(&self) -> SystemPath {
+        self.system_path()
+    }
+}
+
+#[cfg(feature = "distributed")]
 impl ActorPathFactory for KompactSystem {
     fn actor_path(&self) -> ActorPath {
         self.deadletter_path()
@@ -1089,7 +1188,7 @@ impl TimerRefFactory for KompactSystem {
 ///
 /// This is meant for use from within components, where blocking APIs
 /// are unacceptable.
-pub trait SystemHandle: Dispatching + CanCancelTimers {
+pub trait SystemHandle: CanCancelTimers {
     /// Returns the current time according to the system timer.
     fn now(&self) -> Instant;
 
@@ -1146,189 +1245,6 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
         &self,
         a: Box<dyn CreateErased<M>>,
     ) -> Arc<dyn AbstractComponent<Message = M>>;
-
-    /// Attempts to register `c` with the dispatcher using its unique id
-    ///
-    /// The returned future will contain the unique id [ActorPath](ActorPath)
-    /// for the given component, once it is completed by the dispatcher.
-    ///
-    /// Once the future completes, the component can be addressed via the network,
-    /// even if it has not been started, yet (in which case messages will simply be queued up).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use kompact::prelude::*;
-    /// # use kompact::doctest_helpers::*;
-    /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let c = system.create(TestComponent1::new);
-    /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
-    /// # system.shutdown().expect("shutdown");
-    /// ```
-    fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult>;
-
-    /// Creates a new component and registers it with the dispatcher
-    ///
-    /// This function is simply a convenience shortcut for
-    /// [create](KompactSystem::create) followed by [register](KompactSystem::register),
-    /// as this combination is very common in networked Kompact systems.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use kompact::prelude::*;
-    /// # use kompact::doctest_helpers::*;
-    /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let (c, registration_future) = system.create_and_register(TestComponent1::new);
-    /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
-    /// # system.shutdown().expect("shutdown");
-    /// ```
-    fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
-    where
-        F: FnOnce() -> C,
-        C: ComponentDefinition + 'static;
-
-    /// Attempts to register the provided component with a human-readable alias.
-    ///
-    /// The returned future will contain the named [ActorPath](ActorPath)
-    /// for the given alias, once it is completed by the dispatcher.
-    ///
-    /// Alias registration will fail if a previous registration already exists.
-    /// Use [update_alias_registration](KompactSystem::update_alias_registration) to override an existing registration.
-    ///
-    /// # Note
-    ///
-    /// While aliases are easier to read, lookup by unique ids is significantly more efficient.
-    /// However, named aliases allow services to be taken over by another component when the original registrant failed,
-    /// something that is not possible with unique paths. Thus, this kind of addressing lends itself to lookup-service
-    /// style components, for example.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use kompact::prelude::*;
-    /// # use kompact::doctest_helpers::*;
-    /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
-    /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
-    /// let alias_registration_future = system.register_by_alias(&c, "test");
-    /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
-    /// # system.shutdown().expect("shutdown");
-    /// ```
-    fn register_by_alias<A>(
-        &self,
-        c: &dyn DynActorRefFactory,
-        alias: A,
-    ) -> KFuture<RegistrationResult>
-    where
-        A: Into<String>;
-
-    /// Attempts to register the provided component with a human-readable alias.
-    ///
-    /// The returned future will contain the named [ActorPath](ActorPath)
-    /// for the given alias, once it is completed by the dispatcher.
-    ///
-    /// This registration will replace any previous registration, if it exists.
-    ///
-    /// # Note
-    ///
-    /// While aliases are easier to read, lookup by unique ids is significantly more efficient.
-    /// However, named aliases allow services to be taken over by another component when the original registrant failed,
-    /// something that is not possible with unique paths. Thus, this kind of addressing lends itself to lookup-service
-    /// style components, for example.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use kompact::prelude::*;
-    /// # use kompact::doctest_helpers::*;
-    /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
-    /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
-    /// let alias_registration_future = system.update_alias_registration(&c, "test");
-    /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
-    /// let alias_reregistration_future = system.update_alias_registration(&c, "test");
-    /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
-    /// # system.shutdown().expect("shutdown");
-    /// ```
-    fn update_alias_registration<A>(
-        &self,
-        c: &dyn DynActorRefFactory,
-        alias: A,
-    ) -> KFuture<RegistrationResult>
-    where
-        A: Into<String>;
-
-    /// Attempts to set the routing policy at `path`
-    ///
-    /// Setting a routing policy at a path "a" will include
-    /// all actors paths registered under paths of the form "a/..."
-    /// to be included as members of the routing group that the policy applies to.
-    ///
-    /// Having an explicit routing policy at a path will cause routing over group
-    /// members, even if no routing marker (e.g., "a/*" or "a/?" is given).
-    ///
-    /// Overriding an existing actor or policy at the given path will fail,
-    /// unless `update` is set to `true`.
-    ///
-    /// Provided routing policies can be found in the [routing::groups](crate::routing::groups) module.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use kompact::prelude::*;
-    /// use kompact::routing::groups::*;
-    /// # use kompact::doctest_helpers::*;
-    /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
-    /// let policy_registration_future = system.set_routing_policy(BroadcastRouting::default(), "broadcast-me", false);
-    /// let broadcast_path = policy_registration_future.wait_expect(Duration::from_millis(1000), "Failed to set broadcast policy");
-    /// let c1 = system.create(TestComponent1::new);
-    /// let c2 = system.create(TestComponent1::new);
-    /// let alias_registration_future1 = system.register_by_alias(&c1, "broadcast-me/test1");
-    /// let alias_registration_future2 = system.register_by_alias(&c2, "broadcast-me/something/test2");
-    /// alias_registration_future1.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
-    /// alias_registration_future2.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent2 by alias");
-    /// // sending to broadcast_path now will send to c1 and c2
-    /// # system.shutdown().expect("shutdown");
-    /// ```
-    fn set_routing_policy<P>(
-        &self,
-        policy: P,
-        path: &str,
-        update: bool,
-    ) -> KFuture<RegistrationResult>
-    where
-        P: Into<StorePolicy>;
 
     /// Start a component
     ///
@@ -1540,11 +1456,6 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
     /// ```
     fn shutdown_async(&self) -> ();
 
-    /// Return the system path of this Kompact system
-    ///
-    /// The system path forms a prefix for every [ActorPath](prelude::ActorPath).
-    fn system_path(&self) -> SystemPath;
-
     /// Returns a reference to the system's deadletter box
     fn deadletter_ref(&self) -> ActorRef<Never>;
 
@@ -1555,6 +1466,50 @@ pub trait SystemHandle: Dispatching + CanCancelTimers {
         &self,
         future: impl futures::Future<Output = R> + 'static + Send,
     ) -> JoinHandle<R>;
+}
+
+/// Distributed-only extensions for a [SystemHandle].
+#[cfg(feature = "distributed")]
+pub trait DistributedSystemHandle: SystemHandle + Dispatching {
+    /// Attempts to register `c` with the dispatcher using its unique id.
+    fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult>;
+
+    /// Creates a new component and registers it with the dispatcher.
+    fn create_and_register<C, F>(&self, f: F) -> (Arc<Component<C>>, KFuture<RegistrationResult>)
+    where
+        F: FnOnce() -> C,
+        C: ComponentDefinition + 'static;
+
+    /// Attempts to register the provided component with a human-readable alias.
+    fn register_by_alias<A>(
+        &self,
+        c: &dyn DynActorRefFactory,
+        alias: A,
+    ) -> KFuture<RegistrationResult>
+    where
+        A: Into<String>;
+
+    /// Attempts to update the registration for the given alias.
+    fn update_alias_registration<A>(
+        &self,
+        c: &dyn DynActorRefFactory,
+        alias: A,
+    ) -> KFuture<RegistrationResult>
+    where
+        A: Into<String>;
+
+    /// Attempts to set the routing policy at `path`.
+    fn set_routing_policy<P>(
+        &self,
+        policy: P,
+        path: &str,
+        update: bool,
+    ) -> KFuture<RegistrationResult>
+    where
+        P: Into<StorePolicy>;
+
+    /// Return the system path of this Kompact system.
+    fn system_path(&self) -> SystemPath;
 }
 
 /// A trait to provide custom implementations of all system components
@@ -1575,9 +1530,24 @@ pub trait SystemComponents: Send + Sync + 'static {
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
-    /// Allow subscribing to `NetworkStatusUpdate` messages
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> ();
+    /// Allow backend crates to interact with the concrete dispatcher definition.
+    ///
+    /// This takes a boxed callback instead of `impl FnOnce(...)`, because
+    /// `SystemComponents` is used behind a trait object and generic methods would
+    /// make the trait non-object-safe.
+    fn with_dispatcher_definition_dyn<'a>(&self, f: DispatcherDefinitionCallback<'a>) -> ();
+
+    /// Convenience wrapper for callers that work with a concrete system-components type.
+    fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        Self: Sized,
+        F: FnOnce(&mut dyn Any),
+    {
+        self.with_dispatcher_definition_dyn(Box::new(f))
+    }
 }
+
+pub(crate) type DispatcherDefinitionCallback<'a> = Box<dyn FnOnce(&mut dyn Any) + 'a>;
 
 impl dyn SystemComponents {
     // Implementation copied from std::any::Any
@@ -1639,10 +1609,16 @@ impl InternalComponents {
         self.system_components.dispatcher_ref()
     }
 
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
-        self.system_components.connect_network_status_port(required)
+    #[cfg(feature = "distributed")]
+    fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        F: FnOnce(&mut dyn Any),
+    {
+        self.system_components
+            .with_dispatcher_definition_dyn(Box::new(f))
     }
 
+    #[cfg(feature = "distributed")]
     fn system_path(&self) -> SystemPath {
         self.system_components.system_path()
     }
@@ -1728,11 +1704,13 @@ impl KompactRuntime {
         }
     }
 
+    #[allow(dead_code)]
     fn logger(&self) -> &KompactLogger {
         &self.logger
     }
 
     /// Registers an actor with a path at the dispatcher
+    #[cfg(feature = "distributed")]
     fn register_by_path(
         &self,
         actor_ref: DynActorRef,
@@ -1750,6 +1728,7 @@ impl KompactRuntime {
     }
 
     /// Registers an actor with an alias at the dispatcher
+    #[cfg(feature = "distributed")]
     fn register_by_alias(
         &self,
         actor_ref: DynActorRef,
@@ -1764,6 +1743,7 @@ impl KompactRuntime {
         self.register_by_path(actor_ref, update, path)
     }
 
+    #[cfg(feature = "distributed")]
     fn set_routing_policy(
         &self,
         policy: StorePolicy,
@@ -1807,13 +1787,18 @@ impl KompactRuntime {
         }
     }
 
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
+    #[cfg(feature = "distributed")]
+    fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        F: FnOnce(&mut dyn Any),
+    {
         match *self.internal_components {
-            Some(ref sc) => sc.connect_network_status_port(required),
+            Some(ref sc) => sc.with_dispatcher_definition(f),
             None => panic!("KompactRuntime was not properly initialised!"),
         }
     }
 
+    #[cfg(feature = "distributed")]
     fn system_path(&self) -> SystemPath {
         match *self.internal_components {
             Some(ref sc) => sc.system_path(),

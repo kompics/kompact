@@ -297,7 +297,7 @@ impl RoutingPolicy<DynActorRef, NetMessage> for BroadcastRouting {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "distributed"))]
 mod tests {
     use super::*;
     use crate::{prelude::*, routing::test_helpers::*};

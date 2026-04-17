@@ -125,10 +125,6 @@ impl<A: MessageBounds> Actor for GenericComp<A> {
         self.test = Some(msg);
         Handled::Ok
     }
-
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        Handled::Ok
-    }
 }
 
 fn main() {

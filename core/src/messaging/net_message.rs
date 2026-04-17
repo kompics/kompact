@@ -1,10 +1,14 @@
 use super::*;
-use crate::prelude::SessionId;
+use crate::net::SessionId;
 
-/// An incoming message from the networking subsystem
+/// An incoming message from the distributed dispatch subsystem
 ///
 /// Provides actor paths for the `sender` of the message and the
 /// `receiver` in addition to the actual `data`.
+///
+/// This type stays in `kompact` rather than `kompact-net`, because local path-based
+/// dispatch and alternative transport backends use the same envelope type even when
+/// no socket-backed transport is involved.
 ///
 /// It is recommend to use [try_deserialise](NetData::try_deserialise) or
 /// [try_deserialise_unchecked](NetData::try_deserialise_unchecked) to unpack
@@ -172,6 +176,8 @@ impl NetMessage {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -196,6 +202,7 @@ impl NetMessage {
     ///     }
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
+    /// # }
     /// ```
     #[allow(clippy::result_large_err)]
     pub fn try_into_deserialised<T: 'static, D>(
@@ -238,6 +245,8 @@ impl NetMessage {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -262,6 +271,7 @@ impl NetMessage {
     ///     }
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
+    /// # }
     /// ```
     /// # Note
     ///
@@ -293,6 +303,8 @@ impl NetMessage {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -315,6 +327,7 @@ impl NetMessage {
     ///     }
     ///     _ => unreachable!("It's definitely not...whatever this is..."),
     /// }
+    /// # }
     /// ```
     ///
     /// # Note
@@ -385,6 +398,8 @@ impl NetData {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -409,6 +424,7 @@ impl NetData {
     ///     }
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
+    /// # }
     /// ```
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
     where
@@ -434,6 +450,8 @@ impl NetData {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -456,6 +474,7 @@ impl NetData {
     ///     }
     ///     _ => unreachable!("It's definitely not...whatever this is..."),
     /// }
+    /// # }
     /// ```
     ///
     /// # Note
