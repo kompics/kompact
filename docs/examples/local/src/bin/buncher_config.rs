@@ -1,6 +1,6 @@
 #![allow(clippy::unused_unit)]
 use kompact::prelude::*;
-use kompact_examples::batching::*;
+use kompact_examples_local::batching::*;
 use std::time::Duration;
 
 #[derive(ComponentDefinition, Actor)]

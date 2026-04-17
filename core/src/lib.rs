@@ -42,30 +42,30 @@
 //! - `low_latency`
 //!     - Prevents thread pool threads from going to sleep when using the default pool.
 //!     - This can improve reaction time to incoming network events, at the cost of much higher CPU utilisation.
-//! - `ser_id_64` (default), `ser_id_32`, `ser_id_16`, `ser_id_8`
-//!     - Selects the bit-width of serialisation identifiers.
+//! - `ser_id_64`, `ser_id_32`, `ser_id_16`, `ser_id_8`
+//!     - Selects the bit-width of serialisation identifiers for serialised or distributed messaging.
 //!     - Trying to use a serialisation id that is too large for the selected width will result in a compile-time error.
-//!     - All values are mutually exclusive and all but the default of `ser_id_64` must be used with `--no-default-features`.
+//!     - All values are mutually exclusive. If none of these feature flags is selected, Kompact uses `u64` serialisation ids.
 //! - `thread_pinning`
 //!     - Enables support for pinning pool threads to CPU cores (or rather processing units).
 //!     - This flag has no effect if the runtime OS does not support thread pinning.
 //!     - Enabling this will cause as many threads as there are PUs to be pinned by default.
 //!     - Assignments can be customised by providing a custom scheduler with the desired settings.
 //!     - See [executors crate](https://docs.rs/executors/0.8.0/executors/crossbeam_workstealing_pool/struct.ThreadPool.html?search=#method.with_affinity) for more details.
-//! - `serde_support` (default)
+//! - `serde_support`
 //!     - Build with support for [Serde](https://github.com/serde-rs/serde) serialisers.
 //! - `type_erasure`
 //!     - Build with an experimental API for `dyn` type-erased components.
 //! - `use_local_executor` (default)
 //!     - Use thread-local executors to avoid cloning the handle to the system scheduler for every component scheduling.
 //!     - Not all scheduler implementations support this feature, so you might have to disable it via `--no-default-features` if you are using a custom scheduler.
-//! - `implicit_routes` (default)
+//! - `implicit_routes`
 //!     - Allow default broadcast and select actor paths on any node in the tree, not just where explicitly set via [set_routing_policy](KompactSystem::set_routing_policy).
 //!     - While this feature is convenient, it may open up your system to DoS attacks via broadcast on high-level nodes (e.g. `tcp://1.2.3.4:8000/*`).
-//!     - If you are concered about this security risk, you can disable this feature by using `--no-default-features`.
-//! - `distributed` (default)
+//!     - This is only meaningful together with the `distributed` feature.
+//! - `distributed`
 //!     - Enables the distributed dispatching surface, such as actor paths, registration, aliasing, and routing.
-//!     - Disable this feature for a typed local-only build of `kompact`.
+//!     - Plain default `kompact` is local-only. Enable this feature explicitly when you want path-based dispatching without the provided network backend from `kompact-net`.
 #![allow(internal_features)]
 #![deny(missing_docs)]
 #![allow(clippy::unused_unit)]
@@ -247,15 +247,10 @@ pub mod prelude {
             NamedPath,
             NetworkActor,
             PathParseError,
-            Receiver,
-            Request,
             SystemField,
             SystemPath,
             Transport,
             UniquePath,
-            WithRecipient,
-            WithSender,
-            WithSenderStrong,
         },
         net::{
             SessionId,
@@ -264,6 +259,7 @@ pub mod prelude {
     };
 
     pub use crate::{
+        actors::{Receiver, Request, WithRecipient, WithSender, WithSenderStrong},
         default_components::DeadletterBox,
         messaging::MsgEnvelope,
         timer::timer_manager::{CanCancelTimers, ScheduledTimer, Timer, TimerRefFactory},

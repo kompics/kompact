@@ -2,7 +2,7 @@
 
 The distributed layer in Kompact builds on `ActorPath` and a system-wide `Dispatcher`. `ActorPath` differs from an `ActorRef` in that it contains the information required to route a message to the target component instead of just a queue reference. The dispatcher is then responsible for resolving and delivering that path-addressed message.
 
-Path-based dispatching lives in `kompact` behind the `distributed` feature. That feature is part of Kompact's default feature set; local-only builds can disable it with `default-features = false` and then opt back into whichever non-distributed features they still need. If you want the provided socket transport, use the companion crate `kompact-net`, which supplies the `NetworkDispatcher`, `NetworkConfig`, and related transport APIs on top of the same distributed core.
+Path-based dispatching lives in `kompact` behind the `distributed` feature. Plain `kompact` now defaults to the local-only runtime surface, so distributed path APIs must be enabled explicitly when you use `kompact` directly. If you want the provided socket transport, use the companion crate `kompact-net`, which supplies the `NetworkDispatcher`, `NetworkConfig`, and related transport APIs on top of the same distributed core.
 
 ## Actor Paths
 

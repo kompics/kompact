@@ -644,7 +644,7 @@ impl KompactSystem {
     #[cfg(feature = "distributed")]
     pub fn with_dispatcher_definition<F>(&self, f: F) -> ()
     where
-        F: FnMut(&mut dyn Any),
+        F: FnOnce(&mut dyn Any),
     {
         self.inner.with_dispatcher_definition(f);
     }
@@ -1531,7 +1531,20 @@ pub trait SystemComponents: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
     /// Allow backend crates to interact with the concrete dispatcher definition.
-    fn with_dispatcher_definition_dyn<'a>(&self, f: DispatcherDefinitionHandler<'a>) -> ();
+    ///
+    /// This takes a boxed callback instead of `impl FnOnce(...)`, because
+    /// `SystemComponents` is used behind a trait object and generic methods would
+    /// make the trait non-object-safe.
+    fn with_dispatcher_definition_dyn<'a>(&self, f: Box<dyn FnOnce(&mut dyn Any) + 'a>) -> ();
+
+    /// Convenience wrapper for callers that work with a concrete system-components type.
+    fn with_dispatcher_definition<F>(&self, f: F) -> ()
+    where
+        Self: Sized,
+        F: FnOnce(&mut dyn Any),
+    {
+        self.with_dispatcher_definition_dyn(Box::new(f))
+    }
 }
 
 impl dyn SystemComponents {
@@ -1561,8 +1574,6 @@ pub trait TimerComponent: TimerRefFactory + Send + Sync {
     /// Stop the underlying timer thread
     fn shutdown(&self) -> Result<(), String>;
 }
-
-type DispatcherDefinitionHandler<'a> = Box<dyn FnOnce(&mut dyn Any) + 'a>;
 
 struct InternalComponents {
     supervisor: Arc<Component<ComponentSupervisor>>,
@@ -1777,7 +1788,7 @@ impl KompactRuntime {
     #[cfg(feature = "distributed")]
     fn with_dispatcher_definition<F>(&self, f: F) -> ()
     where
-        F: FnMut(&mut dyn Any),
+        F: FnOnce(&mut dyn Any),
     {
         match *self.internal_components {
             Some(ref sc) => sc.with_dispatcher_definition(f),

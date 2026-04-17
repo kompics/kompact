@@ -1,0 +1,22 @@
+[package]
+name = "kompact-examples-net"
+version = "0.11.0"
+authors = ["Lars Kroll <lkroll@kth.se>"]
+edition = "2024"
+rust-version = "1.94.1"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+lru = "0.16"
+rand = "0.10"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[dependencies.kompact]
+path = "../../../core/"
+features = ["serde_support"]
+
+[dependencies.kompact-net]
+path = "../../../network/"
+
+[lib]
+path = "src/lib.rs"

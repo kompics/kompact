@@ -1,6 +1,6 @@
 #![allow(clippy::unused_unit)]
 use kompact::serde_serialisers::*;
-use kompact_examples::trusting::*;
+use kompact_examples_net::trusting::*;
 use kompact_net::prelude::*;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 

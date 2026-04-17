@@ -1420,19 +1420,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "kompact-examples"
+name = "kompact-examples-local"
 version = "0.11.0"
 dependencies = [
  "async-std-resolver",
  "dialoguer",
  "kompact",
+ "lru",
+ "rand 0.10.1",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "uuid",
+]
+
+[[package]]
+name = "kompact-examples-net"
+version = "0.11.0"
+dependencies = [
+ "kompact",
  "kompact-net",
  "lru",
  "rand 0.10.1",
  "serde",
- "slog",
- "slog-async",
- "slog-term",
  "uuid",
 ]
 

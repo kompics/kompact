@@ -1,107 +1,34 @@
 #![allow(clippy::unused_unit)]
 use kompact::serde_serialisers::*;
-use kompact_examples::trusting::*;
+use kompact_examples_net::trusting::*;
 use kompact_net::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
-    convert::TryInto,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
 };
 
-// ANCHOR: zstser
-struct ZstSerialiser<T>(T)
-where
-    T: Send + Sync + Default + Copy + SerialisationId;
-
-impl<T> Serialiser<T> for &ZstSerialiser<T>
-where
-    T: Send + Sync + Default + Copy + SerialisationId,
-{
-    fn ser_id(&self) -> SerId {
-        T::SER_ID
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        Some(0)
-    }
-
-    fn serialise(&self, _v: &T, _buf: &mut dyn BufMut) -> Result<(), SerError> {
-        Ok(())
-    }
-}
-
-impl<T> Deserialiser<T> for ZstSerialiser<T>
-where
-    T: Send + Sync + Default + Copy + SerialisationId,
-{
-    const SER_ID: SerId = T::SER_ID;
-
-    fn deserialise(_buf: &mut dyn Buf) -> Result<T, SerError> {
-        Ok(T::default())
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
+// ANCHOR: messages
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct CheckIn;
-
 impl SerialisationId for CheckIn {
     const SER_ID: SerId = 2345;
 }
 
-static CHECK_IN_SER: ZstSerialiser<CheckIn> = ZstSerialiser(CheckIn);
-// ANCHOR_END: zstser
-
-// ANCHOR: serialisable
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct UpdateProcesses(Vec<ActorPath>);
-
-impl Serialisable for UpdateProcesses {
-    fn ser_id(&self) -> SerId {
-        Self::SER_ID
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        let procs_size = self.0.len() * 23; // 23 bytes is the size of a unique actor path
-        Some(8 + procs_size)
-    }
-
-    fn serialise(&self, buf: &mut dyn BufMut) -> Result<(), SerError> {
-        let len = self.0.len() as u64;
-        buf.put_u64(len);
-        for path in self.0.iter() {
-            path.serialise(buf)?;
-        }
-        Ok(())
-    }
-
-    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
-        Ok(self)
-    }
-}
-
-impl Deserialiser<UpdateProcesses> for UpdateProcesses {
+impl SerialisationId for UpdateProcesses {
     const SER_ID: SerId = 3456;
-
-    fn deserialise(buf: &mut dyn Buf) -> Result<UpdateProcesses, SerError> {
-        let len_u64 = buf.get_u64();
-        let len: usize = len_u64.try_into().map_err(SerError::from_debug)?;
-        let mut data: Vec<ActorPath> = Vec::with_capacity(len);
-        for _i in 0..len {
-            let path = ActorPath::deserialise(buf)?;
-            data.push(path);
-        }
-        Ok(UpdateProcesses(data))
-    }
 }
-// ANCHOR_END: serialisable
+// ANCHOR_END: messages
 
+// ANCHOR: state
 #[derive(ComponentDefinition)]
 struct BootstrapServer {
     ctx: ComponentContext<Self>,
     processes: HashSet<ActorPath>,
 }
-
 impl BootstrapServer {
     fn new() -> Self {
         BootstrapServer {
@@ -110,40 +37,34 @@ impl BootstrapServer {
         }
     }
 
-    // ANCHOR: tell_serialised
-    fn broadcast_processess(&self) -> Handled {
+    // ANCHOR_END: state
+
+    // ANCHOR: behaviour
+    fn broadcast_processess(&self) -> () {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
-
         self.processes.iter().for_each(|process| {
-            process
-                .tell_serialised(msg.clone(), self)
-                .unwrap_or_else(|e| warn!(self.log(), "Error during serialisation: {}", e));
+            process.tell((msg.clone(), Serde), self);
         });
-        Handled::Ok
     }
-    // ANCHOR_END: tell_serialised
 }
-
 ignore_lifecycle!(BootstrapServer);
-
 impl NetworkActor for BootstrapServer {
-    type Deserialiser = ZstSerialiser<CheckIn>;
+    type Deserialiser = Serde;
     type Message = CheckIn;
 
     fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
-        if let Some(process) = source {
-            if self.processes.insert(process) {
-                self.broadcast_processess()
-            } else {
-                Handled::Ok
-            }
-        } else {
-            Handled::Ok
+        if let Some(process) = source
+            && self.processes.insert(process)
+        {
+            self.broadcast_processess();
         }
+        Handled::Ok
     }
 }
+// ANCHOR_END: behaviour
 
+// ANCHOR: ele_state
 #[derive(ComponentDefinition)]
 struct EventualLeaderElector {
     ctx: ComponentContext<Self>,
@@ -156,7 +77,6 @@ struct EventualLeaderElector {
     timer_handle: Option<ScheduledTimer>,
     leader: Option<ActorPath>,
 }
-
 impl EventualLeaderElector {
     fn new(bootstrap_server: ActorPath) -> Self {
         let minimal_period = Duration::from_millis(1);
@@ -172,6 +92,8 @@ impl EventualLeaderElector {
             leader: None,
         }
     }
+
+    // ANCHOR_END: ele_state
 
     fn select_leader(&mut self) -> Option<ActorPath> {
         let mut candidates: Vec<ActorPath> = self.candidates.drain().collect();
@@ -191,17 +113,15 @@ impl EventualLeaderElector {
                         self.omega_port.trigger(Trust(leader.clone()));
                     }
                     self.cancel_timer(timeout);
-                    let new_timer = self.schedule_periodic(
-                        self.period,
-                        self.period,
-                        EventualLeaderElector::handle_timeout,
-                    );
+                    let new_timer =
+                        self.schedule_periodic(self.period, self.period, Self::handle_timeout);
                     self.timer_handle = Some(new_timer);
                 } else {
                     // just put it back
                     self.timer_handle = Some(timeout);
                 }
-                self.send_heartbeats()
+                self.send_heartbeats();
+                Handled::Ok
             }
             Some(_) => Handled::Ok, // just ignore outdated timeouts
             None => {
@@ -211,20 +131,17 @@ impl EventualLeaderElector {
         }
     }
 
-    // ANCHOR: send_heartbeats
-    fn send_heartbeats(&self) -> Handled {
+    fn send_heartbeats(&self) {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
-        Handled::Ok
     }
-    // ANCHOR_END: send_heartbeats
 }
 
 impl ComponentLifecycle for EventualLeaderElector {
     fn on_start(&mut self) -> Handled {
         // ANCHOR: checkin
-        self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
+        self.bootstrap_server.tell((CheckIn, Serde), self);
         // ANCHOR_END: checkin
 
         self.period = self.ctx.config()["omega"]["initial-period"]
@@ -233,11 +150,7 @@ impl ComponentLifecycle for EventualLeaderElector {
         self.delta = self.ctx.config()["omega"]["delta"]
             .as_duration()
             .expect("delta");
-        let timeout = self.schedule_periodic(
-            self.period,
-            self.period,
-            EventualLeaderElector::handle_timeout,
-        );
+        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
         self.timer_handle = Some(timeout);
         Handled::Ok
     }
@@ -253,9 +166,11 @@ impl ComponentLifecycle for EventualLeaderElector {
         self.on_stop()
     }
 }
+
 // Doesn't have any requests
 ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 
+// ANCHOR: actor
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
@@ -263,7 +178,6 @@ impl Actor for EventualLeaderElector {
         unreachable!();
     }
 
-    // ANCHOR: receive_network
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
 
@@ -272,8 +186,7 @@ impl Actor for EventualLeaderElector {
                 msg(_heartbeat): Heartbeat [using Serde] => {
                     self.candidates.insert(sender);
                 },
-                msg(update): UpdateProcesses => {
-                    let UpdateProcesses(processes) = update;
+                msg(UpdateProcesses(processes)): UpdateProcesses [using Serde] => {
                     info!(
                         self.log(),
                         "Received new process set with {} processes",
@@ -282,12 +195,13 @@ impl Actor for EventualLeaderElector {
                     self.processes = processes.into_boxed_slice();
                 },
             }
-        }
+        };
         Handled::Ok
     }
-    // ANCHOR_END: receive_network
 }
+// ANCHOR_END: actor
 
+// ANCHOR: main
 pub fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.len() {
@@ -311,7 +225,9 @@ pub fn main() {
         ),
     }
 }
+// ANCHOR_END: main
 
+// ANCHOR: server
 const BOOTSTRAP_PATH: &str = "bootstrap";
 
 pub fn run_server(socket: SocketAddr) -> KompactSystem {
@@ -340,7 +256,9 @@ pub fn run_server(socket: SocketAddr) -> KompactSystem {
 
     system
 }
+// ANCHOR_END: server
 
+// ANCHOR: client
 pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> KompactSystem {
     let mut cfg = KompactConfig::default();
     cfg.load_config_file("./app_settings.toml");
@@ -368,6 +286,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
 
     system
 }
+// ANCHOR_END: client
 
 #[cfg(test)]
 mod tests {
@@ -377,7 +296,7 @@ mod tests {
     const CLIENT_SOCKET: &str = "127.0.0.1:0";
 
     #[test]
-    fn test_bootstrapping_serialisation() {
+    fn test_bootstrapping() {
         let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
         let server_system = run_server(server_socket);
         let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();

@@ -13,7 +13,7 @@ In Kompact, actors are statically typed with respect to the messages they can re
 In Kompact every component is an actor and vice versa. Both the `Actor` (actually `ActorRaw`) and the `ComponentDefinition` trait need to be implemented in either case. But as we saw in the "Hello World"-example, the `Actor` trait can simply be derived when it's not used by a component:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/helloworld.rs:declaration}}
+{{#rustdoc_include ../../examples/local/src/bin/helloworld.rs:declaration}}
 ```
 
 The derived code will produce an actor implementation with `type Message = Never;`, indicating that no local messages can be sent to it. However, network messages still can, but will simply be discarded. This avoids a common issue encountered in Erlang, where unhandled messages keep queuing up on ports forever.
@@ -21,15 +21,15 @@ The derived code will produce an actor implementation with `type Message = Never
 If, say, we wanted to implement an actor variant of the "Hello World"-example, we could do so by implementing the `Actor` trait ourselves with some trivial type (e.g., the unit type `()`), as in:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/actor_helloworld.rs:actor}}
+{{#rustdoc_include ../../examples/local/src/bin/actor_helloworld.rs:actor}}
 ```
 
-In a local-only build (`default-features = false` on `kompact`) the `receive_local(...)` method is enough. The extra `receive_network(...)` in the example is only there because the examples crate keeps the `distributed` feature enabled by default as well.
+In the default local-only `kompact` build the `receive_local(...)` method is enough. `receive_network(...)` only becomes part of the `Actor` surface once the `distributed` feature is enabled.
 
 Of course, a unit message is not going to be produced by the Kompact runtime as a lifecycle event, so we must send it to our component after creating it, using the `tell(...)` function:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/actor_helloworld.rs:main}}
+{{#rustdoc_include ../../examples/local/src/bin/actor_helloworld.rs:main}}
 ```
 
 Just to point out some of the particularities described above, we have annotated some types in the previous example. You can see that our `HelloWorldActor` is still created as an `Arc<Component<HelloWorldActor>>`, and also that the actor reference it produces is appropriately typed as `ActorRef<()>`.

@@ -23,14 +23,31 @@ pub trait SerIdSize {
     fn size(&self) -> usize;
 }
 
-#[cfg(feature = "ser_id_64")]
+#[cfg(any(
+    all(
+        feature = "ser_id_64",
+        any(feature = "ser_id_32", feature = "ser_id_16", feature = "ser_id_8")
+    ),
+    all(
+        feature = "ser_id_32",
+        any(feature = "ser_id_16", feature = "ser_id_8")
+    ),
+    all(feature = "ser_id_16", feature = "ser_id_8"),
+))]
+compile_error!("`ser_id_*` features are mutually exclusive.");
+
+#[cfg(any(
+    feature = "ser_id_64",
+    not(any(feature = "ser_id_32", feature = "ser_id_16", feature = "ser_id_8"))
+))]
 mod ser_id {
     use super::SerIdSize;
     use bytes::{Buf, BufMut};
 
     /// Type alias for the concrete implementation of serialisation ids.
     ///
-    /// This version is activated by the `ser_id_64` feature flag, and uses a `u64` as the underlying size.
+    /// This version is activated by the `ser_id_64` feature flag, and also serves as the
+    /// fallback when no explicit `ser_id_*` feature is selected.
     pub type SerId = u64;
 
     impl SerIdSize for SerId {

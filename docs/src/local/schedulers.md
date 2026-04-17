@@ -13,13 +13,13 @@ The number of threads in Kompact's thread pool is configured with the config val
 That we change this line
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters.rs:system}}
+{{#rustdoc_include ../../examples/local/src/bin/counters.rs:system}}
 ```
 
 to this:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters_pool.rs:system}}
+{{#rustdoc_include ../../examples/local/src/bin/counters_pool.rs:system}}
 ```
 
 The same effect could be achieved via a [configuration](configuration.md) file by setting `kompact.runtime.threads = 1`.
@@ -48,7 +48,7 @@ use kompact::executors;
 With that, all we need to add is the following line of code, which selects the `ThreadPool` implementation from the `crossbeam_channel_pool` module, instead of the one from the `crossbeam_workstealing_pool` module, that is default.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/counters_channel_pool.rs:channel_pool}}
+{{#rustdoc_include ../../examples/local/src/bin/counters_channel_pool.rs:channel_pool}}
 ```
 
 If we run this, again, we will see exactly (modulo event timing) the same output as when running on the larger pool with Kompact's default settings.

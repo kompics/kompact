@@ -1,9 +1,7 @@
 use super::*;
 use crate::messaging::NetMessage;
 
-use std::fmt;
-#[cfg(feature = "distributed")]
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 use uuid::Uuid;
 
 /// The type of actor references for [dispatcher](Dispatcher) implementations
@@ -784,7 +782,6 @@ impl<M> PartialEq for Recipient<M> {
 /// A marker trait for messags that expect a response
 ///
 /// Messages with this trait can be [replied](Request::reply) to.
-#[cfg(feature = "distributed")]
 pub trait Request: MessageBounds {
     /// The type of the response that is expected
     type Response;
@@ -801,13 +798,11 @@ pub trait Request: MessageBounds {
 /// Implementations can also be [dereferenced](std::ops::Deref::deref())
 /// to the request message and [replied](Request::reply) to with a
 /// response.
-#[cfg(feature = "distributed")]
 #[derive(Debug)]
 pub struct WithSender<Req: MessageBounds, Resp: MessageBounds> {
     sender: ActorRef<Resp>,
     content: Req,
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: MessageBounds> WithSender<Req, Resp> {
     /// Create a new instance from a request and an actor to reply to
     pub fn new(content: Req, sender: ActorRef<Resp>) -> WithSender<Req, Resp> {
@@ -845,7 +840,6 @@ impl<Req: MessageBounds, Resp: MessageBounds> WithSender<Req, Resp> {
         self.content
     }
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: MessageBounds> Request for WithSender<Req, Resp> {
     type Response = Resp;
 
@@ -853,7 +847,6 @@ impl<Req: MessageBounds, Resp: MessageBounds> Request for WithSender<Req, Resp> 
         self.sender.tell(resp)
     }
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSender<Req, Resp> {
     type Target = Req;
 
@@ -873,13 +866,11 @@ impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSender<Req, Resp> {
 /// Implementations can also be [dereferenced](std::ops::Deref::deref())
 /// to the request message and [replied](Request::reply) to with a
 /// response.
-#[cfg(feature = "distributed")]
 #[derive(Debug)]
 pub struct WithSenderStrong<Req: MessageBounds, Resp: MessageBounds> {
     sender: ActorRefStrong<Resp>,
     content: Req,
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: MessageBounds> WithSenderStrong<Req, Resp> {
     /// Create a new instance from a request and an actor to reply to
     pub fn new(content: Req, sender: ActorRefStrong<Resp>) -> WithSenderStrong<Req, Resp> {
@@ -917,7 +908,6 @@ impl<Req: MessageBounds, Resp: MessageBounds> WithSenderStrong<Req, Resp> {
         self.content
     }
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: MessageBounds> Request for WithSenderStrong<Req, Resp> {
     type Response = Resp;
 
@@ -925,7 +915,6 @@ impl<Req: MessageBounds, Resp: MessageBounds> Request for WithSenderStrong<Req, 
         self.sender.tell(resp)
     }
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSenderStrong<Req, Resp> {
     type Target = Req;
 
@@ -942,13 +931,11 @@ impl<Req: MessageBounds, Resp: MessageBounds> Deref for WithSenderStrong<Req, Re
 /// Implementations can also be [dereferenced](std::ops::Deref::deref())
 /// to the request message and [replied](Request::reply) to with a
 /// response.
-#[cfg(feature = "distributed")]
 #[derive(Debug)]
 pub struct WithRecipient<Req: MessageBounds, Resp: fmt::Debug + 'static> {
     sender: Recipient<Resp>,
     content: Req,
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
     /// Create a new instance from a request and a recipient for the response
     pub fn new(content: Req, sender: Recipient<Resp>) -> WithRecipient<Req, Resp> {
@@ -1002,7 +989,6 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> WithRecipient<Req, Resp> {
         self.content
     }
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Request for WithRecipient<Req, Resp> {
     type Response = Resp;
 
@@ -1010,7 +996,6 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Request for WithRecipient<R
         self.sender.tell(resp)
     }
 }
-#[cfg(feature = "distributed")]
 impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Deref for WithRecipient<Req, Resp> {
     type Target = Req;
 
@@ -1023,12 +1008,10 @@ impl<Req: MessageBounds, Resp: fmt::Debug + 'static> Deref for WithRecipient<Req
 ///
 /// This trait is blanket implemented for all [ActorRefFactory](ActorRefFactory)
 /// implementations where the message type is `From<T>`.
-#[cfg(feature = "distributed")]
 pub trait Receiver<T> {
     /// Produce a recipient for `T`
     fn recipient(&self) -> Recipient<T>;
 }
-#[cfg(feature = "distributed")]
 impl<M, T, A> Receiver<T> for A
 where
     T: fmt::Debug + 'static,
@@ -1039,7 +1022,6 @@ where
         self.actor_ref().recipient()
     }
 }
-#[cfg(feature = "distributed")]
 impl<T> Receiver<T> for Recipient<T> {
     fn recipient(&self) -> Recipient<T> {
         self.clone()

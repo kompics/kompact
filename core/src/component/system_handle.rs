@@ -10,20 +10,6 @@ pub struct ContextSystemHandle {
     component: Arc<dyn CoreContainer>,
 }
 
-#[cfg(not(feature = "distributed"))]
-/// The handle type returned by [`ComponentContext::system`](crate::component::ComponentContext::system)
-/// in local-only builds.
-pub trait ComponentContextSystemHandle: SystemHandle {}
-#[cfg(not(feature = "distributed"))]
-impl<T: SystemHandle + ?Sized> ComponentContextSystemHandle for T {}
-
-#[cfg(feature = "distributed")]
-/// The handle type returned by [`ComponentContext::system`](crate::component::ComponentContext::system)
-/// in distributed builds.
-pub trait ComponentContextSystemHandle: DistributedSystemHandle {}
-#[cfg(feature = "distributed")]
-impl<T: DistributedSystemHandle + ?Sized> ComponentContextSystemHandle for T {}
-
 impl ContextSystemHandle {
     pub(super) fn from(component: Arc<dyn CoreContainer>) -> Self {
         ContextSystemHandle { component }

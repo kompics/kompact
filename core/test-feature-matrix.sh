@@ -12,10 +12,10 @@ echo "%%%%%% Finished testing default features %%%%%%"
 
 # these also test without the use_local_executor feature
 echo "%%%%%% Testing different ser_id sizes %%%%%%"
-cargo clippy --all-targets --no-default-features --features ser_id_8 -- -D warnings
-cargo test --no-default-features --features ser_id_8,"$LOG_LEVEL" -- "$@"
-cargo test --no-default-features --features ser_id_16,"$LOG_LEVEL" -- "$@"
-cargo test --no-default-features --features ser_id_32,"$LOG_LEVEL" -- "$@"
+cargo clippy --all-targets --no-default-features --features distributed,serde_support,ser_id_8 -- -D warnings
+cargo test --no-default-features --features distributed,serde_support,ser_id_8,"$LOG_LEVEL" -- "$@"
+cargo test --no-default-features --features distributed,serde_support,ser_id_16,"$LOG_LEVEL" -- "$@"
+cargo test --no-default-features --features distributed,serde_support,ser_id_32,"$LOG_LEVEL" -- "$@"
 echo "%%%%%% Finished testing different ser_id sizes %%%%%%"
 
 echo "%%%%%% Testing thread pinning %%%%%%"

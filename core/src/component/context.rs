@@ -287,7 +287,7 @@ where
     }
 
     /// Returns a handle to the Kompact system this component is a part of
-    pub fn system(&self) -> impl ComponentContextSystemHandle {
+    pub fn system(&self) -> ContextSystemHandle {
         self.context_system()
     }
 

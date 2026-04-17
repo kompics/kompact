@@ -24,11 +24,6 @@ impl Actor for HelloWorldActor {
         self.ctx().system().shutdown_async();
         Handled::Ok
     }
-
-    #[cfg(feature = "distributed")]
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!("We are ignoring network messages for now.");
-    }
 }
 // ANCHOR_END: actor
 // ANCHOR: main

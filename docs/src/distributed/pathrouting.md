@@ -55,7 +55,7 @@ To show-case the path routing feature of Kompact, we will sketch a simple client
 We only have two messages, the `Query` with a unique request id and the actual pattern we want to match against, and the `QueryResponse` which has all the fields of the `Query` plus a vector of strings that matched the pattern. For convenience, we will use `Serde` as serialisation mechanism again.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:messages}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:messages}}
 ```
 
 ### State and Behaviour
@@ -63,7 +63,7 @@ We only have two messages, the `Query` with a unique request id and the actual p
 As for this example the exact implementation of the servers and clients is not really crucial, we won't describe it in detail here. The important things to note are that the `Client` uses the path `server_path` field to send requests, which we will initialise later with a select path of the form `tcp://127.0.0.1:<port>/server/?`. It also replaces its unique response path with a `broadcast_path`, which we will initialise later with a broadcast path of the form `tcp://127.0.0.1:<port>/client/*`.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:client_send}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:client_send}}
 ```
 
 ### System Setup
@@ -72,13 +72,13 @@ When setting up the Kompact system in the main, we will use the following consta
 
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:constants}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:constants}}
 ```
 
 First of all we set up the routing policies and their associated paths. In order to show off both variants, we will use implicit routing for the client broadcast path and explicit routing for the server select path. As mentioned before, implicit routing does not really require any specific setup. We simply construct the appropriate path, which in this case is going to be our system path followed by `client/*`. For the server load-balancing, we want to use the round-robin policy, which we will register under the `server` alias using `KompactSystem::set_routing_policy(...)`. Like a normal actor registration, this call returns a future with the actual path for this policy. Since the policy is set explicitly, this path will actually be of the form `tcp://127.0.0.1:<port>/server`, but sending a message to `tcp://127.0.0.1:<port>/server/?` would behave in the same manner.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:policies_setup}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:policies_setup}}
 ```
 
 We will then create and register both the servers and the clients, making sure to register either with a unique name (based on their index) under the correct path prefix.
@@ -86,13 +86,13 @@ We will then create and register both the servers and the clients, making sure t
 #### Servers
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:server_setup}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:server_setup}}
 ```
 
 #### Clients
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:client_setup}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:client_setup}}
 ```
 
 ### Running
@@ -100,27 +100,27 @@ We will then create and register both the servers and the clients, making sure t
 Finally, we simply start the servers and the clients, then run them for a few seconds, and shut them down again, before shutting down the system itself.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/load_balancer.rs:running}}
+{{#rustdoc_include ../../examples/net/src/bin/load_balancer.rs:running}}
 ```
 
 If we inspect the output in release mode, we can see that both clients and servers print some final statistics about their run. In particular the results of the servers show that the requests were very well balanced, thanks to our round-robin policy:
 
 ```
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1060 requests with 6 cache hits (0.005660377358490566%), ctype: Client, cid: 07739284-1171-43c7-b547-198f9adf31e2, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1055 requests with 7 cache hits (0.006635071090047393%), ctype: Client, cid: 7a33e17c-042f-4271-95ea-a725ee471dae, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1052 requests with 4 cache hits (0.0038022813688212928%), ctype: Client, cid: 9b3c3c57-8246-4456-a7b8-0d200086df8d, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1050 requests with 3 cache hits (0.002857142857142857%), ctype: Client, cid: 1ecdef68-43af-46b4-8a40-a8ad4147b811, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1051 requests with 5 cache hits (0.004757373929590866%), ctype: Client, cid: 034f5dcc-a0ba-4bc2-aca0-6f1ab12be139, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1047 requests with 2 cache hits (0.0019102196752626551%), ctype: Client, cid: 59679577-6e9a-44ef-9739-08ca1b32b03f, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1048 requests with 3 cache hits (0.0028625954198473282%), ctype: Client, cid: ef76ddd0-e240-4ad6-8a10-b98da9ba41ff, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1044 requests with 0 cache hits (0%), ctype: Client, cid: ddf7d77a-4987-4411-81a5-bc4841200c32, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1051 requests with 7 cache hits (0.006660323501427212%), ctype: Client, cid: 12b65a83-c443-4853-8337-47ba5c45f60d, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.871 INFO Shutting down a Client that ran 1046 requests with 3 cache hits (0.0028680688336520078%), ctype: Client, cid: c7978b3f-9cf2-44d2-b93f-fc32ad90c941, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1049 requests with 6 cache hits (0.005719733079122974%), ctype: Client, cid: af389f4d-bc93-4f37-8f50-a70e054651e0, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1047 requests with 4 cache hits (0.0038204393505253103%), ctype: Client, cid: ad20509a-dbab-4dd3-a497-99a8488101b3, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: 35309404-a989-4b18-848f-5cc719b19a76, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
-Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4184 requests, ctype: QueryServer, cid: 2a2ed2cb-36bb-4df0-ac0e-0204e12417bd, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
-Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: a3d6d94a-ff9c-4749-9b6a-db2bfa2ac3e2, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1060 requests with 6 cache hits (0.005660377358490566%), ctype: Client, cid: 07739284-1171-43c7-b547-198f9adf31e2, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1055 requests with 7 cache hits (0.006635071090047393%), ctype: Client, cid: 7a33e17c-042f-4271-95ea-a725ee471dae, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1052 requests with 4 cache hits (0.0038022813688212928%), ctype: Client, cid: 9b3c3c57-8246-4456-a7b8-0d200086df8d, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1050 requests with 3 cache hits (0.002857142857142857%), ctype: Client, cid: 1ecdef68-43af-46b4-8a40-a8ad4147b811, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1051 requests with 5 cache hits (0.004757373929590866%), ctype: Client, cid: 034f5dcc-a0ba-4bc2-aca0-6f1ab12be139, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1047 requests with 2 cache hits (0.0019102196752626551%), ctype: Client, cid: 59679577-6e9a-44ef-9739-08ca1b32b03f, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1048 requests with 3 cache hits (0.0028625954198473282%), ctype: Client, cid: ef76ddd0-e240-4ad6-8a10-b98da9ba41ff, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1044 requests with 0 cache hits (0%), ctype: Client, cid: ddf7d77a-4987-4411-81a5-bc4841200c32, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1051 requests with 7 cache hits (0.006660323501427212%), ctype: Client, cid: 12b65a83-c443-4853-8337-47ba5c45f60d, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.871 INFO Shutting down a Client that ran 1046 requests with 3 cache hits (0.0028680688336520078%), ctype: Client, cid: c7978b3f-9cf2-44d2-b93f-fc32ad90c941, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1049 requests with 6 cache hits (0.005719733079122974%), ctype: Client, cid: af389f4d-bc93-4f37-8f50-a70e054651e0, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1047 requests with 4 cache hits (0.0038204393505253103%), ctype: Client, cid: ad20509a-dbab-4dd3-a497-99a8488101b3, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: 35309404-a989-4b18-848f-5cc719b19a76, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4184 requests, ctype: QueryServer, cid: 2a2ed2cb-36bb-4df0-ac0e-0204e12417bd, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: a3d6d94a-ff9c-4749-9b6a-db2bfa2ac3e2, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:56
 ```
 
 > **Note:** As before, if you have checked out the [examples folder](https://github.com/kompics/kompact/tree/master/docs/examples) you can run the concrete binary with:

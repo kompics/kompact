@@ -1,5 +1,5 @@
 #![allow(clippy::unused_unit)]
-use kompact::prelude::*;
+use kompact::{executors, prelude::*};
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,20 +80,16 @@ impl Actor for Counter {
         .expect("complete");
         Handled::Ok
     }
-
-    #[cfg(feature = "distributed")]
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        unimplemented!("We are still ignoring network messages.");
-    }
 }
 
 pub fn main() {
-    // ANCHOR: system
     use kompact::config_keys::system;
     let mut conf = KompactConfig::default();
     conf.set_config_value(&system::THREADS, 1usize);
+    // ANCHOR: channel_pool
+    conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
+    // ANCHOR_END: channel_pool
     let system = conf.build().expect("system");
-    // ANCHOR_END: system
     let counter = system.create(Counter::new);
     system.start(&counter);
     let actor_ref = counter.actor_ref();

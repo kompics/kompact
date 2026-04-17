@@ -15,37 +15,37 @@ We are going to reuse the `Buncher` from the [timers](timers.md) section and pas
 We'll start off by creating a configuration file `app_settings.toml` in the working directory, so its easy to find later. Something like this:
 
 ```toml
-{{#rustdoc_include ../../examples/app_settings.toml}}
+{{#rustdoc_include ../../examples/local/app_settings.toml}}
 ```
 
 We can then add this file to the `KompactConfig` instance using the `load_config_file(...)` function:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/buncher_config.rs:config_file}}
+{{#rustdoc_include ../../examples/local/src/bin/buncher_config.rs:config_file}}
 ```
 
 To show off how multiple configuration sources can be combined, we will override the `batch-size` value from the main function with a literal string, *after* the file has been loaded:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/buncher_config.rs:system}}
+{{#rustdoc_include ../../examples/local/src/bin/buncher_config.rs:system}}
 ```
 
 Now we change the `Buncher` constructor to not take any arguments anymore. Since we still need to put some values into the struct fields, let's put some default values, say batch size of 0 and a timeout of 1ms. We could also go with an `Option`, if it's important to know whether the component was initialised properly nor not. We also don't know the required capacity for the vector anymore, so we just create an empty one, and extend it later once we have read the batch size from the config file.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/buncher_config.rs:new}}
+{{#rustdoc_include ../../examples/local/src/bin/buncher_config.rs:new}}
 ```
 
 And, of course, we must also update the matching `create(...)` call in the main function:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/buncher_config.rs:create_buncher}}
+{{#rustdoc_include ../../examples/local/src/bin/buncher_config.rs:create_buncher}}
 ```
 
 Finally, the actual config access happens in the `on_start` code. At this point the component is properly initialised and we have access to configuration values. The Kompact config type has convenient conversion functions, so we can get a `Duration` directly from the `"100 ms"` string in the file, for example. Once we have read the values for `batch_size` and `timeout`, we can also go ahead and reserve the required additional space in the `current_batch` vector.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/buncher_config.rs:on_start}}
+{{#rustdoc_include ../../examples/local/src/bin/buncher_config.rs:on_start}}
 ```
 
 At this point we can run the example, and we can see from the regular "50 event"-sized batches in the beginning that our overriding of the batch size worked just fine.

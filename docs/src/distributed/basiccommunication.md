@@ -17,13 +17,13 @@ In this section we will go through a concrete example of a distributed service i
 Locally we want to expose a port abstraction called `EventualLeaderDetection`, which has no requests and only a single indication: The `Trust` event indicates the selection of a new leader.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/trusting.rs:port}}
+{{#rustdoc_include ../../examples/net/src/trusting.rs:port}}
 ```
 
 In order to see some results later when we run it, we will also add a quick printer component for these `Trust` events:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/trusting.rs:printer}}
+{{#rustdoc_include ../../examples/net/src/trusting.rs:printer}}
 ```
 
 ### Messages
@@ -31,13 +31,13 @@ In order to see some results later when we run it, we will also add a quick prin
 We have two ways to interact with our leader election implementation: Different instances will send `Heartbeat` message over the network among themselves. For simplicity we will use [Serde](https://crates.io/crates/serde) as a serialisation mechanism for now. For Serde serialisation to work correctly with Kompact we have assign a serialisation id to `Heartbeat`, that is a unique number that can be used to identify it during deserialisation. It's very similar to a `TypeId`, except that it's guaranteed to be same in any binary generated with the code included since the constant is hardcoded. For the example, we'll simply use `1234` since that isn't taken, yet. In a larger project, however, it's important to keep track of these ids to prevent duplicates.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/trusting.rs:heartbeat}}
+{{#rustdoc_include ../../examples/net/src/trusting.rs:heartbeat}}
 ```
 
 Additionally, we want be able to change the set of involved processes at runtime. This is primarily due to the fact that we will use unique paths for now and we simply don't know the full set of unique paths at creation time of the actors that they refer to.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:update_message}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:update_message}}
 ```
 
 ### State
@@ -51,7 +51,7 @@ There is a bit of state we need to keep track of in our `EventualLeaderElector` 
 - Finally, we to keep track of the current [timer handle](../local/timers.md) and the current leader, if any.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:state}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:state}}
 ```
 
 In order to load our configuration values from a file, we need to put something like the following into an `app_settings.toml` file in the current working directory:
@@ -65,7 +65,7 @@ delta = "1 ms"
 And then we can load it and start the initial timeout in the `on_start` handler as before:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:lifecycle}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:lifecycle}}
 ```
 
 ### Leader Election Algorithm
@@ -73,7 +73,7 @@ And then we can load it and start the initial timeout in the `on_start` handler 
 This part isn't very specific to networking, but basically the election algorithm works as follows: Every time the timeout fires we clear out the current candidate set into a temporary vector. We then sort the vector and take the last element, if any, as the potential new leader. If that new leader is not the same as the current one then either our current leader has failed, or the timeout is wrong. For simplicity we will assume both is true and replace the leader and update the scheduled timeout by adding the `delta` to the current `period`. We then announce our new leader choice via a trigger on the `EventualLeaderDetection` port. Whether or not we replaced the leader, we always send heartbeats to everyone in the process set.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:algorithm}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:algorithm}}
 ```
 
 ### Sending Network Messages
@@ -81,7 +81,7 @@ This part isn't very specific to networking, but basically the election algorith
 The only place in this example where we are sending remote messages is when we are sending heartbeats:
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:telling}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:telling}}
 ```
 
 We invoke the `ActorPath::tell(...)` method with a tuple of the actual `Heartbeat` together with the serialiser with want to use, which is `kompact::serde_serialisers::Serde`. We also pass a reference to `self` which will automatically insert our unique actor path into the message as the source and send everything to our system's dispatcher, which will take care of serialisation, as well as network channel creation and selection for us.
@@ -93,7 +93,7 @@ In order to handle (network) messages we must implement the Actor trait as descr
 For distributed messages, on the other hand, we don't know what will arrive in general, so we receive a `NetMessage`. This is a wrapper around a sender `ActorPath`, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to `Heartbeat`. We also know we need to use `Serde` as a deserialiser, since that is what we used for serialisation in the first place. Thus, we use `NetMessage::try_deserialise::<Heartbeat, Serde>()` to attempt to deserialise a `Heartbeat` from the buffer using the `Serde` deserialiser. This call will automatically check whether the serialisation id matches `Heartbeat::SER_ID` and, if yes, attempt to deserialise it using `Serde`. If it does not work, we'll get a `Result::Err` instead. If it does work, however, we don't actually care about the `Heartbeat` itself, but insert the sender from the `NetMessage` into `self.candidates`.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:actor}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:actor}}
 ```
 
 ### System Setup
@@ -103,7 +103,7 @@ In this example we need to set up multiple systems in the same process for the f
 At this point the system is running just fine and we give it some time to settle on timeouts and elect a leader. We will see the result in the logging messages eventually. Now to see the leader election responding to actual changes, we are going to kill one system at a time and always give it a second to settle. This way we can watch the elector on the remaining systems updating the trust values one by one.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/leader_election.rs:main}}
+{{#rustdoc_include ../../examples/net/src/bin/leader_election.rs:main}}
 ```
 
 > **Note:** As before, if you have checked out the [examples folder](https://github.com/kompics/kompact/tree/master/docs/examples) you can run the concrete binary with:

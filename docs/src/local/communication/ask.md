@@ -11,7 +11,7 @@ The `Message` type for the manager is thus `Ask<Work, WorkResponse>`, which we a
 We then must distribute the work more or less evenly over the available workers. If no workers are available, the manager simply does all the work itself. Otherwise we'll figure out what constitutes and "equal share" (i.e. the `stride`) and then use it to step through the indices into the data, producing sub-ranges, which we send to each worker immediately. Since it may sometimes happen due to rounding that we have a tiny bit of work left at the end, we just do that at the manager and put it directly into the `self.result_accumulator`. This extra work, it the reason for the previously mentioned `+ 1` whenever we are considering the length of the `self.result_accumulator`. It is simply the manager's share of the work. In order to keep this length consistent, we will simply push the `work.neutral` element whenever the manager actually doesn't do any work. Finally, we need to remember to store the request in `self.outstanding_request` so we can reply to it later when all responses have arrived.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers.rs:manager_actor}}
+{{#rustdoc_include ../../../examples/local/src/bin/workers.rs:manager_actor}}
 ```
 
 ## Sending Work
@@ -19,7 +19,7 @@ We then must distribute the work more or less evenly over the available workers.
 When sending work to the manager from the main-thread, we can construct the required `Ask` instance with `ActorRef::ask(...)`. Since we only want to handle a single request at a time, we will immediately `wait()` for the result of the future.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../../examples/src/bin/workers.rs:main_ask}}
+{{#rustdoc_include ../../../examples/local/src/bin/workers.rs:main_ask}}
 ```
 
 > **Note:** For situations where the `Ask` instance is nested, for example, into an enum, Kompact offers the `ActorRef::ask_with` function. Instead of a `Request` value, `ask_with` expects a *function* that takes a `KPromise<Result>` and produces the Actor's `Message` type. This also allows for custom `Ask` variants with more fields, for example.

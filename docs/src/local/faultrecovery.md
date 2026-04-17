@@ -23,13 +23,13 @@ In order to showcase the recovery mechanism, we write a timer-based counter, whi
 In addition to the current count, we will store references to two scheduled timers: For every `count_timeout` we want to increase our `count` by 1 and for every `state_timeout` we will update the recovery function.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/unstable_counter.rs:state}}
+{{#rustdoc_include ../../examples/local/src/bin/unstable_counter.rs:state}}
 ```
 
 By default, we just initialise the count to 0 and leave the timeouts unset until we are started.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/unstable_counter.rs:default}}
+{{#rustdoc_include ../../examples/local/src/bin/unstable_counter.rs:default}}
 ```
 
 During start, we schedule the two timers and also set our recovery function. Within the recovery function, we simply store the state we want to remember, i.e. the two timeouts and the count. When it is called we produce a recovery handler from this state, that cancels the old timeouts and then starts a new `UnstableCounter` by passing in the last count we stored. 
@@ -38,11 +38,11 @@ As usual, we also cancel our timeouts when we are stopped or killed.
 
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/unstable_counter.rs:lifecycle}}
+{{#rustdoc_include ../../examples/local/src/bin/unstable_counter.rs:lifecycle}}
 ```
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/unstable_counter.rs:with_state}}
+{{#rustdoc_include ../../examples/local/src/bin/unstable_counter.rs:with_state}}
 ```
 
 > **Note:** Cancelling the timeouts during faults is not really necessary, as they will be cleaned automatically when the faulty component is dropped. Since we don't control who is holding on to component references, though, it may avoid some unnecessary overhead on a heavily loaded timer if done more eagerly, like this. It is included here mostly as an example of possible cleanup code in a recovery handler.
@@ -50,13 +50,13 @@ As usual, we also cancel our timeouts when we are stopped or killed.
 When our timeouts are triggered we must handle them. The count timeout is easy, we simply increment the `self.count` variable using the `checked_add` to cause a panic on overflow even in release builds. During the state timeout, we essentially reintroduce the recovery function from the `on_start` lifecycle handler, so that we update the state it closed over.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/unstable_counter.rs:timeouts}}
+{{#rustdoc_include ../../examples/local/src/bin/unstable_counter.rs:timeouts}}
 ```
 
 In order to run this, we simply start the default instance of the `UnstableCounter` onto a Kompact system and then wait for a bit to let it count. The output will show the counting and the crashes. We can see that after the crash do not start counting from 0, but instead from something much higher, around 199 depending on your exact timing. Also notice how we crash much faster after the first time, since it doesn't take as long to reach 255 again.
 
 ```rust,edition2018,no_run,noplaypen
-{{#rustdoc_include ../../examples/src/bin/unstable_counter.rs:main}}
+{{#rustdoc_include ../../examples/local/src/bin/unstable_counter.rs:main}}
 ```
 
 > **Note:** As before, if you have checked out the [examples folder](https://github.com/kompics/kompact/tree/master/docs/examples) you can run the concrete binary with:
