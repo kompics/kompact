@@ -380,7 +380,7 @@ impl fmt::Display for BufferError {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "distributed"))]
 mod tests {
     use super::*;
     use crate::{config::parse_config_str, prelude::*};
@@ -469,8 +469,8 @@ mod tests {
                 // Initialize the buffers
                 self.ctx.init_buffers(Some(buffer_config), None);
             }
-            // Use the Buffer
-            let _ = self.ctx.actor_path().tell_serialised(120, self);
+            // Exercise buffer initialisation directly without depending on dispatcher transport.
+            let _ = self.ctx.preserialise(&120u64);
             if let Some(promise) = self.started_promise.take() {
                 promise.complete().expect("Failed to fulfil promise");
             }

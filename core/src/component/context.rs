@@ -294,7 +294,7 @@ where
 
     /// Returns a handle to the Kompact system this component is a part of
     #[cfg(feature = "distributed")]
-    pub fn system(&self) -> impl DistributedSystemHandle + SystemHandle {
+    pub fn system(&self) -> impl DistributedSystemHandle {
         self.context_system()
     }
 
@@ -325,6 +325,7 @@ where
         self.component().enqueue_control(ControlEvent::Kill);
     }
 
+    #[cfg(feature = "distributed")]
     pub(crate) fn with_buffer<R>(&self, f: impl FnOnce(&mut EncodeBuffer) -> R) -> R {
         {
             // Scoping the borrow

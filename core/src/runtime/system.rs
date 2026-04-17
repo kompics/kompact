@@ -4,6 +4,11 @@ use super::*;
 use crate::utils::erased::CreateErased;
 use crate::{
     config::Config,
+    supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
+    timer::timer_manager::{CanCancelTimers, TimerRefFactory},
+};
+#[cfg(feature = "distributed")]
+use crate::{
     messaging::{
         DispatchEnvelope,
         MsgEnvelope,
@@ -13,8 +18,6 @@ use crate::{
         RegistrationResult,
     },
     routing::groups::StorePolicy,
-    supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
-    timer::timer_manager::{CanCancelTimers, TimerRefFactory},
 };
 use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{
@@ -433,12 +436,7 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let c = system.create(TestComponent1::new);
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
@@ -463,12 +461,7 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let (c, registration_future) = system.create_and_register(TestComponent1::new);
     /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// # system.shutdown().expect("shutdown");
@@ -510,12 +503,7 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
     /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// let alias_registration_future = system.register_by_alias(&c, "test");
@@ -556,12 +544,7 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
     /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// let alias_registration_future = system.update_alias_registration(&c, "test");
@@ -605,12 +588,7 @@ impl KompactSystem {
     /// use kompact::routing::groups::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let mut cfg = KompactConfig::new();
-    /// cfg.system_components(DeadletterBox::new, {
-    ///     let net_config = NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
-    ///     net_config.build()
-    /// });
-    /// let system = cfg.build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().expect("KompactSystem");
     /// let policy_registration_future = system.set_routing_policy(BroadcastRouting::default(), "broadcast-me", false);
     /// let broadcast_path = policy_registration_future.wait_expect(Duration::from_millis(1000), "Failed to set broadcast policy");
     /// let c1 = system.create(TestComponent1::new);
@@ -1616,13 +1594,16 @@ impl InternalComponents {
         self.system_components.dispatcher_ref()
     }
 
+    #[cfg(feature = "distributed")]
     fn with_dispatcher_definition<F>(&self, mut f: F) -> ()
     where
         F: FnMut(&mut dyn Any),
     {
-        self.system_components.with_dispatcher_definition_dyn(&mut f)
+        self.system_components
+            .with_dispatcher_definition_dyn(&mut f)
     }
 
+    #[cfg(feature = "distributed")]
     fn system_path(&self) -> SystemPath {
         self.system_components.system_path()
     }
@@ -1708,11 +1689,13 @@ impl KompactRuntime {
         }
     }
 
+    #[allow(dead_code)]
     fn logger(&self) -> &KompactLogger {
         &self.logger
     }
 
     /// Registers an actor with a path at the dispatcher
+    #[cfg(feature = "distributed")]
     fn register_by_path(
         &self,
         actor_ref: DynActorRef,
@@ -1730,6 +1713,7 @@ impl KompactRuntime {
     }
 
     /// Registers an actor with an alias at the dispatcher
+    #[cfg(feature = "distributed")]
     fn register_by_alias(
         &self,
         actor_ref: DynActorRef,
@@ -1744,6 +1728,7 @@ impl KompactRuntime {
         self.register_by_path(actor_ref, update, path)
     }
 
+    #[cfg(feature = "distributed")]
     fn set_routing_policy(
         &self,
         policy: StorePolicy,
@@ -1787,6 +1772,7 @@ impl KompactRuntime {
         }
     }
 
+    #[cfg(feature = "distributed")]
     fn with_dispatcher_definition<F>(&self, f: F) -> ()
     where
         F: FnMut(&mut dyn Any),
@@ -1797,6 +1783,7 @@ impl KompactRuntime {
         }
     }
 
+    #[cfg(feature = "distributed")]
     fn system_path(&self) -> SystemPath {
         match *self.internal_components {
             Some(ref sc) => sc.system_path(),

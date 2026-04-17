@@ -1,6 +1,6 @@
 pub mod groups;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "distributed"))]
 pub(crate) mod test_helpers {
     use crate::prelude::*;
 
@@ -85,7 +85,7 @@ pub(crate) mod test_helpers {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "distributed"))]
 mod tests {
     use super::{groups::*, test_helpers::*};
     use crate::prelude::*;

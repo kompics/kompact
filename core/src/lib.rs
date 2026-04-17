@@ -528,6 +528,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             error!(self.ctx.log(), "Got unexpected network message: {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
@@ -658,6 +659,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
@@ -839,6 +841,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, msg: NetMessage) -> Handled {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
@@ -848,7 +851,7 @@ mod tests {
     #[test]
     fn test_start_stop() -> () {
         let system = KompactConfig::default().build().expect("KompactSystem");
-        let (cc, _) = system.create_and_register(CounterComponent::new);
+        let cc = system.create(CounterComponent::new);
         let ccref = cc.actor_ref();
 
         ccref.tell(Box::new(String::from("MsgTest")) as Box<dyn Any + Send>);
@@ -952,6 +955,7 @@ mod tests {
             panic!("Test panic please ignore");
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
@@ -1160,6 +1164,7 @@ mod tests {
             Handled::Ok
         }
 
+        #[cfg(feature = "distributed")]
         fn receive_network(&mut self, _msg: NetMessage) -> Handled {
             unimplemented!();
         }

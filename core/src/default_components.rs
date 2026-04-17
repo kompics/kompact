@@ -356,7 +356,10 @@ impl LocalDispatcher {
                 });
             }
             RegistrationPromise::None => {
-                trace!(self.ctx.log(), "Actor registration completed without listeners");
+                trace!(
+                    self.ctx.log(),
+                    "Actor registration completed without listeners"
+                );
             }
         }
     }
@@ -389,7 +392,10 @@ impl LocalDispatcher {
                 });
             }
             RegistrationPromise::None => {
-                trace!(self.ctx.log(), "Routing policy registration completed without listeners");
+                trace!(
+                    self.ctx.log(),
+                    "Routing policy registration completed without listeners"
+                );
             }
         }
     }
@@ -408,8 +414,7 @@ impl Actor for LocalDispatcher {
                         Ok(netmsg) => {
                             warn!(
                                 self.ctx.log(),
-                                "Forwarding unresolved remote dispatch to DeadletterBox: {:?}",
-                                dst,
+                                "Forwarding unresolved remote dispatch to DeadletterBox: {:?}", dst,
                             );
                             self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
                         }
@@ -499,9 +504,14 @@ impl ComponentLifecycle for LocalDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{routing::groups::BroadcastRouting, timer::timer_manager::Timer};
+    #[cfg(feature = "distributed")]
+    use crate::routing::groups::BroadcastRouting;
+    use crate::timer::timer_manager::Timer;
+    #[cfg(feature = "distributed")]
     use bytes::{Buf, BufMut};
-    use std::{any::Any, sync::mpsc, time::Duration};
+    #[cfg(feature = "distributed")]
+    use std::any::Any;
+    use std::{sync::mpsc, time::Duration};
 
     #[derive(ComponentDefinition)]
     struct TimerProbe {
@@ -518,9 +528,11 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     #[derive(Debug, Clone, Copy)]
     struct Ping;
 
+    #[cfg(feature = "distributed")]
     impl Serialisable for Ping {
         fn ser_id(&self) -> SerId {
             Self::SER_ID
@@ -543,6 +555,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     impl Deserialiser<Ping> for Ping {
         const SER_ID: SerId = 4242;
 
@@ -551,6 +564,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     #[derive(ComponentDefinition)]
     struct PathProbe {
         ctx: ComponentContext<Self>,
@@ -558,6 +572,7 @@ mod tests {
         delivered: mpsc::Sender<()>,
     }
 
+    #[cfg(feature = "distributed")]
     impl PathProbe {
         fn new(delivered: mpsc::Sender<()>) -> Self {
             Self {
@@ -568,8 +583,10 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     ignore_lifecycle!(PathProbe);
 
+    #[cfg(feature = "distributed")]
     impl NetworkActor for PathProbe {
         type Deserialiser = Ping;
         type Message = Ping;
@@ -583,6 +600,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "distributed")]
     fn expect_delivery(rx: &mpsc::Receiver<()>) {
         rx.recv_timeout(Duration::from_secs(1))
             .expect("path message should be delivered");
@@ -637,6 +655,7 @@ mod tests {
         system.shutdown().expect("shutdown KompactSystem");
     }
 
+    #[cfg(feature = "distributed")]
     #[test]
     fn local_dispatcher_routes_unique_path_messages() {
         let system = KompactConfig::default()
@@ -660,6 +679,7 @@ mod tests {
         system.shutdown().expect("shutdown KompactSystem");
     }
 
+    #[cfg(feature = "distributed")]
     #[test]
     fn local_dispatcher_routes_alias_messages() {
         let system = KompactConfig::default()
@@ -683,6 +703,7 @@ mod tests {
         system.shutdown().expect("shutdown KompactSystem");
     }
 
+    #[cfg(feature = "distributed")]
     #[test]
     fn local_dispatcher_routes_broadcast_groups() {
         let system = KompactConfig::default()
@@ -703,7 +724,7 @@ mod tests {
             .expect("second PathProbe should start");
 
         let group = system
-            .set_routing_policy(BroadcastRouting::default(), "tests/group", false)
+            .set_routing_policy(BroadcastRouting, "tests/group", false)
             .wait_expect(
                 Duration::from_secs(1),
                 "routing policy registration should succeed",

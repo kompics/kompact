@@ -228,6 +228,7 @@ pub trait SystemField {
     }
 
     /// Returns the port used in the system path
+    #[cfg_attr(not(feature = "distributed"), allow(dead_code))]
     fn port(&self) -> u16 {
         self.system().port()
     }

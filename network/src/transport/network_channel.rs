@@ -111,7 +111,7 @@ impl TcpChannel {
     }
 
     /// Internal helper function for special frames
-    fn send_frame(&mut self, mut frame: Frame) -> () {
+    fn send_frame(&mut self, mut frame: Frame) {
         let len = frame.encoded_len() + FRAME_HEAD_LEN as usize;
         let mut bytes = BytesMut::with_capacity(len);
         bytes.truncate(len);
@@ -139,7 +139,7 @@ impl TcpChannel {
         &self.state
     }
 
-    pub fn initialise(&mut self, addr: &SocketAddr) -> () {
+    pub fn initialise(&mut self, addr: &SocketAddr) {
         if let ChannelState::Initialising = self.state {
             // We must send enqueue Hello and await reply
             let hello = Frame::Hello(Hello::new(*addr));
@@ -148,7 +148,7 @@ impl TcpChannel {
     }
 
     /// Must be called when a Hello frame is received on the channel.
-    pub fn handle_hello(&mut self, hello: &Hello) -> () {
+    pub fn handle_hello(&mut self, hello: &Hello) {
         if let ChannelState::Requested(_, id) = self.state {
             // Has now received Hello(addr), must send Start(addr, SessionId) and await ack
             let start = Frame::Start(Start::new(self.own_addr, id));
@@ -160,7 +160,7 @@ impl TcpChannel {
 
     /// Must be called when we Ack the channel. This means that the sender can start using the channel
     /// The receiver of the Ack must accept the Ack and use the channel.
-    pub fn handle_start(&mut self, start: &Start) -> () {
+    pub fn handle_start(&mut self, start: &Start) {
         if let ChannelState::Initialising = self.state {
             // Method called because we received Start and want to send Ack.
             let ack = Frame::Ack();
@@ -177,7 +177,7 @@ impl TcpChannel {
         self.address
     }
 
-    pub fn handle_ack(&mut self) -> () {
+    pub fn handle_ack(&mut self) {
         if let ChannelState::Initialised(addr, id) = self.state {
             // An Ack was received. Transition the channel.
             self.stream
@@ -187,7 +187,7 @@ impl TcpChannel {
         }
     }
 
-    pub fn swap_buffer(&mut self, new_buffer: &mut BufferChunk) -> () {
+    pub fn swap_buffer(&mut self, new_buffer: &mut BufferChunk) {
         self.input_buffer.swap_buffer(new_buffer);
     }
 
@@ -289,7 +289,7 @@ impl TcpChannel {
     }
 
     /// Handles a Bye message. If the method returns Ok it is safe to shutdown.
-    pub fn handle_bye(&mut self) -> () {
+    pub fn handle_bye(&mut self) {
         match self.state {
             ChannelState::Connected(addr, id) => {
                 self.state = ChannelState::CloseReceived(addr, id);
@@ -304,7 +304,7 @@ impl TcpChannel {
 
     /// If the channel is in connected the channel transitions to CloseRequested
     /// and sends a bye message
-    pub fn initiate_graceful_shutdown(&mut self) -> () {
+    pub fn initiate_graceful_shutdown(&mut self) {
         if let ChannelState::Connected(addr, id) = self.state {
             self.state = ChannelState::CloseRequested(addr, id);
             let _ = self.send_bye();
@@ -312,7 +312,7 @@ impl TcpChannel {
     }
 
     /// Shuts down the channel stream
-    pub fn shutdown(&mut self) -> () {
+    pub fn shutdown(&mut self) {
         let _ = self.stream.shutdown(Both); // Discard errors while closing channels for now...
         if let ChannelState::Connected(addr, id) = self.state {
             self.state = ChannelState::Closed(addr, id);
@@ -334,7 +334,7 @@ impl TcpChannel {
 
     /// Enqueues the frame for sending on the channel.
     /// Enquing to a non-connected channel is disallowed.
-    pub fn enqueue_serialised(&mut self, serialized: SerialisedFrame) -> () {
+    pub fn enqueue_serialised(&mut self, serialized: SerialisedFrame) {
         self.outbound_queue.push_back(serialized);
     }
 
@@ -400,7 +400,7 @@ impl TcpChannel {
         }
     }
 
-    pub(crate) fn kill(&mut self) -> () {
+    pub(crate) fn kill(&mut self) {
         let _ = self.stream.shutdown(Both);
     }
 }

@@ -176,6 +176,8 @@ impl NetMessage {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -200,6 +202,7 @@ impl NetMessage {
     ///     }
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
+    /// # }
     /// ```
     #[allow(clippy::result_large_err)]
     pub fn try_into_deserialised<T: 'static, D>(
@@ -242,6 +245,8 @@ impl NetMessage {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -266,6 +271,7 @@ impl NetMessage {
     ///     }
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
+    /// # }
     /// ```
     /// # Note
     ///
@@ -297,6 +303,8 @@ impl NetMessage {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -319,6 +327,7 @@ impl NetMessage {
     ///     }
     ///     _ => unreachable!("It's definitely not...whatever this is..."),
     /// }
+    /// # }
     /// ```
     ///
     /// # Note
@@ -389,6 +398,8 @@ impl NetData {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -413,6 +424,7 @@ impl NetData {
     ///     }
     ///     Err(error) => panic!("Not the error we expected: {:?}", error),  
     /// }
+    /// # }
     /// ```
     pub fn try_deserialise<T: 'static, D>(self) -> Result<T, UnpackError<Self>>
     where
@@ -438,6 +450,8 @@ impl NetData {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// # #[cfg(feature = "distributed")]
+    /// # {
     /// # use kompact::doctest_helpers;
     /// use bytes::BytesMut;
     ///
@@ -460,6 +474,7 @@ impl NetData {
     ///     }
     ///     _ => unreachable!("It's definitely not...whatever this is..."),
     /// }
+    /// # }
     /// ```
     ///
     /// # Note

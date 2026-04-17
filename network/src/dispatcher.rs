@@ -16,8 +16,8 @@ use crate::{
     messaging::{
         ActorRegistration,
         DispatchData,
-        DispatchEvent,
         DispatchEnvelope,
+        DispatchEvent,
         MsgEnvelope,
         NetMessage,
         PathResolvable,
@@ -54,6 +54,7 @@ type NetHashMap<K, V> = FxHashMap<K, V>;
 ///
 /// ```
 /// use kompact::prelude::*;
+/// use kompact_net::NetworkConfig;
 ///
 /// let mut conf = KompactConfig::default();
 /// conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
@@ -143,7 +144,7 @@ impl NetworkConfig {
     }
 
     /// Sets the configurations [BufferConfig](net::buffers::BufferConfig) to `buffer_config`
-    pub fn set_buffer_config(&mut self, buffer_config: BufferConfig) -> () {
+    pub fn set_buffer_config(&mut self, buffer_config: BufferConfig) {
         self.buffer_config = buffer_config;
     }
 
@@ -300,6 +301,7 @@ impl NetworkDispatcher {
     ///
     /// ```
     /// use kompact::prelude::*;
+    /// use kompact_net::NetworkDispatcher;
     ///
     /// let mut conf = KompactConfig::default();
     /// conf.system_components(DeadletterBox::new, NetworkDispatcher::new);
@@ -348,7 +350,7 @@ impl NetworkDispatcher {
             .expect("Cached value should have been filled by calling self.system_path()!")
     }
 
-    fn start(&mut self) -> () {
+    fn start(&mut self) {
         debug!(self.ctx.log(), "Starting self and network bridge");
         self.reaper = lookup::gc::ActorRefReaper::from_config(self.ctx.config());
         self.start_bridge(self.cfg.addr);
@@ -364,7 +366,7 @@ impl NetworkDispatcher {
         self.schedule_retries();
     }
 
-    fn start_bridge(&mut self, address: SocketAddr) -> () {
+    fn start_bridge(&mut self, address: SocketAddr) {
         let dispatcher = self
             .actor_ref()
             .hold()
@@ -383,7 +385,7 @@ impl NetworkDispatcher {
         self.net_bridge = Some(bridge);
     }
 
-    fn handle_network_failure(&mut self) -> () {
+    fn handle_network_failure(&mut self) {
         self.network_status_port
             .trigger(NetworkStatus::CriticalNetworkFailure);
         let faulty_bridge = self.net_bridge.take();
@@ -402,7 +404,7 @@ impl NetworkDispatcher {
         self.start_bridge(bound_address);
     }
 
-    fn stop(&mut self) -> () {
+    fn stop(&mut self) {
         if let Some(Err(e)) = self.net_bridge.take().map(|bridge| bridge.stop()) {
             error!(
                 self.ctx().log(),
@@ -411,7 +413,7 @@ impl NetworkDispatcher {
         }
     }
 
-    fn kill(&mut self) -> () {
+    fn kill(&mut self) {
         if let Some(Err(e)) = self.net_bridge.take().map(|bridge| bridge.kill()) {
             error!(
                 self.ctx().log(),
@@ -635,7 +637,7 @@ impl NetworkDispatcher {
     }
 
     /// Forwards `msg` up to a local `dst` actor, if it exists.
-    fn route_local(&mut self, dst: ActorPath, msg: DispatchData) -> () {
+    fn route_local(&mut self, dst: ActorPath, msg: DispatchData) {
         let lookup = self.lookup.load();
         let lookup_result = lookup.get_by_actor_path(&dst);
         match msg.into_local() {
@@ -908,7 +910,7 @@ impl NetworkDispatcher {
         }
     }
 
-    fn close_channel(&mut self, addr: SocketAddr) -> () {
+    fn close_channel(&mut self, addr: SocketAddr) {
         if let Some(state) = self.connections.get_mut(&addr) {
             match state {
                 ConnectionState::Connected(session) => {

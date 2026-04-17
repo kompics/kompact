@@ -1,3 +1,5 @@
+#![cfg(feature = "distributed")]
+
 use kompact::prelude::*;
 use std::time::Duration;
 

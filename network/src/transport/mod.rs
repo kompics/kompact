@@ -4,9 +4,9 @@ use arc_swap::ArcSwap;
 use dispatch::lookup::ActorStore;
 
 use crate::{
-    events::NetworkDispatcherEvent,
     NetworkStatus,
     dispatch::NetworkConfig,
+    events::NetworkDispatcherEvent,
     messaging::{DispatchData, DispatchEnvelope},
     net::{SessionId, events::DispatchEvent, frames::*, network_thread::NetworkThreadBuilder},
 };
@@ -386,7 +386,7 @@ fn run_network_thread(
                     error!(
                         logger,
                         "NetworkThread panicked with type id={:?}",
-                        e.type_id()
+                        (*e).type_id()
                     );
                 }
                 dispatcher_ref.tell(DispatchEnvelope::Event(Box::new(
@@ -849,7 +849,7 @@ pub mod net_test_helpers {
             BigPingMsg { i, data, sum }
         }
 
-        fn validate(&self) -> () {
+        fn validate(&self) {
             let mut sum: u64 = 0;
             for d in &self.data {
                 sum += *d as u64;
@@ -882,7 +882,7 @@ pub mod net_test_helpers {
             BigPongMsg { i, data, sum }
         }
 
-        fn validate(&self) -> () {
+        fn validate(&self) {
             let mut sum: u64 = 0;
             for d in &self.data {
                 sum += *d as u64;
@@ -1372,6 +1372,12 @@ pub mod net_test_helpers {
             } else {
                 Err(SerError::Unknown("No Valid Receivers".to_string()))
             }
+        }
+    }
+
+    impl Default for NetworkStatusCounter {
+        fn default() -> Self {
+            Self::new()
         }
     }
 

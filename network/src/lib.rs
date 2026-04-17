@@ -55,11 +55,11 @@ pub use crate::{
 };
 
 pub trait NetworkSystemExt {
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> ();
+    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>);
 }
 
 impl NetworkSystemExt for KompactSystem {
-    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) -> () {
+    fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) {
         let mut connected = false;
         self.with_dispatcher_definition(|dispatcher| {
             let dispatcher = dispatcher

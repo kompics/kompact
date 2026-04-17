@@ -79,7 +79,7 @@ impl UdpState {
         Ok(sent_bytes)
     }
 
-    fn swap_buffer(&mut self, buffer_pool: &RefCell<BufferPool>) -> () {
+    fn swap_buffer(&mut self, buffer_pool: &RefCell<BufferPool>) {
         let mut pool = buffer_pool.borrow_mut();
         if let Some(mut buffer) = pool.get_buffer() {
             debug!(
@@ -161,7 +161,7 @@ impl UdpState {
         }
     }
 
-    pub(super) fn enqueue_serialised(&mut self, addr: SocketAddr, frame: SerialisedFrame) -> () {
+    pub(super) fn enqueue_serialised(&mut self, addr: SocketAddr, frame: SerialisedFrame) {
         self.outbound_queue.push_back((addr, frame));
     }
 }
