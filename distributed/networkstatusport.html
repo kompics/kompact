@@ -171,16 +171,15 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="network-status-port"><a class="header" href="#network-status-port">Network Status Port</a></h1>
-<p>The <code>NetworkDispatcher</code> provides a <code>NetworkStatusPort</code> which any Component may use to subscribe to information about the 
-Network, or make requests to the Network Layer.</p>
+<p>The provided socket transport in <code>kompact-net</code> exposes a <code>NetworkStatusPort</code> which any Component may use to subscribe to information about the 
+network, or make requests to the transport layer.</p>
 <h2 id="using-the-network-status-port"><a class="header" href="#using-the-network-status-port">Using the Network Status Port</a></h2>
-<p>To subscribe to the import a component must implement <code>Require</code> for <code>NetworkStatusPort</code>. The system must be set-up with 
-a <code>NetworkingConfig</code> to enable Networking. When the component is instantiated it must be explicitly connected to the 
-<code>NetworkStatusPort</code>. <code>KompactSystem</code> exposes the convenience method 
-<code>connect_network_status_port&lt;C&gt;(&amp;self, required: &amp;mut RequiredPort&lt;NetworkStatusPort&gt;)</code> to subscribe a component to the 
-port, and may be used as in the example below.</p>
-<pre><code># use kompact::prelude::*;
-# use kompact::net::net_test_helpers::NetworkStatusCounter;
+<p>To subscribe to the port a component must implement <code>Require</code> for <code>NetworkStatusPort</code>. The system must be set up with the
+<code>kompact-net</code> transport. When the component is instantiated it must be explicitly connected to the <code>NetworkStatusPort</code>.
+<code>kompact-net</code> provides the convenience trait <code>NetworkSystemExt</code>, which adds
+<code>connect_network_status_port(&amp;self, required: &amp;mut RequiredPort&lt;NetworkStatusPort&gt;)</code> for systems using the provided
+transport, and may be used as in the example below.</p>
+<pre><code># use kompact_net::{net_test_helpers::NetworkStatusCounter, prelude::*};
 let mut cfg = KompactConfig::new();
 cfg.system_components(DeadletterBox::new, {
     let net_config = NetworkConfig::new(&quot;127.0.0.1:0&quot;.parse().expect(&quot;&quot;));

@@ -285,7 +285,7 @@ And then we just wait for the component to do its work and shut the system down 
 <pre><code class="language-bash">lkroll $ cargo run --release --bin helloworld
     Finished release [optimized] target(s) in 0.09s
      Running `/Users/lkroll/Programming/Kompics/kompact/target/release/helloworld`
-Jul 07 16:28:45.870 INFO Hello World!, ctype: HelloWorldComponent, cid: 804ed483-54d5-41ab-ad8f-145f90bc7b45, system: kompact-runtime-1, location: docs/examples/src/bin/helloworld.rs:17
+Jul 07 16:28:45.870 INFO Hello World!, ctype: HelloWorldComponent, cid: 804ed483-54d5-41ab-ad8f-145f90bc7b45, system: kompact-runtime-1, location: docs/examples/local/src/bin/helloworld.rs:17
 </code></pre>
 <p>We can see the “Hello World” being logged, alongside a bunch of other contextual information that is automatically inserted by the runtime, such as the type name of the component doing the logging (<code>ctype</code>), the unique id of the component (<code>cid</code>) which differentiates from other instances of the same type, the name of the Kompact <code>system</code>, as well as the concrete location in the file where the logging statement occurs.</p>
 <p>If we run in debug mode, instead of release, using the simple <code>cargo run</code> we get a lot of additional output at the <code>debug</code> level, concerning system and component lifecycle – more on that later.</p>
@@ -463,7 +463,7 @@ impl Port for ControlPort {
 <p>The Actor model is an old concept introduced by Carl Hewitt in 1973, but it only really has become popular with the Erlang language, as well as the Akka framework. In this model, the term for a <em>light-weight process with internal state</em> is “an actor”, though we will stick to calling the equivalents in Kompact a “component” to avoid having two names for the same thing.</p>
 <h3 id="messages-and-references"><a class="header" href="#messages-and-references">Messages and References</a></h3>
 <p>Actors communicate via <em>messages</em>, which really are the same things as <em>events</em>, except they are addressed to a particular actor. This addressing is done via a concept called <em>actor reference</em>, which is a shareable datastruct that identifies an actor in a way that messages can be sent directly to it. In Erlang this is implemented as a “pid”, while in actor there is a class <code>ActorRef</code>. Kompact also has a struct called <code>ActorRef</code>, which fulfills the same purpose on a local Kompact system. However, as we will discuss later in more details, Kompact explicitly differentiates possible remote actors at the type level. References to them are instances of <code>ActorPath</code> instead of <code>ActorRef</code>.</p>
-<p>In Kompact, actors are statically typed with respect to the messages they can receive. That is, whenever you are implementing the <code>Actor</code> trait in Kompact for a component, you <strong>must</strong> specify a concrete <code>Message</code> type (as an associated type). Consequently, references to actors are also typed, so senders can only send valid messages to an actor. Thus a Kompact component which implements <code>Actor</code> with <code>type Message = M;</code> for some type <code>M</code> is referenced locally by an <code>ActorRef&lt;M&gt;</code>. The same is not true for <code>ActorPath</code>, as it is generally not possible to control what things are sent over a network, and so networked actors may have to deal with a wider range of possible incoming messages.</p>
+<p>In Kompact, actors are statically typed with respect to the messages they can receive. That is, whenever you are implementing the <code>Actor</code> trait in Kompact for a component, you <strong>must</strong> specify a concrete <code>Message</code> type (as an associated type). Consequently, references to actors are also typed, so senders can only send valid messages to an actor. Thus a Kompact component which implements <code>Actor</code> with <code>type Message = M;</code> for some type <code>M</code> is referenced locally by an <code>ActorRef&lt;M&gt;</code>. The same is not true for <code>ActorPath</code>, as it is generally not possible to control what things are sent over a network, and so distributed actors may have to deal with a wider range of possible incoming messages.</p>
 <h3 id="actors-and-components"><a class="header" href="#actors-and-components">Actors and Components</a></h3>
 <p>In Kompact every component is an actor and vice versa. Both the <code>Actor</code> (actually <code>ActorRaw</code>) and the <code>ComponentDefinition</code> trait need to be implemented in either case. But as we saw in the “Hello World”-example, the <code>Actor</code> trait can simply be derived when it’s not used by a component:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -532,10 +532,6 @@ impl Actor for HelloWorldActor {
         self.ctx().system().shutdown_async();
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;We are ignoring network messages for now.&quot;);
-    }
 }
 <span class="boring">pub fn main() {
 </span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
@@ -555,6 +551,7 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
+<p>In the default local-only <code>kompact</code> build the <code>receive_local(...)</code> method is enough. <code>receive_network(...)</code> only becomes part of the <code>Actor</code> surface once the <code>distributed</code> feature is enabled.</p>
 <p>Of course, a unit message is not going to be produced by the Kompact runtime as a lifecycle event, so we must send it to our component after creating it, using the <code>tell(...)</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -580,10 +577,6 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx().system().shutdown_async();
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are ignoring network messages for now.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span>pub fn main() {
@@ -701,10 +694,6 @@ impl Port for CounterPort {
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -828,10 +817,6 @@ impl Counter {
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
@@ -953,10 +938,6 @@ impl Actor for Counter {
         .expect(&quot;complete&quot;);
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
@@ -1077,10 +1058,6 @@ impl Actor for Counter {
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1330,10 +1307,6 @@ struct WorkResult(u64);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -1361,10 +1334,6 @@ struct WorkResult(u64);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1603,10 +1572,6 @@ struct WorkResult(u64);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -1634,10 +1599,6 @@ struct WorkResult(u64);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1876,10 +1837,6 @@ struct WorkResult(u64);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -1907,10 +1864,6 @@ struct WorkResult(u64);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2153,10 +2106,6 @@ struct WorkResult(u64);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -2184,10 +2133,6 @@ struct WorkResult(u64);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2426,10 +2371,6 @@ impl Port for WorkerPort {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -2457,10 +2398,6 @@ impl Port for WorkerPort {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2702,10 +2639,6 @@ impl Port for WorkerPort {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span>#[derive(ComponentDefinition)]
@@ -2733,10 +2666,6 @@ impl Worker {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -2982,10 +2911,6 @@ impl Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -3013,10 +2938,6 @@ impl Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -3259,10 +3180,6 @@ impl Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -3290,10 +3207,6 @@ impl Manager {
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         self.worker_port.trigger(WorkResult(res));
         Handled::Ok
-    }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
     }
 }
 <span class="boring">
@@ -3533,10 +3446,6 @@ impl Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -3564,10 +3473,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -3814,10 +3719,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -3845,10 +3746,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -4091,10 +3988,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -4122,10 +4015,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -4371,10 +4260,6 @@ ignore_requests!(WorkerPort, Worker);
         }
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -4402,10 +4287,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -4645,10 +4526,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -4676,10 +4553,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -4931,10 +4804,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -4962,10 +4831,6 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -5204,10 +5069,6 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -5235,10 +5096,6 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -5492,10 +5349,6 @@ enum ManagerMessage {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -5519,10 +5372,6 @@ enum ManagerMessage {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -5763,10 +5612,6 @@ enum ManagerMessage {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -5790,10 +5635,6 @@ enum ManagerMessage {
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         msg.reply(ManagerMessage::Result(WorkResult(res)));
         Handled::Ok
-    }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
     }
 }
 <span class="boring">
@@ -6034,10 +5875,6 @@ struct Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -6061,10 +5898,6 @@ struct Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -6305,10 +6138,6 @@ struct Manager {
         }
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -6332,10 +6161,6 @@ struct Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -6577,10 +6402,6 @@ struct Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -6604,10 +6425,6 @@ struct Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -6720,7 +6537,7 @@ impl Require&lt;Batching&gt; for BatchPrinter {
 With a batch size of 100 and a timeout of 150ms we will see mostly full batches in the first wave, while we usually see time-triggered waves in the second wave.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -6838,7 +6655,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
 <p>The state of the <code>Buncher</code> consists of the two configuration values, batch size and timeout, as well as the <code>Vec</code> storing the currently collecting batch and the handle for the currently scheduled timeout (<code>ScheduledTimer</code>).</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span>#[derive(ComponentDefinition, Actor)]
@@ -6955,7 +6772,7 @@ struct Buncher {
 <p>As part of the lifecyle we must set up the timer, but also make sure to clean it up after we are done. To be able to do so, we must store the <code>ScheduledTimer</code> handle that the <code>schedule_periodic(...)</code> function returns in a local field, so we can access it when we are paused or killed and pass it as a parameter to <code>cancel_timer(...)</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -7076,7 +6893,7 @@ struct Buncher {
 The actual code we want to call whenever our periodic timeout is triggered is a private function called <code>handle_timeout(...)</code> which has the signature expected by the <code>schedule_periodic(...)</code> function. It checks that the timeout we got is actually an expected timeout, before invoking the actual <code>trigger_batch(...)</code> function.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -7193,7 +7010,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 <p>The actual handler for the <code>Ping</code> events on the <code>Buncher</code> is pretty straight forward. We simply add the event to our active batch. Then we check if the batch is full, and if it is we again call <code>trigger_batch(...)</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -7308,10 +7125,10 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">}
 </span></code></pre>
 <p>If we go and run this implementation with the main function from above, we will see that for the first wave we often get a full batch followed by a very small batch, e.g.:</p>
-<pre><code class="language-bash">Mar 10 15:42:03.734 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
-Mar 10 15:42:03.762 INFO Got a batch with 22 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
-Mar 10 15:42:03.890 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
-Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
+<pre><code class="language-bash">Mar 10 15:42:03.734 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
+Mar 10 15:42:03.762 INFO Got a batch with 22 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
+Mar 10 15:42:03.890 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
+Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
 </code></pre>
 <p>This happens because we hit 100 Pings somewhere around 120ms into the timeout, and then there is only around 30ms left to collect events for the next batch. This, of course, isn’t particularly great behaviour for a batching abstraction. We would much rather have regular batches if the input is coming in regularly.</p>
 <blockquote>
@@ -7324,7 +7141,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 <p>To do so, we must first change the handler for lifecycle events to use <code>schedule_once(...)</code> instead of <code>schedule_periodic(...)</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -7448,7 +7265,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 <p>We must also remember to reschedule a new timeout when we handle a current one. It’s important to correctly replace the handle for the timeout so we never accidentally trigger on an outdated timeout.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -7572,7 +7389,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 <p>Finally, when we trigger a batch based on size, we must proactively cancel the current timeout and schedule a new one. Note that this cancellation API is asychronous, so it can very well happen that an already cancelled timeout will still be invoked because it was already queued up. That is why we must always check for a matching timeout handle before executing a received timeout.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -7791,10 +7608,6 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
@@ -7911,10 +7724,6 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -8051,10 +7860,6 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -8251,7 +8056,7 @@ delta = &quot;1 ms&quot;
 <p>We can then add this file to the <code>KompactConfig</code> instance using the <code>load_config_file(...)</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -8387,7 +8192,7 @@ delta = &quot;1 ms&quot;
 <p>To show off how multiple configuration sources can be combined, we will override the <code>batch-size</code> value from the main function with a literal string, <em>after</em> the file has been loaded:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -8523,7 +8328,7 @@ delta = &quot;1 ms&quot;
 <p>Now we change the <code>Buncher</code> constructor to not take any arguments anymore. Since we still need to put some values into the struct fields, let’s put some default values, say batch size of 0 and a timeout of 1ms. We could also go with an <code>Option</code>, if it’s important to know whether the component was initialised properly nor not. We also don’t know the required capacity for the vector anymore, so we just create an empty one, and extend it later once we have read the batch size from the config file.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -8659,7 +8464,7 @@ delta = &quot;1 ms&quot;
 <p>And, of course, we must also update the matching <code>create(...)</code> call in the main function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -8795,7 +8600,7 @@ delta = &quot;1 ms&quot;
 <p>Finally, the actual config access happens in the <code>on_start</code> code. At this point the component is properly initialised and we have access to configuration values. The Kompact config type has convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>&quot;100 ms&quot;</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -9837,10 +9642,6 @@ impl Actor for Adder {
         info!(self.log(), &quot;Adder result = {}&quot;, res);
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!()
-    }
 }
 
 struct SetOffset;
@@ -9882,10 +9683,6 @@ impl Actor for Multiplier {
         let res = a * self.scale;
         info!(self.log(), &quot;Multiplier result = {}&quot;, res);
         Handled::Ok
-    }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!()
     }
 }
 
@@ -9930,10 +9727,6 @@ impl Multiplier {
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -10047,10 +9840,6 @@ impl Multiplier {
 </span><span class="boring">
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl DynamicManager {
@@ -10140,10 +9929,6 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">struct SetOffset;
@@ -10185,10 +9970,6 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -10233,10 +10014,6 @@ impl Actor for Linear {
         let res = a * self.scale + self.offset;
         info!(self.log(), &quot;Linear result = {}&quot;, res);
         Handled::Ok
-    }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!()
     }
 }
 
@@ -10350,10 +10127,6 @@ impl Linear {
 </span><span class="boring">
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl DynamicManager {
@@ -10444,10 +10217,6 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">struct SetOffset;
@@ -10489,10 +10258,6 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -10537,10 +10302,6 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -10654,10 +10415,6 @@ ignore_lifecycle!(DynamicManager);
 </span><span class="boring">
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl DynamicManager {
@@ -10747,10 +10504,6 @@ some components.</p>
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">struct SetOffset;
@@ -10792,10 +10545,6 @@ some components.</p>
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -10840,10 +10589,6 @@ some components.</p>
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -10957,10 +10702,6 @@ impl Actor for DynamicManager {
 </span><span class="boring">
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl DynamicManager {
@@ -11054,10 +10795,6 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">struct SetOffset;
@@ -11099,10 +10836,6 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -11147,10 +10880,6 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -11264,10 +10993,6 @@ port exists on the abstract component and, if so, fetch it. </p>
 
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
-        unimplemented!()
-    }
 }
 
 impl DynamicManager {
@@ -11357,10 +11082,6 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">struct SetOffset;
@@ -11402,10 +11123,6 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -11450,10 +11167,6 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -11567,10 +11280,6 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!()
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl DynamicManager {
@@ -11638,35 +11347,36 @@ and interpret the lines as commands to send to the manager.</p>
      Running `/home/mrobakowski/projects/kompact/target/debug/dynamic_components`
 compute 1
 spawn adder
-Nov 09 00:55:59.917 INFO Starting..., ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+Nov 09 00:55:59.917 INFO Starting..., ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:39
 set offset 5
 compute 1
-Nov 09 00:56:43.465 INFO Adder result = 6, ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:46
+Nov 09 00:56:43.465 INFO Adder result = 6, ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:46
 spawn multiplier
-Nov 09 00:56:55.518 INFO Starting..., ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:85
+Nov 09 00:56:55.518 INFO Starting..., ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:85
 set scale 2
 compute 2
-Nov 09 00:57:09.684 INFO Adder result = 7, ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:46
-Nov 09 00:57:09.684 INFO Multiplier result = 4, ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:92
+Nov 09 00:57:09.684 INFO Adder result = 7, ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:46
+Nov 09 00:57:09.684 INFO Multiplier result = 4, ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:92
 kill all
-Nov 09 00:57:17.769 INFO Killing..., ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
-Nov 09 00:57:17.769 INFO Killing..., ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:85
+Nov 09 00:57:17.769 INFO Killing..., ctype: Adder, cid: 79bd396b-de75-4284-bc57-e0cf8193f72f, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:39
+Nov 09 00:57:17.769 INFO Killing..., ctype: Multiplier, cid: 47dd4827-8d35-4351-a717-344ec7fe70fe, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:85
 spawn linear
-Nov 09 00:57:24.840 INFO Starting..., ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:135
+Nov 09 00:57:24.840 INFO Starting..., ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:135
 spawn adder
-Nov 09 00:57:32.136 INFO Starting..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+Nov 09 00:57:32.136 INFO Starting..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:39
 set offset 2
 set scale 3
 compute 4
-Nov 09 00:57:41.558 INFO Linear result = 14, ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:142
-Nov 09 00:57:41.558 INFO Adder result = 6, ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:46
+Nov 09 00:57:41.558 INFO Linear result = 14, ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:142
+Nov 09 00:57:41.558 INFO Adder result = 6, ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:46
 quit
-Nov 09 00:57:51.351 INFO Killing..., ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:135
-Nov 09 00:57:51.352 INFO Killing..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/src/bin/dynamic_components.rs:39
+Nov 09 00:57:51.351 INFO Killing..., ctype: Linear, cid: d0f01d1a-b448-4b5f-bddd-701d764992ea, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:135
+Nov 09 00:57:51.352 INFO Killing..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-3b414fe2a7bb, system: kompact-runtime-1, location: docs/examples/local/src/bin/dynamic_components.rs:39
 
 </code></pre>
 <h1 id="distributed-kompact"><a class="header" href="#distributed-kompact">Distributed Kompact</a></h1>
-<p>Each Kompact system can be configured to use a networking library, called a <code>Dispatcher</code>, to communicate with other remote systems. In order to send messages to remote components, a special kind of actor reference is needed: an <code>ActorPath</code>. This is different from an <code>ActorRef</code> in that it contains the necessary information to route a message to the target component, not a reference to a queue. The queue for this kind of message is the system wide <code>Dispatcher</code>, which is responsible for figuring out how to get the message to the target indicated in the <code>ActorPath</code>. The implementation provided in the <code>NetworkDispatcher</code> that ships with Kompact will automatically establish and maintain the needed network links for any target you are sending to.</p>
+<p>The distributed layer in Kompact builds on <code>ActorPath</code> and a system-wide <code>Dispatcher</code>. <code>ActorPath</code> differs from an <code>ActorRef</code> in that it contains the information required to route a message to the target component instead of just a queue reference. The dispatcher is then responsible for resolving and delivering that path-addressed message.</p>
+<p>Path-based dispatching lives in <code>kompact</code> behind the <code>distributed</code> feature. Plain <code>kompact</code> now defaults to the local-only runtime surface, so distributed path APIs must be enabled explicitly when you use <code>kompact</code> directly. If you want the provided socket transport, use the companion crate <code>kompact-net</code>, which supplies the <code>NetworkDispatcher</code>, <code>NetworkConfig</code>, and related transport APIs on top of the same distributed core.</p>
 <h2 id="actor-paths"><a class="header" href="#actor-paths">Actor Paths</a></h2>
 <p>In addition to serving as opaque handles to remote components, actor paths can also be treated as human-readable resource identifiers. Internally, they are divided into two major parts:</p>
 <ol>
@@ -11684,7 +11394,7 @@ Nov 09 00:57:51.352 INFO Killing..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-
 <li><code>tcp://127.0.0.1:63482/my-service/instance1</code> (named)</li>
 </ul>
 <h3 id="system-paths"><a class="header" href="#system-paths">System Paths</a></h3>
-<p>A system path is essentially the same as you would address a server over a network. It specifies the transport protocol to use, the IP address, and the port. Different dispatchers are free to implement whichever set of transport protocols they wish to support. The provided <code>NetworkDispatcher</code> currently only offers TCP, in addition to the “fake” <code>local</code> protocol, which simply specifies an actor path within the same system via the dispatcher.</p>
+<p>A system path is essentially the same as you would address a server over a network. It specifies the transport protocol to use, the IP address, and the port. Different dispatchers are free to implement whichever set of transport protocols they wish to support. The provided <code>NetworkDispatcher</code> from <code>kompact-net</code> currently offers TCP, in addition to the “fake” <code>local</code> protocol, which simply specifies an actor path within the same system via the dispatcher.</p>
 <p>The <code>SystemPath</code> type specifies a system path alone, and can be acquired via <code>KompactSystem::system_path()</code>, for example. It doesn’t have any function by itself, but can be used to build up a full actor path or for comparisons, for example.</p>
 <h3 id="unique-paths"><a class="header" href="#unique-paths">Unique Paths</a></h3>
 <p>The <code>ActorPath::Unique</code> variant identifies a concrete instance of a component by its unique identifier, that is the same one you would get with <code>self.ctx.id()</code>, for example. So a unique path is really just a system path combined with a component id, which in the string representation is separated by a <code>#</code> character, e.g.: <code>tcp://127.0.0.1:63482#c6a799f0-77ff-4548-9726-744b90556ce7</code></p>
@@ -11694,10 +11404,10 @@ Nov 09 00:57:51.352 INFO Killing..., ctype: Adder, cid: c3b9a0c5-875d-4e1d-8c70-
 <p>In human-readable format a named path is represented by a system path followed by a sequence of strings beginning with and separated by forward slash (<code>/</code>) characters, just like a unix filesystem path would, e.g.: <code>tcp://127.0.0.1:63482/my-service/instance1</code></p>
 <p>Multiple named paths can be registered to the same component.</p>
 <h1 id="basic-communication"><a class="header" href="#basic-communication">Basic Communication</a></h1>
-<p>In order to use remote communication with Kompact we need to replace the default <code>Dispatcher</code> implementation, with the provided <code>NetworkDispatcher</code>. Custom dispatchers in general are set with the <code>KompactConfig::system_components(...)</code> function, which also allows replacement of the system’s deadletter box, that is the component that handles messages where no recipient could be resolved. An instance of the <code>NetworkDispatcher</code> should be created via its configuration struct using <code>NetworkConfig::build()</code>. This type also allows to specify the listening socket for the system via <code>KompactConfig::with_socket(...)</code>. The default implementation will bind to <code>127.0.0.1</code> on a random free port. Attempting to bind on an occupied port, or without appropriate rights on a reserved port such as 80 will cause the creation of the <code>KompactSystem</code> instance to fail.</p>
+<p>In order to use remote communication with Kompact we need the provided transport from <code>kompact-net</code>. Path-based dispatch itself lives in <code>kompact</code>, but the socket-backed <code>NetworkDispatcher</code> and its <code>NetworkConfig</code> are now supplied by <code>kompact-net</code>. Custom dispatchers in general are set with the <code>KompactConfig::system_components(...)</code> function, which also allows replacement of the system’s deadletter box, that is the component that handles messages where no recipient could be resolved. An instance of the provided <code>NetworkDispatcher</code> should be created via its configuration struct using <code>NetworkConfig::build()</code>. The default implementation will bind to <code>127.0.0.1</code> on a random free port. Attempting to bind on an occupied port, or without appropriate rights on a reserved port such as 80 will cause the creation of the <code>KompactSystem</code> instance to fail.</p>
 <p>Once a Kompact system with a network dispatcher is created, we need to acquire actor paths for each component we want to be addressable. Kompact requires components to be explicitly registered with a dispatcher and returns an appropriate actor path as the result of a successful registration. The easiest way to acquire a registered component and a unique actor path for it, is to call <code>KompactSystem::create_and_register(...)</code> instead of <code>KompactSystem::create(...)</code> when creating it. This will return both the component and a future with the actor path, which completes once registration was successful. It is typically recommended not to start a component before registration is complete, as messages it sends with its unique path as source might not be answerable until registration is completed.</p>
 <p>Sending messages is achieved by calling <code>ActorPath::tell(...)</code> with something that is serialisable (i.e. implements the <code>Serialisable</code> trait) and something that can produce a source address as well as a reference to the <code>Dispatcher</code>, typically just <code>self</code> from within a component.</p>
-<p>In order to receive messages, a component must implement (some variant of) the <code>Actor</code> trait, and in particular its <code>receive_network(...)</code> function. Deserialisation happens lazily in Kompact, that means components are passed serialised data and a serialisation identifier in the form of a <code>NetworkMessage</code> message. They must then decide based on the identifier if they want to try and deserialise the content into a message. This can be done using the <code>NetworkMessage::try_deserialise::&lt;TargetType, Deserialiser&gt;()</code> function, or more conveniently for multiple messages via the <code>match_deser!</code> macro. We will get back to serialisation in more detail <a href="distributed/serialisation.html">later</a>.</p>
+<p>In order to receive distributed messages, a component must implement an appropriate actor interface. The low-level option is to implement <code>Actor</code> and handle <code>receive_network(...)</code> yourself. If local and distributed messages share the same deserialised type, <code>NetworkActor</code> is usually more convenient because it performs the deserialisation step for you. Deserialisation happens lazily in Kompact, which means components receive a <code>NetMessage</code> containing the sender path, the serialisation identifier, and the serialised payload. They must then decide whether to deserialise that payload into a concrete message. This can be done using <code>NetMessage::try_deserialise::&lt;TargetType, Deserialiser&gt;()</code>, or more conveniently for multiple messages via the <code>match_deser!</code> macro. We will get back to serialisation in more detail <a href="distributed/serialisation.html">later</a>.</p>
 <h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
 <p>In this section we will go through a concrete example of a distributed service in Kompact. In particular, we are going to develop a distributed leader election abstraction, which internally uses heartbeats to establish a “candidate set” of live nodes, and then deterministically picks one node from the set to be the “leader”.</p>
 <h3 id="local-abstraction"><a class="header" href="#local-abstraction">Local Abstraction</a></h3>
@@ -11830,8 +11540,9 @@ impl SerialisationId for Heartbeat {
 </span></code></pre>
 <p>Additionally, we want be able to change the set of involved processes at runtime. This is primarily due to the fact that we will use unique paths for now and we simply don’t know the full set of unique paths at creation time of the actors that they refer to.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span>#[derive(Debug)]
@@ -12038,8 +11749,9 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 <li>Finally, we to keep track of the current <a href="distributed/../local/timers.html">timer handle</a> and the current leader, if any.</li>
 </ul>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -12243,8 +11955,9 @@ delta = &quot;1 ms&quot;
 </code></pre>
 <p>And then we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -12444,8 +12157,9 @@ delta = &quot;1 ms&quot;
 <h3 id="leader-election-algorithm"><a class="header" href="#leader-election-algorithm">Leader Election Algorithm</a></h3>
 <p>This part isn’t very specific to networking, but basically the election algorithm works as follows: Every time the timeout fires we clear out the current candidate set into a temporary vector. We then sort the vector and take the last element, if any, as the potential new leader. If that new leader is not the same as the current one then either our current leader has failed, or the timeout is wrong. For simplicity we will assume both is true and replace the leader and update the scheduled timeout by adding the <code>delta</code> to the current <code>period</code>. We then announce our new leader choice via a trigger on the <code>EventualLeaderDetection</code> port. Whether or not we replaced the leader, we always send heartbeats to everyone in the process set.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -12645,8 +12359,9 @@ delta = &quot;1 ms&quot;
 <h3 id="sending-network-messages"><a class="header" href="#sending-network-messages">Sending Network Messages</a></h3>
 <p>The only place in this example where we are sending remote messages is when we are sending heartbeats:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -12846,10 +12561,11 @@ delta = &quot;1 ms&quot;
 <p>We invoke the <code>ActorPath::tell(...)</code> method with a tuple of the actual <code>Heartbeat</code> together with the serialiser with want to use, which is <code>kompact::serde_serialisers::Serde</code>. We also pass a reference to <code>self</code> which will automatically insert our unique actor path into the message as the source and send everything to our system’s dispatcher, which will take care of serialisation, as well as network channel creation and selection for us.</p>
 <h3 id="handling-network-messages"><a class="header" href="#handling-network-messages">Handling Network Messages</a></h3>
 <p>In order to handle (network) messages we must implement the Actor trait as described <a href="distributed/../local/communication/messagesandevents.html">previously</a>. The local message type we are handling is <code>UpdateProcesses</code> and whenever we get it, we simply replace our current <code>processes</code> with the new value.</p>
-<p>For network messages, on the other hand, we don’t know what are being given, generally, so we get <code>NetworkMessage</code>. This is basically a wrapper around a sender <code>ActorPath</code>, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to <code>Heartbeat</code>. We also know we need to use <code>Serde</code> as a deserialiser, since that’s what we used for serialisation in the first place. Thus, we use <code>NetMessage::try_deserialise::&lt;Heartbeat, Serde&gt;()</code> to attempt to deserialise a <code>Heartbeat</code> from the buffer using the <code>Serde</code> deserialiser. This call will automatically check if the serialisation id matches <code>Heartbeat::SER_ID</code> and if yes, attempt to deserialise it using <code>Serde</code>. If it doesn’t work, we’ll get a <code>Result::Err</code> instead. If it does work, however, we don’t actually care about the Hearbeat itself, but we insert the sender from the <code>NetMessage</code> into <code>self.candidates</code>.</p>
+<p>For distributed messages, on the other hand, we don’t know what will arrive in general, so we receive a <code>NetMessage</code>. This is a wrapper around a sender <code>ActorPath</code>, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to <code>Heartbeat</code>. We also know we need to use <code>Serde</code> as a deserialiser, since that is what we used for serialisation in the first place. Thus, we use <code>NetMessage::try_deserialise::&lt;Heartbeat, Serde&gt;()</code> to attempt to deserialise a <code>Heartbeat</code> from the buffer using the <code>Serde</code> deserialiser. This call will automatically check whether the serialisation id matches <code>Heartbeat::SER_ID</code> and, if yes, attempt to deserialise it using <code>Serde</code>. If it does not work, we’ll get a <code>Result::Err</code> instead. If it does work, however, we don’t actually care about the <code>Heartbeat</code> itself, but insert the sender from the <code>NetMessage</code> into <code>self.candidates</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -13047,11 +12763,12 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="system-setup"><a class="header" href="#system-setup">System Setup</a></h3>
-<p>In this example we need to set up multiple systems in the same process for the first time, since we want them to communicate via the network instead of directly, as a preparation for actually running distributed. We are going to take the number of systems (and thus leader election components) as a command line argument. We start each system with the same configuration file and give them each a <code>NetworkDispatcher</code> with default settings. This way we don’t have to manually pick a bunch of ports and hope they happen to be free. On the other hand that means, of course, that we can’t predict what system addresses are going to look like. So in order to give everyone a set of processes to talk to, we need to wait until all systems are set up and all the leader elector components started and registered, collect all the registrations into a vector and then send an update to every component with the complete set.</p>
+<p>In this example we need to set up multiple systems in the same process for the first time, since we want them to communicate via the network instead of directly, as a preparation for actually running distributed. We are going to take the number of systems (and thus leader election components) as a command line argument. We start each system with the same configuration file and give them each a <code>NetworkDispatcher</code> from <code>kompact-net</code> with default settings. This way we don’t have to manually pick a bunch of ports and hope they happen to be free. On the other hand that means, of course, that we can’t predict what system addresses are going to look like. So in order to give everyone a set of processes to talk to, we need to wait until all systems are set up and all the leader elector components started and registered, collect all the registrations into a vector and then send an update to every component with the complete set.</p>
 <p>At this point the system is running just fine and we give it some time to settle on timeouts and elect a leader. We will see the result in the logging messages eventually. Now to see the leader election responding to actual changes, we are going to kill one system at a time and always give it a second to settle. This way we can watch the elector on the remaining systems updating the trust values one by one.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -13260,8 +12977,9 @@ pub fn run_systems(num_systems: usize) {
 <h2 id="messages-3"><a class="header" href="#messages-3">Messages</a></h2>
 <p>For the bootstrapping communication we require a new <code>CheckIn</code> message. It doesn’t actually need any content, since we really only care about the <code>ActorPath</code> of the sender. We will reply to this message with our <code>UpdateProcesses</code> message from the previous section. However, since that has to go over the network now, we need to make it serialisable. We also aren’t locally sharing the process set anymore, so we turn the <code>Arc&lt;[ActorPath]&gt;</code> into a simple <code>Vec&lt;ActorPath&gt;</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -13560,8 +13278,9 @@ impl SerialisationId for UpdateProcesses {
 <h2 id="state-3"><a class="header" href="#state-3">State</a></h2>
 <p>Our bootstrap server’s state is almost trivial. All it needs to keep track of is the current process set.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -13859,8 +13578,9 @@ impl BootstrapServer {
 </span></code></pre>
 <p>We also need to alter our leader elector a bit. First it needs to know the actor path of the bootstrap server, so it can actually check in. And second, we need to adapt the type of <code>processes</code> to be in line with our changes to <code>UpdateProcesses</code>. We’ll make it a <code>Box&lt;[ActorPath]&gt;</code> instead of <code>Arc&lt;[ActorPath]&gt;</code> and do the conversion from <code>Vec&lt;ActorPath&gt;</code> whenever we receive an update.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -14159,8 +13879,9 @@ impl EventualLeaderElector {
 <h2 id="behaviours"><a class="header" href="#behaviours">Behaviours</a></h2>
 <p>The behaviour of the bootstrap server is very simple. Whenever it gets a <code>CheckIn</code>, it adds the source of the message to its process set and then broadcasts the new process set to every process in the set. We will use the <code>NetworkActor</code> trait to implement the actor part here instead of <code>Actor</code>. <code>NetworkActor</code> is a convenience trait for actors that handle the same set of messages locally and remotely and ignore all other remote messages. It handles the deserialisation part for us, but we must tell it both the <code>Message</code> type and the <code>Deserialiser</code> type to use. Of course, in this case we don’t actually do anything for local messages, since we only need the sender and local messages simply don’t have a sender attached.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -14458,8 +14179,9 @@ impl NetworkActor for BootstrapServer {
 </span></code></pre>
 <p>We must also make some small changes to the behaviour of the leader elector itself. First of all we must now send the <code>CheckIn</code> when we are being started. As before we are using <code>Serde</code> as a serialisation mechanism, so we really only have to add the following line to the <code>on_start</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -14777,8 +14499,9 @@ The syntax for each different message case in the macro is basically:</p>
 <p>For cases where <code>MessageType = DeserialiserType</code> the <code>[using DeserialiserType]</code> block can be elided. There are also default and error branches available for the macro, an example of which can be see in the <a href="https://docs.rs/kompact/latest/kompact/macro.match_deser.html">API docs</a>. It is also possible to immediately destructure the deserialised message by replacing <code>variable_name</code> with a pattern, as can be seen in the case of <code>UpdateProcesses</code> below.</p>
 <p>Using this macro, our new actor implementation becomes the following:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -15082,10 +14805,11 @@ The syntax for each different message case in the macro is basically:</p>
 <li>Make sure that the Kompact system actually runs on localhost at the given port, and</li>
 <li>register a named path alias for the <code>BootstrapServer</code> with the name <code>&quot;bootstrap&quot;</code>.</li>
 </ol>
-<p>To achieve the first part, we create the <code>NetworkDispatcher</code> from a <code>SocketAddr</code> instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call <code>KompactSystem::register_by_alias(...)</code> with the target component and the path to register. The rest is more or less as before.</p>
+<p>To achieve the first part, we create the <code>NetworkDispatcher</code> from <code>kompact-net</code> using a <code>SocketAddr</code> instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call <code>KompactSystem::register_by_alias(...)</code> with the target component and the path to register. The rest is more or less as before.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -15384,8 +15108,9 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <h3 id="client"><a class="header" href="#client">Client</a></h3>
 <p>The client setup works almost the same as in the previous section, except that we need to construct the required <code>ActorPath</code> instance for the bootstrap server given its <code>SocketAddr</code> now. We can do so using <code>NamedPath::with_socket(...)</code> which will construct a <code>NamedPath</code> instance that can easily be converted into an <code>ActorPath</code>. We pass this instance to the leader elector component during construction.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -15684,8 +15409,9 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <h3 id="running-with-commandline-arguments"><a class="header" href="#running-with-commandline-arguments">Running with Commandline Arguments</a></h3>
 <p>All that is left to do is to convert the port numbers given on the command line to the required <code>SocketAddr</code> instances and calling the correct method. When we are given 1 argument (port number) we will start a bootstrap server, and if we are given 2 arguments (server port and client port) we will start a client instead.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -16032,7 +15758,8 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <h3 id="messages-4"><a class="header" href="#messages-4">Messages</a></h3>
 <p>We only have two messages, the <code>Query</code> with a unique request id and the actual pattern we want to match against, and the <code>QueryResponse</code> which has all the fields of the <code>Query</code> plus a vector of strings that matched the pattern. For convenience, we will use <code>Serde</code> as serialisation mechanism again.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -16351,7 +16078,8 @@ impl SerialisationId for QueryResponse {
 <h3 id="state-and-behaviour"><a class="header" href="#state-and-behaviour">State and Behaviour</a></h3>
 <p>As for this example the exact implementation of the servers and clients is not really crucial, we won’t describe it in detail here. The important things to note are that the <code>Client</code> uses the path <code>server_path</code> field to send requests, which we will initialise later with a select path of the form <code>tcp://127.0.0.1:&lt;port&gt;/server/?</code>. It also replaces its unique response path with a <code>broadcast_path</code>, which we will initialise later with a broadcast path of the form <code>tcp://127.0.0.1:&lt;port&gt;/client/*</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -16670,7 +16398,8 @@ impl SerialisationId for QueryResponse {
 <h3 id="system-setup-1"><a class="header" href="#system-setup-1">System Setup</a></h3>
 <p>When setting up the Kompact system in the main, we will use the following constants, which essentially represent configuration of our scenario:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -16988,7 +16717,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span></code></pre>
 <p>First of all we set up the routing policies and their associated paths. In order to show off both variants, we will use implicit routing for the client broadcast path and explicit routing for the server select path. As mentioned before, implicit routing does not really require any specific setup. We simply construct the appropriate path, which in this case is going to be our system path followed by <code>client/*</code>. For the server load-balancing, we want to use the round-robin policy, which we will register under the <code>server</code> alias using <code>KompactSystem::set_routing_policy(...)</code>. Like a normal actor registration, this call returns a future with the actual path for this policy. Since the policy is set explicitly, this path will actually be of the form <code>tcp://127.0.0.1:&lt;port&gt;/server</code>, but sending a message to <code>tcp://127.0.0.1:&lt;port&gt;/server/?</code> would behave in the same manner.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -17307,7 +17037,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <p>We will then create and register both the servers and the clients, making sure to register either with a unique name (based on their index) under the correct path prefix.</p>
 <h4 id="servers"><a class="header" href="#servers">Servers</a></h4>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -17625,7 +17356,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span></code></pre>
 <h4 id="clients"><a class="header" href="#clients">Clients</a></h4>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -17944,7 +17676,8 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 <h3 id="running"><a class="header" href="#running">Running</a></h3>
 <p>Finally, we simply start the servers and the clients, then run them for a few seconds, and shut them down again, before shutting down the system itself.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use lru::LruCache;
 </span><span class="boring">use rand::{Rng, RngExt, distr::Alphanumeric, rng, rngs::SmallRng};
 </span><span class="boring">use serde::{Deserialize, Serialize};
@@ -18261,21 +17994,21 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">}
 </span></code></pre>
 <p>If we inspect the output in release mode, we can see that both clients and servers print some final statistics about their run. In particular the results of the servers show that the requests were very well balanced, thanks to our round-robin policy:</p>
-<pre><code>Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1060 requests with 6 cache hits (0.005660377358490566%), ctype: Client, cid: 07739284-1171-43c7-b547-198f9adf31e2, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1055 requests with 7 cache hits (0.006635071090047393%), ctype: Client, cid: 7a33e17c-042f-4271-95ea-a725ee471dae, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1052 requests with 4 cache hits (0.0038022813688212928%), ctype: Client, cid: 9b3c3c57-8246-4456-a7b8-0d200086df8d, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1050 requests with 3 cache hits (0.002857142857142857%), ctype: Client, cid: 1ecdef68-43af-46b4-8a40-a8ad4147b811, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1051 requests with 5 cache hits (0.004757373929590866%), ctype: Client, cid: 034f5dcc-a0ba-4bc2-aca0-6f1ab12be139, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1047 requests with 2 cache hits (0.0019102196752626551%), ctype: Client, cid: 59679577-6e9a-44ef-9739-08ca1b32b03f, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1048 requests with 3 cache hits (0.0028625954198473282%), ctype: Client, cid: ef76ddd0-e240-4ad6-8a10-b98da9ba41ff, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1044 requests with 0 cache hits (0%), ctype: Client, cid: ddf7d77a-4987-4411-81a5-bc4841200c32, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1051 requests with 7 cache hits (0.006660323501427212%), ctype: Client, cid: 12b65a83-c443-4853-8337-47ba5c45f60d, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.871 INFO Shutting down a Client that ran 1046 requests with 3 cache hits (0.0028680688336520078%), ctype: Client, cid: c7978b3f-9cf2-44d2-b93f-fc32ad90c941, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1049 requests with 6 cache hits (0.005719733079122974%), ctype: Client, cid: af389f4d-bc93-4f37-8f50-a70e054651e0, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1047 requests with 4 cache hits (0.0038204393505253103%), ctype: Client, cid: ad20509a-dbab-4dd3-a497-99a8488101b3, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:152
-Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: 35309404-a989-4b18-848f-5cc719b19a76, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
-Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4184 requests, ctype: QueryServer, cid: 2a2ed2cb-36bb-4df0-ac0e-0204e12417bd, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
-Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: a3d6d94a-ff9c-4749-9b6a-db2bfa2ac3e2, system: kompact-runtime-1, location: docs/examples/src/bin/load_balancer.rs:56
+<pre><code>Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1060 requests with 6 cache hits (0.005660377358490566%), ctype: Client, cid: 07739284-1171-43c7-b547-198f9adf31e2, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1055 requests with 7 cache hits (0.006635071090047393%), ctype: Client, cid: 7a33e17c-042f-4271-95ea-a725ee471dae, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1052 requests with 4 cache hits (0.0038022813688212928%), ctype: Client, cid: 9b3c3c57-8246-4456-a7b8-0d200086df8d, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1050 requests with 3 cache hits (0.002857142857142857%), ctype: Client, cid: 1ecdef68-43af-46b4-8a40-a8ad4147b811, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.869 INFO Shutting down a Client that ran 1051 requests with 5 cache hits (0.004757373929590866%), ctype: Client, cid: 034f5dcc-a0ba-4bc2-aca0-6f1ab12be139, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1047 requests with 2 cache hits (0.0019102196752626551%), ctype: Client, cid: 59679577-6e9a-44ef-9739-08ca1b32b03f, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1048 requests with 3 cache hits (0.0028625954198473282%), ctype: Client, cid: ef76ddd0-e240-4ad6-8a10-b98da9ba41ff, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1044 requests with 0 cache hits (0%), ctype: Client, cid: ddf7d77a-4987-4411-81a5-bc4841200c32, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.870 INFO Shutting down a Client that ran 1051 requests with 7 cache hits (0.006660323501427212%), ctype: Client, cid: 12b65a83-c443-4853-8337-47ba5c45f60d, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.871 INFO Shutting down a Client that ran 1046 requests with 3 cache hits (0.0028680688336520078%), ctype: Client, cid: c7978b3f-9cf2-44d2-b93f-fc32ad90c941, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1049 requests with 6 cache hits (0.005719733079122974%), ctype: Client, cid: af389f4d-bc93-4f37-8f50-a70e054651e0, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.872 INFO Shutting down a Client that ran 1047 requests with 4 cache hits (0.0038204393505253103%), ctype: Client, cid: ad20509a-dbab-4dd3-a497-99a8488101b3, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:152
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: 35309404-a989-4b18-848f-5cc719b19a76, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4184 requests, ctype: QueryServer, cid: 2a2ed2cb-36bb-4df0-ac0e-0204e12417bd, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:56
+Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctype: QueryServer, cid: a3d6d94a-ff9c-4749-9b6a-db2bfa2ac3e2, system: kompact-runtime-1, location: docs/examples/net/src/bin/load_balancer.rs:56
 </code></pre>
 <blockquote>
 <p><strong>Note:</strong> As before, if you have checked out the <a href="https://github.com/kompics/kompact/tree/master/docs/examples">examples folder</a> you can run the concrete binary with:</p>
@@ -18330,8 +18063,9 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </code></pre>
 <p>This behaves essentually the same, except that it doesn’t serialise itself, but an instance of another type <code>T</code>. In order to use an instance <code>t: T</code> with a <code>Serialiser&lt;T&gt;</code> we can simply pass a pair of the two to the <code>ActorPath::tell(...)</code> function, as we have already seen in the previous section, for example with <code>Serde</code>:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -18722,8 +18456,9 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 <h4 id="serialiser-1"><a class="header" href="#serialiser-1">Serialiser</a></h4>
 <p>In our example, <code>CheckIn</code> is a <em>zero-sized type</em> (ZST), since we don’t really care about the message, only about the sender. Since ZSTs have no content, we can uniquely identify them by their serialisation id alone and all the serialisers for them are basically identical, in that their <code>serialise(...)</code> function consists simply of <code>Ok(())</code>. For this example, instead of using <code>Serde</code> for <code>CheckIn</code>, we will write our own <code>Serialiser</code> implementation for ZSTs and then use it for <code>CheckIn</code>. We could also use it for <code>Heartbeat</code>, but we won’t, so as to leave it as a reference for the other approach.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -19110,8 +18845,9 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 <p>In order to create the correct type instance during deserialisation, we use the <code>Default</code> trait, which can be trivially derived for ZSTs.</p>
 <p>It is clear that this serialiser is basically trivial. We can use it by creating a pair of <code>Checkin</code> with a reference to our static instance <code>CHECK_IN_SER</code>, which simply specialises the <code>ZstSerialiser</code> for <code>CheckIn</code>, as we did before: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -19497,8 +19233,9 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 <h4 id="serialisable"><a class="header" href="#serialisable">Serialisable</a></h4>
 <p>Since the previous example was somewhat trivial, we will do a slightly trickier one for the <code>Serialisable</code> example. We will make the <code>UpdateProcesses</code> type both <code>Serialisable</code> and <code>Deserialiser&lt;UpdateProcesses&gt;</code>. This type contains a vector of <code>ActorPath</code> instances, which we must handle correctly. We will reuse the <code>Serialisable</code> and <code>Deserialiser&lt;ActorPath&gt;</code> implementations that are already provided for the <code>ActorPath</code> type.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -19888,8 +19625,9 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 <h3 id="example-4"><a class="header" href="#example-4">Example</a></h3>
 <p>To show an easy usage for this approach, we use eager serialisation in the <code>BootstrapServer::broadcast_processess</code> function: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -20280,8 +20018,8 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 <li><strong>Lazy serialisation</strong> <code>dst.tell(msg: M, from: S);</code></li>
 <li><strong>Eager serialisation</strong> <code>dst.tell_serialised(msg: M, from: &amp;self);</code></li>
 </ol>
-<p>With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the <code>NetworkDispatcher</code>, which later serialises the message into its (the <code>NetworkDispatcher</code>‘s) own buffers.<br />
-Eager serialisation serialises the data immediately into the Actor’s buffers, and then transfers ownership of the serialised the data to the <code>NetworkDispatcher</code>.</p>
+<p>With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the <code>NetworkDispatcher</code>, which later serialises the message into its own buffers.<br />
+Eager serialisation serialises the data immediately into the Actor’s buffers, and then transfers ownership of the serialised data to the <code>NetworkDispatcher</code>.</p>
 <p>Lazy serialisation may fail due to two reasons: A serialisation error, or there are no available buffers. Both will be
 unnoticeable to the actor initiating the message sending, and both will lead to the message being lost.</p>
 <h2 id="how-the-buffer-pools-work"><a class="header" href="#how-the-buffer-pools-work">How the Buffer Pools work</a></h2>
@@ -20338,8 +20076,8 @@ cfg.load_config_str(
 let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <p>If a <code>BufferConfig</code> is loaded into the systems <code>KompactConfig</code> then all actors will use that configuration instead of the default <code>BufferConfig</code>, however individual actors may still override the configuration by using the <code>init_buffers(...)</code> method.</p>
-<h4 id="configuring-the-networkdispatcher-and-networkthread"><a class="header" href="#configuring-the-networkdispatcher-and-networkthread">Configuring the NetworkDispatcher and NetworkThread</a></h4>
-<p>The <code>NetworkDispatcher</code> and <code>NetworkThread</code> are configured separately from the Actors and use their buffers for lazy serialisation and receiving data from the network. To configure their buffers the <code>NetworkConfig</code> may be created using the method <code>::with_buffer_config(...)</code> as in the example below:</p>
+<h4 id="configuring-the-kompact-net-transport"><a class="header" href="#configuring-the-kompact-net-transport">Configuring the <code>kompact-net</code> transport</a></h4>
+<p>The provided transport in <code>kompact-net</code> configures its <code>NetworkDispatcher</code> and <code>NetworkThread</code> separately from the Actors and uses its own buffers for lazy serialisation and receiving data from the network. To configure those buffers, create the <code>NetworkConfig</code> with <code>::with_buffer_config(...)</code> as in the example below:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">let mut cfg = KompactConfig::new();
 let mut network_buffer_config = BufferConfig::default();
 network_buffer_config.chunk_size(512);
@@ -20367,16 +20105,15 @@ let system = cfg.build().expect(&quot;KompactSystem&quot;);
 <p>The method <code>init_buffers(...)</code> takes two <code>Option</code> arguments, of which the second argument has not been covered. The second argument allows users of Kompact to specify a <code>CustomAllocator</code>: a poorly tested, experimental feature which is left undocumented for the time being. </p>
 </div>
 <h1 id="network-status-port"><a class="header" href="#network-status-port">Network Status Port</a></h1>
-<p>The <code>NetworkDispatcher</code> provides a <code>NetworkStatusPort</code> which any Component may use to subscribe to information about the 
-Network, or make requests to the Network Layer.</p>
+<p>The provided socket transport in <code>kompact-net</code> exposes a <code>NetworkStatusPort</code> which any Component may use to subscribe to information about the 
+network, or make requests to the transport layer.</p>
 <h2 id="using-the-network-status-port"><a class="header" href="#using-the-network-status-port">Using the Network Status Port</a></h2>
-<p>To subscribe to the import a component must implement <code>Require</code> for <code>NetworkStatusPort</code>. The system must be set-up with 
-a <code>NetworkingConfig</code> to enable Networking. When the component is instantiated it must be explicitly connected to the 
-<code>NetworkStatusPort</code>. <code>KompactSystem</code> exposes the convenience method 
-<code>connect_network_status_port&lt;C&gt;(&amp;self, required: &amp;mut RequiredPort&lt;NetworkStatusPort&gt;)</code> to subscribe a component to the 
-port, and may be used as in the example below.</p>
-<pre><code># use kompact::prelude::*;
-# use kompact::net::net_test_helpers::NetworkStatusCounter;
+<p>To subscribe to the port a component must implement <code>Require</code> for <code>NetworkStatusPort</code>. The system must be set up with the
+<code>kompact-net</code> transport. When the component is instantiated it must be explicitly connected to the <code>NetworkStatusPort</code>.
+<code>kompact-net</code> provides the convenience trait <code>NetworkSystemExt</code>, which adds
+<code>connect_network_status_port(&amp;self, required: &amp;mut RequiredPort&lt;NetworkStatusPort&gt;)</code> for systems using the provided
+transport, and may be used as in the example below.</p>
+<pre><code># use kompact_net::{net_test_helpers::NetworkStatusCounter, prelude::*};
 let mut cfg = KompactConfig::new();
 cfg.system_components(DeadletterBox::new, {
     let net_config = NetworkConfig::new(&quot;127.0.0.1:0&quot;.parse().expect(&quot;&quot;));
@@ -20538,10 +20275,6 @@ struct DnsResponse(String);
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
@@ -20651,10 +20384,6 @@ impl DnsComponent {
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -20768,10 +20497,6 @@ impl DnsComponent {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
@@ -20883,10 +20608,6 @@ impl DnsComponent {
             panic!(&quot;Component should have been initialised first!&quot;)
         }
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;ignore networking&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">fn main() {
@@ -20996,10 +20717,6 @@ impl DnsComponent {
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

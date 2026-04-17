@@ -226,7 +226,7 @@ impl Require&lt;Batching&gt; for BatchPrinter {
 With a batch size of 100 and a timeout of 150ms we will see mostly full batches in the first wave, while we usually see time-triggered waves in the second wave.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -344,7 +344,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
 <p>The state of the <code>Buncher</code> consists of the two configuration values, batch size and timeout, as well as the <code>Vec</code> storing the currently collecting batch and the handle for the currently scheduled timeout (<code>ScheduledTimer</code>).</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span>#[derive(ComponentDefinition, Actor)]
@@ -461,7 +461,7 @@ struct Buncher {
 <p>As part of the lifecyle we must set up the timer, but also make sure to clean it up after we are done. To be able to do so, we must store the <code>ScheduledTimer</code> handle that the <code>schedule_periodic(...)</code> function returns in a local field, so we can access it when we are paused or killed and pass it as a parameter to <code>cancel_timer(...)</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -582,7 +582,7 @@ struct Buncher {
 The actual code we want to call whenever our periodic timeout is triggered is a private function called <code>handle_timeout(...)</code> which has the signature expected by the <code>schedule_periodic(...)</code> function. It checks that the timeout we got is actually an expected timeout, before invoking the actual <code>trigger_batch(...)</code> function.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -699,7 +699,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 <p>The actual handler for the <code>Ping</code> events on the <code>Buncher</code> is pretty straight forward. We simply add the event to our active batch. Then we check if the batch is full, and if it is we again call <code>trigger_batch(...)</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -814,10 +814,10 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">}
 </span></code></pre>
 <p>If we go and run this implementation with the main function from above, we will see that for the first wave we often get a full batch followed by a very small batch, e.g.:</p>
-<pre><code class="language-bash">Mar 10 15:42:03.734 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
-Mar 10 15:42:03.762 INFO Got a batch with 22 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
-Mar 10 15:42:03.890 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
-Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/src/batching.rs:33
+<pre><code class="language-bash">Mar 10 15:42:03.734 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
+Mar 10 15:42:03.762 INFO Got a batch with 22 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
+Mar 10 15:42:03.890 INFO Got a batch with 100 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
+Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4c79e0b1-1d74-455b-987a-14f66bcd4025, system: kompact-runtime-1, location: docs/examples/local/src/batching.rs:33
 </code></pre>
 <p>This happens because we hit 100 Pings somewhere around 120ms into the timeout, and then there is only around 30ms left to collect events for the next batch. This, of course, isn’t particularly great behaviour for a batching abstraction. We would much rather have regular batches if the input is coming in regularly.</p>
 <blockquote>
@@ -830,7 +830,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 <p>To do so, we must first change the handler for lifecycle events to use <code>schedule_once(...)</code> instead of <code>schedule_periodic(...)</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -954,7 +954,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 <p>We must also remember to reschedule a new timeout when we handle a current one. It’s important to correctly replace the handle for the timeout so we never accidentally trigger on an outdated timeout.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -1078,7 +1078,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 <p>Finally, when we trigger a batch based on size, we must proactively cancel the current timeout and schedule a new one. Note that this cancellation API is asychronous, so it can very well happen that an already cancelled timeout will still be invoked because it was already queued up. That is why we must always check for a matching timeout handle before executing a received timeout.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]

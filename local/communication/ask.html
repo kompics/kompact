@@ -368,10 +368,6 @@
         }
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -399,10 +395,6 @@
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -642,10 +634,6 @@
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -673,10 +661,6 @@
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

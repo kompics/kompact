@@ -262,10 +262,6 @@ impl Port for CounterPort {
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
@@ -388,10 +384,6 @@ impl Counter {
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
@@ -513,10 +505,6 @@ impl Actor for Counter {
         .expect(&quot;complete&quot;);
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
@@ -637,10 +625,6 @@ impl Actor for Counter {
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

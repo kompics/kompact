@@ -177,8 +177,8 @@
 <li><strong>Lazy serialisation</strong> <code>dst.tell(msg: M, from: S);</code></li>
 <li><strong>Eager serialisation</strong> <code>dst.tell_serialised(msg: M, from: &amp;self);</code></li>
 </ol>
-<p>With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the <code>NetworkDispatcher</code>, which later serialises the message into its (the <code>NetworkDispatcher</code>‘s) own buffers.<br />
-Eager serialisation serialises the data immediately into the Actor’s buffers, and then transfers ownership of the serialised the data to the <code>NetworkDispatcher</code>.</p>
+<p>With lazy serialisation the Actor moves the data to the heap, and transfers it unserialised to the <code>NetworkDispatcher</code>, which later serialises the message into its own buffers.<br />
+Eager serialisation serialises the data immediately into the Actor’s buffers, and then transfers ownership of the serialised data to the <code>NetworkDispatcher</code>.</p>
 <p>Lazy serialisation may fail due to two reasons: A serialisation error, or there are no available buffers. Both will be
 unnoticeable to the actor initiating the message sending, and both will lead to the message being lost.</p>
 <h2 id="how-the-buffer-pools-work"><a class="header" href="#how-the-buffer-pools-work">How the Buffer Pools work</a></h2>
@@ -235,8 +235,8 @@ cfg.load_config_str(
 let system = cfg.build().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <p>If a <code>BufferConfig</code> is loaded into the systems <code>KompactConfig</code> then all actors will use that configuration instead of the default <code>BufferConfig</code>, however individual actors may still override the configuration by using the <code>init_buffers(...)</code> method.</p>
-<h4 id="configuring-the-networkdispatcher-and-networkthread"><a class="header" href="#configuring-the-networkdispatcher-and-networkthread">Configuring the NetworkDispatcher and NetworkThread</a></h4>
-<p>The <code>NetworkDispatcher</code> and <code>NetworkThread</code> are configured separately from the Actors and use their buffers for lazy serialisation and receiving data from the network. To configure their buffers the <code>NetworkConfig</code> may be created using the method <code>::with_buffer_config(...)</code> as in the example below:</p>
+<h4 id="configuring-the-kompact-net-transport"><a class="header" href="#configuring-the-kompact-net-transport">Configuring the <code>kompact-net</code> transport</a></h4>
+<p>The provided transport in <code>kompact-net</code> configures its <code>NetworkDispatcher</code> and <code>NetworkThread</code> separately from the Actors and uses its own buffers for lazy serialisation and receiving data from the network. To configure those buffers, create the <code>NetworkConfig</code> with <code>::with_buffer_config(...)</code> as in the example below:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">let mut cfg = KompactConfig::new();
 let mut network_buffer_config = BufferConfig::default();
 network_buffer_config.chunk_size(512);

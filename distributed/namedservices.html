@@ -176,8 +176,9 @@
 <h2 id="messages"><a class="header" href="#messages">Messages</a></h2>
 <p>For the bootstrapping communication we require a new <code>CheckIn</code> message. It doesn’t actually need any content, since we really only care about the <code>ActorPath</code> of the sender. We will reply to this message with our <code>UpdateProcesses</code> message from the previous section. However, since that has to go over the network now, we need to make it serialisable. We also aren’t locally sharing the process set anymore, so we turn the <code>Arc&lt;[ActorPath]&gt;</code> into a simple <code>Vec&lt;ActorPath&gt;</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -476,8 +477,9 @@ impl SerialisationId for UpdateProcesses {
 <h2 id="state"><a class="header" href="#state">State</a></h2>
 <p>Our bootstrap server’s state is almost trivial. All it needs to keep track of is the current process set.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -775,8 +777,9 @@ impl BootstrapServer {
 </span></code></pre>
 <p>We also need to alter our leader elector a bit. First it needs to know the actor path of the bootstrap server, so it can actually check in. And second, we need to adapt the type of <code>processes</code> to be in line with our changes to <code>UpdateProcesses</code>. We’ll make it a <code>Box&lt;[ActorPath]&gt;</code> instead of <code>Arc&lt;[ActorPath]&gt;</code> and do the conversion from <code>Vec&lt;ActorPath&gt;</code> whenever we receive an update.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -1075,8 +1078,9 @@ impl EventualLeaderElector {
 <h2 id="behaviours"><a class="header" href="#behaviours">Behaviours</a></h2>
 <p>The behaviour of the bootstrap server is very simple. Whenever it gets a <code>CheckIn</code>, it adds the source of the message to its process set and then broadcasts the new process set to every process in the set. We will use the <code>NetworkActor</code> trait to implement the actor part here instead of <code>Actor</code>. <code>NetworkActor</code> is a convenience trait for actors that handle the same set of messages locally and remotely and ignore all other remote messages. It handles the deserialisation part for us, but we must tell it both the <code>Message</code> type and the <code>Deserialiser</code> type to use. Of course, in this case we don’t actually do anything for local messages, since we only need the sender and local messages simply don’t have a sender attached.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -1374,8 +1378,9 @@ impl NetworkActor for BootstrapServer {
 </span></code></pre>
 <p>We must also make some small changes to the behaviour of the leader elector itself. First of all we must now send the <code>CheckIn</code> when we are being started. As before we are using <code>Serde</code> as a serialisation mechanism, so we really only have to add the following line to the <code>on_start</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -1693,8 +1698,9 @@ The syntax for each different message case in the macro is basically:</p>
 <p>For cases where <code>MessageType = DeserialiserType</code> the <code>[using DeserialiserType]</code> block can be elided. There are also default and error branches available for the macro, an example of which can be see in the <a href="https://docs.rs/kompact/latest/kompact/macro.match_deser.html">API docs</a>. It is also possible to immediately destructure the deserialised message by replacing <code>variable_name</code> with a pattern, as can be seen in the case of <code>UpdateProcesses</code> below.</p>
 <p>Using this macro, our new actor implementation becomes the following:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -1998,10 +2004,11 @@ The syntax for each different message case in the macro is basically:</p>
 <li>Make sure that the Kompact system actually runs on localhost at the given port, and</li>
 <li>register a named path alias for the <code>BootstrapServer</code> with the name <code>&quot;bootstrap&quot;</code>.</li>
 </ol>
-<p>To achieve the first part, we create the <code>NetworkDispatcher</code> from a <code>SocketAddr</code> instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call <code>KompactSystem::register_by_alias(...)</code> with the target component and the path to register. The rest is more or less as before.</p>
+<p>To achieve the first part, we create the <code>NetworkDispatcher</code> from <code>kompact-net</code> using a <code>SocketAddr</code> instance that contains the correct IP and port instead of using the default value as we did before. To register a component with a named path, we must call <code>KompactSystem::register_by_alias(...)</code> with the target component and the path to register. The rest is more or less as before.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -2300,8 +2307,9 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <h3 id="client"><a class="header" href="#client">Client</a></h3>
 <p>The client setup works almost the same as in the previous section, except that we need to construct the required <code>ActorPath</code> instance for the bootstrap server given its <code>SocketAddr</code> now. We can do so using <code>NamedPath::with_socket(...)</code> which will construct a <code>NamedPath</code> instance that can easily be converted into an <code>ActorPath</code>. We pass this instance to the leader elector component during construction.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
@@ -2600,8 +2608,9 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 <h3 id="running-with-commandline-arguments"><a class="header" href="#running-with-commandline-arguments">Running with Commandline Arguments</a></h3>
 <p>All that is left to do is to convert the port numbers given on the command line to the required <code>SocketAddr</code> instances and calling the correct method. When we are given 1 argument (port number) we will start a bootstrap server, and if we are given 2 arguments (server port and client port) we will start a client instead.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use serde::{Deserialize, Serialize};
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,

@@ -370,10 +370,6 @@ enum ManagerMessage {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -397,10 +393,6 @@ enum ManagerMessage {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -641,10 +633,6 @@ enum ManagerMessage {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -668,10 +656,6 @@ enum ManagerMessage {
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         msg.reply(ManagerMessage::Result(WorkResult(res)));
         Handled::Ok
-    }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
     }
 }
 <span class="boring">
@@ -912,10 +896,6 @@ struct Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -939,10 +919,6 @@ struct Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1183,10 +1159,6 @@ struct Manager {
         }
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -1210,10 +1182,6 @@ struct Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1455,10 +1423,6 @@ struct Manager {
 </span><span class="boring">        }
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition)]
@@ -1482,10 +1446,6 @@ struct Manager {
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;Still ignoring networking stuff.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

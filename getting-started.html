@@ -280,7 +280,7 @@ And then we just wait for the component to do its work and shut the system down 
 <pre><code class="language-bash">lkroll $ cargo run --release --bin helloworld
     Finished release [optimized] target(s) in 0.09s
      Running `/Users/lkroll/Programming/Kompics/kompact/target/release/helloworld`
-Jul 07 16:28:45.870 INFO Hello World!, ctype: HelloWorldComponent, cid: 804ed483-54d5-41ab-ad8f-145f90bc7b45, system: kompact-runtime-1, location: docs/examples/src/bin/helloworld.rs:17
+Jul 07 16:28:45.870 INFO Hello World!, ctype: HelloWorldComponent, cid: 804ed483-54d5-41ab-ad8f-145f90bc7b45, system: kompact-runtime-1, location: docs/examples/local/src/bin/helloworld.rs:17
 </code></pre>
 <p>We can see the “Hello World” being logged, alongside a bunch of other contextual information that is automatically inserted by the runtime, such as the type name of the component doing the logging (<code>ctype</code>), the unique id of the component (<code>cid</code>) which differentiates from other instances of the same type, the name of the Kompact <code>system</code>, as well as the concrete location in the file where the logging statement occurs.</p>
 <p>If we run in debug mode, instead of release, using the simple <code>cargo run</code> we get a lot of additional output at the <code>debug</code> level, concerning system and component lifecycle – more on that later.</p>

@@ -217,8 +217,9 @@
 </code></pre>
 <p>This behaves essentually the same, except that it doesn’t serialise itself, but an instance of another type <code>T</code>. In order to use an instance <code>t: T</code> with a <code>Serialiser&lt;T&gt;</code> we can simply pass a pair of the two to the <code>ActorPath::tell(...)</code> function, as we have already seen in the previous section, for example with <code>Serde</code>:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -609,8 +610,9 @@
 <h4 id="serialiser-1"><a class="header" href="#serialiser-1">Serialiser</a></h4>
 <p>In our example, <code>CheckIn</code> is a <em>zero-sized type</em> (ZST), since we don’t really care about the message, only about the sender. Since ZSTs have no content, we can uniquely identify them by their serialisation id alone and all the serialisers for them are basically identical, in that their <code>serialise(...)</code> function consists simply of <code>Ok(())</code>. For this example, instead of using <code>Serde</code> for <code>CheckIn</code>, we will write our own <code>Serialiser</code> implementation for ZSTs and then use it for <code>CheckIn</code>. We could also use it for <code>Heartbeat</code>, but we won’t, so as to leave it as a reference for the other approach.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -997,8 +999,9 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 <p>In order to create the correct type instance during deserialisation, we use the <code>Default</code> trait, which can be trivially derived for ZSTs.</p>
 <p>It is clear that this serialiser is basically trivial. We can use it by creating a pair of <code>Checkin</code> with a reference to our static instance <code>CHECK_IN_SER</code>, which simply specialises the <code>ZstSerialiser</code> for <code>CheckIn</code>, as we did before: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -1384,8 +1387,9 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 <h4 id="serialisable"><a class="header" href="#serialisable">Serialisable</a></h4>
 <p>Since the previous example was somewhat trivial, we will do a slightly trickier one for the <code>Serialisable</code> example. We will make the <code>UpdateProcesses</code> type both <code>Serialisable</code> and <code>Deserialiser&lt;UpdateProcesses&gt;</code>. This type contains a vector of <code>ActorPath</code> instances, which we must handle correctly. We will reuse the <code>Serialisable</code> and <code>Deserialiser&lt;ActorPath&gt;</code> implementations that are already provided for the <code>ActorPath</code> type.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,
@@ -1775,8 +1779,9 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 <h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
 <p>To show an easy usage for this approach, we use eager serialisation in the <code>BootstrapServer::broadcast_processess</code> function: </p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{
 </span><span class="boring">    collections::HashSet,
 </span><span class="boring">    convert::TryInto,

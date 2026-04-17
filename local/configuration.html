@@ -189,7 +189,7 @@ delta = &quot;1 ms&quot;
 <p>We can then add this file to the <code>KompactConfig</code> instance using the <code>load_config_file(...)</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -325,7 +325,7 @@ delta = &quot;1 ms&quot;
 <p>To show off how multiple configuration sources can be combined, we will override the <code>batch-size</code> value from the main function with a literal string, <em>after</em> the file has been loaded:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -461,7 +461,7 @@ delta = &quot;1 ms&quot;
 <p>Now we change the <code>Buncher</code> constructor to not take any arguments anymore. Since we still need to put some values into the struct fields, let’s put some default values, say batch size of 0 and a timeout of 1ms. We could also go with an <code>Option</code>, if it’s important to know whether the component was initialised properly nor not. We also don’t know the required capacity for the vector anymore, so we just create an empty one, and extend it later once we have read the batch size from the config file.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -597,7 +597,7 @@ delta = &quot;1 ms&quot;
 <p>And, of course, we must also update the matching <code>create(...)</code> call in the main function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]
@@ -733,7 +733,7 @@ delta = &quot;1 ms&quot;
 <p>Finally, the actual config access happens in the <code>on_start</code> code. At this point the component is properly initialised and we have access to configuration values. The Kompact config type has convenient conversion functions, so we can get a <code>Duration</code> directly from the <code>&quot;100 ms&quot;</code> string in the file, for example. Once we have read the values for <code>batch_size</code> and <code>timeout</code>, we can also go ahead and reserve the required additional space in the <code>current_batch</code> vector.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
-</span><span class="boring">use kompact_examples::batching::*;
+</span><span class="boring">use kompact_examples_local::batching::*;
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span><span class="boring">#[derive(ComponentDefinition, Actor)]

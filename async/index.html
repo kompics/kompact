@@ -257,10 +257,6 @@ struct DnsResponse(String);
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
@@ -370,10 +366,6 @@ impl DnsComponent {
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -487,10 +479,6 @@ impl DnsComponent {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
@@ -602,10 +590,6 @@ impl DnsComponent {
             panic!(&quot;Component should have been initialised first!&quot;)
         }
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;ignore networking&quot;);
-    }
 }
 <span class="boring">
 </span><span class="boring">fn main() {
@@ -715,10 +699,6 @@ impl DnsComponent {
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;ignore networking&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

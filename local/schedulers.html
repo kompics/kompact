@@ -262,10 +262,6 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
 </span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
-</span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
@@ -382,10 +378,6 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -522,10 +514,6 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are still ignoring network messages.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

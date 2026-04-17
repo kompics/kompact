@@ -174,7 +174,7 @@
 <p>The Actor model is an old concept introduced by Carl Hewitt in 1973, but it only really has become popular with the Erlang language, as well as the Akka framework. In this model, the term for a <em>light-weight process with internal state</em> is “an actor”, though we will stick to calling the equivalents in Kompact a “component” to avoid having two names for the same thing.</p>
 <h3 id="messages-and-references"><a class="header" href="#messages-and-references">Messages and References</a></h3>
 <p>Actors communicate via <em>messages</em>, which really are the same things as <em>events</em>, except they are addressed to a particular actor. This addressing is done via a concept called <em>actor reference</em>, which is a shareable datastruct that identifies an actor in a way that messages can be sent directly to it. In Erlang this is implemented as a “pid”, while in actor there is a class <code>ActorRef</code>. Kompact also has a struct called <code>ActorRef</code>, which fulfills the same purpose on a local Kompact system. However, as we will discuss later in more details, Kompact explicitly differentiates possible remote actors at the type level. References to them are instances of <code>ActorPath</code> instead of <code>ActorRef</code>.</p>
-<p>In Kompact, actors are statically typed with respect to the messages they can receive. That is, whenever you are implementing the <code>Actor</code> trait in Kompact for a component, you <strong>must</strong> specify a concrete <code>Message</code> type (as an associated type). Consequently, references to actors are also typed, so senders can only send valid messages to an actor. Thus a Kompact component which implements <code>Actor</code> with <code>type Message = M;</code> for some type <code>M</code> is referenced locally by an <code>ActorRef&lt;M&gt;</code>. The same is not true for <code>ActorPath</code>, as it is generally not possible to control what things are sent over a network, and so networked actors may have to deal with a wider range of possible incoming messages.</p>
+<p>In Kompact, actors are statically typed with respect to the messages they can receive. That is, whenever you are implementing the <code>Actor</code> trait in Kompact for a component, you <strong>must</strong> specify a concrete <code>Message</code> type (as an associated type). Consequently, references to actors are also typed, so senders can only send valid messages to an actor. Thus a Kompact component which implements <code>Actor</code> with <code>type Message = M;</code> for some type <code>M</code> is referenced locally by an <code>ActorRef&lt;M&gt;</code>. The same is not true for <code>ActorPath</code>, as it is generally not possible to control what things are sent over a network, and so distributed actors may have to deal with a wider range of possible incoming messages.</p>
 <h3 id="actors-and-components"><a class="header" href="#actors-and-components">Actors and Components</a></h3>
 <p>In Kompact every component is an actor and vice versa. Both the <code>Actor</code> (actually <code>ActorRaw</code>) and the <code>ComponentDefinition</code> trait need to be implemented in either case. But as we saw in the “Hello World”-example, the <code>Actor</code> trait can simply be derived when it’s not used by a component:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -243,10 +243,6 @@ impl Actor for HelloWorldActor {
         self.ctx().system().shutdown_async();
         Handled::Ok
     }
-
-    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-        unimplemented!(&quot;We are ignoring network messages for now.&quot;);
-    }
 }
 <span class="boring">pub fn main() {
 </span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
@@ -266,6 +262,7 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
+<p>In the default local-only <code>kompact</code> build the <code>receive_local(...)</code> method is enough. <code>receive_network(...)</code> only becomes part of the <code>Actor</code> surface once the <code>distributed</code> feature is enabled.</p>
 <p>Of course, a unit message is not going to be produced by the Kompact runtime as a lifecycle event, so we must send it to our component after creating it, using the <code>tell(...)</code> function:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -291,10 +288,6 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx().system().shutdown_async();
 </span><span class="boring">        Handled::Ok
-</span><span class="boring">    }
-</span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, _msg: NetMessage) -&gt; Handled {
-</span><span class="boring">        unimplemented!(&quot;We are ignoring network messages for now.&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span>pub fn main() {

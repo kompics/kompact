@@ -171,10 +171,10 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="basic-communication"><a class="header" href="#basic-communication">Basic Communication</a></h1>
-<p>In order to use remote communication with Kompact we need to replace the default <code>Dispatcher</code> implementation, with the provided <code>NetworkDispatcher</code>. Custom dispatchers in general are set with the <code>KompactConfig::system_components(...)</code> function, which also allows replacement of the system’s deadletter box, that is the component that handles messages where no recipient could be resolved. An instance of the <code>NetworkDispatcher</code> should be created via its configuration struct using <code>NetworkConfig::build()</code>. This type also allows to specify the listening socket for the system via <code>KompactConfig::with_socket(...)</code>. The default implementation will bind to <code>127.0.0.1</code> on a random free port. Attempting to bind on an occupied port, or without appropriate rights on a reserved port such as 80 will cause the creation of the <code>KompactSystem</code> instance to fail.</p>
+<p>In order to use remote communication with Kompact we need the provided transport from <code>kompact-net</code>. Path-based dispatch itself lives in <code>kompact</code>, but the socket-backed <code>NetworkDispatcher</code> and its <code>NetworkConfig</code> are now supplied by <code>kompact-net</code>. Custom dispatchers in general are set with the <code>KompactConfig::system_components(...)</code> function, which also allows replacement of the system’s deadletter box, that is the component that handles messages where no recipient could be resolved. An instance of the provided <code>NetworkDispatcher</code> should be created via its configuration struct using <code>NetworkConfig::build()</code>. The default implementation will bind to <code>127.0.0.1</code> on a random free port. Attempting to bind on an occupied port, or without appropriate rights on a reserved port such as 80 will cause the creation of the <code>KompactSystem</code> instance to fail.</p>
 <p>Once a Kompact system with a network dispatcher is created, we need to acquire actor paths for each component we want to be addressable. Kompact requires components to be explicitly registered with a dispatcher and returns an appropriate actor path as the result of a successful registration. The easiest way to acquire a registered component and a unique actor path for it, is to call <code>KompactSystem::create_and_register(...)</code> instead of <code>KompactSystem::create(...)</code> when creating it. This will return both the component and a future with the actor path, which completes once registration was successful. It is typically recommended not to start a component before registration is complete, as messages it sends with its unique path as source might not be answerable until registration is completed.</p>
 <p>Sending messages is achieved by calling <code>ActorPath::tell(...)</code> with something that is serialisable (i.e. implements the <code>Serialisable</code> trait) and something that can produce a source address as well as a reference to the <code>Dispatcher</code>, typically just <code>self</code> from within a component.</p>
-<p>In order to receive messages, a component must implement (some variant of) the <code>Actor</code> trait, and in particular its <code>receive_network(...)</code> function. Deserialisation happens lazily in Kompact, that means components are passed serialised data and a serialisation identifier in the form of a <code>NetworkMessage</code> message. They must then decide based on the identifier if they want to try and deserialise the content into a message. This can be done using the <code>NetworkMessage::try_deserialise::&lt;TargetType, Deserialiser&gt;()</code> function, or more conveniently for multiple messages via the <code>match_deser!</code> macro. We will get back to serialisation in more detail <a href="serialisation.html">later</a>.</p>
+<p>In order to receive distributed messages, a component must implement an appropriate actor interface. The low-level option is to implement <code>Actor</code> and handle <code>receive_network(...)</code> yourself. If local and distributed messages share the same deserialised type, <code>NetworkActor</code> is usually more convenient because it performs the deserialisation step for you. Deserialisation happens lazily in Kompact, which means components receive a <code>NetMessage</code> containing the sender path, the serialisation identifier, and the serialised payload. They must then decide whether to deserialise that payload into a concrete message. This can be done using <code>NetMessage::try_deserialise::&lt;TargetType, Deserialiser&gt;()</code>, or more conveniently for multiple messages via the <code>match_deser!</code> macro. We will get back to serialisation in more detail <a href="serialisation.html">later</a>.</p>
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>In this section we will go through a concrete example of a distributed service in Kompact. In particular, we are going to develop a distributed leader election abstraction, which internally uses heartbeats to establish a “candidate set” of live nodes, and then deterministically picks one node from the set to be the “leader”.</p>
 <h3 id="local-abstraction"><a class="header" href="#local-abstraction">Local Abstraction</a></h3>
@@ -307,8 +307,9 @@ impl SerialisationId for Heartbeat {
 </span></code></pre>
 <p>Additionally, we want be able to change the set of involved processes at runtime. This is primarily due to the fact that we will use unique paths for now and we simply don’t know the full set of unique paths at creation time of the actors that they refer to.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span>#[derive(Debug)]
@@ -515,8 +516,9 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 <li>Finally, we to keep track of the current <a href="../local/timers.html">timer handle</a> and the current leader, if any.</li>
 </ul>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -720,8 +722,9 @@ delta = &quot;1 ms&quot;
 </code></pre>
 <p>And then we can load it and start the initial timeout in the <code>on_start</code> handler as before:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -921,8 +924,9 @@ delta = &quot;1 ms&quot;
 <h3 id="leader-election-algorithm"><a class="header" href="#leader-election-algorithm">Leader Election Algorithm</a></h3>
 <p>This part isn’t very specific to networking, but basically the election algorithm works as follows: Every time the timeout fires we clear out the current candidate set into a temporary vector. We then sort the vector and take the last element, if any, as the potential new leader. If that new leader is not the same as the current one then either our current leader has failed, or the timeout is wrong. For simplicity we will assume both is true and replace the leader and update the scheduled timeout by adding the <code>delta</code> to the current <code>period</code>. We then announce our new leader choice via a trigger on the <code>EventualLeaderDetection</code> port. Whether or not we replaced the leader, we always send heartbeats to everyone in the process set.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -1122,8 +1126,9 @@ delta = &quot;1 ms&quot;
 <h3 id="sending-network-messages"><a class="header" href="#sending-network-messages">Sending Network Messages</a></h3>
 <p>The only place in this example where we are sending remote messages is when we are sending heartbeats:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -1323,10 +1328,11 @@ delta = &quot;1 ms&quot;
 <p>We invoke the <code>ActorPath::tell(...)</code> method with a tuple of the actual <code>Heartbeat</code> together with the serialiser with want to use, which is <code>kompact::serde_serialisers::Serde</code>. We also pass a reference to <code>self</code> which will automatically insert our unique actor path into the message as the source and send everything to our system’s dispatcher, which will take care of serialisation, as well as network channel creation and selection for us.</p>
 <h3 id="handling-network-messages"><a class="header" href="#handling-network-messages">Handling Network Messages</a></h3>
 <p>In order to handle (network) messages we must implement the Actor trait as described <a href="../local/communication/messagesandevents.html">previously</a>. The local message type we are handling is <code>UpdateProcesses</code> and whenever we get it, we simply replace our current <code>processes</code> with the new value.</p>
-<p>For network messages, on the other hand, we don’t know what are being given, generally, so we get <code>NetworkMessage</code>. This is basically a wrapper around a sender <code>ActorPath</code>, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to <code>Heartbeat</code>. We also know we need to use <code>Serde</code> as a deserialiser, since that’s what we used for serialisation in the first place. Thus, we use <code>NetMessage::try_deserialise::&lt;Heartbeat, Serde&gt;()</code> to attempt to deserialise a <code>Heartbeat</code> from the buffer using the <code>Serde</code> deserialiser. This call will automatically check if the serialisation id matches <code>Heartbeat::SER_ID</code> and if yes, attempt to deserialise it using <code>Serde</code>. If it doesn’t work, we’ll get a <code>Result::Err</code> instead. If it does work, however, we don’t actually care about the Hearbeat itself, but we insert the sender from the <code>NetMessage</code> into <code>self.candidates</code>.</p>
+<p>For distributed messages, on the other hand, we don’t know what will arrive in general, so we receive a <code>NetMessage</code>. This is a wrapper around a sender <code>ActorPath</code>, a serialisation id, and a byte buffer with the serialised data. In our example, we know we only want to handle messages that deserialise to <code>Heartbeat</code>. We also know we need to use <code>Serde</code> as a deserialiser, since that is what we used for serialisation in the first place. Thus, we use <code>NetMessage::try_deserialise::&lt;Heartbeat, Serde&gt;()</code> to attempt to deserialise a <code>Heartbeat</code> from the buffer using the <code>Serde</code> deserialiser. This call will automatically check whether the serialisation id matches <code>Heartbeat::SER_ID</code> and, if yes, attempt to deserialise it using <code>Serde</code>. If it does not work, we’ll get a <code>Result::Err</code> instead. If it does work, however, we don’t actually care about the <code>Heartbeat</code> itself, but insert the sender from the <code>NetMessage</code> into <code>self.candidates</code>.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
@@ -1524,11 +1530,12 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="system-setup"><a class="header" href="#system-setup">System Setup</a></h3>
-<p>In this example we need to set up multiple systems in the same process for the first time, since we want them to communicate via the network instead of directly, as a preparation for actually running distributed. We are going to take the number of systems (and thus leader election components) as a command line argument. We start each system with the same configuration file and give them each a <code>NetworkDispatcher</code> with default settings. This way we don’t have to manually pick a bunch of ports and hope they happen to be free. On the other hand that means, of course, that we can’t predict what system addresses are going to look like. So in order to give everyone a set of processes to talk to, we need to wait until all systems are set up and all the leader elector components started and registered, collect all the registrations into a vector and then send an update to every component with the complete set.</p>
+<p>In this example we need to set up multiple systems in the same process for the first time, since we want them to communicate via the network instead of directly, as a preparation for actually running distributed. We are going to take the number of systems (and thus leader election components) as a command line argument. We start each system with the same configuration file and give them each a <code>NetworkDispatcher</code> from <code>kompact-net</code> with default settings. This way we don’t have to manually pick a bunch of ports and hope they happen to be free. On the other hand that means, of course, that we can’t predict what system addresses are going to look like. So in order to give everyone a set of processes to talk to, we need to wait until all systems are set up and all the leader elector components started and registered, collect all the registrations into a vector and then send an update to every component with the complete set.</p>
 <p>At this point the system is running just fine and we give it some time to settle on timeouts and elect a leader. We will see the result in the logging messages eventually. Now to see the leader election responding to actual changes, we are going to kill one system at a time and always give it a second to settle. This way we can watch the elector on the remaining systems updating the trust values one by one.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
-</span><span class="boring">use kompact::{prelude::*, serde_serialisers::*};
-</span><span class="boring">use kompact_examples::trusting::*;
+</span><span class="boring">use kompact::serde_serialisers::*;
+</span><span class="boring">use kompact_examples_net::trusting::*;
+</span><span class="boring">use kompact_net::prelude::*;
 </span><span class="boring">use std::{collections::HashSet, sync::Arc, time::Duration};
 </span><span class="boring">
 </span><span class="boring">#[derive(Debug)]
