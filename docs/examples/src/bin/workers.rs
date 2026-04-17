@@ -204,6 +204,7 @@ impl Actor for Manager {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }
@@ -242,6 +243,7 @@ impl Actor for Worker {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("Still ignoring networking stuff.");
     }

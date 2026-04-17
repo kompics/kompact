@@ -81,6 +81,7 @@ impl Actor for Counter {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("We are still ignoring network messages.");
     }

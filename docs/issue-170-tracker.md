@@ -412,3 +412,9 @@ This file tracks the agreed migration for issue [#170](https://github.com/kompic
   - `core/Cargo.toml` no longer depends on `mio` or `iprange`
   - `cargo check -p kompact` passes
   - `cargo check -p kompact-net` passes
+- P18.13 Final docs/examples cleanup for the split.
+  - local example actors now gate their `receive_network(...)` boilerplate on the examples crate's `distributed` feature
+  - introductory and distributed book chapters now call out the local-only build mode and the `NetMessage`/`NetworkActor` split more explicitly
+  - the remaining review threads for the review-fix slice were resolved after pushing the changes
+  - `cargo fmt --all -- --check` passes
+  - `cargo check -p kompact-examples` passes

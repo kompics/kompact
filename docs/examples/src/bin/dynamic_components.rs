@@ -26,6 +26,7 @@ impl Actor for Adder {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!()
     }
@@ -72,6 +73,7 @@ impl Actor for Multiplier {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!()
     }
@@ -122,6 +124,7 @@ impl Actor for Linear {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!()
     }
@@ -244,6 +247,7 @@ impl Actor for DynamicManager {
         Handled::Ok
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _: NetMessage) -> Handled {
         unimplemented!()
     }

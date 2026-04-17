@@ -6,6 +6,8 @@ edition = "2024"
 rust-version = "1.94.1"
 
 [features]
+default = ["distributed"]
+distributed = ["kompact/distributed"]
 type_erasure = ["kompact/type_erasure"]
 silent_logging = ["kompact/silent_logging"]
 

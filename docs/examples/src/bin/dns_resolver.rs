@@ -80,6 +80,7 @@ impl Actor for DnsComponent {
         }
     }
 
+    #[cfg(feature = "distributed")]
     fn receive_network(&mut self, _msg: NetMessage) -> Handled {
         unimplemented!("ignore networking");
     }
