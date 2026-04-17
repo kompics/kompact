@@ -1,6 +1,6 @@
 [package]
 name = "kompact-net"
-version = "0.11.3"
+version = "0.12.0"
 authors = [
     "Lars Kroll <lkroll@kth.se>",
     "Johan Mickos <johanmi@kth.se>",
@@ -20,7 +20,7 @@ default = []
 low_latency = ["kompact/low_latency"]
 
 [dependencies]
-kompact = { version = "0.11.3", path = "../core", features = ["distributed"] }
+kompact = { version = "0.12.0", path = "../core", features = ["distributed"] }
 arc-swap = { workspace = true }
 async-std = { workspace = true }
 bytes = { workspace = true }
