@@ -60,6 +60,7 @@ where
 ///     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled {
 ///         match env {
 ///            MsgEnvelope::Typed(m) => info!(self.log(), "Got a local message: {:?}", m),
+/// #          #[cfg(feature = "distributed")]
 ///            MsgEnvelope::Net(nm) => info!(self.log(), "Got a network message: {:?}", nm),
 ///         }
 ///         Handled::Ok
@@ -172,10 +173,6 @@ where
             MsgEnvelope::Typed(m) => self.receive_local(m),
             #[cfg(feature = "distributed")]
             MsgEnvelope::Net(nm) => self.receive_network(nm),
-            #[cfg(not(feature = "distributed"))]
-            MsgEnvelope::Net(_nm) => {
-                unreachable!("network messages require the `distributed` feature")
-            }
         }
     }
 }

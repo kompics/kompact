@@ -44,6 +44,7 @@ impl<M: MessageBounds> TypedMsgQueue<M> {
 }
 impl<M: MessageBounds> DynMsgQueue for TypedMsgQueue<M> {
     #[inline(always)]
+    #[cfg(feature = "distributed")]
     fn push_net(&self, value: NetMessage) {
         self.push(MsgEnvelope::Net(value));
     }
@@ -52,6 +53,7 @@ impl<M: MessageBounds> DynMsgQueue for TypedMsgQueue<M> {
 /// A message queue handle that only deals with
 /// net messages.
 pub trait DynMsgQueue: fmt::Debug + Sync + Send {
+    #[cfg(feature = "distributed")]
     fn push_net(&self, value: NetMessage);
 }
 pub(crate) trait AdaptedQueueContainer<M>: fmt::Debug + Sync + Send {
@@ -145,6 +147,7 @@ pub struct DynActorRef {
 }
 impl DynActorRef {
     /// Enqueue a preconstructed [`NetMessage`] directly into the dynamic mailbox.
+    #[cfg(feature = "distributed")]
     pub fn enqueue(&self, msg: NetMessage) -> () {
         if let Some(c) = self.component.upgrade() {
             let q = c.dyn_message_queue();
@@ -168,12 +171,22 @@ impl DynActorRef {
     }
 
     /// Send a network message to the target actor
+    #[cfg(feature = "distributed")]
     pub fn tell<I>(&self, v: I) -> ()
     where
         I: Into<NetMessage>,
     {
         let msg: NetMessage = v.into();
         self.enqueue(msg)
+    }
+
+    /// Send a network message to the target actor
+    #[cfg(not(feature = "distributed"))]
+    pub fn tell<I>(&self, _v: I) -> ()
+    where
+        I: Into<NetMessage>,
+    {
+        unreachable!("network dispatch requires the `distributed` feature");
     }
 }
 impl fmt::Debug for DynActorRef {

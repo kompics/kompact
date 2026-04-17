@@ -287,14 +287,7 @@ where
     }
 
     /// Returns a handle to the Kompact system this component is a part of
-    #[cfg(not(feature = "distributed"))]
-    pub fn system(&self) -> impl SystemHandle {
-        self.context_system()
-    }
-
-    /// Returns a handle to the Kompact system this component is a part of
-    #[cfg(feature = "distributed")]
-    pub fn system(&self) -> impl DistributedSystemHandle {
+    pub fn system(&self) -> impl ComponentContextSystemHandle {
         self.context_system()
     }
 

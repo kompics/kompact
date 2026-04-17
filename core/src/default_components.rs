@@ -1,13 +1,13 @@
 use super::*;
 #[cfg(feature = "distributed")]
-use crate::messaging::NetMessage;
+use crate::messaging::MsgEnvelope;
 use crate::{
     dispatch::lookup::{ActorLookup, ActorStore, LookupResult},
     messaging::{
         ActorRegistration,
         DispatchData,
         DispatchEnvelope,
-        MsgEnvelope,
+        NetMessage,
         PathResolvable,
         PolicyRegistration,
         RegistrationEnvelope,
@@ -72,7 +72,7 @@ impl SystemComponents for DefaultComponents {
         self.stop(system);
     }
 
-    fn with_dispatcher_definition_dyn(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+    fn with_dispatcher_definition_dyn<'a>(&self, f: Box<dyn FnOnce(&mut dyn Any) + 'a>) -> () {
         self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
@@ -196,7 +196,7 @@ where
         self.deadletter_box.wait_ended();
     }
 
-    fn with_dispatcher_definition_dyn(&self, f: &mut dyn FnMut(&mut dyn Any)) -> () {
+    fn with_dispatcher_definition_dyn<'a>(&self, f: Box<dyn FnOnce(&mut dyn Any) + 'a>) -> () {
         self.dispatcher.on_definition(|dispatcher| f(dispatcher));
     }
 }
@@ -301,6 +301,19 @@ impl LocalDispatcher {
         }
     }
 
+    #[cfg(feature = "distributed")]
+    fn deadletter_network_msg(&self, netmsg: NetMessage) {
+        self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+    }
+
+    #[cfg(not(feature = "distributed"))]
+    fn deadletter_network_msg(&self, netmsg: NetMessage) {
+        warn!(
+            self.ctx.log(),
+            "Dropping network message {:?} without the `distributed` feature", netmsg.receiver,
+        );
+    }
+
     fn route_local(&mut self, dst: ActorPath, msg: DispatchData) -> () {
         let lookup_result = self.lookup.get_by_actor_path(&dst);
         match msg.into_local() {
@@ -313,7 +326,7 @@ impl LocalDispatcher {
                         "No local actor found at {:?}. Forwarding to DeadletterBox",
                         netmsg.receiver,
                     );
-                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                    self.deadletter_network_msg(netmsg);
                 }
                 LookupResult::Err(e) => {
                     error!(
@@ -322,7 +335,7 @@ impl LocalDispatcher {
                         netmsg.receiver,
                         e
                     );
-                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                    self.deadletter_network_msg(netmsg);
                 }
             },
             Err(e) => error!(self.log(), "Could not serialise msg: {:?}. Dropping...", e),
@@ -416,7 +429,7 @@ impl Actor for LocalDispatcher {
                                 self.ctx.log(),
                                 "Forwarding unresolved remote dispatch to DeadletterBox: {:?}", dst,
                             );
-                            self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(netmsg));
+                            self.deadletter_network_msg(netmsg);
                         }
                         Err(e) => {
                             error!(
@@ -440,7 +453,7 @@ impl Actor for LocalDispatcher {
                         "Forwarding unresolved remote dispatch to DeadletterBox: {:?}",
                         msg.receiver,
                     );
-                    self.ctx.deadletter_ref().enqueue(MsgEnvelope::Net(msg));
+                    self.deadletter_network_msg(msg);
                 }
             }
             DispatchEnvelope::Registration(reg) => {

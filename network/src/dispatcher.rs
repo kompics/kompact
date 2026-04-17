@@ -1109,32 +1109,22 @@ mod tests {
     use crate::net_test_helpers::{PingerAct, PongerAct};
     use std::{thread, time::Duration};
 
-    /*
-    // replace ignore with panic cfg gate when https://github.com/rust-lang/rust/pull/74754 is merged
     #[test]
-    #[ignore]
-    #[should_panic(expected = "KompactSystem: Poisoned")]
     fn failed_network() {
-        let mut cfg = KompactConfig::new();
+        let conflicting_socket =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("temporary conflicting listener");
+        let conflicting_addr = conflicting_socket.local_addr().expect("listener address");
+        let mut cfg = KompactConfig::default();
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, {
-            // shouldn't be able to bind on port 80 without root rights
-            let net_config =
-                NetworkConfig::new("127.0.0.1:80".parse().expect("Address should work"));
+            let net_config = NetworkConfig::new(conflicting_addr);
             net_config.build()
         });
-        println!("Starting KompactSystem");
-        let system = cfg.build().expect("KompactSystem");
-        thread::sleep(Duration::from_secs(1));
-        //unreachable!("System should not start correctly! {:?}", system.label());
-        println!("KompactSystem started just fine.");
-        let named_path = ActorPath::Named(NamedPath::with_system(
-            system.system_path(),
-            vec!["test".into()],
-        ));
-        println!("Got path: {}", named_path);
+        assert!(
+            cfg.build().is_err(),
+            "network startup should fail while another listener owns the socket"
+        );
     }
-    */
 
     #[test]
     fn network_cleanup() {

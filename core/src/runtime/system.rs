@@ -1531,7 +1531,7 @@ pub trait SystemComponents: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
     /// Allow backend crates to interact with the concrete dispatcher definition.
-    fn with_dispatcher_definition_dyn(&self, f: &mut dyn FnMut(&mut dyn Any)) -> ();
+    fn with_dispatcher_definition_dyn<'a>(&self, f: DispatcherDefinitionHandler<'a>) -> ();
 }
 
 impl dyn SystemComponents {
@@ -1561,6 +1561,8 @@ pub trait TimerComponent: TimerRefFactory + Send + Sync {
     /// Stop the underlying timer thread
     fn shutdown(&self) -> Result<(), String>;
 }
+
+type DispatcherDefinitionHandler<'a> = Box<dyn FnOnce(&mut dyn Any) + 'a>;
 
 struct InternalComponents {
     supervisor: Arc<Component<ComponentSupervisor>>,
@@ -1595,12 +1597,12 @@ impl InternalComponents {
     }
 
     #[cfg(feature = "distributed")]
-    fn with_dispatcher_definition<F>(&self, mut f: F) -> ()
+    fn with_dispatcher_definition<F>(&self, f: F) -> ()
     where
-        F: FnMut(&mut dyn Any),
+        F: FnOnce(&mut dyn Any),
     {
         self.system_components
-            .with_dispatcher_definition_dyn(&mut f)
+            .with_dispatcher_definition_dyn(Box::new(f))
     }
 
     #[cfg(feature = "distributed")]

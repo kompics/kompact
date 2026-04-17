@@ -40,6 +40,7 @@ pub enum MsgEnvelope<M: MessageBounds> {
     /// A message of the actor's `Message` type
     Typed(M),
     /// A message from the network
+    #[cfg(feature = "distributed")]
     Net(NetMessage),
 }
 

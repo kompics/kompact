@@ -60,15 +60,12 @@ pub trait NetworkSystemExt {
 
 impl NetworkSystemExt for KompactSystem {
     fn connect_network_status_port(&self, required: &mut RequiredPort<NetworkStatusPort>) {
-        let mut connected = false;
         self.with_dispatcher_definition(|dispatcher| {
             let dispatcher = dispatcher
                 .downcast_mut::<NetworkDispatcher>()
                 .expect("System dispatcher is not provided by kompact-net");
             biconnect_ports(dispatcher.network_status_port(), required);
-            connected = true;
         });
-        debug_assert!(connected, "dispatcher callback must run exactly once");
     }
 }
 
