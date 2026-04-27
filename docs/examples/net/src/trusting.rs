@@ -38,9 +38,9 @@ impl TrustPrinter {
 ignore_lifecycle!(TrustPrinter);
 
 impl Require<EventualLeaderDetection> for TrustPrinter {
-    fn handle(&mut self, event: Trust) -> Handled {
+    fn handle(&mut self, event: Trust) -> HandlerResult {
         info!(self.log(), "Got leader: {}.", event.0);
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: printer

@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    component::Handled,
+    component::HandlerResult,
     messaging::{DispatchEnvelope, MsgEnvelope},
 };
 use std::{
@@ -57,13 +57,13 @@ where
 /// impl ActorRaw for RawActor {
 ///     type Message = ();
 ///
-///     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled {
+///     fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> HandlerResult {
 ///         match env {
 ///            MsgEnvelope::Typed(m) => info!(self.log(), "Got a local message: {:?}", m),
 /// #          #[cfg(feature = "distributed")]
 ///            MsgEnvelope::Net(nm) => info!(self.log(), "Got a network message: {:?}", nm),
 ///         }
-///         Handled::Ok
+///         Handled::OK
 ///     }
 /// }
 /// ```
@@ -83,7 +83,7 @@ pub trait ActorRaw {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled;
+    fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> HandlerResult;
 }
 
 /// A slightly higher level Actor API that handles local messages, and optionally distributed ones
@@ -107,15 +107,15 @@ pub trait ActorRaw {
 /// impl Actor for NormalActor {
 ///     type Message = ();
 ///
-///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
 ///         info!(self.log(), "Got a local message: {:?}", msg);
-///         Handled::Ok
+///         Handled::OK
 ///     }
 ///
 ///     #[cfg(feature = "distributed")]
-///     fn receive_network(&mut self, msg: NetMessage) -> Handled {
+///     fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
 ///         info!(self.log(), "Got a network message: {:?}", msg);
-///         Handled::Ok
+///         Handled::OK
 ///     }
 /// }
 /// ```
@@ -132,7 +132,7 @@ pub trait Actor {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive_local(&mut self, msg: Self::Message) -> Handled;
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult;
 
     #[cfg(feature = "distributed")]
     /// Handle an incoming network message
@@ -148,7 +148,7 @@ pub trait Actor {
     /// Remember that components usually run on a shared thread pool,
     /// so, just like for [handle](Provide::handle) implementations,
     /// you shouldn't ever block in this method unless you know what you are doing.
-    fn receive_network(&mut self, msg: crate::messaging::NetMessage) -> Handled;
+    fn receive_network(&mut self, msg: crate::messaging::NetMessage) -> HandlerResult;
 }
 
 /// A dispatcher is a system component that knows how to route messages and create system paths
@@ -168,7 +168,7 @@ where
 {
     type Message = M;
 
-    fn receive(&mut self, env: MsgEnvelope<M>) -> Handled {
+    fn receive(&mut self, env: MsgEnvelope<M>) -> HandlerResult {
         match env {
             MsgEnvelope::Typed(m) => self.receive_local(m),
             #[cfg(feature = "distributed")]

@@ -20,10 +20,10 @@ info_lifecycle!(Adder);
 impl Actor for Adder {
     type Message = f32;
 
-    fn receive_local(&mut self, a: Self::Message) -> Handled {
+    fn receive_local(&mut self, a: Self::Message) -> HandlerResult {
         let res = a + self.offset;
         info!(self.log(), "Adder result = {}", res);
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -35,9 +35,9 @@ impl Port for SetOffset {
 }
 
 impl Provide<SetOffset> for Adder {
-    fn handle(&mut self, value: f32) -> Handled {
+    fn handle(&mut self, value: f32) -> HandlerResult {
         self.offset = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -62,10 +62,10 @@ info_lifecycle!(Multiplier);
 impl Actor for Multiplier {
     type Message = f32;
 
-    fn receive_local(&mut self, a: Self::Message) -> Handled {
+    fn receive_local(&mut self, a: Self::Message) -> HandlerResult {
         let res = a * self.scale;
         info!(self.log(), "Multiplier result = {}", res);
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -77,9 +77,9 @@ impl Port for SetScale {
 }
 
 impl Provide<SetScale> for Multiplier {
-    fn handle(&mut self, value: f32) -> Handled {
+    fn handle(&mut self, value: f32) -> HandlerResult {
         self.scale = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -108,24 +108,24 @@ info_lifecycle!(Linear);
 impl Actor for Linear {
     type Message = f32;
 
-    fn receive_local(&mut self, a: Self::Message) -> Handled {
+    fn receive_local(&mut self, a: Self::Message) -> HandlerResult {
         let res = a * self.scale + self.offset;
         info!(self.log(), "Linear result = {}", res);
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide<SetOffset> for Linear {
-    fn handle(&mut self, value: f32) -> Handled {
+    fn handle(&mut self, value: f32) -> HandlerResult {
         self.offset = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide<SetScale> for Linear {
-    fn handle(&mut self, value: f32) -> Handled {
+    fn handle(&mut self, value: f32) -> HandlerResult {
         self.scale = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -194,7 +194,7 @@ impl fmt::Debug for ManagerMessage {
 impl Actor for DynamicManager {
     type Message = ManagerMessage;
 
-    fn receive_local(&mut self, msg: ManagerMessage) -> Handled {
+    fn receive_local(&mut self, msg: ManagerMessage) -> HandlerResult {
         match msg {
             ManagerMessage::Spawn(definition) => {
                 let system = self.ctx.system();
@@ -229,7 +229,7 @@ impl Actor for DynamicManager {
             }
         }
 
-        Handled::Ok
+        Handled::OK
     }
 }
 

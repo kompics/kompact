@@ -279,16 +279,16 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
     ///         msg.complete(|num| {
     ///             format!("{}", num)
     ///         })
     ///         .expect("completion");
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }
     ///
     /// #    #[cfg(feature = "distributed")]
-    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
     /// }
@@ -359,16 +359,16 @@ where
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
     ///         msg.complete(|num| {
     ///             format!("{}", num)
     ///         })
     ///         .expect("completion");
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }
     ///
     /// #    #[cfg(feature = "distributed")]
-    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
     /// }
@@ -532,16 +532,16 @@ impl<M: MessageBounds> ActorRef<M> {
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
     ///         msg.complete(|num| {
     ///             format!("{}", num)
     ///         })
     ///         .expect("completion");
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }
     ///
     /// #    #[cfg(feature = "distributed")]
-    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
     /// }
@@ -641,16 +641,16 @@ where
     /// impl Actor for AskComponent {
     ///     type Message = Ask<u64, String>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
     ///         msg.complete(|num| {
     ///             format!("{}", num)
     ///         })
     ///         .expect("completion");
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }
     ///
     /// #    #[cfg(feature = "distributed")]
-    /// #    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    /// #    fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
     /// #        unimplemented!("We don't care about this.");
     /// #    }
     /// }
@@ -1090,16 +1090,16 @@ mod tests {
     impl Actor for LatchDropActor {
         type Message = CountdownWrapper;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             self.latch
                 .decrement()
                 .expect("Latch should have decremented!");
-            Handled::Ok
+            Handled::OK
         }
 
         /// Handles (serialised or reflected) messages from the network.
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!();
         }
     }

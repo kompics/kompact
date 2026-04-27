@@ -87,13 +87,13 @@ where
     ///     }   
     /// }
     /// impl ComponentLifecycle for AsyncComponent {
-    ///     fn on_start(&mut self) -> Handled {
+    ///     fn on_start(&mut self) -> HandlerResult {
     ///         // on nightly you can just write: async move |mut async_self| {...}
     ///         self.spawn_local(move |mut async_self| async move {
     ///             async_self.flag = true;
-    ///             Handled::Ok
+    ///             Handled::OK
     ///         });
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }   
     /// }
     /// ```
@@ -108,7 +108,7 @@ where
     fn spawn_local<F>(&mut self, f: impl FnOnce(ComponentDefinitionAccess<Self>) -> F)
     where
         Self: 'static,
-        F: futures::Future<Output = Handled> + Send + 'static,
+        F: futures::Future<Output = HandlerResult> + Send + 'static,
     {
         let future = future_task::non_blocking(self, f);
         future.schedule();
@@ -142,34 +142,34 @@ pub trait ComponentLifecycle: ComponentLogging {
     /// Gets invoked every time a component receives a Start event
     ///
     /// The default implementation simply logs something at debug level.
-    fn on_start(&mut self) -> Handled
+    fn on_start(&mut self) -> HandlerResult
     where
         Self: 'static,
     {
         debug!(self.log(), "Starting...");
-        Handled::Ok
+        Handled::OK
     }
 
     /// Gets invoked every time a component receives a Stop event
     ///
     /// The default implementation simply logs something at debug level.
-    fn on_stop(&mut self) -> Handled
+    fn on_stop(&mut self) -> HandlerResult
     where
         Self: 'static,
     {
         debug!(self.log(), "Stopping...");
-        Handled::Ok
+        Handled::OK
     }
 
     /// Gets invoked every time a component receives a Kill event
     ///
     /// The default implementation simply logs something at debug level.
-    fn on_kill(&mut self) -> Handled
+    fn on_kill(&mut self) -> HandlerResult
     where
         Self: 'static,
     {
         debug!(self.log(), "Killing...");
-        Handled::Ok
+        Handled::OK
     }
 }
 

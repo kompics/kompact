@@ -109,7 +109,7 @@ impl Manager {
 
 // ANCHOR: manager_lifecycle
 impl ComponentLifecycle for Manager {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         // set up our workers
         for _i in 0..self.num_workers {
             let worker = self.ctx.system().create(Worker::new);
@@ -119,27 +119,27 @@ impl ComponentLifecycle for Manager {
             self.workers.push(worker);
             self.worker_refs.push(worker_ref);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         // clean up after ourselves
         self.worker_refs.clear();
         let system = self.ctx.system();
         self.workers.drain(..).for_each(|worker| {
             system.stop(&worker);
         });
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }
 // ANCHOR_END: manager_lifecycle
 // ANCHOR: manager_worker_port
 impl Require<WorkerPort> for Manager {
-    fn handle(&mut self, event: WorkResult) -> Handled {
+    fn handle(&mut self, event: WorkResult) -> HandlerResult {
         if self.outstanding_request.is_some() {
             self.result_accumulator.push(event.0);
             if self.result_accumulator.len() == (self.num_workers + 1) {
@@ -159,7 +159,7 @@ impl Require<WorkerPort> for Manager {
                 "Got a response without an outstanding promise: {:?}", event
             );
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: manager_worker_port
@@ -167,7 +167,7 @@ impl Require<WorkerPort> for Manager {
 impl Actor for Manager {
     type Message = Ask<Work, WorkResult>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         assert!(
             self.outstanding_request.is_none(),
             "One request at a time, please!"
@@ -201,7 +201,7 @@ impl Actor for Manager {
             let res = work.data.iter().fold(work.neutral, work.merger);
             msg.reply(WorkResult(res)).expect("reply");
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: manager_actor
@@ -231,11 +231,11 @@ ignore_requests!(WorkerPort, Worker);
 impl Actor for Worker {
     type Message = WorkPart;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         let my_slice = &msg.data[msg.range];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         self.worker_port.trigger(WorkResult(res));
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: worker_actor

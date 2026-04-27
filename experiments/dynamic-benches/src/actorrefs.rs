@@ -43,21 +43,21 @@ impl Default for TestActor {
 ignore_lifecycle!(TestActor);
 
 impl Provide<TestPort> for TestActor {
-    fn handle(&mut self, _event: &'static Ping) -> Handled {
-        Handled::Ok // discard
+    fn handle(&mut self, _event: &'static Ping) -> HandlerResult {
+        Handled::OK // discard
     }
 }
 
 impl Actor for TestActor {
     type Message = &'static Ping;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
-        Handled::Ok // discard
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
+        Handled::OK // discard
     }
 
     #[cfg(feature = "bench-distributed")]
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-        Handled::Ok // discard
+    fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
+        Handled::OK // discard
     }
 }
 

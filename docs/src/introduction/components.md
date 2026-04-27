@@ -45,14 +45,14 @@ In order to react to the events of a port we must implement an trait appropriate
 
 ```rust,edition2018,no_run,noplaypen
 impl Provide<ControlPort> for HelloWorldComponent {
-	fn handle(&mut self, event: ControlEvent) -> Handled {
+	fn handle(&mut self, event: ControlEvent) -> HandlerResult {
 		match event {
 			ControlEvent::Start => {
 				info!(self.log(), "Hello World!");
-        		self.ctx.system().shutdown_async();
-        		Handled::Ok
+				self.ctx.system().shutdown_async();
+				Handled::OK
 			}
-			ControlEvent::Stop | ControlEvent::Kill => Handled::Ok,
+			ControlEvent::Stop | ControlEvent::Kill => Handled::OK,
 		}
 	}
 }

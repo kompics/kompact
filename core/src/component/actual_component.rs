@@ -4,23 +4,18 @@ use super::*;
 macro_rules! check_and_handle_blocking {
     ($self:ident, $guard:ident,$count:ident,$res:ident) => {
         match $res {
-            Handled::Ok => (),
-            Handled::BlockOn(blocking_future) => {
+            Ok(Handled::Ok) => (),
+            Ok(Handled::BlockOn(blocking_future)) => {
                 $guard.definition.ctx_mut().set_blocking(blocking_future);
                 run_blocking!($self, $guard, $count);
             }
-            Handled::DieNow => {
-                lifecycle::set_destroyed(&$self.core.state);
-                debug!($self.logger, "Component killed via Handled.");
-                let supervisor_msg = SupervisorMsg::Killed($self.core.id);
-                let _res = $guard.definition.on_kill();
-                // count is irrelevant if we are anyway dying
-                // $count += 1;
-                // inform supervisor after local handling to make sure crashing component don't count as killed
-                if let Some(ref supervisor) = $self.supervisor {
-                    supervisor.enqueue(supervisor_msg);
+            Ok(Handled::Shutdown) => {
+                return $self.shutdown_from_handler(&mut $guard);
+            }
+            Err(error) => {
+                if let HandlerErrorOutcome::Stop(decision) = $self.handle_handler_error(error) {
+                    return decision;
                 }
-                return SchedulingDecision::NoWork
             }
         }
     };
@@ -29,14 +24,38 @@ macro_rules! run_blocking {
     ($self:ident, $guard:ident,$count:ident) => {
         trace!($self.logger, "Component has been blocked");
         let run_res = $guard.definition.ctx_mut().run_blocking_task();
-        // make sure this read comes after running the blocking task,
-        // to catch updates during the task (e.g. self messages).
+        // Keep the old accounting order: poll the blocking future first, then decrement
+        // work so messages enqueued during the poll are reflected in the scheduling decision.
         let scheduling_decision = $self.core.decrement_work($count);
-        return run_res.or_use(scheduling_decision);
+        match run_res {
+            BlockingTaskResult::Pending => return SchedulingDecision::Blocked,
+            BlockingTaskResult::Completed(result) => match result {
+                Ok(Handled::Ok) => return SchedulingDecision::NoWork.or_use(scheduling_decision),
+                Ok(Handled::BlockOn(blocking_future)) => {
+                    $guard.definition.ctx_mut().set_blocking(blocking_future);
+                    return SchedulingDecision::Blocked;
+                }
+                Ok(Handled::Shutdown) => {
+                    return $self.shutdown_from_handler(&mut $guard);
+                }
+                Err(error) => match $self.handle_handler_error(error) {
+                    HandlerErrorOutcome::Continue => {
+                        return SchedulingDecision::NoWork.or_use(scheduling_decision)
+                    }
+                    HandlerErrorOutcome::Stop(decision) => return decision,
+                },
+            },
+        }
     };
 }
 
 pub(crate) type RecoveryFunction = dyn FnOnce(FaultContext) -> RecoveryHandler + Send + 'static;
+
+// Internal dispatch result for errors after they have been logged or escalated.
+enum HandlerErrorOutcome {
+    Continue,
+    Stop(SchedulingDecision),
+}
 
 /// Kompact's default fault recovery policy is to simply ignore the fault
 pub fn default_recovery_function(ctx: FaultContext) -> RecoveryHandler {
@@ -254,6 +273,127 @@ impl<CD: ComponentTraits> Component<CD> {
         *current = boxed;
     }
 
+    fn report_benign_error(&self, fault: ComponentFault) {
+        warn!(
+            self.logger,
+            "Component handler reported a benign error: {}", fault
+        );
+    }
+
+    fn handle_recoverable_error(&self, fault: ComponentFault) -> SchedulingDecision {
+        error!(
+            self.logger,
+            "Component handler reported a recoverable error: {}", fault
+        );
+        lifecycle::set_faulty(&self.core.state);
+        if let Some(ref supervisor) = self.supervisor {
+            if let Ok(mut guard) = self.recovery_function.lock() {
+                let context = FaultContext::from_handler(self.core.id, fault);
+                let mut recovery_function: Box<RecoveryFunction> =
+                    Box::new(default_recovery_function);
+                // Replace the fault handler with the default, so we can own the correct one.
+                // It is only going to be called once anyway.
+                std::mem::swap(guard.deref_mut(), &mut recovery_function);
+                let handler = recovery_function(context);
+                supervisor.enqueue(SupervisorMsg::Faulty(handler));
+            } else {
+                error!(
+                    self.logger,
+                    "A recovery function mutex was poisoned in component of type {} with id {}. This component can not recover from its fault!",
+                    CD::type_name(),
+                    self.core.id
+                );
+            }
+        } else {
+            error!(
+                self.logger,
+                "Top level component reported a recoverable error! Poisoning system."
+            );
+            self.system().poison();
+        }
+        SchedulingDecision::NoWork
+    }
+
+    fn handle_unrecoverable_error(&self, fault: ComponentFault) -> SchedulingDecision {
+        error!(
+            self.logger,
+            "Component handler reported an unrecoverable error: {}", fault
+        );
+        // `set_destroyed` also notifies the supervisor. Top-level components have no supervisor,
+        // so they need their state update and system poisoning handled directly.
+        if self.supervisor.is_some() {
+            self.set_destroyed();
+        } else {
+            lifecycle::set_destroyed(&self.core.state);
+            error!(
+                self.logger,
+                "Top level component reported an unrecoverable error! Poisoning system."
+            );
+            self.system().poison();
+        }
+        SchedulingDecision::NoWork
+    }
+
+    fn handle_handler_error(&self, error: HandlerError) -> HandlerErrorOutcome {
+        match error {
+            HandlerError::Benign(fault) => {
+                self.report_benign_error(fault);
+                HandlerErrorOutcome::Continue
+            }
+            HandlerError::Recoverable(fault) => {
+                HandlerErrorOutcome::Stop(self.handle_recoverable_error(fault))
+            }
+            HandlerError::Unrecoverable(fault) => {
+                HandlerErrorOutcome::Stop(self.handle_unrecoverable_error(fault))
+            }
+        }
+    }
+
+    fn handle_secondary_lifecycle_result(&self, result: HandlerResult) {
+        // This is only used while already committing to terminal shutdown via `Handled::Shutdown`.
+        // `Shutdown` from `on_kill` is therefore idempotent and equivalent to `Ok`.
+        match result {
+            Ok(Handled::Ok) | Ok(Handled::Shutdown) => (),
+            Ok(Handled::BlockOn(_)) => {
+                panic!("Secondary shutdown lifecycle handling must not block.");
+            }
+            Err(HandlerError::Benign(fault)) => self.report_benign_error(fault),
+            Err(HandlerError::Recoverable(fault)) => {
+                error!(
+                    self.logger,
+                    "Ignoring recoverable error from secondary shutdown lifecycle handling: {}",
+                    fault
+                );
+            }
+            Err(HandlerError::Unrecoverable(fault)) => {
+                error!(
+                    self.logger,
+                    "Ignoring unrecoverable error from secondary shutdown lifecycle handling: {}",
+                    fault
+                );
+            }
+        }
+    }
+
+    pub(super) fn notify_started(&self) {
+        if let Some(ref supervisor) = self.supervisor {
+            let supervisor_msg = SupervisorMsg::Started(self.core.component());
+            supervisor.enqueue(supervisor_msg);
+        }
+    }
+
+    fn shutdown_from_handler(&self, guard: &mut ComponentMutableCore<CD>) -> SchedulingDecision {
+        // This is a terminal, non-faulting shutdown request from an ordinary handler. We run
+        // `on_kill` once for cleanup and treat any returned errors as secondary lifecycle errors
+        // to avoid recursively re-entering recovery while the component is already being removed.
+        lifecycle::set_destroyed(&self.core.state);
+        debug!(self.logger, "Component shutting down via Handled.");
+        let result = guard.definition.on_kill();
+        self.handle_secondary_lifecycle_result(result);
+        self.set_destroyed();
+        SchedulingDecision::NoWork
+    }
+
     fn inner_execute(&self) -> SchedulingDecision {
         let max_events = self.core.system.throughput();
         let max_messages = self.core.system.max_messages();
@@ -261,11 +401,27 @@ impl<CD: ComponentTraits> Component<CD> {
         match self.mutable_core.lock() {
             Ok(mut guard) => {
                 if guard.definition.ctx().is_blocking() {
-                    return guard
-                        .definition
-                        .ctx_mut()
-                        .run_blocking_task()
-                        .or_from(|| self.core.get_scheduling_decision());
+                    match guard.definition.ctx_mut().run_blocking_task() {
+                        BlockingTaskResult::Pending => return SchedulingDecision::Blocked,
+                        BlockingTaskResult::Completed(result) => match result {
+                            Ok(Handled::Ok) => {
+                                return SchedulingDecision::NoWork
+                                    .or_from(|| self.core.get_scheduling_decision());
+                            }
+                            Ok(Handled::BlockOn(blocking_future)) => {
+                                guard.definition.ctx_mut().set_blocking(blocking_future);
+                                return SchedulingDecision::Blocked;
+                            }
+                            Ok(Handled::Shutdown) => return self.shutdown_from_handler(&mut guard),
+                            Err(error) => match self.handle_handler_error(error) {
+                                HandlerErrorOutcome::Continue => {
+                                    return SchedulingDecision::NoWork
+                                        .or_from(|| self.core.get_scheduling_decision());
+                                }
+                                HandlerErrorOutcome::Stop(decision) => return decision,
+                            },
+                        },
+                    }
                 }
 
                 let mut count: usize = 0;
@@ -278,11 +434,6 @@ impl<CD: ComponentTraits> Component<CD> {
                             debug!(self.logger, "Component started.");
                             let res = guard.definition.on_start();
                             count += 1;
-                            // inform supervisor after local handling to make sure crashing component don't count as started
-                            if let Some(ref supervisor) = self.supervisor {
-                                let supervisor_msg = SupervisorMsg::Started(self.core.component());
-                                supervisor.enqueue(supervisor_msg);
-                            }
                             res
                         }
                         lifecycle::ControlEvent::Stop => {
@@ -290,10 +441,6 @@ impl<CD: ComponentTraits> Component<CD> {
                             debug!(self.logger, "Component stopping");
                             let res = guard.definition.on_stop();
                             count += 1;
-                            if res.is_ok() {
-                                // inform supervisor after local handling to make sure crashing component don't count as started
-                                self.set_passive();
-                            } // otherwise this will happen after unblock
                             res
                         }
                         lifecycle::ControlEvent::Kill => {
@@ -301,10 +448,6 @@ impl<CD: ComponentTraits> Component<CD> {
                             debug!(self.logger, "Component dying");
                             let res = guard.definition.on_kill();
                             count += 1;
-                            if res.is_ok() {
-                                // inform supervisor after local handling to make sure crashing component don't count as started
-                                self.set_destroyed();
-                            } // otherwise this will happen after unblock
                             res
                         }
                         lifecycle::ControlEvent::Poll(tag) => {
@@ -315,9 +458,15 @@ impl<CD: ComponentTraits> Component<CD> {
                     };
 
                     match res {
-                        Handled::Ok => (), // fine continue
-                        Handled::BlockOn(blocking_future) => {
+                        Ok(Handled::Ok) => match event {
+                            lifecycle::ControlEvent::Start => self.notify_started(),
+                            lifecycle::ControlEvent::Stop => self.set_passive(),
+                            lifecycle::ControlEvent::Kill => self.set_destroyed(),
+                            lifecycle::ControlEvent::Poll(_) => (),
+                        },
+                        Ok(Handled::BlockOn(blocking_future)) => {
                             let transition = match event {
+                                lifecycle::ControlEvent::Start => StateTransition::Started,
                                 lifecycle::ControlEvent::Stop => StateTransition::Passive,
                                 lifecycle::ControlEvent::Kill => StateTransition::Destroyed,
                                 _ => StateTransition::Active,
@@ -328,16 +477,29 @@ impl<CD: ComponentTraits> Component<CD> {
                                 .set_blocking_with_state(blocking_future, transition);
                             run_blocking!(self, guard, count);
                         }
-                        Handled::DieNow => {
-                            lifecycle::set_destroyed(&self.core.state);
-                            debug!(self.logger, "Component killed via Handled.");
-                            let supervisor_msg = SupervisorMsg::Killed(self.core.id);
-                            let _res = guard.definition.on_kill();
-                            // count is irrelevant when we are dying
-                            if let Some(ref supervisor) = self.supervisor {
-                                supervisor.enqueue(supervisor_msg);
+                        Ok(Handled::Shutdown) => {
+                            if matches!(event, lifecycle::ControlEvent::Kill) {
+                                self.set_destroyed();
+                                return SchedulingDecision::NoWork;
+                            } else {
+                                return self.shutdown_from_handler(&mut guard);
                             }
-                            return SchedulingDecision::NoWork;
+                        }
+                        Err(HandlerError::Benign(fault)) => {
+                            self.report_benign_error(fault);
+                            match event {
+                                lifecycle::ControlEvent::Start => self.notify_started(),
+                                lifecycle::ControlEvent::Stop => self.set_passive(),
+                                lifecycle::ControlEvent::Kill => self.set_destroyed(),
+                                lifecycle::ControlEvent::Poll(_) => (),
+                            }
+                        }
+                        Err(error) => {
+                            if let HandlerErrorOutcome::Stop(decision) =
+                                self.handle_handler_error(error)
+                            {
+                                return decision;
+                            }
                         }
                     }
                 }
@@ -348,7 +510,7 @@ impl<CD: ComponentTraits> Component<CD> {
                 // timers have highest priority
                 while count < max_events {
                     let c = &mut guard.definition;
-                    let res: Handled = match c.ctx_mut().timer_manager_mut().try_action() {
+                    let res: HandlerResult = match c.ctx_mut().timer_manager_mut().try_action() {
                         ExecuteAction::Once(id, action) => {
                             let res = action(c, id);
                             count += 1;
@@ -380,6 +542,16 @@ impl<CD: ComponentTraits> Component<CD> {
                     let res = guard.definition.execute(rem_events, skip);
                     guard.skip = res.skip;
                     count += res.count;
+                    if res.shutdown {
+                        return self.shutdown_from_handler(&mut guard);
+                    }
+                    if let Some(error) = res.error {
+                        if let HandlerErrorOutcome::Stop(decision) =
+                            self.handle_handler_error(error)
+                        {
+                            return decision;
+                        }
+                    }
                     if res.blocking {
                         run_blocking!(self, guard, count);
                     }
@@ -461,7 +633,7 @@ impl<CD: ComponentTraits> ActorPathFactory for CD {
 impl<CD: ComponentTraits> Timer<CD> for CD {
     fn schedule_once<F>(&mut self, timeout: Duration, action: F) -> ScheduledTimer
     where
-        F: FnOnce(&mut CD, ScheduledTimer) -> Handled + Send + 'static,
+        F: FnOnce(&mut CD, ScheduledTimer) -> HandlerResult + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -476,7 +648,7 @@ impl<CD: ComponentTraits> Timer<CD> for CD {
         action: F,
     ) -> ScheduledTimer
     where
-        F: Fn(&mut CD, ScheduledTimer) -> Handled + Send + 'static,
+        F: Fn(&mut CD, ScheduledTimer) -> HandlerResult + Send + 'static,
     {
         let ctx = self.ctx_mut();
         let component = ctx.component();
@@ -529,7 +701,7 @@ impl<CD: ComponentTraits> CoreContainer for Component<CD> {
                 lifecycle::set_faulty(&self.core.state);
                 if let Some(ref supervisor) = self.supervisor {
                     if let Ok(mut guard) = self.recovery_function.lock() {
-                        let context = FaultContext::new(self.core.id, e);
+                        let context = FaultContext::from_panic(self.core.id, e);
                         let mut recovery_function: Box<RecoveryFunction> =
                             Box::new(default_recovery_function);
                         // replace fault handler with default, so we can own the correct one

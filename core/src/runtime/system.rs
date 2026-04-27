@@ -945,9 +945,9 @@ impl KompactSystem {
     ///     }    
     /// }
     /// impl ComponentLifecycle for Stopper {
-    ///    fn on_start(&mut self) -> Handled {
+    ///    fn on_start(&mut self) -> HandlerResult {
     ///        self.ctx().system().shutdown_async();
-    ///        Handled::Ok
+    ///        Handled::OK
     ///     }
     /// }
     /// let system = KompactConfig::default().build().expect("system");
@@ -1444,9 +1444,9 @@ pub trait SystemHandle: CanCancelTimers {
     ///     }    
     /// }
     /// impl ComponentLifecycle for Stopper {
-    ///    fn on_start(&mut self) -> Handled {
+    ///    fn on_start(&mut self) -> HandlerResult {
     ///        self.ctx().system().shutdown_async();
-    ///        Handled::Ok
+    ///        Handled::OK
     ///     }
     /// }
     /// let system = KompactConfig::default().build().expect("system");

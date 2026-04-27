@@ -47,45 +47,45 @@ impl Counter {
 
 // ANCHOR: behaviour
 impl ComponentLifecycle for Counter {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         info!(self.ctx.log(), "Got a start event!");
         self.event_count += 1u64;
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         info!(self.ctx.log(), "Got a stop event!");
         self.event_count += 1u64;
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         info!(self.ctx.log(), "Got a kill event!");
         self.event_count += 1u64;
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide<CounterPort> for Counter {
-    fn handle(&mut self, _event: CountMe) -> Handled {
+    fn handle(&mut self, _event: CountMe) -> HandlerResult {
         info!(self.ctx.log(), "Got a counter event!");
         self.event_count += 1u64;
         self.counter_port.trigger(self.current_count());
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Actor for Counter {
     type Message = Ask<CountMe, CurrentCount>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         msg.complete(|_request| {
             info!(self.ctx.log(), "Got a message!");
             self.msg_count += 1u64;
             self.current_count()
         })
         .expect("complete");
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: behaviour

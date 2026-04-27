@@ -10,6 +10,7 @@ use std::task::Poll;
 pub(super) enum StateTransition {
     #[default]
     Active,
+    Started,
     Passive,
     Destroyed,
 }
@@ -18,6 +19,11 @@ pub(super) enum StateTransition {
 struct BlockingState {
     future: BlockingFuture,
     unblock_state: StateTransition,
+}
+
+pub(super) enum BlockingTaskResult {
+    Pending,
+    Completed(HandlerResult),
 }
 
 /// The contextual object for a Kompact component
@@ -112,10 +118,10 @@ where
     ///     }    
     /// }
     /// impl ComponentLifecycle for HelloLogging {
-    ///     fn on_start(&mut self) -> Handled {
+    ///     fn on_start(&mut self) -> HandlerResult {
     ///         info!(self.ctx().log(), "Hello Start event");
     ///         self.ctx().system().shutdown_async();
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }    
     /// }
     ///
@@ -151,10 +157,10 @@ where
     ///     }    
     /// }
     /// impl ComponentLifecycle for ConfigComponent {
-    ///     fn on_start(&mut self) -> Handled {
+    ///     fn on_start(&mut self) -> HandlerResult {
     ///         assert_eq!(Some(7i64), self.ctx().config()["a"].as_i64());
     ///         self.ctx().system().shutdown_async();
-    ///         Handled::Ok
+    ///         Handled::OK
     ///     }    
     /// }
     /// let default_values = r#"a = 7"#;
@@ -211,7 +217,7 @@ where
         self.blocking_future.is_some()
     }
 
-    pub(super) fn run_blocking_task(&mut self) -> SchedulingDecision {
+    pub(super) fn run_blocking_task(&mut self) -> BlockingTaskResult {
         let mut blocking_state = self
             .blocking_future
             .take()
@@ -224,30 +230,47 @@ where
                     self.blocking_future.replace(blocking_state).is_none(),
                     "Replacing a blocking future without completing it first is invalid!"
                 );
-                SchedulingDecision::Blocked
+                BlockingTaskResult::Pending
             }
-            BlockingRunResult::Unblock => {
+            BlockingRunResult::Unblock(Ok(Handled::BlockOn(f))) => {
+                blocking_state.future = f;
+                assert!(
+                    self.blocking_future.replace(blocking_state).is_none(),
+                    "Replacing a blocking future without completing it first is invalid!"
+                );
+                BlockingTaskResult::Pending
+            }
+            BlockingRunResult::Unblock(Ok(Handled::Shutdown))
+                if blocking_state.unblock_state == StateTransition::Destroyed =>
+            {
+                component.set_destroyed();
+                BlockingTaskResult::Completed(Handled::OK)
+            }
+            BlockingRunResult::Unblock(result) => {
                 assert!(
                     self.blocking_future.is_none(),
                     "Don't block within a blocking future! Just call await on the future instead."
                 );
-                match blocking_state.unblock_state {
-                    StateTransition::Active => component.set_active(),
-                    StateTransition::Passive => component.set_passive(),
-                    StateTransition::Destroyed => component.set_destroyed(),
+                if matches!(&result, Ok(Handled::Ok) | Err(HandlerError::Benign(_))) {
+                    match blocking_state.unblock_state {
+                        StateTransition::Active => component.set_active(),
+                        StateTransition::Started => {
+                            component.set_active();
+                            component.notify_started();
+                        }
+                        StateTransition::Passive => component.set_passive(),
+                        StateTransition::Destroyed => component.set_destroyed(),
+                    }
                 }
-                // Don't change this to resume!
-                // Merge it with a new read on the work count,
-                // to catch changes during running of the handler!
-                SchedulingDecision::NoWork
+                BlockingTaskResult::Completed(result)
             }
         }
     }
 
-    pub(super) fn run_nonblocking_task(&mut self, tag: Uuid) -> Handled {
+    pub(super) fn run_nonblocking_task(&mut self, tag: Uuid) -> HandlerResult {
         if let Some(future) = self.non_blocking_futures.get_mut(&tag) {
             match future.run() {
-                Poll::Pending => Handled::Ok,
+                Poll::Pending => Handled::OK,
                 Poll::Ready(handled) => {
                     self.non_blocking_futures.remove(&tag);
                     handled
@@ -259,7 +282,7 @@ where
                 "Future with tag {} was scheduled but not available. May have been scheduled after completion.",
                 tag
             );
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -313,7 +336,7 @@ where
     /// before the component is actually killed.
     ///
     /// For a more immediate alternative
-    /// see [Handled::DieNow](Handled::DieNow).
+    /// see [Handled::Shutdown](Handled::Shutdown).
     pub fn suicide(&self) -> () {
         self.component().enqueue_control(ControlEvent::Kill);
     }

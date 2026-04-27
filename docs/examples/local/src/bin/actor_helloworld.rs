@@ -19,10 +19,10 @@ ignore_lifecycle!(HelloWorldActor);
 impl Actor for HelloWorldActor {
     type Message = ();
 
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
         info!(self.ctx.log(), "Hello World!");
         self.ctx().system().shutdown_async();
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: actor

@@ -121,8 +121,8 @@ impl<P: Port + 'static> CommonPortData<P> {
 /// }
 /// ignore_lifecycle!(UnitProvider);
 /// impl Provide<UnitPort> for UnitProvider {
-///     fn handle(&mut self, event: ()) -> Handled {
-///         Handled::Ok // handle event
+///     fn handle(&mut self, event: ()) -> HandlerResult {
+///         Handled::OK // handle event
 ///     }    
 /// }
 /// ```
@@ -257,8 +257,8 @@ impl<P: Port + 'static> ProvidedPort<P> {
 /// }
 /// ignore_lifecycle!(UnitRequirer);
 /// impl Require<UnitPort> for UnitRequirer {
-///     fn handle(&mut self, event: ()) -> Handled {
-///         Handled::Ok // handle event
+///     fn handle(&mut self, event: ()) -> HandlerResult {
+///         Handled::OK // handle event
 ///     }    
 /// }
 /// ```

@@ -28,7 +28,7 @@ impl DnsComponent {
 
 // ANCHOR: lifecycle
 impl ComponentLifecycle for DnsComponent {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         debug!(self.log(), "Starting...");
         Handled::block_on(self, async move |mut async_self| {
             let resolver = resolver(
@@ -38,15 +38,16 @@ impl ComponentLifecycle for DnsComponent {
             .await;
             async_self.resolver = Some(resolver);
             debug!(async_self.log(), "Started!");
+            Handled::OK
         })
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         drop(self.resolver.take());
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }
@@ -56,7 +57,7 @@ impl ComponentLifecycle for DnsComponent {
 impl Actor for DnsComponent {
     type Message = Ask<DnsRequest, DnsResponse>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         debug!(self.log(), "Got request for domain: {}", msg.request().0);
         if let Some(resolver) = self.resolver.clone() {
             let domain = msg.request().0.clone();
@@ -72,9 +73,9 @@ impl Actor for DnsComponent {
                 }
                 let result_string = format!("{}:\n   {}", domain, results.join("\n    "));
                 msg.reply(DnsResponse(result_string)).expect("reply");
-                Handled::Ok
+                Handled::OK
             });
-            Handled::Ok
+            Handled::OK
         } else {
             panic!("Component should have been initialised first!")
         }

@@ -86,9 +86,18 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                                 let res = #handle
                                 count += 1;
                                 done_work = true;
-                                if let Handled::BlockOn(blocking_future) = res {
-                                    self.ctx_mut().set_blocking(blocking_future);
-                                    return ExecuteResult::new(true, count, #i);
+                                match res {
+                                    Ok(Handled::Ok) => (),
+                                    Ok(Handled::BlockOn(blocking_future)) => {
+                                        self.ctx_mut().set_blocking(blocking_future);
+                                        return ExecuteResult::new(true, count, #i);
+                                    }
+                                    Ok(Handled::Shutdown) => {
+                                        return ExecuteResult::shutdown(count, #i);
+                                    }
+                                    Err(error) => {
+                                        return ExecuteResult::error(error, count, #i);
+                                    }
                                 }
                             }
                         }
@@ -113,9 +122,18 @@ fn impl_component_definition(ast: &syn::DeriveInput) -> TokenStream2 {
                             let res = #handle
                             count += 1;
                             done_work = true;
-                            if let Handled::BlockOn(blocking_future) = res {
-                                self.ctx_mut().set_blocking(blocking_future);
-                                return ExecuteResult::new(true, count, #i);
+                            match res {
+                                Ok(Handled::Ok) => (),
+                                Ok(Handled::BlockOn(blocking_future)) => {
+                                    self.ctx_mut().set_blocking(blocking_future);
+                                    return ExecuteResult::new(true, count, #i);
+                                }
+                                Ok(Handled::Shutdown) => {
+                                    return ExecuteResult::shutdown(count, #i);
+                                }
+                                Err(error) => {
+                                    return ExecuteResult::error(error, count, #i);
+                                }
                             }
                         }
                     }

@@ -14,7 +14,7 @@ const LATENCY_MSG_COUNT: u64 = 10000;
 #[cfg(feature = "bench-distributed")]
 macro_rules! bench_receive_network {
     () => {
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("not needed");
         }
     };
@@ -138,7 +138,7 @@ mod port_pingpong {
         ignore_lifecycle!(Pinger);
 
         impl Require<PingPongPort> for Pinger {
-            fn handle(&mut self, _event: Pong) -> Handled {
+            fn handle(&mut self, _event: Pong) -> HandlerResult {
                 self.received += 1;
                 if self.sent < self.repeat {
                     self.ppp.trigger(Ping);
@@ -146,7 +146,7 @@ mod port_pingpong {
                 } else if self.received >= self.repeat {
                     let _ = self.latch.take().unwrap().decrement();
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -155,7 +155,7 @@ mod port_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 self.sent = 0;
                 self.received = 0;
                 self.latch = Some(msg.0);
@@ -164,7 +164,7 @@ mod port_pingpong {
                     self.ppp.trigger(Ping);
                     self.sent += 1;
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -188,11 +188,11 @@ mod port_pingpong {
         ignore_lifecycle!(Ponger);
 
         impl Provide<PingPongPort> for Ponger {
-            fn handle(&mut self, _event: Ping) -> Handled {
+            fn handle(&mut self, _event: Ping) -> HandlerResult {
                 self.received += 1;
                 //println!("Got Ping #{}", self.received);
                 self.ppp.trigger(Pong);
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -224,14 +224,14 @@ mod port_pingpong {
         ignore_lifecycle!(Pinger);
 
         impl Require<PingPongPort> for Pinger {
-            fn handle(&mut self, _event: Pong) -> Handled {
+            fn handle(&mut self, _event: Pong) -> HandlerResult {
                 self.received += 1;
                 if self.received < self.repeat {
                     self.ppp.trigger(Ping);
                 } else {
                     let _ = self.latch.take().unwrap().decrement();
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -240,11 +240,11 @@ mod port_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 self.received = 0;
                 self.latch = Some(msg.0);
                 self.ppp.trigger(Ping);
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -268,11 +268,11 @@ mod port_pingpong {
         ignore_lifecycle!(Ponger);
 
         impl Provide<PingPongPort> for Ponger {
-            fn handle(&mut self, _event: Ping) -> Handled {
+            fn handle(&mut self, _event: Ping) -> HandlerResult {
                 self.received += 1;
                 //println!("Got Ping #{}", self.received);
                 self.ppp.trigger(Pong);
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -340,7 +340,7 @@ mod strong_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
                         self.sent = 0;
@@ -367,7 +367,7 @@ mod strong_ref_pingpong {
                         }
                     }
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -395,10 +395,10 @@ mod strong_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -434,7 +434,7 @@ mod strong_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
                         self.received = 0;
@@ -455,7 +455,7 @@ mod strong_ref_pingpong {
                         }
                     }
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -483,10 +483,10 @@ mod strong_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -554,7 +554,7 @@ mod weak_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
                         self.sent = 0;
@@ -581,7 +581,7 @@ mod weak_ref_pingpong {
                         }
                     }
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -609,10 +609,10 @@ mod weak_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -648,7 +648,7 @@ mod weak_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 match msg {
                     PingerMsg::Start { ponger, latch } => {
                         self.received = 0;
@@ -669,7 +669,7 @@ mod weak_ref_pingpong {
                         }
                     }
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -697,10 +697,10 @@ mod weak_ref_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
                 self.received += 1;
                 self.pinger.tell(PingerMsg::Pong);
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -753,7 +753,7 @@ mod ask_pingpong {
                 }
             }
 
-            fn handle_pong(&mut self) -> Handled {
+            fn handle_pong(&mut self) -> HandlerResult {
                 //println!("Got Pong {}", self.received);
                 self.received += 1;
                 if self.sent < self.repeat {
@@ -771,7 +771,7 @@ mod ask_pingpong {
                     //println!("Got last Pong");
                     let _ = self.latch.take().unwrap().decrement();
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -782,7 +782,7 @@ mod ask_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 let PingerStart { ponger, latch } = msg;
                 self.sent = 0;
                 self.received = 0;
@@ -799,7 +799,7 @@ mod ask_pingpong {
                 }
                 self.ponger = Some(ponger);
 
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -825,10 +825,10 @@ mod ask_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 self.received += 1;
                 msg.complete(|_| Pong).expect("should send pong");
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -860,7 +860,7 @@ mod ask_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 let PingerStart { ponger, latch } = msg;
                 self.received = 0;
                 //println!("Sending Ping {}", self.sent);
@@ -870,6 +870,7 @@ mod ask_pingpong {
                         async_self.received += 1;
                     }
                     let _ = latch.decrement();
+                    Handled::OK
                 })
             }
         }
@@ -896,10 +897,10 @@ mod ask_pingpong {
 
             bench_receive_network!();
 
-            fn receive_local(&mut self, msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
                 self.received += 1;
                 msg.complete(|_| Pong).expect("should send pong");
-                Handled::Ok
+                Handled::OK
             }
         }
     }

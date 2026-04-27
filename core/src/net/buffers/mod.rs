@@ -450,16 +450,16 @@ mod tests {
     impl Actor for BufferTestActor {
         type Message = ();
 
-        fn receive_local(&mut self, _: Self::Message) -> Handled {
-            Handled::Ok
+        fn receive_local(&mut self, _: Self::Message) -> HandlerResult {
+            Handled::OK
         }
 
-        fn receive_network(&mut self, _: NetMessage) -> Handled {
-            Handled::Ok
+        fn receive_network(&mut self, _: NetMessage) -> HandlerResult {
+            Handled::OK
         }
     }
     impl ComponentLifecycle for BufferTestActor {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             if self.custom_buf {
                 let mut buffer_config = BufferConfig::default();
                 buffer_config.encode_buf_min_free_space(30);
@@ -474,15 +474,15 @@ mod tests {
             if let Some(promise) = self.started_promise.take() {
                 promise.complete().expect("Failed to fulfil promise");
             }
-            Handled::Ok
+            Handled::OK
         }
 
-        fn on_stop(&mut self) -> Handled {
-            Handled::Ok
+        fn on_stop(&mut self) -> HandlerResult {
+            Handled::OK
         }
 
-        fn on_kill(&mut self) -> Handled {
-            Handled::Ok
+        fn on_kill(&mut self) -> HandlerResult {
+            Handled::OK
         }
     }
     fn buffer_config_testing_system() -> KompactSystem {

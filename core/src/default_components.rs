@@ -229,28 +229,28 @@ impl Actor for DeadletterBox {
     type Message = Never;
 
     /// Handles local messages.
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
         unimplemented!(); // this can't actually happen
     }
 
     #[cfg(feature = "distributed")]
     /// Handles (serialised or reflected) messages from the network.
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         info!(
             self.ctx.log(),
             "DeadletterBox received network message {:?}", msg,
         );
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl ComponentLifecycle for DeadletterBox {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         debug!(self.ctx.log(), "Starting DeadletterBox");
         if let Some(promise) = self.notify_ready.take() {
             promise.complete().unwrap_or(())
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -418,7 +418,7 @@ impl LocalDispatcher {
 impl Actor for LocalDispatcher {
     type Message = DispatchEnvelope;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         match msg {
             DispatchEnvelope::Msg { dst, msg, .. } => {
                 if dst.system() == &self.system_path || dst.protocol() == Transport::Local {
@@ -482,16 +482,16 @@ impl Actor for LocalDispatcher {
                 // Dropping the chunk is sufficient in the local-only dispatcher.
             }
         }
-        Handled::Ok
+        Handled::OK
     }
 
     #[cfg(feature = "distributed")]
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         info!(
             self.ctx.log(),
             "LocalDispatcher received network message {:?}", msg,
         );
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -502,7 +502,7 @@ impl Dispatcher for LocalDispatcher {
 }
 
 impl ComponentLifecycle for LocalDispatcher {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         debug!(self.ctx.log(), "Starting LocalDispatcher");
         #[cfg(feature = "distributed")]
         self.lookup
@@ -511,7 +511,7 @@ impl ComponentLifecycle for LocalDispatcher {
         if let Some(promise) = self.notify_ready.take() {
             promise.complete().unwrap_or(())
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -605,12 +605,12 @@ mod tests {
         type Deserialiser = Ping;
         type Message = Ping;
 
-        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> Handled {
+        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> HandlerResult {
             self.received += 1;
             self.delivered
                 .send(())
                 .expect("probe receiver must stay live");
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -621,25 +621,25 @@ mod tests {
     }
 
     impl ComponentLifecycle for TimerProbe {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             let fired = self.fired.clone();
             self.schedule_once(Duration::from_millis(10), move |_component, _timer| {
                 fired.send(()).expect("probe receiver must stay live");
-                Handled::Ok
+                Handled::OK
             });
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for TimerProbe {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unreachable!("Never type is empty")
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("TimerProbe does not use network actor messages")
         }
     }

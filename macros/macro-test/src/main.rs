@@ -36,23 +36,23 @@ impl Pinger {
 }
 
 impl ComponentLifecycle for Pinger {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         println!("Starting Pinger... {}", self.test);
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Require<PingPongPort> for Pinger {
-    fn handle(&mut self, _event: Pong) -> Handled {
+    fn handle(&mut self, _event: Pong) -> HandlerResult {
         println!("Got a pong!");
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide<PingPongPort> for Pinger {
-    fn handle(&mut self, _event: Ping) -> Handled {
+    fn handle(&mut self, _event: Ping) -> HandlerResult {
         println!("Got a ping!");
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -74,30 +74,30 @@ impl Port for PingPongPort2 {
 }
 
 impl ComponentLifecycle for Pinger2 {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         println!("Starting Pinger... {}", self.test);
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Require<PingPongPort> for Pinger2 {
-    fn handle(&mut self, _event: Pong) -> Handled {
+    fn handle(&mut self, _event: Pong) -> HandlerResult {
         println!("Got a pong!");
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Require<PingPongPort2> for Pinger2 {
-    fn handle(&mut self, _event: Pong) -> Handled {
+    fn handle(&mut self, _event: Pong) -> HandlerResult {
         println!("Got a pong!");
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide<PingPongPort> for Pinger2 {
-    fn handle(&mut self, _event: Ping) -> Handled {
+    fn handle(&mut self, _event: Ping) -> HandlerResult {
         println!("Got a ping!");
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -121,9 +121,9 @@ impl<A: MessageBounds> ComponentLifecycle for GenericComp<A> {}
 impl<A: MessageBounds> Actor for GenericComp<A> {
     type Message = A;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         self.test = Some(msg);
-        Handled::Ok
+        Handled::OK
     }
 }
 

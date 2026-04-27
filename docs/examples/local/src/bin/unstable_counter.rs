@@ -29,13 +29,13 @@ impl UnstableCounter {
     // ANCHOR_END: with_state
 
     // ANCHOR: timeouts
-    fn handle_count_timeout(&mut self, _timeout_id: ScheduledTimer) -> Handled {
+    fn handle_count_timeout(&mut self, _timeout_id: ScheduledTimer) -> HandlerResult {
         info!(self.log(), "Incrementing count of {}", self.count);
         self.count = self.count.checked_add(1).expect("Count overflowed!");
-        Handled::Ok
+        Handled::OK
     }
 
-    fn handle_state_timeout(&mut self, _timeout_id: ScheduledTimer) -> Handled {
+    fn handle_state_timeout(&mut self, _timeout_id: ScheduledTimer) -> HandlerResult {
         info!(
             self.log(),
             "Saving recovery state with count of {}", self.count
@@ -60,7 +60,7 @@ impl UnstableCounter {
                 system.start(&counter_component);
             })
         });
-        Handled::Ok
+        Handled::OK
     }
     // ANCHOR_END: timeouts
 }
@@ -80,7 +80,7 @@ impl Default for UnstableCounter {
 
 // ANCHOR: lifecycle
 impl ComponentLifecycle for UnstableCounter {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         let count_timeout = self.schedule_periodic(
             COUNT_TIMEOUT,
             COUNT_TIMEOUT,
@@ -107,20 +107,20 @@ impl ComponentLifecycle for UnstableCounter {
                 system.start(&counter_component);
             })
         });
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         if let Some(timeout) = self.count_timeout.take() {
             self.cancel_timer(timeout);
         }
         if let Some(timeout) = self.state_timeout.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }

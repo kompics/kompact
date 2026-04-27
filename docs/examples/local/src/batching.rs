@@ -29,8 +29,8 @@ impl BatchPrinter {
 ignore_lifecycle!(BatchPrinter);
 
 impl Require<Batching> for BatchPrinter {
-    fn handle(&mut self, batch: Batch) -> Handled {
+    fn handle(&mut self, batch: Batch) -> HandlerResult {
         info!(self.log(), "Got a batch with {} Pings.", batch.0.len());
-        Handled::Ok
+        Handled::OK
     }
 }

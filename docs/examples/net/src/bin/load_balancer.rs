@@ -52,22 +52,22 @@ impl QueryServer {
 }
 
 impl ComponentLifecycle for QueryServer {
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         info!(
             self.log(),
             "Shutting down a Server that handled {} requests", self.handled_requests
         );
-        Handled::Ok
+        Handled::OK
     }
 }
 impl Actor for QueryServer {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
         unreachable!("Can't instantiate Never type");
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         let sender = msg.sender;
 
         match_deser! {
@@ -80,7 +80,7 @@ impl Actor for QueryServer {
                 }
             }
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -141,12 +141,12 @@ impl Client {
 }
 
 impl ComponentLifecycle for Client {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         self.send_request();
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         let hit_ratio = (self.cache_hits as f64) / (self.request_count as f64);
         info!(
             self.log(),
@@ -155,18 +155,18 @@ impl ComponentLifecycle for Client {
             self.cache_hits,
             hit_ratio
         );
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Actor for Client {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
         unreachable!("Can't instantiate Never type");
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         match_deser! {
             msg {
                 msg(response): QueryResponse [using Serde] => {
@@ -185,7 +185,7 @@ impl Actor for Client {
                 },
             }
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 
