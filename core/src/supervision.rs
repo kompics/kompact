@@ -56,7 +56,7 @@ impl Fault {
                 } else {
                     format!(
                         "Component panicked with a non-string message with type id={:?}",
-                        fault.type_id()
+                        fault.as_ref().type_id()
                     )
                 }
             }

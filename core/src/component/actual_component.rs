@@ -546,10 +546,9 @@ impl<CD: ComponentTraits> Component<CD> {
                         return self.shutdown_from_handler(&mut guard);
                     }
                     if let Some(error) = res.error {
-                        if let HandlerErrorOutcome::Stop(decision) =
-                            self.handle_handler_error(error)
-                        {
-                            return decision;
+                        match self.handle_handler_error(error) {
+                            HandlerErrorOutcome::Continue => (),
+                            HandlerErrorOutcome::Stop(decision) => return decision,
                         }
                     }
                     if res.blocking {

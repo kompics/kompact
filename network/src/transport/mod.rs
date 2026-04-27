@@ -676,7 +676,7 @@ pub mod net_test_helpers {
     }
 
     impl ComponentLifecycle for PingerAct {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             debug!(self.ctx.log(), "Starting");
             if self.eager {
                 self.target
@@ -685,18 +685,18 @@ pub mod net_test_helpers {
             } else {
                 self.target.tell(PingMsg { i: 0 }, self);
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for PingerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _pong: Self::Message) -> Handled {
-            unimplemented!();
+        fn receive_local(&mut self, _pong: Self::Message) -> HandlerResult {
+            unimplemented!()
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             if self.pong_system_session.is_none() {
                 self.pong_system_session = msg.session();
             }
@@ -725,7 +725,7 @@ pub mod net_test_helpers {
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -765,11 +765,11 @@ pub mod net_test_helpers {
     impl Actor for PongerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
-            unimplemented!();
+        fn receive_local(&mut self, _ping: Self::Message) -> HandlerResult {
+            unimplemented!()
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             let sender = msg.sender;
             match_deser! {
                 (msg.data) {
@@ -788,7 +788,7 @@ pub mod net_test_helpers {
                     err(e) => error!(self.ctx.log(), "Error deserialising PingMsg: {:?}", e),
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -811,17 +811,17 @@ pub mod net_test_helpers {
     impl Actor for ForwarderAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
-            unimplemented!();
+        fn receive_local(&mut self, _ping: Self::Message) -> HandlerResult {
+            unimplemented!()
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             debug!(
                 self.ctx.log(),
                 "Forwarding some msg from {} to {}", msg.sender, self.forward_to
             );
             self.forward_to.forward_with_original_sender(msg, self);
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -1125,7 +1125,7 @@ pub mod net_test_helpers {
     }
 
     impl ComponentLifecycle for BigPingerAct {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             let ping = BigPingMsg::new(0, self.data_size);
             if self.eager {
                 self.ctx
@@ -1150,18 +1150,18 @@ pub mod net_test_helpers {
             } else {
                 self.target.tell(ping, self);
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for BigPingerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _pong: Self::Message) -> Handled {
-            unimplemented!();
+        fn receive_local(&mut self, _pong: Self::Message) -> HandlerResult {
+            unimplemented!()
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             match msg.try_deserialise::<BigPongMsg, BigPingPongSer>() {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
@@ -1193,7 +1193,7 @@ pub mod net_test_helpers {
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising BigPongMsg: {:?}", e),
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -1231,23 +1231,23 @@ pub mod net_test_helpers {
     }
 
     impl ComponentLifecycle for BigPongerAct {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             if self.eager {
                 self.ctx
                     .init_buffers(Some(self.buffer_config.clone()), None);
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for BigPongerAct {
         type Message = Never;
 
-        fn receive_local(&mut self, _ping: Self::Message) -> Handled {
-            unimplemented!();
+        fn receive_local(&mut self, _ping: Self::Message) -> HandlerResult {
+            unimplemented!()
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             let sender = msg.sender;
             match_deser! {
                 (msg.data) {
@@ -1266,7 +1266,7 @@ pub mod net_test_helpers {
                     err(e) => error!(self.ctx.log(), "Error deserialising BigPingMsg: {:?}", e),
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -1382,36 +1382,36 @@ pub mod net_test_helpers {
     }
 
     impl ComponentLifecycle for NetworkStatusCounter {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             if let Some(promise) = self.started_promise.take() {
                 promise.complete().expect("Failed to fulfil promise");
             }
-            Handled::Ok
+            Handled::OK
         }
 
-        fn on_stop(&mut self) -> Handled {
-            Handled::Ok
+        fn on_stop(&mut self) -> HandlerResult {
+            Handled::OK
         }
 
-        fn on_kill(&mut self) -> Handled {
-            Handled::Ok
+        fn on_kill(&mut self) -> HandlerResult {
+            Handled::OK
         }
     }
 
     impl Actor for NetworkStatusCounter {
         type Message = ();
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!()
         }
 
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
-            unimplemented!("Ignoring network messages.");
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
+            unimplemented!("Ignoring network messages.")
         }
     }
 
     impl Require<NetworkStatusPort> for NetworkStatusCounter {
-        fn handle(&mut self, event: <NetworkStatusPort as Port>::Indication) -> Handled {
+        fn handle(&mut self, event: <NetworkStatusPort as Port>::Indication) -> HandlerResult {
             debug!(
                 self.ctx.log(),
                 "Got NetworkStatusPort indication. {:?}", event
@@ -1453,7 +1453,7 @@ pub mod net_test_helpers {
                 NetworkStatus::BlockedIp(_) => (),
                 NetworkStatus::AllowedSystem(_) => (),
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -1490,7 +1490,7 @@ pub mod net_test_helpers {
             let timer =
                 self.schedule_periodic(Duration::from_millis(0), self.period, move |p, _| {
                     p.ping();
-                    Handled::Ok
+                    Handled::OK
                 });
             self.timer = Some(timer);
         }
@@ -1510,21 +1510,21 @@ pub mod net_test_helpers {
     }
 
     impl ComponentLifecycle for PingStream {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             debug!(self.ctx.log(), "Starting");
             self.start_pinging();
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for PingStream {
         type Message = Never;
 
-        fn receive_local(&mut self, _: Self::Message) -> Handled {
+        fn receive_local(&mut self, _: Self::Message) -> HandlerResult {
             unimplemented!()
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             match msg.try_deserialise::<PongMsg, PingPongSer>() {
                 Ok(pong) => {
                     debug!(self.ctx.log(), "Got msg {:?}", pong);
@@ -1532,7 +1532,7 @@ pub mod net_test_helpers {
                 }
                 Err(e) => error!(self.ctx.log(), "Error deserialising PongMsg: {:?}", e),
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 }
