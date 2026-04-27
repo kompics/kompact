@@ -43,7 +43,14 @@ enum HandlerSource {
     Normal,
     Async,
     Blocking,
-    Lifecycle,
+    Lifecycle(LifecycleHook),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LifecycleHook {
+    Start,
+    Stop,
+    Kill,
 }
 
 #[derive(Debug)]
@@ -98,16 +105,29 @@ impl HandlerResultProbe {
     fn fail(&self, source: HandlerSource) -> HandlerResult {
         self.kind.into_result(source)
     }
+
+    fn fail_lifecycle(&self, hook: LifecycleHook) -> HandlerResult {
+        let source = HandlerSource::Lifecycle(hook);
+        if self.source == source {
+            self.report_ran();
+            self.fail(source)
+        } else {
+            Handled::OK
+        }
+    }
 }
 
 impl ComponentLifecycle for HandlerResultProbe {
     fn on_start(&mut self) -> HandlerResult {
-        if self.source == HandlerSource::Lifecycle {
-            self.report_ran();
-            self.fail(HandlerSource::Lifecycle)
-        } else {
-            Handled::OK
-        }
+        self.fail_lifecycle(LifecycleHook::Start)
+    }
+
+    fn on_stop(&mut self) -> HandlerResult {
+        self.fail_lifecycle(LifecycleHook::Stop)
+    }
+
+    fn on_kill(&mut self) -> HandlerResult {
+        self.fail_lifecycle(LifecycleHook::Kill)
     }
 }
 
@@ -136,7 +156,7 @@ impl Actor for HandlerResultProbe {
                         kind.into_result(HandlerSource::Blocking)
                     })
                 }
-                HandlerSource::Lifecycle => Handled::OK,
+                HandlerSource::Lifecycle(_) => Handled::OK,
             },
             TestMessage::Ping => {
                 self.notices.send(Notice::Ping).expect("test receiver");
@@ -197,6 +217,78 @@ fn wait_until(name: &str, predicate: impl Fn() -> bool) {
     panic!("timed out waiting for {name}");
 }
 
+fn start(component: &Arc<Component<HandlerResultProbe>>, system: &KompactSystem) {
+    system
+        .start_notify(component)
+        .wait_timeout(TIMEOUT)
+        .expect("component did not start");
+}
+
+fn trigger_source(
+    system: &KompactSystem,
+    component: &Arc<Component<HandlerResultProbe>>,
+    source: HandlerSource,
+    kind: FaultKind,
+) {
+    match source {
+        HandlerSource::Normal | HandlerSource::Async | HandlerSource::Blocking => {
+            start(component, system);
+            component.actor_ref().tell(TestMessage::Trigger);
+        }
+        HandlerSource::Lifecycle(LifecycleHook::Start) if kind == FaultKind::Benign => {
+            start(component, system);
+        }
+        HandlerSource::Lifecycle(LifecycleHook::Start) => system.start(component),
+        HandlerSource::Lifecycle(LifecycleHook::Stop) => {
+            start(component, system);
+            system.stop(component);
+        }
+        HandlerSource::Lifecycle(LifecycleHook::Kill) => {
+            start(component, system);
+            system.kill(component.clone());
+        }
+    }
+}
+
+fn expect_healthy(component: &Arc<Component<HandlerResultProbe>>, rx: &Receiver<Notice>) {
+    component.actor_ref().tell(TestMessage::Ping);
+    expect_notice(rx, Notice::Ping);
+    assert!(component.is_active());
+}
+
+fn assert_outcome(
+    system: &KompactSystem,
+    component: &Arc<Component<HandlerResultProbe>>,
+    rx: &Receiver<Notice>,
+    source: HandlerSource,
+    kind: FaultKind,
+) {
+    expect_notice(rx, Notice::Ran);
+
+    match kind {
+        FaultKind::Benign => match source {
+            HandlerSource::Lifecycle(LifecycleHook::Stop) => {
+                wait_until("component stop", || {
+                    !component.is_active() && !component.is_faulty() && !component.is_destroyed()
+                });
+                start(component, system);
+                expect_healthy(component, rx);
+            }
+            HandlerSource::Lifecycle(LifecycleHook::Kill) => {
+                wait_until("component destruction", || component.is_destroyed());
+            }
+            _ => expect_healthy(component, rx),
+        },
+        FaultKind::Recoverable => {
+            expect_notice(rx, Notice::Recovered);
+            wait_until("component fault", || component.is_faulty());
+        }
+        FaultKind::Unrecoverable => {
+            wait_until("component destruction", || component.is_destroyed());
+        }
+    }
+}
+
 fn run_case(source: HandlerSource, kind: FaultKind) {
     let system = make_system();
     let (component, rx) = make_probe(&system, source, kind);
@@ -205,35 +297,8 @@ fn run_case(source: HandlerSource, kind: FaultKind) {
         install_recovery(&component);
     }
 
-    if source == HandlerSource::Lifecycle && kind != FaultKind::Benign {
-        system.start(&component);
-    } else {
-        system
-            .start_notify(&component)
-            .wait_timeout(TIMEOUT)
-            .expect("component did not start");
-    }
-
-    if source != HandlerSource::Lifecycle {
-        component.actor_ref().tell(TestMessage::Trigger);
-    }
-
-    match kind {
-        FaultKind::Benign => {
-            expect_notice(&rx, Notice::Ran);
-            component.actor_ref().tell(TestMessage::Ping);
-            expect_notice(&rx, Notice::Ping);
-            assert!(component.is_active());
-        }
-        FaultKind::Recoverable => {
-            expect_notice(&rx, Notice::Ran);
-            expect_notice(&rx, Notice::Recovered);
-            assert!(component.is_faulty());
-        }
-        FaultKind::Unrecoverable => {
-            wait_until("component destruction", || component.is_destroyed());
-        }
-    }
+    trigger_source(&system, &component, source, kind);
+    assert_outcome(&system, &component, &rx, source, kind);
 
     system.shutdown().expect("shutdown");
 }
@@ -261,7 +326,13 @@ fn blocking_futures_apply_all_error_classifications() {
 
 #[test]
 fn lifecycle_handlers_apply_all_error_classifications() {
-    for kind in FaultKind::all() {
-        run_case(HandlerSource::Lifecycle, kind);
+    for hook in [
+        LifecycleHook::Start,
+        LifecycleHook::Stop,
+        LifecycleHook::Kill,
+    ] {
+        for kind in FaultKind::all() {
+            run_case(HandlerSource::Lifecycle(hook), kind);
+        }
     }
 }
