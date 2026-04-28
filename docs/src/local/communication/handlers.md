@@ -2,6 +2,8 @@
 
 Now that we have set up all the messages, events, and the state, we need to actually implement the behaviours of the `Manager` and the `Worker`. That means we need to implement the `Actor` trait for both components, to handle the messages we are sending, and we also need to implement the appropriate event handling traits: `ComponentLifecycle` and `Require<WorkerPort>` for the `Manager`, and `Provide<ControlPort>` and `Provide<WorkerPort>` for the `Worker`.
 
+All of these handlers return a `HandlerResult`, which is a `Result<Handled, HandlerError>`. The `Handled` value describes normal control flow after a handler: `Handled::OK` continues as usual, `Handled::SHUTDOWN` shuts the component down normally, and `Handled::block_on(...)` suspends the component until a future completes. The `HandlerError` value describes abnormal outcomes. `HandlerError::Benign(...)` reports an error but keeps the component healthy, `HandlerError::Recoverable(...)` marks the component faulty and asks supervision to run the recovery function, and `HandlerError::Unrecoverable(...)` treats the component as terminal. Kompact does not classify application errors automatically; if you want to use `?` with your own error types, classify them at the call site with helpers such as `.benign_err()`, `.recoverable_err()`, and `.unrecoverable_err()`.
+
 ## Worker
 
 ### Actor
@@ -47,4 +49,3 @@ Whenever we get a `WorkResult` from a worker, we will temporarily store it in `s
 ```rust,edition2018,no_run,noplaypen
 {{#rustdoc_include ../../../examples/local/src/bin/workers.rs:manager_worker_port}}
 ```
-

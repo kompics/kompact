@@ -42,6 +42,10 @@ pub enum Fault {
     /// The component panicked.
     Panic(Box<dyn Any + Send>),
     /// A handler returned a recoverable fault.
+    ///
+    /// Only [HandlerError::Recoverable](crate::prelude::HandlerError::Recoverable)
+    /// values are passed to recovery. Benign handler errors continue normally,
+    /// and unrecoverable handler errors are terminal.
     Handler(ComponentFault),
 }
 

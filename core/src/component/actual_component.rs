@@ -280,7 +280,7 @@ impl<CD: ComponentTraits> Component<CD> {
         );
     }
 
-    fn handle_recoverable_error(&self, fault: ComponentFault) -> SchedulingDecision {
+    fn handle_recoverable_error(&self, fault: ComponentFault) {
         error!(
             self.logger,
             "Component handler reported a recoverable error: {}", fault
@@ -311,10 +311,9 @@ impl<CD: ComponentTraits> Component<CD> {
             );
             self.system().poison();
         }
-        SchedulingDecision::NoWork
     }
 
-    fn handle_unrecoverable_error(&self, fault: ComponentFault) -> SchedulingDecision {
+    fn handle_unrecoverable_error(&self, fault: ComponentFault) {
         error!(
             self.logger,
             "Component handler reported an unrecoverable error: {}", fault
@@ -331,7 +330,6 @@ impl<CD: ComponentTraits> Component<CD> {
             );
             self.system().poison();
         }
-        SchedulingDecision::NoWork
     }
 
     fn handle_handler_error(&self, error: HandlerError) -> HandlerErrorOutcome {
@@ -341,10 +339,12 @@ impl<CD: ComponentTraits> Component<CD> {
                 HandlerErrorOutcome::Continue
             }
             HandlerError::Recoverable(fault) => {
-                HandlerErrorOutcome::Stop(self.handle_recoverable_error(fault))
+                self.handle_recoverable_error(fault);
+                HandlerErrorOutcome::Stop(SchedulingDecision::NoWork)
             }
             HandlerError::Unrecoverable(fault) => {
-                HandlerErrorOutcome::Stop(self.handle_unrecoverable_error(fault))
+                self.handle_unrecoverable_error(fault);
+                HandlerErrorOutcome::Stop(SchedulingDecision::NoWork)
             }
         }
     }

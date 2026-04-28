@@ -57,6 +57,8 @@ impl Provide<ControlPort> for HelloWorldComponent {
 	}
 }
 ```
+Handlers return a `HandlerResult`, which can signal normal progress with `Handled` or abnormal outcomes with `HandlerError`. In this simple example we only use `Handled::OK`, a shorthand for `Ok(Handled::Ok)`.
+
 This mechanism is similar to the concept of *event handlers* in the Kompics model, except that you can only have a single handler in Kompact and it is *always* (statically) *subscribed*. In this way the compiler can statically ensure that any component providing (or requiring) a port also accepts the appropriate events.
 
 In Kompact, however, the `ControlPort` is not exposed (anymore since version `0.10.0`), but instead we must implement the `ComponentLifecycle` trait to react to (some of) its events, as we did in the `HelloWorldComponent` example:

@@ -40,6 +40,10 @@ pub use future_task::*;
 pub type BoxedHandlerError = Box<dyn std::error::Error + Send + 'static>;
 
 /// The result returned from component handlers.
+///
+/// The [Handled] side describes normal handler control flow. The
+/// [HandlerError] side describes abnormal outcomes that Kompact should log,
+/// recover from, or treat as terminal depending on their classification.
 pub type HandlerResult = Result<Handled, HandlerError>;
 
 /// A component-local fault produced by a handler.
@@ -89,13 +93,26 @@ impl std::error::Error for ComponentFault {
 }
 
 /// An abnormal result returned from a component handler.
+///
+/// Kompact does not classify application errors automatically. Users should
+/// convert their own error types into the variant that matches the intended
+/// runtime behaviour.
 #[derive(Debug)]
 pub enum HandlerError {
     /// The handler observed an abnormal condition, but the component remains healthy.
+    ///
+    /// Benign errors are logged and normal processing continues.
     Benign(ComponentFault),
     /// The component instance is faulty, but supervision may attempt recovery.
+    ///
+    /// Recoverable errors mark the component as faulty and pass a
+    /// [FaultContext](crate::prelude::FaultContext) to the component's recovery
+    /// function. Top-level components without supervision poison the system.
     Recoverable(ComponentFault),
     /// The component instance is faulty and terminal.
+    ///
+    /// Unrecoverable errors destroy the component without running recovery.
+    /// Top-level components poison the system.
     Unrecoverable(ComponentFault),
 }
 
@@ -164,6 +181,65 @@ impl std::error::Error for HandlerError {
     }
 }
 
+/// Extension helpers for classifying fallible results in component handlers.
+///
+/// These methods keep error classification local to the handler call site while
+/// still allowing convenient use of the `?` operator.
+///
+/// # Example
+///
+/// ```
+/// # use kompact::prelude::*;
+/// # use std::{error::Error, fmt};
+/// #
+/// # #[derive(Debug)]
+/// # struct LookupError;
+/// #
+/// # impl fmt::Display for LookupError {
+/// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+/// #         write!(f, "lookup failed")
+/// #     }
+/// # }
+/// #
+/// # impl Error for LookupError {}
+/// #
+/// # fn lookup() -> Result<(), LookupError> {
+/// #     Ok(())
+/// # }
+///
+/// fn handler() -> HandlerResult {
+///     lookup().recoverable_err()?;
+///     Handled::OK
+/// }
+/// ```
+pub trait HandlerResultExt<T> {
+    /// Classify an `Err` value as [HandlerError::Benign].
+    fn benign_err(self) -> Result<T, HandlerError>;
+
+    /// Classify an `Err` value as [HandlerError::Recoverable].
+    fn recoverable_err(self) -> Result<T, HandlerError>;
+
+    /// Classify an `Err` value as [HandlerError::Unrecoverable].
+    fn unrecoverable_err(self) -> Result<T, HandlerError>;
+}
+
+impl<T, E> HandlerResultExt<T> for Result<T, E>
+where
+    E: std::error::Error + Send + 'static,
+{
+    fn benign_err(self) -> Result<T, HandlerError> {
+        self.map_err(HandlerError::benign)
+    }
+
+    fn recoverable_err(self) -> Result<T, HandlerError> {
+        self.map_err(HandlerError::recoverable)
+    }
+
+    fn unrecoverable_err(self) -> Result<T, HandlerError> {
+        self.map_err(HandlerError::unrecoverable)
+    }
+}
+
 /// State transition indication at the end of a message or event handler.
 #[must_use = "Handled values must be returned as Ok(Handled) from a handle or receive function in order to take effect."]
 #[derive(Debug, Default)]
@@ -174,7 +250,10 @@ pub enum Handled {
     /// Immediately suspend processing of any messages and events
     /// until the `BlockingFuture` has completed
     BlockOn(BlockingFuture),
-    /// Shut the component down without handling any further messages
+    /// Shut the component down without handling any further messages.
+    ///
+    /// This is an orderly shutdown result. Use [HandlerError::Unrecoverable]
+    /// for terminal faults.
     Shutdown,
 }
 impl Handled {

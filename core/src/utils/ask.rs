@@ -86,8 +86,8 @@ where
     ///     type Message = Ask<usize, usize>;
     ///
     ///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
-    ///         Handled::block_on(self, move |async_self| async move {
-    ///             msg.complete_with(move |num| async move {
+    ///         Handled::block_on(self, async move |async_self| {
+    ///             msg.complete_with(async move |num| {
     ///                 num + 1 // produce response
     ///             })
     ///             .await

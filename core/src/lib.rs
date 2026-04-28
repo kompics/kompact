@@ -212,6 +212,7 @@ pub mod prelude {
             Handled,
             HandlerError,
             HandlerResult,
+            HandlerResultExt,
             LockingProvideRef,
             LockingRequireRef,
             Provide,
