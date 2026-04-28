@@ -36,8 +36,212 @@ pub use self::core::*;
 mod future_task;
 pub use future_task::*;
 
-/// State transition indication at the end of a message or event handler
-#[must_use = "The Handled value must be returned from a handle or receive function in order to take effect."]
+/// A boxed error returned from a Kompact handler.
+pub type BoxedHandlerError = Box<dyn std::error::Error + Send + 'static>;
+
+/// The result returned from component handlers.
+///
+/// The [Handled] side describes normal handler control flow. The
+/// [HandlerError] side describes abnormal outcomes that Kompact should log,
+/// recover from, or treat as terminal depending on their classification.
+pub type HandlerResult = Result<Handled, HandlerError>;
+
+/// A component-local fault produced by a handler.
+#[derive(Debug)]
+pub struct ComponentFault {
+    error: BoxedHandlerError,
+}
+
+impl ComponentFault {
+    /// Construct a component fault from an error.
+    pub fn new<E>(error: E) -> Self
+    where
+        E: std::error::Error + Send + 'static,
+    {
+        ComponentFault {
+            error: Box::new(error),
+        }
+    }
+
+    /// Construct a component fault from an already boxed error.
+    pub fn from_boxed(error: BoxedHandlerError) -> Self {
+        ComponentFault { error }
+    }
+
+    /// Return the underlying error.
+    pub fn as_error(&self) -> &(dyn std::error::Error + Send + 'static) {
+        self.error.as_ref()
+    }
+
+    /// Consume this fault and return the underlying error.
+    pub fn into_error(self) -> BoxedHandlerError {
+        self.error
+    }
+}
+
+impl fmt::Display for ComponentFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+
+impl std::error::Error for ComponentFault {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        let error: &(dyn std::error::Error + 'static) = self.error.as_ref();
+        Some(error)
+    }
+}
+
+/// An abnormal result returned from a component handler.
+///
+/// Kompact does not classify application errors automatically. Users should
+/// convert their own error types into the variant that matches the intended
+/// runtime behaviour.
+#[derive(Debug)]
+pub enum HandlerError {
+    /// The handler observed an abnormal condition, but the component remains healthy.
+    ///
+    /// Benign errors are logged and normal processing continues.
+    Benign(ComponentFault),
+    /// The component instance is faulty, but supervision may attempt recovery.
+    ///
+    /// Recoverable errors mark the component as faulty and pass a
+    /// [FaultContext](crate::prelude::FaultContext) to the component's recovery
+    /// function. Top-level components without supervision poison the system.
+    Recoverable(ComponentFault),
+    /// The component instance is faulty and terminal.
+    ///
+    /// Unrecoverable errors destroy the component without running recovery.
+    /// Top-level components poison the system.
+    Unrecoverable(ComponentFault),
+}
+
+impl HandlerError {
+    /// Construct a benign handler error.
+    pub fn benign<E>(error: E) -> Self
+    where
+        E: std::error::Error + Send + 'static,
+    {
+        HandlerError::Benign(ComponentFault::new(error))
+    }
+
+    /// Construct a recoverable handler error.
+    pub fn recoverable<E>(error: E) -> Self
+    where
+        E: std::error::Error + Send + 'static,
+    {
+        HandlerError::Recoverable(ComponentFault::new(error))
+    }
+
+    /// Construct an unrecoverable handler error.
+    pub fn unrecoverable<E>(error: E) -> Self
+    where
+        E: std::error::Error + Send + 'static,
+    {
+        HandlerError::Unrecoverable(ComponentFault::new(error))
+    }
+
+    /// Construct a benign handler error from an already boxed error.
+    pub fn benign_boxed(error: BoxedHandlerError) -> Self {
+        HandlerError::Benign(ComponentFault::from_boxed(error))
+    }
+
+    /// Construct a recoverable handler error from an already boxed error.
+    pub fn recoverable_boxed(error: BoxedHandlerError) -> Self {
+        HandlerError::Recoverable(ComponentFault::from_boxed(error))
+    }
+
+    /// Construct an unrecoverable handler error from an already boxed error.
+    pub fn unrecoverable_boxed(error: BoxedHandlerError) -> Self {
+        HandlerError::Unrecoverable(ComponentFault::from_boxed(error))
+    }
+}
+
+impl fmt::Display for HandlerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HandlerError::Benign(fault) => write!(f, "benign handler error: {}", fault),
+            HandlerError::Recoverable(fault) => {
+                write!(f, "recoverable handler error: {}", fault)
+            }
+            HandlerError::Unrecoverable(fault) => {
+                write!(f, "unrecoverable handler error: {}", fault)
+            }
+        }
+    }
+}
+
+impl std::error::Error for HandlerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            HandlerError::Benign(fault)
+            | HandlerError::Recoverable(fault)
+            | HandlerError::Unrecoverable(fault) => Some(fault),
+        }
+    }
+}
+
+/// Extension helpers for classifying fallible results in component handlers.
+///
+/// These methods keep error classification local to the handler call site while
+/// still allowing convenient use of the `?` operator.
+///
+/// # Example
+///
+/// ```
+/// # use kompact::prelude::*;
+/// # use std::{error::Error, fmt};
+/// #
+/// # #[derive(Debug)]
+/// # struct LookupError;
+/// #
+/// # impl fmt::Display for LookupError {
+/// #     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+/// #         write!(f, "lookup failed")
+/// #     }
+/// # }
+/// #
+/// # impl Error for LookupError {}
+/// #
+/// # fn lookup() -> Result<(), LookupError> {
+/// #     Ok(())
+/// # }
+///
+/// fn handler() -> HandlerResult {
+///     lookup().recoverable_err()?;
+///     Handled::OK
+/// }
+/// ```
+pub trait HandlerResultExt<T> {
+    /// Classify an `Err` value as [HandlerError::Benign].
+    fn benign_err(self) -> Result<T, HandlerError>;
+
+    /// Classify an `Err` value as [HandlerError::Recoverable].
+    fn recoverable_err(self) -> Result<T, HandlerError>;
+
+    /// Classify an `Err` value as [HandlerError::Unrecoverable].
+    fn unrecoverable_err(self) -> Result<T, HandlerError>;
+}
+
+impl<T, E> HandlerResultExt<T> for Result<T, E>
+where
+    E: std::error::Error + Send + 'static,
+{
+    fn benign_err(self) -> Result<T, HandlerError> {
+        self.map_err(HandlerError::benign)
+    }
+
+    fn recoverable_err(self) -> Result<T, HandlerError> {
+        self.map_err(HandlerError::recoverable)
+    }
+
+    fn unrecoverable_err(self) -> Result<T, HandlerError> {
+        self.map_err(HandlerError::unrecoverable)
+    }
+}
+
+/// State transition indication at the end of a message or event handler.
+#[must_use = "Handled values must be returned as Ok(Handled) from a handle or receive function in order to take effect."]
 #[derive(Debug, Default)]
 pub enum Handled {
     /// Continue as normal
@@ -46,10 +250,18 @@ pub enum Handled {
     /// Immediately suspend processing of any messages and events
     /// until the `BlockingFuture` has completed
     BlockOn(BlockingFuture),
-    /// Kill the component without handling any further messages
-    DieNow,
+    /// Shut the component down without handling any further messages.
+    ///
+    /// This is an orderly shutdown result. Use [HandlerError::Unrecoverable]
+    /// for terminal faults.
+    Shutdown,
 }
 impl Handled {
+    /// A successful no-op handler result.
+    pub const OK: HandlerResult = Ok(Handled::Ok);
+    /// A successful shutdown handler result.
+    pub const SHUTDOWN: HandlerResult = Ok(Handled::Shutdown);
+
     /// Constructs a state transition instruction which causes
     /// the component to suspend processing of any messages and events
     /// until the async `fun` (the returned [Future](std::future::Future)) has completed.
@@ -79,11 +291,11 @@ impl Handled {
     ///     }   
     /// }
     /// impl ComponentLifecycle for AsyncComponent {
-    ///     fn on_start(&mut self) -> Handled {
+    ///     fn on_start(&mut self) -> HandlerResult {
     ///         // on nightly you can just write: async move |mut async_self| {...}
     ///         Handled::block_on(self, move |mut async_self| async move {
     ///             async_self.flag = true;
-    ///             Handled::Ok
+    ///             Handled::OK
     ///         })
     ///     }   
     /// }
@@ -99,13 +311,13 @@ impl Handled {
     pub fn block_on<CD, F>(
         component: &mut CD,
         fun: impl FnOnce(ComponentDefinitionAccess<CD>) -> F,
-    ) -> Self
+    ) -> HandlerResult
     where
         CD: ComponentDefinition + 'static,
-        F: std::future::Future + Send + 'static,
+        F: std::future::Future<Output = HandlerResult> + Send + 'static,
     {
         let blocking = future_task::blocking(component, fun);
-        Handled::BlockOn(blocking)
+        Ok(Handled::BlockOn(blocking))
     }
 
     /// Returns true if this instance is an [Handled::Ok](Handled::Ok) variant
@@ -228,6 +440,8 @@ impl<C> ComponentMutableCore<C> {
 /// Statistics about the last invocation of [execute](ComponentDefinition::execute).
 pub struct ExecuteResult {
     blocking: bool,
+    shutdown: bool,
+    error: Option<HandlerError>,
     count: usize,
     skip: usize,
 }
@@ -240,6 +454,30 @@ impl ExecuteResult {
     pub fn new(blocking: bool, count: usize, skip: usize) -> ExecuteResult {
         ExecuteResult {
             blocking,
+            shutdown: false,
+            error: None,
+            count,
+            skip,
+        }
+    }
+
+    /// Create an execute result indicating a normal shutdown request.
+    pub fn shutdown(count: usize, skip: usize) -> ExecuteResult {
+        ExecuteResult {
+            blocking: false,
+            shutdown: true,
+            error: None,
+            count,
+            skip,
+        }
+    }
+
+    /// Create an execute result indicating an abnormal handler error.
+    pub fn error(error: HandlerError, count: usize, skip: usize) -> ExecuteResult {
+        ExecuteResult {
+            blocking: false,
+            shutdown: false,
+            error: Some(error),
             count,
             skip,
         }
@@ -273,7 +511,7 @@ pub trait Provide<P: Port + 'static> {
     ///
     /// Remember that components usually run on a shared thread pool,
     /// so you shouldn't ever block in this method unless you know what you are doing.
-    fn handle(&mut self, event: P::Request) -> Handled;
+    fn handle(&mut self, event: P::Request) -> HandlerResult;
 }
 
 /// A trait implementing handling of required events of `P`
@@ -286,7 +524,7 @@ pub trait Require<P: Port + 'static> {
     ///
     /// Remember that components usually run on a shared thread pool,
     /// so you shouldn't ever block in this method unless you know what you are doing.
-    fn handle(&mut self, event: P::Indication) -> Handled;
+    fn handle(&mut self, event: P::Indication) -> HandlerResult;
 }
 
 /// A convenience abstraction over concrete port instance fields
@@ -542,10 +780,10 @@ mod tests {
         type Deserialiser = TestMessage;
         type Message = TestMessage;
 
-        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> Handled {
+        fn receive(&mut self, _sender: Option<ActorPath>, _msg: Self::Message) -> HandlerResult {
             info!(self.log(), "Child got message");
             self.got_message = true;
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -583,7 +821,7 @@ mod tests {
 
     #[cfg(feature = "distributed")]
     impl ComponentLifecycle for ParentComponent {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             let child = self.ctx.system().create(ChildComponent::new);
             let f = match self.alias_opt.take() {
                 Some(s) => self.ctx.system().register_by_alias(&child, s),
@@ -599,24 +837,25 @@ mod tests {
                 } else {
                     unreachable!();
                 }
+                Handled::OK
             })
         }
 
-        fn on_stop(&mut self) -> Handled {
+        fn on_stop(&mut self) -> HandlerResult {
             let _ = self.child.take(); // don't hang on to the child
-            Handled::Ok
+            Handled::OK
         }
 
-        fn on_kill(&mut self) -> Handled {
+        fn on_kill(&mut self) -> HandlerResult {
             let _ = self.child.take(); // don't hang on to the child
-            Handled::Ok
+            Handled::OK
         }
     }
     #[cfg(feature = "distributed")]
     impl Actor for ParentComponent {
         type Message = ParentMessage;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             match msg {
                 ParentMessage::GetChild(promise) => {
                     if let Some(ref child) = self.child {
@@ -626,11 +865,11 @@ mod tests {
                     }
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("Shouldn't be used");
         }
     }
@@ -751,15 +990,16 @@ mod tests {
     }
 
     impl ComponentLifecycle for BlockingComponent {
-        fn on_kill(&mut self) -> Handled {
+        fn on_kill(&mut self) -> HandlerResult {
             if self.block_on_shutdown {
                 info!(self.log(), "Cleaning up before shutdown");
                 Handled::block_on(self, move |mut async_self| async move {
                     async_self.test_string = "done".to_string();
                     info!(async_self.log(), "Ran BlockMe::OnShutdown future");
+                    Handled::OK
                 })
             } else {
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -767,7 +1007,7 @@ mod tests {
     impl Actor for BlockingComponent {
         type Message = BlockMe;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             match msg {
                 BlockMe::Now => {
                     info!(self.log(), "Got BlockMe::Now");
@@ -775,6 +1015,7 @@ mod tests {
                     Handled::block_on(self, move |mut async_self| async move {
                         async_self.test_string = "done".to_string();
                         info!(async_self.log(), "Ran BlockMe::Now future");
+                        Handled::OK
                     })
                 }
                 BlockMe::OnChannel(receiver) => {
@@ -785,6 +1026,7 @@ mod tests {
                         let s = receiver.await;
                         async_self.test_string = s.expect("Some string");
                         info!(async_self.log(), "Completed BlockMe::OnChannel future");
+                        Handled::OK
                     })
                 }
                 BlockMe::SpawnOff(s) => {
@@ -793,17 +1035,18 @@ mod tests {
                     Handled::block_on(self, move |mut async_self| async move {
                         let res = handle.await.expect("result");
                         async_self.test_string = res;
+                        Handled::OK
                     })
                 }
                 BlockMe::OnShutdown => {
                     self.block_on_shutdown = true;
-                    Handled::Ok
+                    Handled::OK
                 }
             }
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("No networking here!");
         }
     }
@@ -946,7 +1189,7 @@ mod tests {
     impl Actor for AsyncComponent {
         type Message = AsyncMe;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             match msg {
                 AsyncMe::Now => {
                     info!(self.log(), "Got AsyncMe::Now");
@@ -954,9 +1197,9 @@ mod tests {
                     self.spawn_local(move |mut async_self| async move {
                         async_self.test_string = "done".to_string();
                         info!(async_self.log(), "Ran AsyncMe::Now future");
-                        Handled::Ok
+                        Handled::OK
                     });
-                    Handled::Ok
+                    Handled::OK
                 }
                 AsyncMe::OnChannel(receiver) => {
                     info!(self.log(), "Got AsyncMe::OnChannel");
@@ -966,9 +1209,9 @@ mod tests {
                         let s = receiver.await;
                         async_self.test_string = s.expect("Some string");
                         info!(async_self.log(), "Completed Async::OnChannel future");
-                        Handled::Ok
+                        Handled::OK
                     });
-                    Handled::Ok
+                    Handled::OK
                 }
                 AsyncMe::ConcurrentMessage(receiver) => {
                     info!(self.log(), "Got AsyncMe::OnChannel");
@@ -990,20 +1233,20 @@ mod tests {
                             "Completed AsyncMe::ConcurrentMessage future with state={}",
                             async_self.test_string
                         );
-                        Handled::Ok
+                        Handled::OK
                     });
-                    Handled::Ok
+                    Handled::OK
                 }
                 AsyncMe::JustAMessage(s) => {
                     info!(self.log(), "Got AsyncMe::JustAMessage({})", s);
                     self.test_string = s;
-                    Handled::Ok
+                    Handled::OK
                 }
             }
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("No networking here!");
         }
     }
@@ -1110,21 +1353,21 @@ mod tests {
     }
     ignore_lifecycle!(CountSender);
     impl Provide<CounterPort> for CountSender {
-        fn handle(&mut self, _event: Counted) -> Handled {
+        fn handle(&mut self, _event: Counted) -> HandlerResult {
             self.counted += 1;
-            Handled::Ok
+            Handled::OK
         }
     }
     impl Actor for CountSender {
         type Message = SendCount;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             self.count_port.trigger(CountMe);
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("No networking in this test");
         }
     }
@@ -1146,21 +1389,21 @@ mod tests {
     }
     ignore_lifecycle!(Counter);
     impl Require<CounterPort> for Counter {
-        fn handle(&mut self, _event: CountMe) -> Handled {
+        fn handle(&mut self, _event: CountMe) -> HandlerResult {
             self.count += 1;
             self.count_port.trigger(Counted);
-            Handled::Ok
+            Handled::OK
         }
     }
     impl Actor for Counter {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unreachable!("Never type is empty")
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!("No networking in this test");
         }
     }

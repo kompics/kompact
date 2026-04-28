@@ -37,18 +37,66 @@ impl ListenEvent {
     }
 }
 
+/// The source of a component fault.
+pub enum Fault {
+    /// The component panicked.
+    Panic(Box<dyn Any + Send>),
+    /// A handler returned a recoverable fault.
+    ///
+    /// Only [HandlerError::Recoverable](crate::prelude::HandlerError::Recoverable)
+    /// values are passed to recovery. Benign handler errors continue normally,
+    /// and unrecoverable handler errors are terminal.
+    Handler(ComponentFault),
+}
+
+impl Fault {
+    fn description(&self) -> String {
+        match self {
+            Fault::Panic(fault) => {
+                if let Some(error_msg) = fault.downcast_ref::<&str>() {
+                    error_msg.to_string()
+                } else if let Some(error_msg) = fault.downcast_ref::<String>() {
+                    error_msg.clone()
+                } else {
+                    format!(
+                        "Component panicked with a non-string message with type id={:?}",
+                        fault.as_ref().type_id()
+                    )
+                }
+            }
+            Fault::Handler(fault) => fault.to_string(),
+        }
+    }
+}
+
+impl fmt::Debug for Fault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Fault::Panic(_) => f.debug_tuple("Panic").field(&self.description()).finish(),
+            Fault::Handler(fault) => f.debug_tuple("Handler").field(fault).finish(),
+        }
+    }
+}
+
 /// Information about the fault that occurred
 pub struct FaultContext {
     /// The id of the component that faulted
     pub component_id: Uuid,
-    /// The concrete error produced by [catch_unwind](std::panic::catch_unwind)
-    pub fault: Box<dyn Any + Send>,
+    /// The concrete fault.
+    pub fault: Fault,
 }
 impl FaultContext {
-    pub(crate) fn new(component_id: Uuid, fault: Box<dyn Any + Send>) -> Self {
+    pub(crate) fn from_panic(component_id: Uuid, fault: Box<dyn Any + Send>) -> Self {
         FaultContext {
             component_id,
-            fault,
+            fault: Fault::Panic(fault),
+        }
+    }
+
+    pub(crate) fn from_handler(component_id: Uuid, fault: ComponentFault) -> Self {
+        FaultContext {
+            component_id,
+            fault: Fault::Handler(fault),
         }
     }
 
@@ -102,19 +150,9 @@ impl FaultContext {
 }
 impl fmt::Debug for FaultContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let error_msg: String = if let Some(error_msg) = self.fault.downcast_ref::<&str>() {
-            error_msg.to_string()
-        } else if let Some(error_msg) = self.fault.downcast_ref::<String>() {
-            error_msg.clone()
-        } else {
-            format!(
-                "Component panicked with a non-string message with type id={:?}",
-                (*self.fault).type_id()
-            )
-        };
         f.debug_struct("RecoveryHandler")
             .field("component_id", &self.component_id)
-            .field("action", &error_msg)
+            .field("fault", &self.fault)
             .finish()
     }
 }
@@ -232,17 +270,17 @@ impl ComponentSupervisor {
 }
 
 impl ComponentLifecycle for ComponentSupervisor {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         debug!(self.ctx.log(), "Started supervisor.");
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         error!(self.ctx.log(), "Do not stop the supervisor!");
         panic!("Invalid supervisor handling!");
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         error!(
             self.ctx.log(),
             "Use SupervisorMsg::Shutdown to kill the supervisor!"
@@ -252,7 +290,7 @@ impl ComponentLifecycle for ComponentSupervisor {
 }
 
 impl Provide<SupervisionPort> for ComponentSupervisor {
-    fn handle(&mut self, event: SupervisorMsg) -> Handled {
+    fn handle(&mut self, event: SupervisorMsg) -> HandlerResult {
         match event {
             SupervisorMsg::Started(c) => {
                 let id = c.id();
@@ -357,6 +395,6 @@ impl Provide<SupervisionPort> for ComponentSupervisor {
                 ),
             },
         }
-        Handled::Ok
+        Handled::OK
     }
 }

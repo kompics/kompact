@@ -17,10 +17,10 @@ impl HelloWorldComponent {
 }
 // ANCHOR: lifecycle
 impl ComponentLifecycle for HelloWorldComponent {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         info!(self.log(), "Hello World!");
         self.ctx.system().shutdown_async();
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: lifecycle

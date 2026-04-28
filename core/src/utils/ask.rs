@@ -85,17 +85,18 @@ where
     /// impl Actor for ExampleComponent {
     ///     type Message = Ask<usize, usize>;
     ///
-    ///     fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    ///     fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
     ///         Handled::block_on(self, async move |async_self| {
     ///             msg.complete_with(async move |num| {
     ///                 num + 1 // produce response
     ///             })
     ///             .await
     ///             .expect("complete");
+    ///             Handled::OK
     ///         })
     ///     }
     /// #   #[cfg(feature = "distributed")]
-    /// #   fn receive_network(&mut self, msg: NetMessage) -> Handled { unimplemented!() }
+    /// #   fn receive_network(&mut self, msg: NetMessage) -> HandlerResult { unimplemented!() }
     /// }
     /// ```
     pub async fn complete_with<F>(self, f: impl FnOnce(Request) -> F) -> Result<(), PromiseErr>
@@ -135,16 +136,16 @@ mod tests {
     impl Actor for TestComponent {
         type Message = Ask<u64, ()>;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             msg.complete(|num| {
                 self.counter += num;
             })
             .expect("Should work!");
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!();
         }
     }
@@ -203,7 +204,7 @@ mod tests {
     impl Actor for AsyncTestComponent {
         type Message = Ask<u64, ()>;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             match self.mode {
                 AsyncMode::Blocking => Handled::block_on(self, async move |async_self| {
                     msg.complete_with(async move |num| {
@@ -211,6 +212,7 @@ mod tests {
                     })
                     .await
                     .expect("complete");
+                    Handled::OK
                 }),
                 AsyncMode::SpawnOff => {
                     let proxee = self.proxee.clone();
@@ -222,7 +224,7 @@ mod tests {
                         .expect("complete");
                     });
                     drop(handle);
-                    Handled::Ok
+                    Handled::OK
                 }
                 AsyncMode::SpawnLocal => {
                     self.spawn_local(async move |async_self| {
@@ -235,15 +237,15 @@ mod tests {
                         if let Err(err) = res {
                             error!(async_self.log(), "Could not complete request: {}", err);
                         }
-                        Handled::Ok
+                        Handled::OK
                     });
-                    Handled::Ok
+                    Handled::OK
                 }
             }
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!();
         }
     }

@@ -453,7 +453,7 @@ impl NetworkDispatcher {
 
         self.schedule_once(Duration::from_millis(next_wakeup), move |target, _id| {
             target.schedule_reaper();
-            Handled::Ok
+            Handled::OK
         });
     }
 
@@ -495,7 +495,7 @@ impl NetworkDispatcher {
             Duration::from_millis(self.cfg.connection_retry_interval),
             move |target, _id| {
                 target.schedule_retries();
-                Handled::Ok
+                Handled::OK
             },
         );
     }
@@ -949,7 +949,7 @@ impl NetworkDispatcher {
 impl Actor for NetworkDispatcher {
     type Message = DispatchEnvelope;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         match msg {
             DispatchEnvelope::Msg { src: _, dst, msg } => {
                 if let Err(e) = self.route(dst, msg) {
@@ -977,12 +977,12 @@ impl Actor for NetworkDispatcher {
             DispatchEnvelope::Event(ev) => self.on_event(ev),
             DispatchEnvelope::LockedChunk(trash) => self.garbage_buffers.push_back(trash),
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         warn!(self.ctx.log(), "Received network message: {:?}", msg,);
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -1018,7 +1018,7 @@ impl NetworkDispatcher {
 }
 
 impl ComponentLifecycle for NetworkDispatcher {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         info!(self.ctx.log(), "Starting network...");
         self.start();
         info!(self.ctx.log(), "Started network just fine.");
@@ -1027,26 +1027,26 @@ impl ComponentLifecycle for NetworkDispatcher {
                 .complete()
                 .unwrap_or_else(|e| error!(self.ctx.log(), "Could not start network! {:?}", e))
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         info!(self.ctx.log(), "Stopping network...");
         self.stop();
         info!(self.ctx.log(), "Stopped network.");
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         info!(self.ctx.log(), "Killing network...");
         self.kill();
         info!(self.ctx.log(), "Killed network.");
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide<NetworkStatusPort> for NetworkDispatcher {
-    fn handle(&mut self, event: <NetworkStatusPort as Port>::Request) -> Handled {
+    fn handle(&mut self, event: <NetworkStatusPort as Port>::Request) -> HandlerResult {
         debug!(
             self.ctx.log(),
             "Received NetworkStatusPort Request {:?}", event
@@ -1099,7 +1099,7 @@ impl Provide<NetworkStatusPort> for NetworkDispatcher {
                 }
             }
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 

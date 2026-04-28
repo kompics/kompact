@@ -111,7 +111,7 @@ impl BootstrapServer {
     }
 
     // ANCHOR: tell_serialised
-    fn broadcast_processess(&self) -> Handled {
+    fn broadcast_processess(&self) -> HandlerResult {
         let procs: Vec<ActorPath> = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
 
@@ -120,7 +120,7 @@ impl BootstrapServer {
                 .tell_serialised(msg.clone(), self)
                 .unwrap_or_else(|e| warn!(self.log(), "Error during serialisation: {}", e));
         });
-        Handled::Ok
+        Handled::OK
     }
     // ANCHOR_END: tell_serialised
 }
@@ -131,15 +131,15 @@ impl NetworkActor for BootstrapServer {
     type Deserialiser = ZstSerialiser<CheckIn>;
     type Message = CheckIn;
 
-    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
+    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> HandlerResult {
         if let Some(process) = source {
             if self.processes.insert(process) {
                 self.broadcast_processess()
             } else {
-                Handled::Ok
+                Handled::OK
             }
         } else {
-            Handled::Ok
+            Handled::OK
         }
     }
 }
@@ -180,7 +180,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> HandlerResult {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -203,26 +203,26 @@ impl EventualLeaderElector {
                 }
                 self.send_heartbeats()
             }
-            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            Some(_) => Handled::OK, // just ignore outdated timeouts
             None => {
                 warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
-                Handled::Ok
+                Handled::OK
             } // can happen during restart or teardown
         }
     }
 
     // ANCHOR: send_heartbeats
-    fn send_heartbeats(&self) -> Handled {
+    fn send_heartbeats(&self) -> HandlerResult {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
-        Handled::Ok
+        Handled::OK
     }
     // ANCHOR_END: send_heartbeats
 }
 
 impl ComponentLifecycle for EventualLeaderElector {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         // ANCHOR: checkin
         self.bootstrap_server.tell((CheckIn, &CHECK_IN_SER), self);
         // ANCHOR_END: checkin
@@ -239,17 +239,17 @@ impl ComponentLifecycle for EventualLeaderElector {
             EventualLeaderElector::handle_timeout,
         );
         self.timer_handle = Some(timeout);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         if let Some(timeout) = self.timer_handle.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }
@@ -259,12 +259,12 @@ ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
         unreachable!();
     }
 
     // ANCHOR: receive_network
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         let sender = msg.sender;
 
         match_deser! {
@@ -283,7 +283,7 @@ impl Actor for EventualLeaderElector {
                 },
             }
         }
-        Handled::Ok
+        Handled::OK
     }
     // ANCHOR_END: receive_network
 }

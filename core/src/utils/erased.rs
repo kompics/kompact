@@ -59,16 +59,16 @@ mod tests {
     impl Actor for TestComponent {
         type Message = Ask<u64, ()>;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             msg.complete(|num| {
                 self.counter += num;
             })
             .expect("Should work!");
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!();
         }
     }

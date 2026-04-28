@@ -45,18 +45,20 @@ In order to react to the events of a port we must implement an trait appropriate
 
 ```rust,edition2018,no_run,noplaypen
 impl Provide<ControlPort> for HelloWorldComponent {
-	fn handle(&mut self, event: ControlEvent) -> Handled {
+	fn handle(&mut self, event: ControlEvent) -> HandlerResult {
 		match event {
 			ControlEvent::Start => {
 				info!(self.log(), "Hello World!");
-        		self.ctx.system().shutdown_async();
-        		Handled::Ok
+				self.ctx.system().shutdown_async();
+				Handled::OK
 			}
-			ControlEvent::Stop | ControlEvent::Kill => Handled::Ok,
+			ControlEvent::Stop | ControlEvent::Kill => Handled::OK,
 		}
 	}
 }
 ```
+Handlers return a `HandlerResult`, which can signal normal progress with `Handled` or abnormal outcomes with `HandlerError`. In this simple example we only use `Handled::OK`, a shorthand for `Ok(Handled::Ok)`.
+
 This mechanism is similar to the concept of *event handlers* in the Kompics model, except that you can only have a single handler in Kompact and it is *always* (statically) *subscribed*. In this way the compiler can statically ensure that any component providing (or requiring) a port also accepts the appropriate events.
 
 In Kompact, however, the `ControlPort` is not exposed (anymore since version `0.10.0`), but instead we must implement the `ComponentLifecycle` trait to react to (some of) its events, as we did in the `HelloWorldComponent` example:

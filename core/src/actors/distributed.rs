@@ -1,5 +1,5 @@
 use super::*;
-use crate::messaging::UnpackError;
+use crate::{component::HandlerResult, messaging::UnpackError};
 
 /// A trait for things that can deal with [network messages](NetMessage)
 pub trait DynActorRefFactory {
@@ -37,9 +37,9 @@ pub trait Dispatching {
 ///     type Message = ();
 ///     type Deserialiser = ();
 ///
-///     fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> Handled {
+///     fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> HandlerResult {
 ///         info!(self.log(), "Got a local or deserialised remote message: {:?}", msg);
-///         Handled::Ok
+///         Handled::OK
 ///     }
 /// }
 /// ```
@@ -54,19 +54,19 @@ pub trait NetworkActor: ComponentLogging {
     ///
     /// The `sender` argument will only be supplied if the original message
     /// was a [NetMessage](crate::messaging::NetMessage), otherwise it's `None`.
-    fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> Handled;
+    fn receive(&mut self, sender: Option<ActorPath>, msg: Self::Message) -> HandlerResult;
 
     /// Handle errors during unpacking of network messages.
     ///
     /// The default implementation logs every error as a warning.
-    fn on_error(&mut self, error: UnpackError<crate::messaging::NetMessage>) -> Handled {
+    fn on_error(&mut self, error: UnpackError<crate::messaging::NetMessage>) -> HandlerResult {
         warn!(
             self.log(),
             "Could not deserialise a message with Deserialiser with id={}. Error was: {:?}",
             Self::Deserialiser::SER_ID,
             error
         );
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -79,12 +79,12 @@ where
     type Message = M;
 
     #[inline(always)]
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         self.receive(None, msg)
     }
 
     #[inline(always)]
-    fn receive_network(&mut self, msg: crate::messaging::NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: crate::messaging::NetMessage) -> HandlerResult {
         match msg.try_into_deserialised::<_, <Self as NetworkActor>::Deserialiser>() {
             Ok(m) => self.receive(Some(m.sender), m.content),
             Err(e) => self.on_error(e),

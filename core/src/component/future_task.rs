@@ -22,13 +22,13 @@ where
 
 pub(super) enum BlockingRunResult {
     BlockOn(BlockingFuture),
-    Unblock,
+    Unblock(HandlerResult),
 }
 
 /// A future that is supposed to be blocking the
 /// component's execution until completed
 pub struct BlockingFuture {
-    future: BoxFuture<'static, ()>,
+    future: BoxFuture<'static, HandlerResult>,
 }
 impl fmt::Debug for BlockingFuture {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -49,7 +49,7 @@ impl BlockingFuture {
         let res = RustFuture::poll(fut, ctx);
         match res {
             Poll::Pending => BlockingRunResult::BlockOn(self),
-            Poll::Ready(_) => BlockingRunResult::Unblock,
+            Poll::Ready(result) => BlockingRunResult::Unblock(result),
         }
     }
 }
@@ -59,21 +59,18 @@ pub(super) fn blocking<F, CD>(
     f: impl FnOnce(ComponentDefinitionAccess<CD>) -> F,
 ) -> BlockingFuture
 where
-    F: RustFuture + Send + 'static,
+    F: RustFuture<Output = HandlerResult> + Send + 'static,
     CD: ComponentDefinition + 'static,
 {
     let future = f(ComponentDefinitionAccess::from_ref(component));
-    let ignore_result = async move {
-        let _ = future.await;
-    };
-    let boxed = Box::pin(ignore_result);
+    let boxed = Box::pin(future);
     BlockingFuture { future: boxed }
 }
 
 /// A future that is supposed to be polled
 /// while the component is running normally
 pub struct NonBlockingFuture {
-    future: BoxFuture<'static, Handled>,
+    future: BoxFuture<'static, HandlerResult>,
     waker: Waker,
     tag: Uuid,
 }
@@ -86,7 +83,7 @@ impl fmt::Debug for NonBlockingFuture {
 }
 
 impl NonBlockingFuture {
-    pub(super) fn run(&mut self) -> Poll<Handled> {
+    pub(super) fn run(&mut self) -> Poll<HandlerResult> {
         let ctx = &mut Context::from_waker(&self.waker);
         let fut = self.future.as_mut();
         RustFuture::poll(fut, ctx)
@@ -106,7 +103,7 @@ pub(super) fn non_blocking<F, CD>(
     f: impl FnOnce(ComponentDefinitionAccess<CD>) -> F,
 ) -> NonBlockingFuture
 where
-    F: RustFuture<Output = Handled> + Send + 'static,
+    F: RustFuture<Output = HandlerResult> + Send + 'static,
     CD: ComponentDefinition + 'static,
 {
     let id = Uuid::new_v4();

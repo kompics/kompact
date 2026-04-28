@@ -331,7 +331,7 @@ pub mod pppipelinestatic {
     ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> Handled {
+        fn handle(&mut self, event: Run) -> HandlerResult {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !", event.num_iterations
@@ -346,18 +346,18 @@ pub mod pppipelinestatic {
                     .tell_serialised(Ping::EVENT, self)
                     .expect("serialise");
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             match msg.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -375,7 +375,7 @@ pub mod pppipelinestatic {
                     unimplemented!("Pinger received unexpected message!")
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -403,11 +403,11 @@ pub mod pppipelinestatic {
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -422,7 +422,7 @@ pub mod pppipelinestatic {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -532,7 +532,7 @@ pub mod pppipelineindexed {
     ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> Handled {
+        fn handle(&mut self, event: Run) -> HandlerResult {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !", event.num_iterations
@@ -548,18 +548,18 @@ pub mod pppipelineindexed {
                     .tell_serialised(Ping::new(self.remaining_send), self)
                     .expect("serialise");
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Can't instantiate Never!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -577,7 +577,7 @@ pub mod pppipelineindexed {
                     unimplemented!("Pinger received unexpected message!");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -605,11 +605,11 @@ pub mod pppipelineindexed {
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -624,7 +624,7 @@ pub mod pppipelineindexed {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -746,7 +746,7 @@ pub mod ppstatic {
     ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> Handled {
+        fn handle(&mut self, event: Run) -> HandlerResult {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !", event.num_iterations
@@ -757,18 +757,18 @@ pub mod ppstatic {
             self.ponger
                 .tell_serialised(Ping::EVENT, self)
                 .expect("serialise");
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Pong, Pong>() {
@@ -791,7 +791,7 @@ pub mod ppstatic {
                     unimplemented!("Pinger received unexpected message!");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -819,11 +819,11 @@ pub mod ppstatic {
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -838,7 +838,7 @@ pub mod ppstatic {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -955,7 +955,7 @@ pub mod ppstatic {
         ignore_lifecycle!(Pinger);
 
         impl Provide<ExperimentPort> for Pinger {
-            fn handle(&mut self, event: Run) -> Handled {
+            fn handle(&mut self, event: Run) -> HandlerResult {
                 trace!(
                     self.ctx.log(),
                     "Pinger starting run with {} iterations !", event.num_iterations
@@ -971,18 +971,18 @@ pub mod ppstatic {
                     self.sent_count += 1;
                     pipelined += 1;
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
         impl Actor for Pinger {
             type Message = Never;
 
-            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
                 unimplemented!("Never can't be instantiated!");
             }
 
-            fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
                 trace!(self.ctx.log(), "Pinger received msg {:?}", msg);
                 match msg.data.try_deserialise::<Pong, Pong>() {
                     Ok(_pong) => {
@@ -1023,7 +1023,7 @@ pub mod ppstatic {
                         unimplemented!("Pinger received unexpected message!")
                     }
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
 
@@ -1055,11 +1055,11 @@ pub mod ppstatic {
         impl Actor for Ponger {
             type Message = Never;
 
-            fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+            fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
                 unimplemented!("Never can't be instantiated!");
             }
 
-            fn receive_network(&mut self, msg: NetMessage) -> Handled {
+            fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
                 trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
                 let sender = msg.sender;
                 match msg.data.try_deserialise::<Ping, Ping>() {
@@ -1074,7 +1074,7 @@ pub mod ppstatic {
                         unimplemented!("Ponger received unexpected message!");
                     }
                 }
-                Handled::Ok
+                Handled::OK
             }
         }
     }
@@ -1113,7 +1113,7 @@ pub mod ppindexed {
     ignore_lifecycle!(Pinger);
 
     impl Provide<ExperimentPort> for Pinger {
-        fn handle(&mut self, event: Run) -> Handled {
+        fn handle(&mut self, event: Run) -> HandlerResult {
             trace!(
                 self.ctx.log(),
                 "Pinger starting run with {} iterations !", event.num_iterations
@@ -1124,18 +1124,18 @@ pub mod ppindexed {
             self.ponger
                 .tell_serialised(Ping::new(self.remaining), self)
                 .expect("serialise");
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for Pinger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Pinger received msg {:?}", msg,);
             match msg.data.try_deserialise::<Pong, Pong>() {
                 Ok(_pong) => {
@@ -1157,7 +1157,7 @@ pub mod ppindexed {
                     unimplemented!("Pinger received unexpected message!")
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -1185,11 +1185,11 @@ pub mod ppindexed {
     impl Actor for Ponger {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unimplemented!("Never can't be instantiated!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             trace!(self.ctx.log(), "Ponger received msg {:?}", msg,);
             let sender = msg.sender;
             match msg.data.try_deserialise::<Ping, Ping>() {
@@ -1204,7 +1204,7 @@ pub mod ppindexed {
                     unimplemented!("Ponger received unexpected message!");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
     }
 

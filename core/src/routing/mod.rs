@@ -65,18 +65,18 @@ pub(crate) mod test_helpers {
     impl Actor for ReceiverComponent {
         type Message = Never;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             unreachable!("Can't instantiate Never type!");
         }
 
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             match_deser! {
                 msg {
                     msg(_count_me): CountMe => self.count += 1,
                     err(e) => error!(self.log(), "Received something else: {:?}", e),
                 }
             };
-            Handled::Ok
+            Handled::OK
         }
     }
 

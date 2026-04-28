@@ -53,13 +53,13 @@ impl NetworkActor for BootstrapServer {
     type Deserialiser = Serde;
     type Message = CheckIn;
 
-    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> Handled {
+    fn receive(&mut self, source: Option<ActorPath>, _msg: Self::Message) -> HandlerResult {
         if let Some(process) = source
             && self.processes.insert(process)
         {
             self.broadcast_processess();
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: behaviour
@@ -102,7 +102,7 @@ impl EventualLeaderElector {
         candidates.pop()
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> HandlerResult {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id => {
                 let new_leader = self.select_leader();
@@ -121,12 +121,12 @@ impl EventualLeaderElector {
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
-                Handled::Ok
+                Handled::OK
             }
-            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            Some(_) => Handled::OK, // just ignore outdated timeouts
             None => {
                 warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
-                Handled::Ok
+                Handled::OK
             } // can happen during restart or teardown
         }
     }
@@ -139,7 +139,7 @@ impl EventualLeaderElector {
 }
 
 impl ComponentLifecycle for EventualLeaderElector {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         // ANCHOR: checkin
         self.bootstrap_server.tell((CheckIn, Serde), self);
         // ANCHOR_END: checkin
@@ -152,17 +152,17 @@ impl ComponentLifecycle for EventualLeaderElector {
             .expect("delta");
         let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
         self.timer_handle = Some(timeout);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         if let Some(timeout) = self.timer_handle.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }
@@ -174,11 +174,11 @@ ignore_requests!(EventualLeaderDetection, EventualLeaderElector);
 impl Actor for EventualLeaderElector {
     type Message = Never;
 
-    fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
         unreachable!();
     }
 
-    fn receive_network(&mut self, msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
         let sender = msg.sender;
 
         match_deser! {
@@ -196,7 +196,7 @@ impl Actor for EventualLeaderElector {
                 },
             }
         };
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: actor

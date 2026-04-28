@@ -45,19 +45,19 @@ macro_rules! ignore_lifecycle {
 macro_rules! info_lifecycle {
     ($component:ty) => {
         impl ComponentLifecycle for $component {
-            fn on_start(&mut self) -> Handled {
+            fn on_start(&mut self) -> HandlerResult {
                 info!(self.log(), "Starting...");
-                Handled::Ok
+                Handled::OK
             }
 
-            fn on_stop(&mut self) -> Handled {
+            fn on_stop(&mut self) -> HandlerResult {
                 info!(self.log(), "Stopping...");
-                Handled::Ok
+                Handled::OK
             }
 
-            fn on_kill(&mut self) -> Handled {
+            fn on_kill(&mut self) -> HandlerResult {
                 info!(self.log(), "Killing...");
-                Handled::Ok
+                Handled::OK
             }
         }
     };
@@ -95,8 +95,8 @@ macro_rules! ignore_control {
 macro_rules! ignore_requests {
     ($port:ty, $component:ty) => {
         impl Provide<$port> for $component {
-            fn handle(&mut self, _event: <$port as Port>::Request) -> Handled {
-                Handled::Ok // ignore all
+            fn handle(&mut self, _event: <$port as Port>::Request) -> HandlerResult {
+                Handled::OK // ignore all
             }
         }
     };
@@ -115,8 +115,8 @@ macro_rules! ignore_requests {
 macro_rules! ignore_indications {
     ($port:ty, $component:ty) => {
         impl Require<$port> for $component {
-            fn handle(&mut self, _event: <$port as Port>::Indication) -> Handled {
-                Handled::Ok // ignore all
+            fn handle(&mut self, _event: <$port as Port>::Indication) -> HandlerResult {
+                Handled::OK // ignore all
             }
         }
     };

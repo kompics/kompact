@@ -100,7 +100,7 @@ impl Manager {
 }
 
 impl ComponentLifecycle for Manager {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         // set up our workers
         for _i in 0..self.num_workers {
             let worker = self.ctx.system().create(Worker::new);
@@ -109,20 +109,20 @@ impl ComponentLifecycle for Manager {
             self.workers.push(worker);
             self.worker_refs.push(worker_ref);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         // clean up after ourselves
         self.worker_refs.clear();
         let system = self.ctx.system();
         self.workers.drain(..).for_each(|worker| {
             system.stop(&worker);
         });
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }
@@ -131,7 +131,7 @@ impl ComponentLifecycle for Manager {
 impl Actor for Manager {
     type Message = ManagerMessage;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         match msg {
             ManagerMessage::Work(msg) => {
                 assert!(
@@ -190,7 +190,7 @@ impl Actor for Manager {
                 }
             }
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: manager_actor
@@ -212,11 +212,11 @@ ignore_lifecycle!(Worker);
 impl Actor for Worker {
     type Message = WithSender<WorkPart, ManagerMessage>;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         let my_slice = &msg.data[msg.range.clone()];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         msg.reply(ManagerMessage::Result(WorkResult(res)));
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: worker_actor

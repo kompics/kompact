@@ -34,16 +34,16 @@ impl Buncher {
         self.batch_port.trigger(Batch(new_batch))
     }
 
-    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> Handled {
+    fn handle_timeout(&mut self, timeout_id: ScheduledTimer) -> HandlerResult {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id => {
                 self.trigger_batch();
-                Handled::Ok
+                Handled::OK
             }
-            Some(_) => Handled::Ok, // just ignore outdated timeouts
+            Some(_) => Handled::OK, // just ignore outdated timeouts
             None => {
                 warn!(self.log(), "Got unexpected timeout: {:?}", timeout_id);
-                Handled::Ok
+                Handled::OK
             } // can happen during restart or teardown
         }
     }
@@ -52,20 +52,20 @@ impl Buncher {
 
 // ANCHOR: lifecycle
 impl ComponentLifecycle for Buncher {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
         self.outstanding_timeout = Some(timeout);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&mut self) -> Handled {
+    fn on_stop(&mut self) -> HandlerResult {
         if let Some(timeout) = self.outstanding_timeout.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&mut self) -> Handled {
+    fn on_kill(&mut self) -> HandlerResult {
         self.on_stop()
     }
 }
@@ -73,12 +73,12 @@ impl ComponentLifecycle for Buncher {
 
 // ANCHOR: batching_port
 impl Provide<Batching> for Buncher {
-    fn handle(&mut self, event: Ping) -> Handled {
+    fn handle(&mut self, event: Ping) -> HandlerResult {
         self.current_batch.push(event);
         if self.current_batch.len() >= self.batch_size {
             self.trigger_batch();
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 // ANCHOR_END: batching_port

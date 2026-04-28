@@ -1,10 +1,10 @@
 # Fault Recovery
 
-Sometimes panics can happen in components that provide crucial services to the rest of system. And while it is, of course, better to try and have `Result::Err` branches in place for every anticipated problem, with the use of 3rd party libraries and even some standard library functions not every possible panic can be prevented. Thus components can "fault" unexpectedly and the service they provide suddenly is not available.
+Sometimes components that provide crucial services to the rest of the system can fault. Some faults are unexpected panics: even if it is better to try and have `Result::Err` branches in place for every anticipated problem, the use of third-party libraries and some standard library functions means not every possible panic can be prevented. Other faults are reported explicitly by returning `Err(HandlerError::Recoverable(...))` from a handler when the component knows it can no longer continue safely without recovery.
 
-In order to deal with cases where simply letting a component die is just not good enough, Kompact provdes a simple mechanism for recovering from faults: For every individual component, users can register a `RecoveryFunction`, that is basically a function which takes a `FaultContext` and produces a mechanism to recover from that fault, called a `RecoveryHandler`. This recovery handler is executed by the system's `ComponentSupervisor` when it is informed of the fault.
+In order to deal with cases where simply letting a component die is just not good enough, Kompact provides a simple mechanism for recovering from faults: For every individual component, users can register a `RecoveryFunction`, that is basically a function which takes a `FaultContext` and produces a mechanism to recover from that fault, called a `RecoveryHandler`. This recovery handler is executed by the system's `ComponentSupervisor` when it is informed of the fault. Explicit `HandlerError::Benign(...)` values are only reported and do not enter recovery, while `HandlerError::Unrecoverable(...)` values are terminal and destroy the component instead of attempting recovery.
 
-> **Note:** Fault recovery only works when the executed binary is compiled with *panic unwinding*. In binaries set to `panic=abort` none of this applies and fault handling must be dealt with outside the process running the Kompact system.
+> **Note:** Recovery from panics only works when the executed binary is compiled with *panic unwinding*. In binaries set to `panic=abort`, panic handling must be dealt with outside the process running the Kompact system. Explicit recoverable handler errors do not depend on panic unwinding.
 
 > **Warning:** Panicking within the `RecoveryHandler` will destroy the `ComponentSupervisor`, which is unrecoverable, and thus lead to "poisoning" of the whole Kompact system.
 
@@ -18,7 +18,7 @@ Apart from inspecting the `FaultContext` the recovery function must produce some
 
 ## Unstable Counter Example
 
-In order to showcase the recovery mechanism, we write a timer-based counter, which occasionally overflows and thus causes the component to crash. In order not to lose all the instances we have already counted, we will occasionally store the current count in the recovery function, and during recovery start from that point, i.e. a slightly outdated count, but at least not 0.
+In order to showcase the recovery mechanism, we write a timer-based counter, which occasionally overflows and thus causes the component to crash. This example intentionally demonstrates panic recovery. For expected application faults, prefer returning `Err(HandlerError::Recoverable(...))` from the handler and classifying the error explicitly. In order not to lose all the instances we have already counted, we will occasionally store the current count in the recovery function, and during recovery start from that point, i.e. a slightly outdated count, but at least not 0.
 
 In addition to the current count, we will store references to two scheduled timers: For every `count_timeout` we want to increase our `count` by 1 and for every `state_timeout` we will update the recovery function.
 

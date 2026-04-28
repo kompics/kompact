@@ -36,9 +36,9 @@ fn impl_actor(ast: &syn::DeriveInput) -> TokenStream2 {
 
                 type Message = Never;
 
-                fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> Handled {
+                fn receive(&mut self, env: MsgEnvelope<Self::Message>) -> HandlerResult {
                     warn!(self.log(), "Got msg, but component isn't handling any: {:?}", env);
-                    Handled::Ok
+                    Handled::OK
                 }
             }
         }

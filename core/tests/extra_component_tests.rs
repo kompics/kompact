@@ -62,21 +62,22 @@ info_lifecycle!(SelfCaller);
 impl Actor for SelfCaller {
     type Message = SelfMessage;
 
-    fn receive_local(&mut self, msg: Self::Message) -> Handled {
+    fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
         info!(self.log(), "Got {:?}", msg);
         match msg {
             SelfMessage::TellMe => {
                 self.tell_me();
-                Handled::Ok
+                Handled::OK
             }
             SelfMessage::RegisterMe => Handled::block_on(self, move |mut async_self| async move {
                 async_self.register_me().await;
                 info!(async_self.log(), "Done blocking ");
+                Handled::OK
             }),
         }
     }
 
-    fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+    fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
         unimplemented!("No networking");
     }
 }

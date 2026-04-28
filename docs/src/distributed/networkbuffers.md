@@ -49,7 +49,7 @@ If no `BufferConfig` is specified Kompact will use the default settings for all 
 
 ```rust,edition2018,no_run,noplaypen
 impl ComponentLifecycle for CustomBufferConfigActor {
-    fn on_start(&mut self) -> Handled {
+    fn on_start(&mut self) -> HandlerResult {
         let mut buffer_config = BufferConfig::default();
         buffer_config.encode_buf_min_free_space(128);
         buffer_config.max_chunk_count(5);
@@ -57,7 +57,7 @@ impl ComponentLifecycle for CustomBufferConfigActor {
         buffer_config.chunk_size(256*1024);
         
         self.ctx.borrow().init_buffers(Some(buffer_config), None);
-        Handled::Ok
+        Handled::OK
     }
     ...
 }

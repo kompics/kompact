@@ -19,10 +19,10 @@
 //!     }
 //! }
 //! impl ComponentLifecycle for HelloWorldComponent {
-//!     fn on_start(&mut self) -> Handled {
+//!     fn on_start(&mut self) -> HandlerResult {
 //!         info!(self.ctx.log(), "Hello World!");
 //!         self.ctx().system().shutdown_async();
-//!         Handled::Ok
+//!         Handled::OK
 //!     }
 //! }
 //!
@@ -203,12 +203,16 @@ pub mod prelude {
             ComponentContext,
             ComponentDefinition,
             ComponentDefinitionAccess,
+            ComponentFault,
             ComponentLifecycle,
             ComponentLogging,
             CoreContainer,
             DynamicPortAccess,
             ExecuteResult,
             Handled,
+            HandlerError,
+            HandlerResult,
+            HandlerResultExt,
             LockingProvideRef,
             LockingRequireRef,
             Provide,
@@ -230,7 +234,7 @@ pub mod prelude {
             TwoWayChannel,
         },
         runtime::{KompactConfig, KompactSystem, SystemHandle},
-        supervision::{FaultContext, RecoveryHandler},
+        supervision::{Fault, FaultContext, RecoveryHandler},
     };
 
     #[cfg(feature = "distributed")]
@@ -358,7 +362,7 @@ pub mod doctest_helpers {
     }
     ignore_lifecycle!(TestComponent1);
     impl Provide<TestPort> for TestComponent1 {
-        fn handle(&mut self, _event: Never) -> Handled {
+        fn handle(&mut self, _event: Never) -> HandlerResult {
             unreachable!();
         }
     }
@@ -381,7 +385,7 @@ pub mod doctest_helpers {
     }
     ignore_lifecycle!(TestComponent2);
     impl Require<TestPort> for TestComponent2 {
-        fn handle(&mut self, _event: Never) -> Handled {
+        fn handle(&mut self, _event: Never) -> HandlerResult {
             unreachable!();
         }
     }
@@ -491,10 +495,10 @@ mod tests {
     ignore_lifecycle!(TestComponent);
 
     impl Provide<TestPort> for TestComponent {
-        fn handle(&mut self, event: Arc<u64>) -> Handled {
+        fn handle(&mut self, event: Arc<u64>) -> HandlerResult {
             self.counter += *event;
             self.test_port.trigger(Arc::new(String::from("Test")));
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -518,14 +522,14 @@ mod tests {
     impl Actor for RecvComponent {
         type Message = &'static str;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             info!(self.ctx.log(), "RecvComponent received {:?}", msg);
             self.last_string = msg.to_string();
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             error!(self.ctx.log(), "Got unexpected network message: {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -534,10 +538,10 @@ mod tests {
     ignore_lifecycle!(RecvComponent);
 
     impl Require<TestPort> for RecvComponent {
-        fn handle(&mut self, event: Arc<String>) -> Handled {
+        fn handle(&mut self, event: Arc<String>) -> HandlerResult {
             info!(self.ctx.log(), "Got event {}", event.as_ref());
             self.last_string = event.as_ref().clone();
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -649,14 +653,14 @@ mod tests {
     impl Actor for DedicatedComponent {
         type Message = String;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             self.target
                 .tell(Box::new(String::from("hello")) as Box<dyn Any + Send>);
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -782,14 +786,14 @@ mod tests {
     }
 
     impl ComponentLifecycle for TimerRecvComponent {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             info!(self.ctx.log(), "Starting TimerRecvComponent");
             self.schedule_once(Duration::from_millis(100), |self_c, _| {
                 self_c.last_string = String::from("TimerTest");
-                Handled::Ok
+                Handled::OK
             });
 
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -831,14 +835,14 @@ mod tests {
     impl Actor for CounterComponent {
         type Message = Box<dyn Any + Send>;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             info!(self.ctx.log(), "CounterComponent got a message!");
             self.msg_count += 1;
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, msg: NetMessage) -> HandlerResult {
             crit!(self.ctx.log(), "Got unexpected message {:?}", msg);
             unimplemented!(); // shouldn't happen during the test
         }
@@ -925,19 +929,19 @@ mod tests {
     }
 
     impl ComponentLifecycle for CrasherComponent {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             if self.crash_on_start {
                 info!(self.ctx.log(), "Crashing CrasherComponent");
                 panic!("Test panic please ignore");
             } else {
                 info!(self.ctx.log(), "Starting CrasherComponent");
-                Handled::Ok
+                Handled::OK
             }
         }
     }
 
     impl Provide<CrashPort> for CrasherComponent {
-        fn handle(&mut self, _event: ()) -> Handled {
+        fn handle(&mut self, _event: ()) -> HandlerResult {
             info!(self.ctx.log(), "Crashing CounterComponent");
             panic!("Test panic please ignore");
         }
@@ -946,13 +950,13 @@ mod tests {
     impl Actor for CrasherComponent {
         type Message = Box<dyn Any + Send>;
 
-        fn receive_local(&mut self, _msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, _msg: Self::Message) -> HandlerResult {
             info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             info!(self.ctx.log(), "Crashing CrasherComponent");
             panic!("Test panic please ignore");
         }
@@ -1121,20 +1125,20 @@ mod tests {
     }
 
     impl ComponentLifecycle for RecovererComponent {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             info!(self.ctx.log(), "Starting RecovererComponent");
             let aref = self.actor_ref();
             Self::set_current_ref(aref);
             self.ctx
                 .set_recovery_function(move |fault| fault.restart_default::<RecovererComponent>());
-            Handled::Ok
+            Handled::OK
         }
     }
 
     impl Actor for RecovererComponent {
         type Message = StringMsg;
 
-        fn receive_local(&mut self, msg: Self::Message) -> Handled {
+        fn receive_local(&mut self, msg: Self::Message) -> HandlerResult {
             info!(self.ctx.log(), "Got msg: {:?}", msg);
             match msg {
                 StringMsg::Get(promise) => {
@@ -1157,11 +1161,11 @@ mod tests {
                     panic!("Test panic please ignore");
                 }
             }
-            Handled::Ok
+            Handled::OK
         }
 
         #[cfg(feature = "distributed")]
-        fn receive_network(&mut self, _msg: NetMessage) -> Handled {
+        fn receive_network(&mut self, _msg: NetMessage) -> HandlerResult {
             unimplemented!();
         }
     }
@@ -1234,9 +1238,9 @@ mod tests {
     }
 
     impl ComponentLifecycle for Stopper {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             self.ctx().system().shutdown_async();
-            Handled::Ok
+            Handled::OK
         }
     }
 
@@ -1264,10 +1268,10 @@ mod tests {
     }
 
     impl ComponentLifecycle for ConfigComponent {
-        fn on_start(&mut self) -> Handled {
+        fn on_start(&mut self) -> HandlerResult {
             self.test_value = self.ctx().config()["a"].as_i64();
             self.ctx().system().shutdown_async();
-            Handled::Ok
+            Handled::OK
         }
     }
 
