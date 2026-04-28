@@ -207,10 +207,10 @@ impl HelloWorldComponent {
     }
 }
 impl ComponentLifecycle for HelloWorldComponent {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         info!(self.log(), &quot;Hello World!&quot;);
         self.ctx.system().shutdown_async();
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">
@@ -248,10 +248,10 @@ And then we just wait for the component to do its work and shut the system down 
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl ComponentLifecycle for HelloWorldComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx.system().shutdown_async();
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

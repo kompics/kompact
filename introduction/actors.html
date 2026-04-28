@@ -192,10 +192,10 @@ struct HelloWorldComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl ComponentLifecycle for HelloWorldComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx.system().shutdown_async();
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -238,10 +238,10 @@ ignore_lifecycle!(HelloWorldActor);
 impl Actor for HelloWorldActor {
     type Message = ();
 
-    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
         info!(self.ctx.log(), &quot;Hello World!&quot;);
         self.ctx().system().shutdown_async();
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">pub fn main() {
@@ -284,10 +284,10 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">impl Actor for HelloWorldActor {
 </span><span class="boring">    type Message = ();
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx().system().shutdown_async();
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span>pub fn main() {

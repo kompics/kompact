@@ -206,7 +206,7 @@ unnoticeable to the actor initiating the message sending, and both will lead to 
 <h4 id="individual-actor-configuration"><a class="header" href="#individual-actor-configuration">Individual Actor Configuration</a></h4>
 <p>If no <code>BufferConfig</code> is specified Kompact will use the default settings for all <code>BufferPools</code>. Actors may be configured with individual <code>BufferConfigs</code> through the <code>init_buffer(Some(config), None)</code><sup class="footnote-reference"><a href="#1">1</a></sup> config. It is important that the call is made before any calls to <code>tell_serialised(...)</code>. For example, the <code>on_start()</code> function of the <code>ComponentLifecycle</code> may be used to ensure this, as in the following example:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">impl ComponentLifecycle for CustomBufferConfigActor {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         let mut buffer_config = BufferConfig::default();
         buffer_config.encode_buf_min_free_space(128);
         buffer_config.max_chunk_count(5);
@@ -214,7 +214,7 @@ unnoticeable to the actor initiating the message sending, and both will lead to 
         buffer_config.chunk_size(256*1024);
         
         self.ctx.borrow().init_buffers(Some(buffer_config), None);
-        Handled::Ok
+        Handled::OK
     }
     ...
 }

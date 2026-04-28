@@ -222,45 +222,45 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Counter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a start event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a stop event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a kill event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;CounterPort&gt; for Counter {
-</span><span class="boring">    fn handle(&amp;mut self, _event: CountMe) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, _event: CountMe) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a counter event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
 </span><span class="boring">        self.counter_port.trigger(self.current_count());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Actor for Counter {
 </span><span class="boring">    type Message = Ask&lt;CountMe, CurrentCount&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        msg.complete(|_request| {
 </span><span class="boring">            info!(self.ctx.log(), &quot;Got a message!&quot;);
 </span><span class="boring">            self.msg_count += 1u64;
 </span><span class="boring">            self.current_count()
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -340,44 +340,44 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl ComponentLifecycle for Counter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a start event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a stop event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a kill event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl Provide&lt;CounterPort&gt; for Counter {
-</span><span class="boring">    fn handle(&amp;mut self, _event: CountMe) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, _event: CountMe) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a counter event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
 </span><span class="boring">        self.counter_port.trigger(self.current_count());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Actor for Counter {
 </span><span class="boring">    type Message = Ask&lt;CountMe, CurrentCount&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        msg.complete(|_request| {
 </span><span class="boring">            info!(self.ctx.log(), &quot;Got a message!&quot;);
 </span><span class="boring">            self.msg_count += 1u64;
 </span><span class="boring">            self.current_count()
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -476,44 +476,44 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl ComponentLifecycle for Counter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a start event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a stop event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a kill event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl Provide&lt;CounterPort&gt; for Counter {
-</span><span class="boring">    fn handle(&amp;mut self, _event: CountMe) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, _event: CountMe) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.ctx.log(), &quot;Got a counter event!&quot;);
 </span><span class="boring">        self.event_count += 1u64;
 </span><span class="boring">        self.counter_port.trigger(self.current_count());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Actor for Counter {
 </span><span class="boring">    type Message = Ask&lt;CountMe, CurrentCount&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        msg.complete(|_request| {
 </span><span class="boring">            info!(self.ctx.log(), &quot;Got a message!&quot;);
 </span><span class="boring">            self.msg_count += 1u64;
 </span><span class="boring">            self.current_count()
 </span><span class="boring">        })
 </span><span class="boring">        .expect(&quot;complete&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

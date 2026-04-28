@@ -279,7 +279,7 @@ enum ManagerMessage {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -288,20 +288,20 @@ enum ManagerMessage {
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -309,7 +309,7 @@ enum ManagerMessage {
 </span><span class="boring">impl Actor for Manager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
 </span><span class="boring">                assert!(
@@ -368,7 +368,7 @@ enum ManagerMessage {
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -388,11 +388,11 @@ enum ManagerMessage {
 </span><span class="boring">impl Actor for Worker {
 </span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -542,7 +542,7 @@ enum ManagerMessage {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -551,20 +551,20 @@ enum ManagerMessage {
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -572,7 +572,7 @@ enum ManagerMessage {
 </span><span class="boring">impl Actor for Manager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
 </span><span class="boring">                assert!(
@@ -631,7 +631,7 @@ enum ManagerMessage {
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -651,11 +651,11 @@ enum ManagerMessage {
 </span>impl Actor for Worker {
     type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
 
-    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
         let my_slice = &amp;msg.data[msg.range.clone()];
         let res = my_slice.iter().fold(msg.neutral, msg.merger);
         msg.reply(ManagerMessage::Result(WorkResult(res)));
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">
@@ -805,7 +805,7 @@ struct Manager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -814,20 +814,20 @@ struct Manager {
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -835,7 +835,7 @@ struct Manager {
 </span><span class="boring">impl Actor for Manager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
 </span><span class="boring">                assert!(
@@ -894,7 +894,7 @@ struct Manager {
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -914,11 +914,11 @@ struct Manager {
 </span><span class="boring">impl Actor for Worker {
 </span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1068,7 +1068,7 @@ struct Manager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -1077,20 +1077,20 @@ struct Manager {
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1098,7 +1098,7 @@ struct Manager {
 </span>impl Actor for Manager {
     type Message = ManagerMessage;
 
-    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
         match msg {
             ManagerMessage::Work(msg) =&gt; {
                 assert!(
@@ -1157,7 +1157,7 @@ struct Manager {
                 }
             }
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">
@@ -1177,11 +1177,11 @@ struct Manager {
 </span><span class="boring">impl Actor for Worker {
 </span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1332,7 +1332,7 @@ struct Manager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -1341,20 +1341,20 @@ struct Manager {
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1362,7 +1362,7 @@ struct Manager {
 </span><span class="boring">impl Actor for Manager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Work(msg) =&gt; {
 </span><span class="boring">                assert!(
@@ -1421,7 +1421,7 @@ struct Manager {
 </span><span class="boring">                }
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1441,11 +1441,11 @@ struct Manager {
 </span><span class="boring">impl Actor for Worker {
 </span><span class="boring">    type Message = WithSender&lt;WorkPart, ManagerMessage&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let my_slice = &amp;msg.data[msg.range.clone()];
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        msg.reply(ManagerMessage::Result(WorkResult(res)));
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

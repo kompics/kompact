@@ -171,10 +171,10 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="fault-recovery"><a class="header" href="#fault-recovery">Fault Recovery</a></h1>
-<p>Sometimes panics can happen in components that provide crucial services to the rest of system. And while it is, of course, better to try and have <code>Result::Err</code> branches in place for every anticipated problem, with the use of 3rd party libraries and even some standard library functions not every possible panic can be prevented. Thus components can “fault” unexpectedly and the service they provide suddenly is not available.</p>
-<p>In order to deal with cases where simply letting a component die is just not good enough, Kompact provdes a simple mechanism for recovering from faults: For every individual component, users can register a <code>RecoveryFunction</code>, that is basically a function which takes a <code>FaultContext</code> and produces a mechanism to recover from that fault, called a <code>RecoveryHandler</code>. This recovery handler is executed by the system’s <code>ComponentSupervisor</code> when it is informed of the fault.</p>
+<p>Sometimes components that provide crucial services to the rest of the system can fault. Some faults are unexpected panics: even if it is better to try and have <code>Result::Err</code> branches in place for every anticipated problem, the use of third-party libraries and some standard library functions means not every possible panic can be prevented. Other faults are reported explicitly by returning <code>Err(HandlerError::Recoverable(...))</code> from a handler when the component knows it can no longer continue safely without recovery.</p>
+<p>In order to deal with cases where simply letting a component die is just not good enough, Kompact provides a simple mechanism for recovering from faults: For every individual component, users can register a <code>RecoveryFunction</code>, that is basically a function which takes a <code>FaultContext</code> and produces a mechanism to recover from that fault, called a <code>RecoveryHandler</code>. This recovery handler is executed by the system’s <code>ComponentSupervisor</code> when it is informed of the fault. Explicit <code>HandlerError::Benign(...)</code> values are only reported and do not enter recovery, while <code>HandlerError::Unrecoverable(...)</code> values are terminal and destroy the component instead of attempting recovery.</p>
 <blockquote>
-<p><strong>Note:</strong> Fault recovery only works when the executed binary is compiled with <em>panic unwinding</em>. In binaries set to <code>panic=abort</code> none of this applies and fault handling must be dealt with outside the process running the Kompact system.</p>
+<p><strong>Note:</strong> Recovery from panics only works when the executed binary is compiled with <em>panic unwinding</em>. In binaries set to <code>panic=abort</code>, panic handling must be dealt with outside the process running the Kompact system. Explicit recoverable handler errors do not depend on panic unwinding.</p>
 </blockquote>
 <blockquote>
 <p><strong>Warning:</strong> Panicking within the <code>RecoveryHandler</code> will destroy the <code>ComponentSupervisor</code>, which is unrecoverable, and thus lead to “poisoning” of the whole Kompact system.</p>
@@ -188,7 +188,7 @@
 <p><strong>Note:</strong> After recovery all component references (<code>Arc&lt;Component&lt;CD&gt;&gt;</code>) and actor references to the old component will be invalid. If your application needs their functionality, you need to devise a mechanism to share the new references (e.g., concurrent queues, <code>Arc&lt;Mutex&lt;...&gt;&gt;</code>, etc.). If the component provides a <a href="distributed/namedservices.html">named service</a> the alias must be re-registered to point to the new instance.</p>
 </blockquote>
 <h2 id="unstable-counter-example"><a class="header" href="#unstable-counter-example">Unstable Counter Example</a></h2>
-<p>In order to showcase the recovery mechanism, we write a timer-based counter, which occasionally overflows and thus causes the component to crash. In order not to lose all the instances we have already counted, we will occasionally store the current count in the recovery function, and during recovery start from that point, i.e. a slightly outdated count, but at least not 0.</p>
+<p>In order to showcase the recovery mechanism, we write a timer-based counter, which occasionally overflows and thus causes the component to crash. This example intentionally demonstrates panic recovery. For expected application faults, prefer returning <code>Err(HandlerError::Recoverable(...))</code> from the handler and classifying the error explicitly. In order not to lose all the instances we have already counted, we will occasionally store the current count in the recovery function, and during recovery start from that point, i.e. a slightly outdated count, but at least not 0.</p>
 <p>In addition to the current count, we will store references to two scheduled timers: For every <code>count_timeout</code> we want to increase our <code>count</code> by 1 and for every <code>state_timeout</code> we will update the recovery function.</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use kompact::prelude::*;
@@ -216,13 +216,13 @@ struct UnstableCounter {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">
-</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Incrementing count of {}&quot;, self.count);
 </span><span class="boring">        self.count = self.count.checked_add(1).expect(&quot;Count overflowed!&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Saving recovery state with count of {}&quot;, self.count
@@ -247,7 +247,7 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -263,7 +263,7 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for UnstableCounter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let count_timeout = self.schedule_periodic(
 </span><span class="boring">            COUNT_TIMEOUT,
 </span><span class="boring">            COUNT_TIMEOUT,
@@ -290,20 +290,20 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.count_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
 </span><span class="boring">        if let Some(timeout) = self.state_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -355,13 +355,13 @@ struct UnstableCounter {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">
-</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Incrementing count of {}&quot;, self.count);
 </span><span class="boring">        self.count = self.count.checked_add(1).expect(&quot;Count overflowed!&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Saving recovery state with count of {}&quot;, self.count
@@ -386,7 +386,7 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -402,7 +402,7 @@ struct UnstableCounter {
 }
 <span class="boring">
 </span><span class="boring">impl ComponentLifecycle for UnstableCounter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let count_timeout = self.schedule_periodic(
 </span><span class="boring">            COUNT_TIMEOUT,
 </span><span class="boring">            COUNT_TIMEOUT,
@@ -429,20 +429,20 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.count_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
 </span><span class="boring">        if let Some(timeout) = self.state_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -495,13 +495,13 @@ struct UnstableCounter {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">
-</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Incrementing count of {}&quot;, self.count);
 </span><span class="boring">        self.count = self.count.checked_add(1).expect(&quot;Count overflowed!&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Saving recovery state with count of {}&quot;, self.count
@@ -526,7 +526,7 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -542,7 +542,7 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl ComponentLifecycle for UnstableCounter {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         let count_timeout = self.schedule_periodic(
             COUNT_TIMEOUT,
             COUNT_TIMEOUT,
@@ -569,20 +569,20 @@ struct UnstableCounter {
                 system.start(&amp;counter_component);
             })
         });
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&amp;mut self) -&gt; Handled {
+    fn on_stop(&amp;mut self) -&gt; HandlerResult {
         if let Some(timeout) = self.count_timeout.take() {
             self.cancel_timer(timeout);
         }
         if let Some(timeout) = self.state_timeout.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&amp;mut self) -&gt; Handled {
+    fn on_kill(&amp;mut self) -&gt; HandlerResult {
         self.on_stop()
     }
 }
@@ -633,13 +633,13 @@ struct UnstableCounter {
     }
 
 <span class="boring">
-</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Incrementing count of {}&quot;, self.count);
 </span><span class="boring">        self.count = self.count.checked_add(1).expect(&quot;Count overflowed!&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Saving recovery state with count of {}&quot;, self.count
@@ -664,7 +664,7 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -680,7 +680,7 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for UnstableCounter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let count_timeout = self.schedule_periodic(
 </span><span class="boring">            COUNT_TIMEOUT,
 </span><span class="boring">            COUNT_TIMEOUT,
@@ -707,20 +707,20 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.count_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
 </span><span class="boring">        if let Some(timeout) = self.state_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -775,13 +775,13 @@ struct UnstableCounter {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">
-</span>    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span>    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
         info!(self.log(), &quot;Incrementing count of {}&quot;, self.count);
         self.count = self.count.checked_add(1).expect(&quot;Count overflowed!&quot;);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
         info!(
             self.log(),
             &quot;Saving recovery state with count of {}&quot;, self.count
@@ -806,7 +806,7 @@ struct UnstableCounter {
                 system.start(&amp;counter_component);
             })
         });
-        Handled::Ok
+        Handled::OK
     }
 <span class="boring">}
 </span><span class="boring">
@@ -822,7 +822,7 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for UnstableCounter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let count_timeout = self.schedule_periodic(
 </span><span class="boring">            COUNT_TIMEOUT,
 </span><span class="boring">            COUNT_TIMEOUT,
@@ -849,20 +849,20 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.count_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
 </span><span class="boring">        if let Some(timeout) = self.state_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -914,13 +914,13 @@ struct UnstableCounter {
 </span><span class="boring">    }
 </span><span class="boring">
 </span><span class="boring">
-</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_count_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Incrementing count of {}&quot;, self.count);
 </span><span class="boring">        self.count = self.count.checked_add(1).expect(&quot;Count overflowed!&quot;);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_state_timeout(&amp;mut self, _timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Saving recovery state with count of {}&quot;, self.count
@@ -945,7 +945,7 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -961,7 +961,7 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for UnstableCounter {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let count_timeout = self.schedule_periodic(
 </span><span class="boring">            COUNT_TIMEOUT,
 </span><span class="boring">            COUNT_TIMEOUT,
@@ -988,20 +988,20 @@ struct UnstableCounter {
 </span><span class="boring">                system.start(&amp;counter_component);
 </span><span class="boring">            })
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.count_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
 </span><span class="boring">        if let Some(timeout) = self.state_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}

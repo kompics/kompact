@@ -324,7 +324,7 @@
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
 </span><span class="boring">        let msg = UpdateProcesses(procs);
 </span><span class="boring">
@@ -333,7 +333,7 @@
 </span><span class="boring">                .tell_serialised(msg.clone(), self)
 </span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -343,15 +343,15 @@
 </span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
-</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(process) = source {
 </span><span class="boring">            if self.processes.insert(process) {
 </span><span class="boring">                self.broadcast_processess()
 </span><span class="boring">            } else {
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
 </span><span class="boring">        } else {
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -392,7 +392,7 @@
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -415,24 +415,24 @@
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats()
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span>    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span>    fn send_heartbeats(&amp;self) -&gt; HandlerResult {
         self.processes.iter().for_each(|process| {
             process.tell((Heartbeat, Serde), self);
         });
-        Handled::Ok
+        Handled::OK
     }
 <span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
 </span><span class="boring">
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
@@ -447,17 +447,17 @@
 </span><span class="boring">            EventualLeaderElector::handle_timeout,
 </span><span class="boring">        );
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -467,11 +467,11 @@
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = Never;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        unreachable!();
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
 </span><span class="boring">        match_deser! {
@@ -490,7 +490,7 @@
 </span><span class="boring">                },
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -717,7 +717,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
 </span><span class="boring">        let msg = UpdateProcesses(procs);
 </span><span class="boring">
@@ -726,7 +726,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">                .tell_serialised(msg.clone(), self)
 </span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -736,15 +736,15 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
-</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(process) = source {
 </span><span class="boring">            if self.processes.insert(process) {
 </span><span class="boring">                self.broadcast_processess()
 </span><span class="boring">            } else {
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
 </span><span class="boring">        } else {
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -785,7 +785,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -808,24 +808,24 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats()
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        self.processes.iter().for_each(|process| {
 </span><span class="boring">            process.tell((Heartbeat, Serde), self);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
 </span><span class="boring">
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
@@ -840,17 +840,17 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">            EventualLeaderElector::handle_timeout,
 </span><span class="boring">        );
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -860,11 +860,11 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = Never;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        unreachable!();
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
 </span><span class="boring">        match_deser! {
@@ -883,7 +883,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">                },
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1106,7 +1106,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
 </span><span class="boring">        let msg = UpdateProcesses(procs);
 </span><span class="boring">
@@ -1115,7 +1115,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">                .tell_serialised(msg.clone(), self)
 </span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1125,15 +1125,15 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
-</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(process) = source {
 </span><span class="boring">            if self.processes.insert(process) {
 </span><span class="boring">                self.broadcast_processess()
 </span><span class="boring">            } else {
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
 </span><span class="boring">        } else {
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1174,7 +1174,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -1197,24 +1197,24 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats()
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        self.processes.iter().for_each(|process| {
 </span><span class="boring">            process.tell((Heartbeat, Serde), self);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span>        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
 <span class="boring">
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
@@ -1229,17 +1229,17 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">            EventualLeaderElector::handle_timeout,
 </span><span class="boring">        );
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1249,11 +1249,11 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = Never;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        unreachable!();
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
 </span><span class="boring">        match_deser! {
@@ -1272,7 +1272,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">                },
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1494,7 +1494,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn broadcast_processess(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
 </span><span class="boring">        let msg = UpdateProcesses(procs);
 </span><span class="boring">
@@ -1503,7 +1503,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">                .tell_serialised(msg.clone(), self)
 </span><span class="boring">                .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1513,15 +1513,15 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
-</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(process) = source {
 </span><span class="boring">            if self.processes.insert(process) {
 </span><span class="boring">                self.broadcast_processess()
 </span><span class="boring">            } else {
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
 </span><span class="boring">        } else {
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1562,7 +1562,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -1585,24 +1585,24 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats()
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        self.processes.iter().for_each(|process| {
 </span><span class="boring">            process.tell((Heartbeat, Serde), self);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
 </span><span class="boring">
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
@@ -1617,17 +1617,17 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">            EventualLeaderElector::handle_timeout,
 </span><span class="boring">        );
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1637,11 +1637,11 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = Never;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        unreachable!();
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
 </span><span class="boring">        match_deser! {
@@ -1660,7 +1660,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">                },
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1886,7 +1886,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span>    fn broadcast_processess(&amp;self) -&gt; Handled {
+</span>    fn broadcast_processess(&amp;self) -&gt; HandlerResult {
         let procs: Vec&lt;ActorPath&gt; = self.processes.iter().cloned().collect();
         let msg = UpdateProcesses(procs);
 
@@ -1895,7 +1895,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
                 .tell_serialised(msg.clone(), self)
                 .unwrap_or_else(|e| warn!(self.log(), &quot;Error during serialisation: {}&quot;, e));
         });
-        Handled::Ok
+        Handled::OK
     }
 <span class="boring">}
 </span><span class="boring">
@@ -1905,15 +1905,15 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    type Deserialiser = ZstSerialiser&lt;CheckIn&gt;;
 </span><span class="boring">    type Message = CheckIn;
 </span><span class="boring">
-</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive(&amp;mut self, source: Option&lt;ActorPath&gt;, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(process) = source {
 </span><span class="boring">            if self.processes.insert(process) {
 </span><span class="boring">                self.broadcast_processess()
 </span><span class="boring">            } else {
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
 </span><span class="boring">        } else {
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1954,7 +1954,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -1977,24 +1977,24 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats()
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; Handled {
+</span><span class="boring">    fn send_heartbeats(&amp;self) -&gt; HandlerResult {
 </span><span class="boring">        self.processes.iter().for_each(|process| {
 </span><span class="boring">            process.tell((Heartbeat, Serde), self);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.bootstrap_server.tell((CheckIn, &amp;CHECK_IN_SER), self);
 </span><span class="boring">
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
@@ -2009,17 +2009,17 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">            EventualLeaderElector::handle_timeout,
 </span><span class="boring">        );
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2029,11 +2029,11 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = Never;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, _msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        unreachable!();
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">
 </span><span class="boring">        match_deser! {
@@ -2052,7 +2052,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">                },
 </span><span class="boring">            }
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

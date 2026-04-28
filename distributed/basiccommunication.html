@@ -214,9 +214,9 @@ impl Port for EventualLeaderDetection {
 </span><span class="boring">ignore_lifecycle!(TrustPrinter);
 </span><span class="boring">
 </span><span class="boring">impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
-</span><span class="boring">    fn handle(&amp;mut self, event: Trust) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Trust) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Got leader: {}.&quot;, event.0);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -256,9 +256,9 @@ impl TrustPrinter {
 ignore_lifecycle!(TrustPrinter);
 
 impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
-    fn handle(&amp;mut self, event: Trust) -&gt; Handled {
+    fn handle(&amp;mut self, event: Trust) -&gt; HandlerResult {
         info!(self.log(), &quot;Got leader: {}.&quot;, event.0);
-        Handled::Ok
+        Handled::OK
     }
 }
 </code></pre>
@@ -299,9 +299,9 @@ impl SerialisationId for Heartbeat {
 </span><span class="boring">ignore_lifecycle!(TrustPrinter);
 </span><span class="boring">
 </span><span class="boring">impl Require&lt;EventualLeaderDetection&gt; for TrustPrinter {
-</span><span class="boring">    fn handle(&amp;mut self, event: Trust) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Trust) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Got leader: {}.&quot;, event.0);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -348,7 +348,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -367,12 +367,12 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">                    self.timer_handle = Some(timeout);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
@@ -386,7 +386,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
 </span><span class="boring">            .as_duration()
 </span><span class="boring">            .expect(&quot;initial period&quot;);
@@ -395,17 +395,17 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">            .expect(&quot;delta&quot;);
 </span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -416,7 +416,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = UpdateProcesses;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Received new process set with {} processes&quot;,
@@ -424,10 +424,10 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">        );
 </span><span class="boring">        let UpdateProcesses(processes) = msg;
 </span><span class="boring">        self.processes = processes;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
 </span><span class="boring">            Ok(_heartbeat) =&gt; {
@@ -435,7 +435,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">            }
 </span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -557,7 +557,7 @@ struct EventualLeaderElector {
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -576,12 +576,12 @@ struct EventualLeaderElector {
 </span><span class="boring">                    self.timer_handle = Some(timeout);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
@@ -595,7 +595,7 @@ struct EventualLeaderElector {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
 </span><span class="boring">            .as_duration()
 </span><span class="boring">            .expect(&quot;initial period&quot;);
@@ -604,17 +604,17 @@ struct EventualLeaderElector {
 </span><span class="boring">            .expect(&quot;delta&quot;);
 </span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -625,7 +625,7 @@ struct EventualLeaderElector {
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = UpdateProcesses;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Received new process set with {} processes&quot;,
@@ -633,10 +633,10 @@ struct EventualLeaderElector {
 </span><span class="boring">        );
 </span><span class="boring">        let UpdateProcesses(processes) = msg;
 </span><span class="boring">        self.processes = processes;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
 </span><span class="boring">            Ok(_heartbeat) =&gt; {
@@ -644,7 +644,7 @@ struct EventualLeaderElector {
 </span><span class="boring">            }
 </span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -763,7 +763,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -782,12 +782,12 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">                    self.timer_handle = Some(timeout);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
@@ -801,7 +801,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl ComponentLifecycle for EventualLeaderElector {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
             .as_duration()
             .expect(&quot;initial period&quot;);
@@ -810,17 +810,17 @@ delta = &quot;1 ms&quot;
             .expect(&quot;delta&quot;);
         let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
         self.timer_handle = Some(timeout);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&amp;mut self) -&gt; Handled {
+    fn on_stop(&amp;mut self) -&gt; HandlerResult {
         if let Some(timeout) = self.timer_handle.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&amp;mut self) -&gt; Handled {
+    fn on_kill(&amp;mut self) -&gt; HandlerResult {
         self.on_stop()
     }
 }
@@ -831,7 +831,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = UpdateProcesses;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Received new process set with {} processes&quot;,
@@ -839,10 +839,10 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let UpdateProcesses(processes) = msg;
 </span><span class="boring">        self.processes = processes;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
 </span><span class="boring">            Ok(_heartbeat) =&gt; {
@@ -850,7 +850,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            }
 </span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -965,7 +965,7 @@ delta = &quot;1 ms&quot;
         candidates.pop()
     }
 
-    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
         match self.timer_handle.take() {
             Some(timeout) if timeout == timeout_id =&gt; {
                 let new_leader = self.select_leader();
@@ -984,12 +984,12 @@ delta = &quot;1 ms&quot;
                     self.timer_handle = Some(timeout);
                 }
                 self.send_heartbeats();
-                Handled::Ok
+                Handled::OK
             }
-            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
             None =&gt; {
                 warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-                Handled::Ok
+                Handled::OK
             } // can happen during restart or teardown
         }
     }
@@ -1003,7 +1003,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
 </span><span class="boring">            .as_duration()
 </span><span class="boring">            .expect(&quot;initial period&quot;);
@@ -1012,17 +1012,17 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            .expect(&quot;delta&quot;);
 </span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1033,7 +1033,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = UpdateProcesses;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Received new process set with {} processes&quot;,
@@ -1041,10 +1041,10 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let UpdateProcesses(processes) = msg;
 </span><span class="boring">        self.processes = processes;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
 </span><span class="boring">            Ok(_heartbeat) =&gt; {
@@ -1052,7 +1052,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            }
 </span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1167,7 +1167,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -1186,12 +1186,12 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">                    self.timer_handle = Some(timeout);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
@@ -1205,7 +1205,7 @@ delta = &quot;1 ms&quot;
 <span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
 </span><span class="boring">            .as_duration()
 </span><span class="boring">            .expect(&quot;initial period&quot;);
@@ -1214,17 +1214,17 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            .expect(&quot;delta&quot;);
 </span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1235,7 +1235,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = UpdateProcesses;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Received new process set with {} processes&quot;,
@@ -1243,10 +1243,10 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let UpdateProcesses(processes) = msg;
 </span><span class="boring">        self.processes = processes;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
 </span><span class="boring">            Ok(_heartbeat) =&gt; {
@@ -1254,7 +1254,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            }
 </span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1371,7 +1371,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -1390,12 +1390,12 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">                    self.timer_handle = Some(timeout);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
@@ -1409,7 +1409,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
 </span><span class="boring">            .as_duration()
 </span><span class="boring">            .expect(&quot;initial period&quot;);
@@ -1418,17 +1418,17 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            .expect(&quot;delta&quot;);
 </span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1439,7 +1439,7 @@ delta = &quot;1 ms&quot;
 </span>impl Actor for EventualLeaderElector {
     type Message = UpdateProcesses;
 
-    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
         info!(
             self.log(),
             &quot;Received new process set with {} processes&quot;,
@@ -1447,10 +1447,10 @@ delta = &quot;1 ms&quot;
         );
         let UpdateProcesses(processes) = msg;
         self.processes = processes;
-        Handled::Ok
+        Handled::OK
     }
 
-    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
         let sender = msg.sender;
         match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
             Ok(_heartbeat) =&gt; {
@@ -1458,7 +1458,7 @@ delta = &quot;1 ms&quot;
             }
             Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">
@@ -1574,7 +1574,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        candidates.pop()
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.timer_handle.take() {
 </span><span class="boring">            Some(timeout) if timeout == timeout_id =&gt; {
 </span><span class="boring">                let new_leader = self.select_leader();
@@ -1593,12 +1593,12 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">                    self.timer_handle = Some(timeout);
 </span><span class="boring">                }
 </span><span class="boring">                self.send_heartbeats();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
@@ -1612,7 +1612,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for EventualLeaderElector {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.period = self.ctx.config()[&quot;omega&quot;][&quot;initial-period&quot;]
 </span><span class="boring">            .as_duration()
 </span><span class="boring">            .expect(&quot;initial period&quot;);
@@ -1621,17 +1621,17 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            .expect(&quot;delta&quot;);
 </span><span class="boring">        let timeout = self.schedule_periodic(self.period, self.period, Self::handle_timeout);
 </span><span class="boring">        self.timer_handle = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.timer_handle.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1642,7 +1642,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">impl Actor for EventualLeaderElector {
 </span><span class="boring">    type Message = UpdateProcesses;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        info!(
 </span><span class="boring">            self.log(),
 </span><span class="boring">            &quot;Received new process set with {} processes&quot;,
@@ -1650,10 +1650,10 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        );
 </span><span class="boring">        let UpdateProcesses(processes) = msg;
 </span><span class="boring">        self.processes = processes;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_network(&amp;mut self, msg: NetMessage) -&gt; HandlerResult {
 </span><span class="boring">        let sender = msg.sender;
 </span><span class="boring">        match msg.data.try_deserialise::&lt;Heartbeat, Serde&gt;() {
 </span><span class="boring">            Ok(_heartbeat) =&gt; {
@@ -1661,7 +1661,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            }
 </span><span class="boring">            Err(e) =&gt; warn!(self.log(), &quot;Invalid data: {:?}&quot;, e),
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

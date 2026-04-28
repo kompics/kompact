@@ -274,7 +274,7 @@
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -284,25 +284,25 @@
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl Require&lt;WorkerPort&gt; for Manager {
-</span><span class="boring">    fn handle(&amp;mut self, event: WorkResult) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: WorkResult) -&gt; HandlerResult {
 </span><span class="boring">        if self.outstanding_request.is_some() {
 </span><span class="boring">            self.result_accumulator.push(event.0);
 </span><span class="boring">            if self.result_accumulator.len() == (self.num_workers + 1) {
@@ -322,13 +322,13 @@
 </span><span class="boring">                &quot;Got a response without an outstanding promise: {:?}&quot;, event
 </span><span class="boring">            );
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl Actor for Manager {
 </span><span class="boring">    type Message = Ask&lt;Work, WorkResult&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        assert!(
 </span><span class="boring">            self.outstanding_request.is_none(),
 </span><span class="boring">            &quot;One request at a time, please!&quot;
@@ -362,7 +362,7 @@
 </span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
 </span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -386,11 +386,11 @@ impl Worker {
 </span><span class="boring">impl Actor for Worker {
 </span><span class="boring">    type Message = WorkPart;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let my_slice = &amp;msg.data[msg.range];
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -546,7 +546,7 @@ impl Manager {
 }
 <span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Manager {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // set up our workers
 </span><span class="boring">        for _i in 0..self.num_workers {
 </span><span class="boring">            let worker = self.ctx.system().create(Worker::new);
@@ -556,25 +556,25 @@ impl Manager {
 </span><span class="boring">            self.workers.push(worker);
 </span><span class="boring">            self.worker_refs.push(worker_ref);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        // clean up after ourselves
 </span><span class="boring">        self.worker_refs.clear();
 </span><span class="boring">        let system = self.ctx.system();
 </span><span class="boring">        self.workers.drain(..).for_each(|worker| {
 </span><span class="boring">            system.stop(&amp;worker);
 </span><span class="boring">        });
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl Require&lt;WorkerPort&gt; for Manager {
-</span><span class="boring">    fn handle(&amp;mut self, event: WorkResult) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: WorkResult) -&gt; HandlerResult {
 </span><span class="boring">        if self.outstanding_request.is_some() {
 </span><span class="boring">            self.result_accumulator.push(event.0);
 </span><span class="boring">            if self.result_accumulator.len() == (self.num_workers + 1) {
@@ -594,13 +594,13 @@ impl Manager {
 </span><span class="boring">                &quot;Got a response without an outstanding promise: {:?}&quot;, event
 </span><span class="boring">            );
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl Actor for Manager {
 </span><span class="boring">    type Message = Ask&lt;Work, WorkResult&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        assert!(
 </span><span class="boring">            self.outstanding_request.is_none(),
 </span><span class="boring">            &quot;One request at a time, please!&quot;
@@ -634,7 +634,7 @@ impl Manager {
 </span><span class="boring">            let res = work.data.iter().fold(work.neutral, work.merger);
 </span><span class="boring">            msg.reply(WorkResult(res)).expect(&quot;reply&quot;);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -658,11 +658,11 @@ impl Manager {
 </span><span class="boring">impl Actor for Worker {
 </span><span class="boring">    type Message = WorkPart;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let my_slice = &amp;msg.data[msg.range];
 </span><span class="boring">        let res = my_slice.iter().fold(msg.neutral, msg.merger);
 </span><span class="boring">        self.worker_port.trigger(WorkResult(res));
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

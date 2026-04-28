@@ -216,9 +216,9 @@ impl BatchPrinter {
 ignore_lifecycle!(BatchPrinter);
 
 impl Require&lt;Batching&gt; for BatchPrinter {
-    fn handle(&amp;mut self, batch: Batch) -&gt; Handled {
+    fn handle(&amp;mut self, batch: Batch) -&gt; HandlerResult {
         info!(self.log(), &quot;Got a batch with {} Pings.&quot;, batch.0.len());
-        Handled::Ok
+        Handled::OK
     }
 }
 </code></pre>
@@ -257,47 +257,47 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.outstanding_timeout {
 </span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
 </span><span class="boring">                self.trigger_batch();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Buncher {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
 </span><span class="boring">        self.outstanding_timeout = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
-</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
 </span><span class="boring">        self.current_batch.push(event);
 </span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
 </span><span class="boring">            self.trigger_batch();
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -375,47 +375,47 @@ struct Buncher {
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.outstanding_timeout {
 </span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
 </span><span class="boring">                self.trigger_batch();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Buncher {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
 </span><span class="boring">        self.outstanding_timeout = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
-</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
 </span><span class="boring">        self.current_batch.push(event);
 </span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
 </span><span class="boring">            self.trigger_batch();
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -492,47 +492,47 @@ struct Buncher {
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.outstanding_timeout {
 </span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
 </span><span class="boring">                self.trigger_batch();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl ComponentLifecycle for Buncher {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
         self.outstanding_timeout = Some(timeout);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&amp;mut self) -&gt; Handled {
+    fn on_stop(&amp;mut self) -&gt; HandlerResult {
         if let Some(timeout) = self.outstanding_timeout.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&amp;mut self) -&gt; Handled {
+    fn on_kill(&amp;mut self) -&gt; HandlerResult {
         self.on_stop()
     }
 }
 <span class="boring">
 </span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
-</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
 </span><span class="boring">        self.current_batch.push(event);
 </span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
 </span><span class="boring">            self.trigger_batch();
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -613,47 +613,47 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
         self.batch_port.trigger(Batch(new_batch))
     }
 
-    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id =&gt; {
                 self.trigger_batch();
-                Handled::Ok
+                Handled::OK
             }
-            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
             None =&gt; {
                 warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-                Handled::Ok
+                Handled::OK
             } // can happen during restart or teardown
         }
     }
 <span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Buncher {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
 </span><span class="boring">        self.outstanding_timeout = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
-</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
 </span><span class="boring">        self.current_batch.push(event);
 </span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
 </span><span class="boring">            self.trigger_batch();
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -730,47 +730,47 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.outstanding_timeout {
 </span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
 </span><span class="boring">                self.trigger_batch();
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Buncher {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let timeout = self.schedule_periodic(self.timeout, self.timeout, Self::handle_timeout);
 </span><span class="boring">        self.outstanding_timeout = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl Provide&lt;Batching&gt; for Buncher {
-    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
         self.current_batch.push(event);
         if self.current_batch.len() &gt;= self.batch_size {
             self.trigger_batch();
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">
@@ -861,44 +861,44 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.outstanding_timeout {
 </span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
 </span><span class="boring">                self.trigger_batch();
 </span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
 </span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl ComponentLifecycle for Buncher {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
         self.outstanding_timeout = Some(timeout);
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_stop(&amp;mut self) -&gt; Handled {
+    fn on_stop(&amp;mut self) -&gt; HandlerResult {
         if let Some(timeout) = self.outstanding_timeout.take() {
             self.cancel_timer(timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&amp;mut self) -&gt; Handled {
+    fn on_kill(&amp;mut self) -&gt; HandlerResult {
         self.on_stop()
     }
 }
 <span class="boring">
 </span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
-</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
 </span><span class="boring">        self.current_batch.push(event);
 </span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
 </span><span class="boring">            self.trigger_batch();
@@ -908,7 +908,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
 </span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -985,44 +985,44 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span>    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span>    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
         match self.outstanding_timeout {
             Some(ref timeout) if *timeout == timeout_id =&gt; {
                 self.trigger_batch();
                 let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
                 self.outstanding_timeout = Some(new_timeout);
-                Handled::Ok
+                Handled::OK
             }
-            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
             None =&gt; {
                 warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-                Handled::Ok
+                Handled::OK
             } // can happen during restart or teardown
         }
     }
 <span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Buncher {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
 </span><span class="boring">        self.outstanding_timeout = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;Batching&gt; for Buncher {
-</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
 </span><span class="boring">        self.current_batch.push(event);
 </span><span class="boring">        if self.current_batch.len() &gt;= self.batch_size {
 </span><span class="boring">            self.trigger_batch();
@@ -1032,7 +1032,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">            let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
 </span><span class="boring">            self.outstanding_timeout = Some(new_timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1109,44 +1109,44 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        self.batch_port.trigger(Batch(new_batch))
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; Handled {
+</span><span class="boring">    fn handle_timeout(&amp;mut self, timeout_id: ScheduledTimer) -&gt; HandlerResult {
 </span><span class="boring">        match self.outstanding_timeout {
 </span><span class="boring">            Some(ref timeout) if *timeout == timeout_id =&gt; {
 </span><span class="boring">                self.trigger_batch();
 </span><span class="boring">                let new_timeout = self.schedule_once(self.timeout, Self::handle_timeout);
 </span><span class="boring">                self.outstanding_timeout = Some(new_timeout);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            }
-</span><span class="boring">            Some(_) =&gt; Handled::Ok, // just ignore outdated timeouts
+</span><span class="boring">            Some(_) =&gt; Handled::OK, // just ignore outdated timeouts
 </span><span class="boring">            None =&gt; {
 </span><span class="boring">                warn!(self.log(), &quot;Got unexpected timeout: {:?}&quot;, timeout_id);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            } // can happen during restart or teardown
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for Buncher {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        let timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
 </span><span class="boring">        self.outstanding_timeout = Some(timeout);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        if let Some(timeout) = self.outstanding_timeout.take() {
 </span><span class="boring">            self.cancel_timer(timeout);
 </span><span class="boring">        }
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl Provide&lt;Batching&gt; for Buncher {
-    fn handle(&amp;mut self, event: Ping) -&gt; Handled {
+    fn handle(&amp;mut self, event: Ping) -&gt; HandlerResult {
         self.current_batch.push(event);
         if self.current_batch.len() &gt;= self.batch_size {
             self.trigger_batch();
@@ -1156,7 +1156,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
             let new_timeout = self.schedule_once(self.timeout, Buncher::handle_timeout);
             self.outstanding_timeout = Some(new_timeout);
         }
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">

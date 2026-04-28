@@ -207,10 +207,10 @@ info_lifecycle!(Adder);
 impl Actor for Adder {
     type Message = f32;
 
-    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
         let res = a + self.offset;
         info!(self.log(), &quot;Adder result = {}&quot;, res);
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -222,9 +222,9 @@ impl Port for SetOffset {
 }
 
 impl Provide&lt;SetOffset&gt; for Adder {
-    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
         self.offset = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -249,10 +249,10 @@ info_lifecycle!(Multiplier);
 impl Actor for Multiplier {
     type Message = f32;
 
-    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
         let res = a * self.scale;
         info!(self.log(), &quot;Multiplier result = {}&quot;, res);
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -264,9 +264,9 @@ impl Port for SetScale {
 }
 
 impl Provide&lt;SetScale&gt; for Multiplier {
-    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
         self.scale = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -293,24 +293,24 @@ impl Multiplier {
 </span><span class="boring">impl Actor for Linear {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -375,7 +375,7 @@ impl Multiplier {
 </span><span class="boring">impl Actor for DynamicManager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
 </span><span class="boring">                let system = self.ctx.system();
@@ -408,7 +408,7 @@ impl Multiplier {
 </span><span class="boring">            }
 </span><span class="boring">        }
 </span><span class="boring">
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -494,10 +494,10 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">impl Actor for Adder {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -509,9 +509,9 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -536,10 +536,10 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">impl Actor for Multiplier {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -551,9 +551,9 @@ with <em>either</em> a scale <em>or</em> an offset. Let’s add something slight
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -580,24 +580,24 @@ info_lifecycle!(Linear);
 impl Actor for Linear {
     type Message = f32;
 
-    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
         let res = a * self.scale + self.offset;
         info!(self.log(), &quot;Linear result = {}&quot;, res);
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide&lt;SetOffset&gt; for Linear {
-    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
         self.offset = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
 impl Provide&lt;SetScale&gt; for Linear {
-    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
         self.scale = value;
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -662,7 +662,7 @@ impl Linear {
 </span><span class="boring">impl Actor for DynamicManager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
 </span><span class="boring">                let system = self.ctx.system();
@@ -695,7 +695,7 @@ impl Linear {
 </span><span class="boring">            }
 </span><span class="boring">        }
 </span><span class="boring">
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -782,10 +782,10 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">impl Actor for Adder {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -797,9 +797,9 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -824,10 +824,10 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">impl Actor for Multiplier {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -839,9 +839,9 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -868,24 +868,24 @@ it would be <strong>very</strong> tedious to manage all these component types ex
 </span><span class="boring">impl Actor for Linear {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -950,7 +950,7 @@ ignore_lifecycle!(DynamicManager);
 </span><span class="boring">impl Actor for DynamicManager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
 </span><span class="boring">                let system = self.ctx.system();
@@ -983,7 +983,7 @@ ignore_lifecycle!(DynamicManager);
 </span><span class="boring">            }
 </span><span class="boring">        }
 </span><span class="boring">
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1069,10 +1069,10 @@ some components.</p>
 </span><span class="boring">impl Actor for Adder {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1084,9 +1084,9 @@ some components.</p>
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1111,10 +1111,10 @@ some components.</p>
 </span><span class="boring">impl Actor for Multiplier {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1126,9 +1126,9 @@ some components.</p>
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1155,24 +1155,24 @@ some components.</p>
 </span><span class="boring">impl Actor for Linear {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1237,7 +1237,7 @@ impl fmt::Debug for ManagerMessage {
 impl Actor for DynamicManager {
     type Message = ManagerMessage;
 
-    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; HandlerResult {
         match msg {
             ManagerMessage::Spawn(definition) =&gt; {
                 let system = self.ctx.system();
@@ -1270,7 +1270,7 @@ impl Actor for DynamicManager {
 </span><span class="boring">            }
 </span><span class="boring">        }
 </span><span class="boring">
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1360,10 +1360,10 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">impl Actor for Adder {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1375,9 +1375,9 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1402,10 +1402,10 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">impl Actor for Multiplier {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1417,9 +1417,9 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1446,24 +1446,24 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">impl Actor for Linear {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1528,7 +1528,7 @@ port exists on the abstract component and, if so, fetch it. </p>
 </span><span class="boring">impl Actor for DynamicManager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
 </span><span class="boring">                let system = self.ctx.system();
@@ -1561,7 +1561,7 @@ port exists on the abstract component and, if so, fetch it. </p>
             }
         }
 
-        Handled::Ok
+        Handled::OK
     }
 }
 
@@ -1647,10 +1647,10 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">impl Actor for Adder {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Adder result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1662,9 +1662,9 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Adder {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1689,10 +1689,10 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">impl Actor for Multiplier {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale;
 </span><span class="boring">        info!(self.log(), &quot;Multiplier result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1704,9 +1704,9 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Multiplier {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1733,24 +1733,24 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">impl Actor for Linear {
 </span><span class="boring">    type Message = f32;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, a: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        let res = a * self.scale + self.offset;
 </span><span class="boring">        info!(self.log(), &quot;Linear result = {}&quot;, res);
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetOffset&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.offset = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl Provide&lt;SetScale&gt; for Linear {
-</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; Handled {
+</span><span class="boring">    fn handle(&amp;mut self, value: f32) -&gt; HandlerResult {
 </span><span class="boring">        self.scale = value;
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1815,7 +1815,7 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">impl Actor for DynamicManager {
 </span><span class="boring">    type Message = ManagerMessage;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: ManagerMessage) -&gt; HandlerResult {
 </span><span class="boring">        match msg {
 </span><span class="boring">            ManagerMessage::Spawn(definition) =&gt; {
 </span><span class="boring">                let system = self.ctx.system();
@@ -1848,7 +1848,7 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">            }
 </span><span class="boring">        }
 </span><span class="boring">
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">

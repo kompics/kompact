@@ -208,7 +208,7 @@ struct DnsResponse(String);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
@@ -218,15 +218,16 @@ struct DnsResponse(String);
 </span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        })
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        drop(self.resolver.take());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -234,7 +235,7 @@ struct DnsResponse(String);
 </span><span class="boring">impl Actor for DnsComponent {
 </span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
 </span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
 </span><span class="boring">            let domain = msg.request().0.clone();
@@ -250,9 +251,9 @@ struct DnsResponse(String);
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            });
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
@@ -318,7 +319,7 @@ impl DnsComponent {
 }
 <span class="boring">
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
@@ -328,15 +329,16 @@ impl DnsComponent {
 </span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        })
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        drop(self.resolver.take());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -344,7 +346,7 @@ impl DnsComponent {
 </span><span class="boring">impl Actor for DnsComponent {
 </span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
 </span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
 </span><span class="boring">            let domain = msg.request().0.clone();
@@ -360,9 +362,9 @@ impl DnsComponent {
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            });
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
@@ -403,7 +405,8 @@ impl DnsComponent {
 </span></code></pre>
 <h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
 <p>When we create a resolver instance via <code>async_std_resolver::resolver</code>, we actually get a future back that we need to wait for. But our DNS component can’t perform any lookups until this future completed. Normally, we would have to manually queue up all requests received during that period until the future completed and then replay them. Instead, we can “block” on the provided future, causing the component itself to enter into a <code>blocked</code> lifecycle state, during which it handles no messages or events. Only when the future’s result is available will the component enter the <code>active</code> state and process other events and messages as normal again.</p>
-<p>In order to enter the <code>blocked</code> state, we must return a a special variant of the <code>Handled</code> enum, which is obtained from the <code>Handled::block_on(...)</code> method. This method takes the <code>self</code> reference to the component and an asynchronous closure, that is a closure that produces a future when invoked. This closure is given a single parameter by the Kompact API, which is an access guard object to a mutable component reference. In order words, a special owned struct that can be mutably dereferenced to the current component definition type. This guard object ensures safe mutable access to the current component instance, whenever the resulting future is polled, but prevents holding on to actual references over <code>await</code> calls (which are illegal). It is very important that this guard object is <strong>never</strong> sent to another thread from within the future. The async closure can not directly close over the component’s <code>self</code> reference, as the correct lifetime for it can not be guaranteed. Only the references obtained from the special guard object are safe in between <code>await</code> calls.</p>
+<p>In order to enter the <code>blocked</code> state, we return a <code>HandlerResult</code> constructed with the <code>Handled::block_on(...)</code> convenience method. This method returns <code>Ok(Handled::BlockOn(...))</code> and takes the <code>self</code> reference to the component and an asynchronous closure, that is a closure that produces a future when invoked. This closure is given a single parameter by the Kompact API, which is an access guard object to a mutable component reference. In other words, a special owned struct that can be mutably dereferenced to the current component definition type. This guard object ensures safe mutable access to the current component instance, whenever the resulting future is polled, but prevents holding on to actual references over <code>await</code> calls (which are illegal). It is very important that this guard object is <strong>never</strong> sent to another thread from within the future. The async closure can not directly close over the component’s <code>self</code> reference, as the correct lifetime for it can not be guaranteed. Only the references obtained from the special guard object are safe in between <code>await</code> calls.</p>
+<p>The blocking future also completes with a <code>HandlerResult</code>, just like a normal message, event, or lifecycle handler. Returning <code>Handled::OK</code> unblocks the component and continues normal processing. Returning a <code>HandlerError</code> follows the same error handling rules as other handlers.</p>
 <p>Having said all that, in our case the async closure very simply <code>await</code>s the result of the resolver creation and then stores it locally, after which the component unblocks.</p>
 <pre><code class="language-rust edition2024 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
 </span><span class="boring">use async_std_resolver::{AsyncStdResolver, config, proto::rr::record_type::RecordType, resolver};
@@ -430,7 +433,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span>impl ComponentLifecycle for DnsComponent {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         debug!(self.log(), &quot;Starting...&quot;);
         Handled::block_on(self, async move |mut async_self| {
             let resolver = resolver(
@@ -440,15 +443,16 @@ impl DnsComponent {
             .await;
             async_self.resolver = Some(resolver);
             debug!(async_self.log(), &quot;Started!&quot;);
+            Handled::OK
         })
     }
 
-    fn on_stop(&amp;mut self) -&gt; Handled {
+    fn on_stop(&amp;mut self) -&gt; HandlerResult {
         drop(self.resolver.take());
-        Handled::Ok
+        Handled::OK
     }
 
-    fn on_kill(&amp;mut self) -&gt; Handled {
+    fn on_kill(&amp;mut self) -&gt; HandlerResult {
         self.on_stop()
     }
 }
@@ -456,7 +460,7 @@ impl DnsComponent {
 </span><span class="boring">impl Actor for DnsComponent {
 </span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
 </span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
 </span><span class="boring">            let domain = msg.request().0.clone();
@@ -472,9 +476,9 @@ impl DnsComponent {
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            });
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }
@@ -541,7 +545,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
@@ -551,15 +555,16 @@ impl DnsComponent {
 </span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        })
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        drop(self.resolver.take());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -567,7 +572,7 @@ impl DnsComponent {
 </span>impl Actor for DnsComponent {
     type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 
-    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
         debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
         if let Some(resolver) = self.resolver.clone() {
             let domain = msg.request().0.clone();
@@ -583,9 +588,9 @@ impl DnsComponent {
                 }
                 let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
                 msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
-                Handled::Ok
+                Handled::OK
             });
-            Handled::Ok
+            Handled::OK
         } else {
             panic!(&quot;Component should have been initialised first!&quot;)
         }
@@ -651,7 +656,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">impl ComponentLifecycle for DnsComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Starting...&quot;);
 </span><span class="boring">        Handled::block_on(self, async move |mut async_self| {
 </span><span class="boring">            let resolver = resolver(
@@ -661,15 +666,16 @@ impl DnsComponent {
 </span><span class="boring">            .await;
 </span><span class="boring">            async_self.resolver = Some(resolver);
 </span><span class="boring">            debug!(async_self.log(), &quot;Started!&quot;);
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        })
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_stop(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        drop(self.resolver.take());
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_kill(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        self.on_stop()
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -677,7 +683,7 @@ impl DnsComponent {
 </span><span class="boring">impl Actor for DnsComponent {
 </span><span class="boring">    type Message = Ask&lt;DnsRequest, DnsResponse&gt;;
 </span><span class="boring">
-</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; Handled {
+</span><span class="boring">    fn receive_local(&amp;mut self, msg: Self::Message) -&gt; HandlerResult {
 </span><span class="boring">        debug!(self.log(), &quot;Got request for domain: {}&quot;, msg.request().0);
 </span><span class="boring">        if let Some(resolver) = self.resolver.clone() {
 </span><span class="boring">            let domain = msg.request().0.clone();
@@ -693,9 +699,9 @@ impl DnsComponent {
 </span><span class="boring">                }
 </span><span class="boring">                let result_string = format!(&quot;{}:\n   {}&quot;, domain, results.join(&quot;\n    &quot;));
 </span><span class="boring">                msg.reply(DnsResponse(result_string)).expect(&quot;reply&quot;);
-</span><span class="boring">                Handled::Ok
+</span><span class="boring">                Handled::OK
 </span><span class="boring">            });
-</span><span class="boring">            Handled::Ok
+</span><span class="boring">            Handled::OK
 </span><span class="boring">        } else {
 </span><span class="boring">            panic!(&quot;Component should have been initialised first!&quot;)
 </span><span class="boring">        }

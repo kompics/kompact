@@ -190,10 +190,10 @@ struct HelloWorldComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl ComponentLifecycle for HelloWorldComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx.system().shutdown_async();
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -230,10 +230,10 @@ struct HelloWorldComponent {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">impl ComponentLifecycle for HelloWorldComponent {
-</span><span class="boring">    fn on_start(&amp;mut self) -&gt; Handled {
+</span><span class="boring">    fn on_start(&amp;mut self) -&gt; HandlerResult {
 </span><span class="boring">        info!(self.log(), &quot;Hello World!&quot;);
 </span><span class="boring">        self.ctx.system().shutdown_async();
-</span><span class="boring">        Handled::Ok
+</span><span class="boring">        Handled::OK
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -275,18 +275,19 @@ impl Port for ControlPort {
 <p>It has a single <em>request</em> event of type <code>ControlEvent</code>, which provides three different variants, invoked at particular points in a component’s lifecycle. It does not send any <em>indication</em> events, however, which is marked by the <code>Never</code> type, which is uninhabited.</p>
 <p>In order to react to the events of a port we must implement an trait appropriate trait for the direction of the events. For the control port above, for example, we might want to implement <code>Provide&lt;ControlPort&gt;</code> to react to <code>ControlEvent</code> instances. This could look as follows, for example:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen">impl Provide&lt;ControlPort&gt; for HelloWorldComponent {
-	fn handle(&amp;mut self, event: ControlEvent) -&gt; Handled {
+	fn handle(&amp;mut self, event: ControlEvent) -&gt; HandlerResult {
 		match event {
 			ControlEvent::Start =&gt; {
 				info!(self.log(), &quot;Hello World!&quot;);
-        		self.ctx.system().shutdown_async();
-        		Handled::Ok
+				self.ctx.system().shutdown_async();
+				Handled::OK
 			}
-			ControlEvent::Stop | ControlEvent::Kill =&gt; Handled::Ok,
+			ControlEvent::Stop | ControlEvent::Kill =&gt; Handled::OK,
 		}
 	}
 }
 </code></pre>
+<p>Handlers return a <code>HandlerResult</code>, which can signal normal progress with <code>Handled</code> or abnormal outcomes with <code>HandlerError</code>. In this simple example we only use <code>Handled::OK</code>, a shorthand for <code>Ok(Handled::Ok)</code>.</p>
 <p>This mechanism is similar to the concept of <em>event handlers</em> in the Kompics model, except that you can only have a single handler in Kompact and it is <em>always</em> (statically) <em>subscribed</em>. In this way the compiler can statically ensure that any component providing (or requiring) a port also accepts the appropriate events.</p>
 <p>In Kompact, however, the <code>ControlPort</code> is not exposed (anymore since version <code>0.10.0</code>), but instead we must implement the <code>ComponentLifecycle</code> trait to react to (some of) its events, as we did in the <code>HelloWorldComponent</code> example:</p>
 <pre><code class="language-rust edition2018 no_run noplaypen"><span class="boring">#![allow(clippy::unused_unit)]
@@ -304,10 +305,10 @@ impl Port for ControlPort {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span>impl ComponentLifecycle for HelloWorldComponent {
-    fn on_start(&amp;mut self) -&gt; Handled {
+    fn on_start(&amp;mut self) -&gt; HandlerResult {
         info!(self.log(), &quot;Hello World!&quot;);
         self.ctx.system().shutdown_async();
-        Handled::Ok
+        Handled::OK
     }
 }
 <span class="boring">
