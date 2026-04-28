@@ -3,6 +3,7 @@ use std::{
     convert::TryInto,
     error::Error,
     fmt,
+    iter::FusedIterator,
     marker::PhantomData,
     ops::Index,
     path::Path,
@@ -293,6 +294,27 @@ impl ConfigValue {
         }
     }
 
+    /// Return the value as an array slice if possible.
+    ///
+    /// This is useful when callers need to discover which array indices are
+    /// present instead of probing individual indices with [Index].
+    ///
+    /// ```
+    /// use kompact::config::parse_config_str;
+    ///
+    /// let conf = parse_config_str("values = [1, 2, 3]").expect("config");
+    /// let values = conf["values"].as_array().expect("array");
+    ///
+    /// assert_eq!(3, values.len());
+    /// assert_eq!(Some(2), values[1].as_i64());
+    /// ```
+    pub fn as_array(&self) -> Option<&[ConfigValue]> {
+        match &self.inner {
+            ConfigValueInner::Array(values) => Some(values.as_slice()),
+            _ => None,
+        }
+    }
+
     fn value_type_name(&self) -> &'static str {
         match &self.inner {
             ConfigValueInner::String(_) => "string",
@@ -427,6 +449,48 @@ enum LookupErrorKind<'path> {
 pub struct ConfigLookup<'config, 'path> {
     inner: ConfigLookupInner<'config, 'path>,
 }
+
+/// Iterator over array elements selected by a [ConfigLookup].
+///
+/// Each item contains the element index and a path-aware lookup for the
+/// corresponding element.
+#[derive(Debug, Clone)]
+pub struct ConfigArrayIter<'config, 'lookup, 'path> {
+    parent: &'lookup ConfigLookup<'config, 'path>,
+    values: std::iter::Enumerate<std::slice::Iter<'config, ConfigValue>>,
+}
+
+impl<'config, 'lookup, 'path> Iterator for ConfigArrayIter<'config, 'lookup, 'path> {
+    type Item = (usize, ConfigLookup<'config, 'lookup>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.values.next().map(|(index, value)| {
+            let path = LookupPathSource::Child {
+                parent: self.parent,
+                segment: PathSegment::Index(index),
+                prepend_separator: false,
+            };
+            (
+                index,
+                ConfigLookup {
+                    inner: ConfigLookupInner::Value { value, path },
+                },
+            )
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.values.size_hint()
+    }
+}
+
+impl ExactSizeIterator for ConfigArrayIter<'_, '_, '_> {
+    fn len(&self) -> usize {
+        self.values.len()
+    }
+}
+
+impl FusedIterator for ConfigArrayIter<'_, '_, '_> {}
 
 #[derive(Debug, Clone, Copy)]
 enum ConfigLookupInner<'config, 'path> {
@@ -647,6 +711,54 @@ impl<'config, 'path> ConfigLookup<'config, 'path> {
         value
             .as_duration()
             .ok_or_else(|| self.expected::<std::time::Duration>(value))
+    }
+
+    /// Return the selected value as an array slice.
+    ///
+    /// ```
+    /// use kompact::config::parse_config_str;
+    ///
+    /// let conf = parse_config_str("values = [1, 2, 3]").expect("config");
+    /// let values = conf.select("values").as_array().expect("array");
+    ///
+    /// assert_eq!(3, values.len());
+    /// ```
+    pub fn as_array(&self) -> Result<&'config [ConfigValue], ConfigError> {
+        let value = self.value()?;
+        value
+            .as_array()
+            .ok_or_else(|| self.expected::<&[ConfigValue]>(value))
+    }
+
+    /// Iterate over the selected array value with path-aware element lookups.
+    ///
+    /// ```
+    /// use kompact::config::parse_config_str;
+    ///
+    /// let conf = parse_config_str(r#"
+    /// [[routes]]
+    /// alias = "first"
+    ///
+    /// [[routes]]
+    /// alias = "second"
+    /// "#).expect("config");
+    ///
+    /// let routes = conf.select("routes");
+    /// let mut aliases = Vec::new();
+    /// for (_, route) in routes.array_entries().expect("array") {
+    ///     aliases.push(route.get("alias").as_string().expect("alias"));
+    /// }
+    ///
+    /// assert_eq!(vec!["first".to_string(), "second".to_string()], aliases);
+    /// ```
+    pub fn array_entries<'lookup>(
+        &'lookup self,
+    ) -> Result<ConfigArrayIter<'config, 'lookup, 'path>, ConfigError> {
+        let values = self.as_array()?;
+        Ok(ConfigArrayIter {
+            parent: self,
+            values: values.iter().enumerate(),
+        })
     }
 
     fn expected<T>(&self, value: &ConfigValue) -> ConfigError {
@@ -1133,6 +1245,17 @@ mod tests {
     my-validate-key = 200
     "#;
 
+    const ARRAY_CONFIG: &str = r#"
+    values = [1, 2, 3]
+    empty = []
+
+    [[routes]]
+    alias = "first"
+
+    [[routes]]
+    alias = "second"
+    "#;
+
     #[test]
     fn simple_config_key() {
         assert_eq!("kompact.my-test-key", SIMPLE_KEY.key);
@@ -1227,6 +1350,96 @@ mod tests {
             })),
             res
         );
+    }
+
+    #[test]
+    fn config_value_returns_array_slice() {
+        let conf = parse_config_str(ARRAY_CONFIG).expect("config");
+        let values = conf["values"].as_array().expect("array");
+
+        assert_eq!(3, values.len());
+        assert_eq!(Some(1), values[0].as_i64());
+        assert_eq!(Some(2), values[1].as_i64());
+        assert_eq!(Some(3), values[2].as_i64());
+        assert_eq!(None, conf["routes"][0]["alias"].as_array());
+    }
+
+    #[test]
+    fn lookup_returns_array_slice() {
+        let conf = parse_config_str(ARRAY_CONFIG).expect("config");
+        let values = conf.select("values").as_array().expect("array");
+
+        assert_eq!(3, values.len());
+        assert_eq!(Some(2), values[1].as_i64());
+    }
+
+    #[test]
+    fn lookup_array_slice_reports_non_array_conversion_error() {
+        let conf = parse_config_str(EXAMPLE_CONFIG).expect("config");
+        let res = conf.select("kompact.my-test-key").as_array();
+
+        match res {
+            Err(ConfigError::ConversionError {
+                path: Some(path), ..
+            }) => assert_eq!("kompact.my-test-key", path),
+            other => panic!("expected conversion error with path, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn lookup_array_entries_iterates_available_indices() {
+        let conf = parse_config_str(ARRAY_CONFIG).expect("config");
+        let routes = conf.select("routes");
+        let entries: Vec<_> = routes
+            .array_entries()
+            .expect("routes")
+            .map(|(index, route)| (index, route.get("alias").as_string().expect("route alias")))
+            .collect();
+
+        assert_eq!(
+            vec![(0, "first".to_string()), (1, "second".to_string())],
+            entries
+        );
+    }
+
+    #[test]
+    fn lookup_array_entries_supports_empty_arrays() {
+        let conf = parse_config_str(ARRAY_CONFIG).expect("config");
+        let empty = conf.select("empty");
+        let entries = empty.array_entries().expect("empty array");
+
+        assert_eq!(0, entries.len());
+        assert_eq!((0, Some(0)), entries.size_hint());
+    }
+
+    #[test]
+    fn lookup_array_entries_reports_child_paths() {
+        let conf = parse_config_str(ARRAY_CONFIG).expect("config");
+        let routes = conf.select("routes");
+        let mut entries = routes.array_entries().expect("routes");
+        let (_, first_route) = entries.next().expect("first route");
+        let res = first_route.get("missing").as_string();
+
+        assert_eq!(
+            Err(ConfigError::PathError(ConfigPathError::MissingKey {
+                path: "routes[0].missing".to_string()
+            })),
+            res
+        );
+    }
+
+    #[test]
+    fn lookup_array_entries_reports_missing_paths() {
+        let conf = parse_config_str(ARRAY_CONFIG).expect("config");
+        let missing_lookup = conf.select("missing");
+        let missing = missing_lookup.array_entries();
+
+        match missing {
+            Err(ConfigError::PathError(ConfigPathError::MissingKey { path })) => {
+                assert_eq!("missing", path);
+            }
+            other => panic!("expected missing path error, got {:?}", other),
+        }
     }
 
     pub(super) fn str_conf(config_string: &str) -> Config {
