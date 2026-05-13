@@ -648,7 +648,7 @@ mod tests {
     fn installed_manual_timer_requires_explicit_advance() {
         let mut config = KompactConfig::default();
         let timer = install_manual_timer(&mut config);
-        let system = config.build().expect("build KompactSystem");
+        let system = config.build().wait().expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let component = system.create(|| TimerProbe::new(tx));
 
@@ -666,7 +666,7 @@ mod tests {
         rx.recv_timeout(Duration::from_secs(1))
             .expect("manual timer should fire after explicit advance");
 
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 
     #[cfg(feature = "distributed")]
@@ -674,6 +674,7 @@ mod tests {
     fn local_dispatcher_routes_unique_path_messages() {
         let system = KompactConfig::default()
             .build()
+            .wait()
             .expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let probe = system.create(|| PathProbe::new(tx));
@@ -690,7 +691,7 @@ mod tests {
 
         expect_delivery(&rx);
         probe.on_definition(|cd| assert_eq!(cd.received, 1));
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 
     #[cfg(feature = "distributed")]
@@ -698,6 +699,7 @@ mod tests {
     fn local_dispatcher_routes_alias_messages() {
         let system = KompactConfig::default()
             .build()
+            .wait()
             .expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let probe = system.create(|| PathProbe::new(tx));
@@ -714,7 +716,7 @@ mod tests {
 
         expect_delivery(&rx);
         probe.on_definition(|cd| assert_eq!(cd.received, 1));
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 
     #[cfg(feature = "distributed")]
@@ -722,6 +724,7 @@ mod tests {
     fn local_dispatcher_routes_broadcast_groups() {
         let system = KompactConfig::default()
             .build()
+            .wait()
             .expect("build KompactSystem");
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
@@ -762,6 +765,6 @@ mod tests {
         expect_delivery(&rx2);
         probe1.on_definition(|cd| assert_eq!(cd.received, 1));
         probe2.on_definition(|cd| assert_eq!(cd.received, 1));
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 }

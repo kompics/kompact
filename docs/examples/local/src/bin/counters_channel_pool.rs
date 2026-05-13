@@ -89,7 +89,7 @@ pub fn main() {
     // ANCHOR: channel_pool
     conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
     // ANCHOR_END: channel_pool
-    let system = conf.build().expect("system");
+    let system = conf.build().wait().expect("system");
     let counter = system.create(Counter::new);
     system.start(&counter);
     let actor_ref = counter.actor_ref();
@@ -105,7 +105,7 @@ pub fn main() {
     std::thread::sleep(Duration::from_millis(1000));
     let current_count = actor_ref.ask(CountMe).wait();
     info!(system.logger(), "The final count is: {:?}", current_count);
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));
 }

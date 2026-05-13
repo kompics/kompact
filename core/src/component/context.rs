@@ -125,10 +125,10 @@ where
     ///     }    
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(HelloLogging::new);
     /// system.start(&c);
-    /// system.await_termination();
+    /// system.terminated().wait();
     /// ```
     pub fn log(&self) -> &KompactLogger {
         &self.inner_ref().logger
@@ -166,10 +166,10 @@ where
     /// let default_values = r#"a = 7"#;
     /// let mut conf = KompactConfig::default();
     /// conf.load_config_str(default_values);
-    /// let system = conf.build().expect("system");
+    /// let system = conf.build().wait().expect("system");
     /// let c = system.create(ConfigComponent::new);
     /// system.start(&c);
-    /// system.await_termination();
+    /// system.terminated().wait();
     /// ```
     pub fn config(&self) -> &Config {
         self.inner_ref().config.as_ref()

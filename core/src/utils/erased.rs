@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_erased_components() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
 
         {
             let erased_definition: Box<dyn CreateErased<Ask<u64, ()>>> =
@@ -100,6 +100,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 }

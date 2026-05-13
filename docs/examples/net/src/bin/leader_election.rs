@@ -161,7 +161,7 @@ pub fn run_systems(num_systems: usize) {
             let mut cfg = KompactConfig::default();
             cfg.load_config_file("./app_settings.toml");
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let mut data = Vec::with_capacity(num_systems);
         for _i in 0..num_systems {
@@ -197,7 +197,7 @@ pub fn run_systems(num_systems: usize) {
     // shut down systems one by one
     for sys in systems.drain(..) {
         std::thread::sleep(Duration::from_millis(1000));
-        sys.shutdown().expect("shutdown");
+        sys.shutdown().wait().expect("shutdown");
     }
 }
 // ANCHOR_END: main

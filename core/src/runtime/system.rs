@@ -6,6 +6,7 @@ use crate::{
     config::Config,
     supervision::{ComponentSupervisor, ListenEvent, SupervisionPort, SupervisorMsg},
     timer::timer_manager::{CanCancelTimers, TimerRefFactory},
+    utils::BlockingFutureExt,
 };
 #[cfg(feature = "distributed")]
 use crate::{
@@ -23,9 +24,14 @@ use oncemutex::{OnceMutex, OnceMutexGuard};
 use std::{
     any::{Any, TypeId},
     fmt,
+    future::Future,
     sync::Mutex,
-    time::Instant,
+    time::{Duration, Instant},
 };
+
+use futures::FutureExt;
+
+const STARTUP_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 /// A Kompact system is a collection of components and services
 ///
@@ -55,8 +61,8 @@ use std::{
 /// ```
 /// use kompact::prelude::*;
 ///
-/// let system = KompactConfig::default().build().expect("system");
-/// # system.shutdown().expect("shutdown");
+/// let system = KompactConfig::default().build().wait().expect("system");
+/// # system.shutdown().wait().expect("shutdown");
 /// ```
 #[derive(Clone)]
 pub struct KompactSystem {
@@ -65,7 +71,59 @@ pub struct KompactSystem {
     scheduler: Box<dyn Scheduler>,
 }
 
+struct PendingKompactSystem {
+    system: KompactSystem,
+    deadletter_ready: KFuture<()>,
+    dispatcher_ready: KFuture<()>,
+}
+
+impl PendingKompactSystem {
+    /// Wait until the internal components have announced readiness.
+    ///
+    /// The deadletter box and dispatcher are started on Kompact scheduler threads
+    /// before this future is polled. The future waits for their readiness promises
+    /// without entering a nested executor, and periodically wakes up to report a
+    /// poisoned runtime instead of waiting forever.
+    async fn await_ready(self) -> Result<KompactSystem, KompactError> {
+        let PendingKompactSystem {
+            system,
+            deadletter_ready,
+            dispatcher_ready,
+        } = self;
+        Self::await_component_ready(&system, deadletter_ready).await?;
+        Self::await_component_ready(&system, dispatcher_ready).await?;
+        Ok(system)
+    }
+
+    async fn await_component_ready(
+        system: &KompactSystem,
+        mut ready: KFuture<()>,
+    ) -> Result<(), KompactError> {
+        loop {
+            if system.inner.is_poisoned() {
+                return Err(KompactError::Poisoned);
+            }
+            match async_std::future::timeout(STARTUP_POLL_INTERVAL, &mut ready).await {
+                Ok(Ok(())) => return Ok(()),
+                Ok(Err(e)) => return Err(KompactError::from_other(e)),
+                // This is only the periodic timeout; keep waiting after checking poison above.
+                Err(_timeout) => continue,
+            }
+        }
+    }
+}
+
 impl KompactSystem {
+    pub(crate) fn build_from_config(
+        conf: KompactConfig,
+    ) -> impl Future<Output = Result<Self, KompactError>> + Unpin + 'static {
+        async move {
+            let pending = Self::prepare_new(conf)?;
+            pending.await_ready().await
+        }
+        .boxed_local()
+    }
+
     fn load_config(conf: &KompactConfig) -> Result<Config, KompactError> {
         let mut config = Config::new();
         for source in &conf.config_sources {
@@ -76,7 +134,7 @@ impl KompactSystem {
     }
 
     /// Use the [build](KompactConfig::build) method instead.
-    pub(crate) fn try_new(mut conf: KompactConfig) -> Result<Self, KompactError> {
+    fn prepare_new(mut conf: KompactConfig) -> Result<PendingKompactSystem, KompactError> {
         let config = Self::load_config(&conf)?;
         conf.override_from_config(&config)?;
 
@@ -96,30 +154,11 @@ impl KompactSystem {
         let ic = InternalComponents::new(supervisor, system_components);
         sys.inner.set_internal_components(ic);
         sys.inner.start_internal_components(&sys);
-        let timeout = std::time::Duration::from_millis(50);
-        let mut wait_for: Option<KFuture<()>> = Some(dead_f);
-        while wait_for.is_some() {
-            if sys.inner.is_poisoned() {
-                return Err(KompactError::Poisoned);
-            }
-            match wait_for.take().unwrap().wait_timeout(timeout) {
-                Ok(_) => (),
-                Err(WaitErr::Timeout(w)) => wait_for = Some(w),
-                Err(WaitErr::PromiseDropped(e)) => return Err(KompactError::from_other(e)),
-            }
-        }
-        let mut wait_for: Option<KFuture<()>> = Some(disp_f);
-        while wait_for.is_some() {
-            if sys.inner.is_poisoned() {
-                return Err(KompactError::Poisoned);
-            }
-            match wait_for.take().unwrap().wait_timeout(timeout) {
-                Ok(_) => (),
-                Err(WaitErr::Timeout(w)) => wait_for = Some(w),
-                Err(WaitErr::PromiseDropped(e)) => return Err(KompactError::from_other(e)),
-            }
-        }
-        Ok(sys)
+        Ok(PendingKompactSystem {
+            system: sys,
+            deadletter_ready: dead_f,
+            dispatcher_ready: disp_f,
+        })
     }
 
     #[allow(dead_code)]
@@ -143,9 +182,9 @@ impl KompactSystem {
     ///
     /// ```
     /// # use kompact::prelude::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// info!(system.logger(), "Hello World from the system logger!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn logger(&self) -> &KompactLogger {
         &self.inner.logger
@@ -164,7 +203,7 @@ impl KompactSystem {
     /// let default_values = r#"a = 7"#;
     /// let mut conf = KompactConfig::default();
     /// conf.load_config_str(default_values);
-    /// let system = conf.build().expect("system");
+    /// let system = conf.build().wait().expect("system");
     /// assert_eq!(Some(7i64), system.config()["a"].as_i64());
     /// ```
     pub fn config(&self) -> &Config {
@@ -205,9 +244,9 @@ impl KompactSystem {
     /// ```
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn create<C, F>(&self, f: F) -> Arc<Component<C>>
     where
@@ -242,9 +281,9 @@ impl KompactSystem {
     /// ```
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create_erased(Box::new(TestComponent1::new()));
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "type_erasure")]
     #[inline(always)]
@@ -436,10 +475,10 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let system = KompactConfig::default().build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().wait().expect("KompactSystem");
     /// let c = system.create(TestComponent1::new);
     /// system.register(&c).wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "distributed")]
     pub fn register(&self, c: &dyn UniqueRegistrable) -> KFuture<RegistrationResult> {
@@ -461,10 +500,10 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let system = KompactConfig::default().build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().wait().expect("KompactSystem");
     /// let (c, registration_future) = system.create_and_register(TestComponent1::new);
     /// registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "distributed")]
     pub fn create_and_register<C, F>(
@@ -503,12 +542,12 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let system = KompactConfig::default().build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().wait().expect("KompactSystem");
     /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
     /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// let alias_registration_future = system.register_by_alias(&c, "test");
     /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "distributed")]
     pub fn register_by_alias<A>(
@@ -544,14 +583,14 @@ impl KompactSystem {
     /// use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let system = KompactConfig::default().build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().wait().expect("KompactSystem");
     /// let (c, unique_registration_future) = system.create_and_register(TestComponent1::new);
     /// unique_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1");
     /// let alias_registration_future = system.update_alias_registration(&c, "test");
     /// alias_registration_future.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
     /// let alias_reregistration_future = system.update_alias_registration(&c, "test");
     /// alias_reregistration_future.wait_expect(Duration::from_millis(1000), "Failed to override TestComponent1 registration by alias");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "distributed")]
     pub fn update_alias_registration<A>(
@@ -588,7 +627,7 @@ impl KompactSystem {
     /// use kompact::routing::groups::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// let system = KompactConfig::default().build().expect("KompactSystem");
+    /// let system = KompactConfig::default().build().wait().expect("KompactSystem");
     /// let policy_registration_future = system.set_routing_policy(BroadcastRouting::default(), "broadcast-me", false);
     /// let broadcast_path = policy_registration_future.wait_expect(Duration::from_millis(1000), "Failed to set broadcast policy");
     /// let c1 = system.create(TestComponent1::new);
@@ -598,7 +637,7 @@ impl KompactSystem {
     /// alias_registration_future1.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent1 by alias");
     /// alias_registration_future2.wait_expect(Duration::from_millis(1000), "Failed to register TestComponent2 by alias");
     /// // sending to broadcast_path now will send to c1 and c2
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "distributed")]
     pub fn set_routing_policy<P>(
@@ -626,10 +665,10 @@ impl KompactSystem {
     /// ```
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start(&c);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.inner.assert_not_poisoned();
@@ -666,12 +705,12 @@ impl KompactSystem {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never started!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
         self.inner.assert_active();
@@ -699,13 +738,13 @@ impl KompactSystem {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never started!");
     /// system.stop(&c);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> () {
         self.inner.assert_active();
@@ -732,7 +771,7 @@ impl KompactSystem {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
@@ -743,7 +782,7 @@ impl KompactSystem {
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never re-started!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
         self.inner.assert_active();
@@ -768,13 +807,13 @@ impl KompactSystem {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never started!");
     /// system.kill(c);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> () {
         self.inner.assert_active();
@@ -803,7 +842,7 @@ impl KompactSystem {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
@@ -811,7 +850,7 @@ impl KompactSystem {
     /// system.kill_notify(c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never stopped!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()> {
         self.inner.assert_active();
@@ -862,11 +901,40 @@ impl KompactSystem {
         self.inner.max_messages
     }
 
+    /// Return a future that completes when the Kompact system is terminated.
+    ///
+    /// The returned future observes system state and completes once the system is
+    /// destroyed or faulty. Async callers should `.await` it, while synchronous
+    /// callers can use [`BlockingFutureExt::wait`](crate::prelude::BlockingFutureExt::wait).
+    ///
+    /// # Note
+    ///
+    /// Don't use this method for any measurements,
+    /// as its implementation currently does not include any
+    /// notification logic. It simply checks its internal state
+    /// every second or so, so there might be quite some delay
+    /// until a shutdown is detected.
+    pub fn terminated(&self) -> impl Future<Output = ()> + Unpin + 'static {
+        let runtime = self.inner.clone();
+        async move {
+            loop {
+                if lifecycle::is_destroyed(runtime.state()) || lifecycle::is_faulty(runtime.state())
+                {
+                    return;
+                }
+                async_std::task::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+        .boxed_local()
+    }
+
     /// Wait for the Kompact system to be terminated
     ///
     /// Suspends this thread until the system is terminated
     /// from some other thread, such as its own threadpool,
     /// for example.
+    ///
+    /// Use [`terminated`](KompactSystem::terminated) for the future-returning API.
     ///
     /// # Note
     ///
@@ -876,32 +944,35 @@ impl KompactSystem {
     /// every second or so, so there might be quite some delay
     /// until a shutdown is detected.
     pub fn await_termination(self) {
-        loop {
-            if lifecycle::is_destroyed(self.inner.state())
-                || lifecycle::is_faulty(self.inner.state())
-            {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
+        self.terminated().wait();
     }
 
-    /// Shutdown the Kompact system
+    /// Shutdown the Kompact system.
     ///
     /// Stops all components and then stops the scheduler.
     ///
     /// This function may fail to stop in time (or at all),
     /// if components hang on to scheduler threads indefinitely.
     ///
+    /// This function returns a future. Async callers should `.await` it, while
+    /// synchronous callers can use [`BlockingFutureExt::wait`](crate::prelude::BlockingFutureExt::wait).
+    /// The shutdown sequence contains blocking scheduler and component shutdown
+    /// operations, so the future runs that work on a blocking task.
+    ///
     /// # Example
     ///
     /// ```
     /// use kompact::prelude::*;
     ///
-    /// let system = KompactConfig::default().build().expect("system");
-    /// system.shutdown().expect("shutdown");
+    /// let system = KompactConfig::default().build().wait().expect("system");
+    /// system.shutdown().wait().expect("shutdown");
     /// ```
-    pub fn shutdown(self) -> Result<(), String> {
+    pub fn shutdown(self) -> impl Future<Output = Result<(), String>> + Unpin + 'static {
+        async move { async_std::task::spawn_blocking(move || self.shutdown_blocking()).await }
+            .boxed_local()
+    }
+
+    fn shutdown_blocking(self) -> Result<(), String> {
         self.inner.assert_active();
         self.inner.shutdown(&self)?;
         self.scheduler.shutdown()?;
@@ -921,11 +992,13 @@ impl KompactSystem {
         Ok(())
     }
 
-    /// Shutdown the Kompact system from within a component
+    /// Start shutting down the Kompact system from within a component.
     ///
-    /// Stops all components and then stops the scheduler.
+    /// This is a fire-and-forget helper for lifecycle and message handlers that
+    /// cannot consume their system handle. Use [`shutdown`](KompactSystem::shutdown)
+    /// when you own the system and want to wait for shutdown to finish.
     ///
-    /// This function may fail to stop in time (or at all),
+    /// Shutdown may fail to stop in time (or at all),
     /// if components hang on to scheduler threads indefinitely.
     ///
     /// # Example
@@ -942,7 +1015,7 @@ impl KompactSystem {
     ///         Stopper {
     ///             ctx: ComponentContext::uninitialised(),
     ///         }
-    ///     }    
+    ///     }
     /// }
     /// impl ComponentLifecycle for Stopper {
     ///    fn on_start(&mut self) -> HandlerResult {
@@ -950,7 +1023,7 @@ impl KompactSystem {
     ///        Handled::OK
     ///     }
     /// }
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(Stopper::new);
     /// system.start(&c);
     /// system.await_termination();
@@ -958,7 +1031,7 @@ impl KompactSystem {
     pub fn shutdown_async(&self) -> () {
         let sys = self.clone();
         std::thread::spawn(move || {
-            sys.shutdown().expect("shutdown");
+            sys.shutdown_blocking().expect("shutdown");
         });
     }
 
@@ -1210,9 +1283,9 @@ pub trait SystemHandle: CanCancelTimers {
     /// ```
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn create<C, F>(&self, f: F) -> Arc<Component<C>>
     where
@@ -1236,9 +1309,9 @@ pub trait SystemHandle: CanCancelTimers {
     /// ```
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create_erased(Box::new(TestComponent1::new()));
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     #[cfg(feature = "type_erasure")]
     fn create_erased<M: MessageBounds>(
@@ -1258,10 +1331,10 @@ pub trait SystemHandle: CanCancelTimers {
     /// ```
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start(&c);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn start(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
 
@@ -1282,12 +1355,12 @@ pub trait SystemHandle: CanCancelTimers {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never started!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn start_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()>;
 
@@ -1307,13 +1380,13 @@ pub trait SystemHandle: CanCancelTimers {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never started!");
     /// system.stop(&c);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn stop(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> ();
 
@@ -1337,7 +1410,7 @@ pub trait SystemHandle: CanCancelTimers {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
@@ -1348,7 +1421,7 @@ pub trait SystemHandle: CanCancelTimers {
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never re-started!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn stop_notify(&self, c: &Arc<impl AbstractComponent + ?Sized>) -> KFuture<()>;
 
@@ -1365,13 +1438,13 @@ pub trait SystemHandle: CanCancelTimers {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never started!");
     /// system.kill(c);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn kill(&self, c: Arc<impl AbstractComponent + ?Sized>) -> ();
 
@@ -1397,7 +1470,7 @@ pub trait SystemHandle: CanCancelTimers {
     /// # use kompact::prelude::*;
     /// # use kompact::doctest_helpers::*;
     /// use std::time::Duration;
-    /// # let system = KompactConfig::default().build().expect("system");
+    /// # let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TestComponent1::new);
     /// system.start_notify(&c)
     ///       .wait_timeout(Duration::from_millis(1000))
@@ -1405,7 +1478,7 @@ pub trait SystemHandle: CanCancelTimers {
     /// system.kill_notify(c)
     ///       .wait_timeout(Duration::from_millis(1000))
     ///       .expect("TestComponent1 never stopped!");
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     fn kill_notify(&self, c: Arc<impl AbstractComponent + ?Sized>) -> KFuture<()>;
 
@@ -1420,11 +1493,13 @@ pub trait SystemHandle: CanCancelTimers {
     /// and [msg_priority](KompactConfig::msg_priority).
     fn max_messages(&self) -> usize;
 
-    /// Shutdown the Kompact system from within a component
+    /// Start shutting down the Kompact system from within a component.
     ///
-    /// Stops all components and then stops the scheduler.
+    /// This is a fire-and-forget helper for lifecycle and message handlers that
+    /// cannot consume their system handle. Use [`shutdown`](KompactSystem::shutdown)
+    /// when you own the system and want to wait for shutdown to finish.
     ///
-    /// This function may fail to stop in time (or at all),
+    /// Shutdown may fail to stop in time (or at all),
     /// if components hang on to scheduler threads indefinitely.
     ///
     /// # Example
@@ -1441,7 +1516,7 @@ pub trait SystemHandle: CanCancelTimers {
     ///         Stopper {
     ///             ctx: ComponentContext::uninitialised(),
     ///         }
-    ///     }    
+    ///     }
     /// }
     /// impl ComponentLifecycle for Stopper {
     ///    fn on_start(&mut self) -> HandlerResult {
@@ -1449,7 +1524,7 @@ pub trait SystemHandle: CanCancelTimers {
     ///        Handled::OK
     ///     }
     /// }
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(Stopper::new);
     /// system.start(&c);
     /// system.await_termination();

@@ -136,8 +136,8 @@ where
     drop(experiment_port);
     drop(pinger);
     drop(ponger);
-    sys1.shutdown().expect("System 1 did not shut down!");
-    sys2.shutdown().expect("System 2 did not shut down!");
+    sys1.shutdown().wait().expect("System 1 did not shut down!");
+    sys2.shutdown().wait().expect("System 2 did not shut down!");
     res
 }
 
@@ -152,7 +152,7 @@ fn setup_system(name: &'static str, threads: usize) -> KompactSystem {
                 NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work"));
             net_config.build()
         });
-        match cfg.build() {
+        match cfg.build().wait() {
             Ok(system) => return system,
             Err(err) if attempt + 1 < SYSTEM_BOOT_RETRIES => {
                 eprintln!(
@@ -256,8 +256,8 @@ fn ping_pong_latency<Pinger, PingerF, Ponger, PongerF, PortF>(
     drop(experiment_port);
     drop(pinger);
     drop(ponger);
-    sys1.shutdown().expect("System 1 did not shut down!");
-    sys2.shutdown().expect("System 2 did not shut down!");
+    sys1.shutdown().wait().expect("System 1 did not shut down!");
+    sys2.shutdown().wait().expect("System 2 did not shut down!");
 }
 
 criterion_group!(

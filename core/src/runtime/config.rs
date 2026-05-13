@@ -5,7 +5,7 @@ use crate::{
     messaging::DispatchEnvelope,
 };
 use executors::*;
-use std::{fmt, path::PathBuf, rc::Rc};
+use std::{fmt, future::Future, path::PathBuf, rc::Rc};
 
 /// Configuration keys for Kompact systems.
 pub mod keys {
@@ -168,8 +168,8 @@ impl ConfigSource {
 /// conf.label("My special system")
 ///     .throughput(50)
 ///     .threads(2);
-/// let system = conf.build().expect("system");
-/// # system.shutdown().expect("shutdown");
+/// let system = conf.build().wait().expect("system");
+/// # system.shutdown().wait().expect("shutdown");
 /// ```
 #[derive(Clone)]
 pub struct KompactConfig {
@@ -369,8 +369,8 @@ impl KompactConfig {
     /// # {
     /// let mut cfg = KompactConfig::new();
     /// cfg.system_components(DeadletterBox::new, LocalDispatcher::new);
-    /// let system = cfg.build().expect("KompactSystem");
-    /// # system.shutdown().expect("shutdown");
+    /// let system = cfg.build().wait().expect("KompactSystem");
+    /// # system.shutdown().wait().expect("shutdown");
     /// # }
     /// ```
     pub fn system_components<B, C, FB, FC>(
@@ -531,10 +531,17 @@ impl KompactConfig {
         self
     }
 
-    /// Finalise the config and use it create a [KompactSystem](KompactSystem)
+    /// Finalise the config and use it to create a [KompactSystem](KompactSystem).
     ///
-    /// This function can fail, if the configuration sets up invalid schedulers
-    /// or dispatchers, for example.
+    /// This function returns a future that starts the system's internal components
+    /// and completes once they are ready. Async callers should `.await` it, while
+    /// synchronous callers can use
+    /// [`BlockingFutureExt::wait`](crate::prelude::BlockingFutureExt::wait) or
+    /// [`BlockingFutureExt::wait_timeout`](crate::prelude::BlockingFutureExt::wait_timeout).
+    ///
+    /// Dropping the returned future before it completes may leave a partially started
+    /// system running in the background, so callers should await it or block on it to
+    /// completion.
     ///
     /// # Example
     ///
@@ -543,11 +550,13 @@ impl KompactConfig {
     /// ```
     /// use kompact::prelude::*;
     ///
-    /// let system = KompactConfig::default().build().expect("system");
-    /// # system.shutdown().expect("shutdown");
+    /// let system = KompactConfig::default().build().wait().expect("system");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
-    pub fn build(self) -> Result<KompactSystem, KompactError> {
-        KompactSystem::try_new(self)
+    pub fn build(
+        self,
+    ) -> impl Future<Output = Result<KompactSystem, KompactError>> + Unpin + 'static {
+        KompactSystem::build_from_config(self)
     }
 
     pub(crate) fn max_messages(&self) -> usize {

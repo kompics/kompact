@@ -704,7 +704,10 @@ mod tests {
 
     #[test]
     fn component_core_send() -> () {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
         let cc = system.create(TestComponent::new);
         let core = cc.core();
         is_send(&core.id);
@@ -877,7 +880,7 @@ mod tests {
     #[cfg(feature = "distributed")]
     #[test]
     fn child_unique_registration_test() -> () {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
         let parent = system.create(ParentComponent::unique);
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -891,7 +894,7 @@ mod tests {
         child.on_definition(|cd| {
             assert!(cd.got_message, "child didn't get the message");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[cfg(feature = "distributed")]
@@ -900,7 +903,7 @@ mod tests {
     #[cfg(feature = "distributed")]
     #[test]
     fn child_alias_registration_test() -> () {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
         let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -914,7 +917,7 @@ mod tests {
         child.on_definition(|cd| {
             assert!(cd.got_message, "child didn't get the message");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
@@ -950,7 +953,7 @@ mod tests {
         ignore_requests!(B, TestComp);
         ignore_indications!(A, TestComp);
 
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(TestComp::new);
         let dynamic: Arc<dyn AbstractComponent<Message = Never>> = comp;
         dynamic.on_dyn_definition(|def| {
@@ -961,7 +964,7 @@ mod tests {
             assert!(def.get_provided_port::<B>().is_some());
         });
 
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[derive(Debug)]
@@ -1053,7 +1056,7 @@ mod tests {
 
     #[test]
     fn test_immediate_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1068,12 +1071,12 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn test_channel_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1092,12 +1095,12 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "gotcha");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn test_mixed_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1117,12 +1120,12 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn test_shutdown_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1137,12 +1140,12 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn test_component_spawn_off() -> () {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1158,7 +1161,7 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "gotcha");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[derive(Debug)]
@@ -1253,7 +1256,7 @@ mod tests {
 
     #[test]
     fn test_immediate_non_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
@@ -1268,12 +1271,12 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn test_channel_non_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
@@ -1292,12 +1295,12 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "gotcha");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn test_concurrent_non_blocking() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
@@ -1320,7 +1323,7 @@ mod tests {
         comp.on_definition(|cd| {
             assert_eq!(cd.test_string, "done");
         });
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -1410,7 +1413,7 @@ mod tests {
 
     #[test]
     fn test_channel_disconnection() {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let sender = system.create(CountSender::default);
 
         let counter1 = system.create(Counter::default);
@@ -1536,6 +1539,6 @@ mod tests {
 
         check_counts(4, 4, 2);
 
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 }

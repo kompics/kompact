@@ -85,7 +85,7 @@ impl Actor for DnsComponent {
 
 // ANCHOR: main
 fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let dns_comp = system.create(DnsComponent::new);
     let dns_comp_ref = dns_comp.actor_ref().hold().expect("live");
     system.start_notify(&dns_comp).wait();
@@ -113,6 +113,6 @@ fn main() {
         }
     }
     system.kill_notify(dns_comp).wait();
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 // ANCHOR_END: main

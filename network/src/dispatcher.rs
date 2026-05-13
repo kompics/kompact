@@ -58,8 +58,8 @@ type NetHashMap<K, V> = FxHashMap<K, V>;
 ///
 /// let mut conf = KompactConfig::default();
 /// conf.system_components(DeadletterBox::new, NetworkConfig::default().build());
-/// let system = conf.build().expect("system");
-/// # system.shutdown().expect("shutdown");
+/// let system = conf.build().wait().expect("system");
+/// # system.shutdown().wait().expect("shutdown");
 /// ```
 #[derive(Clone, Debug)]
 pub struct NetworkConfig {
@@ -305,8 +305,8 @@ impl NetworkDispatcher {
     ///
     /// let mut conf = KompactConfig::default();
     /// conf.system_components(DeadletterBox::new, NetworkDispatcher::new);
-    /// let system = conf.build().expect("system");
-    /// # system.shutdown().expect("shutdown");
+    /// let system = conf.build().wait().expect("system");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn new(notify_ready: KPromise<()>) -> Self {
         let config = NetworkConfig::default();
@@ -1121,7 +1121,7 @@ mod tests {
             net_config.build()
         });
         assert!(
-            cfg.build().is_err(),
+            cfg.build().wait().is_err(),
             "network startup should fail while another listener owns the socket"
         );
     }
@@ -1136,7 +1136,7 @@ mod tests {
             net_config.build()
         });
         println!("Starting KompactSystem");
-        let system = cfg.build().expect("KompactSystem");
+        let system = cfg.build().wait().expect("KompactSystem");
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -1148,6 +1148,7 @@ mod tests {
         println!("Shutting down first system...");
         system
             .shutdown()
+            .wait()
             .expect("KompactSystem failed to shut down!");
         println!("System shut down.");
         let mut cfg2 = KompactConfig::default();
@@ -1158,7 +1159,7 @@ mod tests {
             net_config.build()
         });
         println!("Starting 2nd KompactSystem");
-        let system2 = cfg2.build().expect("KompactSystem");
+        let system2 = cfg2.build().wait().expect("KompactSystem");
         thread::sleep(Duration::from_millis(100));
         println!("2nd KompactSystem started just fine.");
         let named_path2 = ActorPath::Named(NamedPath::with_system(
@@ -1169,6 +1170,7 @@ mod tests {
         assert_eq!(named_path, named_path2);
         system2
             .shutdown()
+            .wait()
             .expect("2nd KompactSystem failed to shut down!");
     }
 
@@ -1184,7 +1186,7 @@ mod tests {
             net_config.build()
         });
         println!("Starting KompactSystem");
-        let system = cfg.build().expect("KompactSystem");
+        let system = cfg.build().wait().expect("KompactSystem");
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -1201,6 +1203,7 @@ mod tests {
                 println!("Shutting down first system...");
                 system
                     .shutdown()
+                    .wait()
                     .expect("KompactSystem failed to shut down!");
                 println!("System shut down.");
             })
@@ -1214,7 +1217,7 @@ mod tests {
             net_config.build()
         });
         println!("Starting 2nd KompactSystem");
-        let system2 = cfg2.build().expect("KompactSystem");
+        let system2 = cfg2.build().wait().expect("KompactSystem");
         thread::sleep(Duration::from_millis(100));
         println!("2nd KompactSystem started just fine.");
         let named_path2 = ActorPath::Named(NamedPath::with_system(
@@ -1225,6 +1228,7 @@ mod tests {
         assert_eq!(named_path, named_path2);
         system2
             .shutdown()
+            .wait()
             .expect("2nd KompactSystem failed to shut down!");
     }
 
@@ -1234,7 +1238,7 @@ mod tests {
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         println!("Starting KompactSystem");
-        let system = cfg.build().expect("KompactSystem");
+        let system = cfg.build().wait().expect("KompactSystem");
         println!("KompactSystem started just fine.");
         let named_path = ActorPath::Named(NamedPath::with_system(
             system.system_path(),
@@ -1255,7 +1259,7 @@ mod tests {
                 DeadletterBox::new,
                 NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work")).build(),
             );
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let system2 = |port| {
             let mut cfg = KompactConfig::default();
@@ -1263,7 +1267,7 @@ mod tests {
                 DeadletterBox::new,
                 NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port)).build(),
             );
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
 
         // Set-up system2a
@@ -1286,7 +1290,7 @@ mod tests {
         pinf.wait_expect(Duration::from_millis(1000), "Pinger failed to register!");
 
         // Kill system2a
-        system2a.shutdown().ok();
+        system2a.shutdown().wait().ok();
         // Start system1
         system1.start(&pinger_named);
         // Wait for the pings to be sent from the actor to the NetworkDispatch and onto the Thread
@@ -1332,9 +1336,11 @@ mod tests {
 
         system1
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
         system2b
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 }

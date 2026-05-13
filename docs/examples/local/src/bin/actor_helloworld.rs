@@ -28,7 +28,7 @@ impl Actor for HelloWorldActor {
 // ANCHOR_END: actor
 // ANCHOR: main
 pub fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let actor: Arc<Component<HelloWorldActor>> = system.create(HelloWorldActor::new);
     system.start(&actor);
     let actor_ref: ActorRef<()> = actor.actor_ref();

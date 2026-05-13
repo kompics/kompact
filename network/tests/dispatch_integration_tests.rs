@@ -187,7 +187,7 @@ struct TestSystem {
 impl TestSystem {
     fn shutdown(self) -> Result<(), String> {
         let TestSystem { inner, _slot } = self;
-        inner.shutdown()
+        inner.shutdown().wait()
     }
 
     fn kill_system(self) -> Result<(), String> {
@@ -214,7 +214,7 @@ fn system_from_network_config(network_config: NetworkConfig) -> TestSystem {
     let slot = TestSystemSlot::acquire();
     let mut cfg = KompactConfig::default();
     cfg.system_components(DeadletterBox::new, network_config.build());
-    let inner = cfg.build().expect("KompactSystem");
+    let inner = cfg.build().wait().expect("KompactSystem");
     TestSystem { inner, _slot: slot }
 }
 
@@ -521,6 +521,7 @@ fn named_registration() {
 
     system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -578,9 +579,11 @@ fn remote_delivery_to_registered_actors_eager() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -622,9 +625,11 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_tcp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -667,9 +672,11 @@ fn remote_delivery_bigger_than_buffer_messages_eager_tcp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -712,9 +719,11 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_tcp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -755,9 +764,11 @@ fn remote_delivery_bigger_than_buffer_messages_lazy_udp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -803,9 +814,11 @@ fn remote_delivery_bigger_than_buffer_messages_eager_udp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -851,9 +864,11 @@ fn remote_delivery_bigger_than_buffer_messages_preserialised_udp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -913,9 +928,11 @@ fn remote_delivery_to_registered_actors_eager_mixed_udp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -973,9 +990,11 @@ fn remote_delivery_to_registered_actors_lazy() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1036,9 +1055,11 @@ fn remote_delivery_to_registered_actors_lazy_mixed_udp() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1143,9 +1164,11 @@ fn remote_lost_and_continued_connection() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system_2
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1250,9 +1273,11 @@ fn remote_lost_and_dropped_connection() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     ponger_system_2
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1283,6 +1308,7 @@ fn local_delivery() {
 
     system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1327,6 +1353,7 @@ fn local_forwarding() {
 
     system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1371,6 +1398,7 @@ fn local_forwarding_eager() {
 
     system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1416,12 +1444,15 @@ fn remote_forwarding_unique() {
 
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     forwarder_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1466,9 +1497,11 @@ fn remote_forwarding_unique_two_systems() {
 
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1523,12 +1556,15 @@ fn remote_forwarding_named() {
 
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     forwarder_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1572,6 +1608,7 @@ fn network_status_port_established_lost_dropped_connection() {
 
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1617,9 +1654,11 @@ fn network_status_port_close_connection_closed_connection() {
 
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1662,9 +1701,11 @@ fn network_status_port_open_close_open() {
 
     initiator_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     receiver_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -1738,8 +1779,8 @@ fn network_status_port_block_unblock_system() {
         .wait_timeout(STOP_COMPONENT_TIMEOUT)
         .expect("Ponger never died!");
 
-    let _ = ponger_system.shutdown();
-    let _ = pinger_system.shutdown();
+    let _ = ponger_system.shutdown().wait();
+    let _ = pinger_system.shutdown().wait();
 }
 
 #[test]
@@ -1793,8 +1834,8 @@ fn network_status_port_block_unblock_ip() {
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
 
-    let _ = ponger_system.shutdown();
-    let _ = pinger_system.shutdown();
+    let _ = ponger_system.shutdown().wait();
+    let _ = pinger_system.shutdown().wait();
 }
 
 #[test]
@@ -1856,8 +1897,8 @@ fn network_status_port_block_ip_supernet_allow_subnet() {
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect("Time out waiting for ping pong to complete");
 
-    let _ = ponger_system.shutdown();
-    let _ = pinger_system.shutdown();
+    let _ = ponger_system.shutdown().wait();
+    let _ = pinger_system.shutdown().wait();
 }
 
 #[test]
@@ -1904,9 +1945,9 @@ fn network_status_port_allow_system_block_supernet() {
         .wait_timeout(PINGPONG_TIMEOUT)
         .expect_err("Expecting time out waiting for ping pong to complete");
 
-    let _ = ponger_system.shutdown();
-    let _ = pinger_system.shutdown();
-    let _ = blocked_pinger_system.shutdown();
+    let _ = ponger_system.shutdown().wait();
+    let _ = pinger_system.shutdown().wait();
+    let _ = blocked_pinger_system.shutdown().wait();
 }
 
 #[test]
@@ -1963,6 +2004,7 @@ fn remote_delivery_overflow_network_thread_buffers() {
     });
     big_pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 
     // ponger system should become unblocked and the ping pong should complete
@@ -1985,9 +2027,11 @@ fn remote_delivery_overflow_network_thread_buffers() {
 
     ponger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     small_pinger_system
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -2079,15 +2123,19 @@ fn soft_connection_limit_exceeded() {
 
     system1
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     system2
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     system3
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     system4
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 
@@ -2144,15 +2192,19 @@ fn hard_connection_limit_exceeded() {
 
     system1
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     system2
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     system3
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
     system4
         .shutdown()
+        .wait()
         .expect("Kompact didn't shut down properly");
 }
 

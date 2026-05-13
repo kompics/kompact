@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_ask_complete() -> () {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let tc = system.create(TestComponent::new);
         let tc_ref = tc.actor_ref();
         let tc_sref = tc_ref.hold().expect("Live ref!");
@@ -179,6 +179,7 @@ mod tests {
         drop(tc);
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -272,7 +273,7 @@ mod tests {
     }
 
     fn test_ask_complete_with(mode: AsyncMode) -> () {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         {
             let tc = system.create(TestComponent::new);
             let tc_ref = tc.actor_ref();
@@ -304,6 +305,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 }

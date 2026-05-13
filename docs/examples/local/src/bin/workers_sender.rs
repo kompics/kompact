@@ -234,7 +234,7 @@ pub fn main() {
 }
 
 fn run_task(num_workers: usize, data_size: usize) {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let manager = system.create(move || Manager::new(num_workers));
     system.start(&manager);
     let manager_ref = manager.actor_ref().hold().expect("live");
@@ -249,7 +249,7 @@ fn run_task(num_workers: usize, data_size: usize) {
     // ANCHOR_END: main_ask
     println!("*******\nGot result: {}\n*******", res.0);
     assert_eq!(triangular_number(data_size as u64), res.0);
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 
 fn triangular_number(n: u64) -> u64 {

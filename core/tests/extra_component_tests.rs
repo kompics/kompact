@@ -84,7 +84,7 @@ impl Actor for SelfCaller {
 
 #[test]
 fn repeated_blocking_self_messages() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let comp = system.create(SelfCaller::new);
     let reg_f = system.update_alias_registration(&comp, "TEST_ME");
     reg_f.wait_expect(Duration::from_millis(100), "initial registration");
@@ -99,5 +99,5 @@ fn repeated_blocking_self_messages() {
         debug!(system.logger(), "Count is {}", count);
     }
     info!(system.logger(), "Test is done");
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }

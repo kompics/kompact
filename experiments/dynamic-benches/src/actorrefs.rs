@@ -115,7 +115,7 @@ mod tests {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
@@ -128,14 +128,14 @@ mod tests {
         drop(tester_recipient);
         drop(tester_ref);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     pub fn bench_tell_recipient(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
@@ -145,14 +145,14 @@ mod tests {
         });
         drop(tester_ref);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     pub fn bench_clone_actor_ref(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
@@ -163,14 +163,14 @@ mod tests {
         drop(tester_ref);
         drop(cloned_ref);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     pub fn bench_tell_actor_ref(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref();
@@ -179,14 +179,14 @@ mod tests {
         });
         drop(tester_ref);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     pub fn bench_tell_actor_ref_strong(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let tester = sys.create(TestActor::new);
         let tester_ref = tester.actor_ref().hold().expect("Live Ref");
@@ -195,14 +195,14 @@ mod tests {
         });
         drop(tester_ref);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     pub fn bench_trigger_port(b: &mut Bencher) {
         let sys = {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let tester = sys.create(TestActor::new);
         let test_port = tester.on_definition(|c| c.testp.share());
@@ -211,7 +211,7 @@ mod tests {
         });
         drop(test_port);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     #[cfg(feature = "bench-distributed")]
@@ -220,7 +220,7 @@ mod tests {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
             cfg.system_components(DeadletterBox::new, LocalDispatcher::new);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
@@ -233,7 +233,7 @@ mod tests {
         drop(cloned_path);
         drop(unique_path);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 
     #[allow(dead_code)]
@@ -243,7 +243,7 @@ mod tests {
             let mut cfg = KompactConfig::default();
             cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
             cfg.system_components(DeadletterBox::new, LocalDispatcher::new);
-            cfg.build().expect("KompactSystem")
+            cfg.build().wait().expect("KompactSystem")
         };
         let (tester, testerf) = sys.create_and_register(TestActor::new);
         testerf.wait_expect(Duration::from_millis(1000), "Tester failed to register!");
@@ -254,7 +254,7 @@ mod tests {
         });
         drop(unique_path);
         drop(tester);
-        sys.shutdown().expect("System didn't shut down :(");
+        sys.shutdown().wait().expect("System didn't shut down :(");
     }
 }
 

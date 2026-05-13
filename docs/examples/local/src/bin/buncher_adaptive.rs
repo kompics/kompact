@@ -89,7 +89,7 @@ impl Provide<Batching> for Buncher {
 // ANCHOR_END: batching_port
 
 pub fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let printer = system.create(BatchPrinter::new);
     let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
     biconnect_components::<Batching, _, _>(&buncher, &printer).expect("connection");
@@ -114,7 +114,7 @@ pub fn main() {
         std::thread::sleep(sleep_dur);
     }
 
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 
 #[cfg(test)]

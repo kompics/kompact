@@ -1279,7 +1279,7 @@ mod tests {
     ) -> (NetworkThread, Sender<DispatchEvent>) {
         let mut cfg = KompactConfig::default();
         cfg.system_components(DeadletterBox::new, network_config.clone().build());
-        let system = cfg.build().expect("KompactSystem");
+        let system = cfg.build().wait().expect("KompactSystem");
 
         // Set-up the the threads arguments
         let lookup = Arc::new(ArcSwap::from_pointee(ActorStore::new()));

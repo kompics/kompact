@@ -917,7 +917,10 @@ mod tests {
     )>;
 
     fn setup_kompact_system() -> KompactSystem {
-        KompactConfig::default().build().expect("KompactSystem")
+        KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem")
     }
 
     pub fn ping_pong_throughput_ports(b: &mut Bencher, pairs: &usize) {
@@ -973,6 +976,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1029,6 +1033,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1090,6 +1095,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1151,6 +1157,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1212,6 +1219,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1273,6 +1281,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1335,6 +1344,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1397,6 +1407,7 @@ mod tests {
         }
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 }

@@ -83,7 +83,7 @@ where
 /// # use kompact::doctest_helpers::*;
 ///
 ///
-/// let system = KompactConfig::default().build().expect("system");
+/// let system = KompactConfig::default().build().wait().expect("system");
 /// let c1 = system.create(TestComponent1::new);
 /// let c2 = system.create(TestComponent2::new);
 /// biconnect_components::<TestPort,_,_>(&c1, &c2).expect("connection");
@@ -228,12 +228,35 @@ impl<T> fmt::Display for WaitErr<T> {
     }
 }
 
+/// Extension methods for blocking on futures from synchronous code.
+///
+/// Async callers should `.await` futures directly. These methods are intended for
+/// callers that deliberately want to bridge back into a synchronous context.
+pub trait BlockingFutureExt: Future + Sized {
+    /// Block until the future completes and return its output.
+    fn wait(self) -> Self::Output {
+        block_on(self)
+    }
+
+    /// Block until the future completes or the timeout expires.
+    ///
+    /// If the timeout expires, the future itself is returned, so it can be retried later.
+    fn wait_timeout(self, timeout: Duration) -> Result<Self::Output, WaitErr<Self>>
+    where
+        Self: Unpin,
+    {
+        block_until(timeout, self).map_err(WaitErr::Timeout)
+    }
+}
+
+impl<F> BlockingFutureExt for F where F: Future + Sized {}
+
 impl<T: Send + Sized> KFuture<T> {
     /// Wait for the future to be fulfilled and return the value.
     ///
     /// This method panics, if there is an error with the link to the promise.
     pub fn wait(self) -> T {
-        futures::executor::block_on(self.result_channel).unwrap()
+        block_on(self).unwrap()
     }
 
     /// Wait for the future to be fulfilled or the timeout to expire.
