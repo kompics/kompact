@@ -956,8 +956,9 @@ impl KompactSystem {
     ///
     /// This function returns a future. Async callers should `.await` it, while
     /// synchronous callers can use [`BlockingFutureExt::wait`](crate::prelude::BlockingFutureExt::wait).
-    /// The shutdown sequence contains blocking scheduler and component shutdown
-    /// operations, so the future runs that work on a blocking task.
+    /// The shutdown sequence awaits component shutdown without entering a nested
+    /// executor. Scheduler implementations can also provide a non-blocking
+    /// shutdown future via [`Scheduler::shutdown_notify`].
     ///
     /// # Example
     ///
@@ -967,16 +968,13 @@ impl KompactSystem {
     /// let system = KompactConfig::default().build().wait().expect("system");
     /// system.shutdown().wait().expect("shutdown");
     /// ```
-    pub fn shutdown(self) -> impl Future<Output = Result<(), String>> + Unpin + 'static {
-        async move { async_std::task::spawn_blocking(move || self.shutdown_blocking()).await }
-            .boxed_local()
-    }
-
-    fn shutdown_blocking(self) -> Result<(), String> {
-        self.inner.assert_active();
-        self.inner.shutdown(&self)?;
-        self.scheduler.shutdown()?;
-        Ok(())
+    pub fn shutdown(self) -> impl Future<Output = Result<(), String>> + Send + Unpin + 'static {
+        async move {
+            self.inner.assert_active();
+            self.inner.shutdown_notify(&self).await?;
+            self.scheduler.shutdown_notify().await
+        }
+        .boxed()
     }
 
     /// Kill the Kompact system
@@ -1030,8 +1028,8 @@ impl KompactSystem {
     /// ```
     pub fn shutdown_async(&self) -> () {
         let sys = self.clone();
-        std::thread::spawn(move || {
-            sys.shutdown_blocking().expect("shutdown");
+        async_std::task::spawn(async move {
+            sys.shutdown().await.expect("shutdown");
         });
     }
 
@@ -1599,6 +1597,11 @@ pub trait SystemComponents: Send + Sync + 'static {
     fn start(&self, _system: &KompactSystem) -> ();
     /// Stop all the system components
     fn stop(&self, _system: &KompactSystem) -> ();
+    /// Stop all the system components and complete once shutdown has finished
+    fn stop_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>>;
     /// Stop all the system components as fast as possible, no graceful shutdown
     fn kill(&self, _system: &KompactSystem) -> ();
     /// Allow downcasting to concrete type
@@ -1650,6 +1653,9 @@ impl dyn SystemComponents {
 pub trait TimerComponent: TimerRefFactory + Send + Sync {
     /// Stop the underlying timer thread
     fn shutdown(&self) -> Result<(), String>;
+
+    /// Stop the underlying timer thread from an async shutdown path
+    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>>;
 }
 
 struct InternalComponents {
@@ -1702,12 +1708,18 @@ impl InternalComponents {
         self.supervision_port.clone()
     }
 
-    fn stop(&self, system: &KompactSystem) -> () {
-        let (p, f) = utils::promise();
-        self.supervision_port
-            .enqueue(SupervisorMsg::Shutdown(Arc::new(Mutex::new(p))));
-        f.wait();
-        self.system_components.stop(system);
+    fn stop_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        async move {
+            let (p, f) = utils::promise();
+            self.supervision_port
+                .enqueue(SupervisorMsg::Shutdown(Arc::new(Mutex::new(p))));
+            f.await.map_err(|e| e.to_string())?;
+            self.system_components.stop_notify(system).await
+        }
+        .boxed()
     }
 
     fn kill(&self, system: &KompactSystem) -> () {
@@ -1892,16 +1904,22 @@ impl KompactRuntime {
         self.timer.timer_ref()
     }
 
-    fn shutdown(&self, system: &KompactSystem) -> Result<(), String> {
-        match *self.internal_components {
-            Some(ref ic) => {
-                ic.stop(system);
+    fn shutdown_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        async move {
+            match *self.internal_components {
+                Some(ref ic) => {
+                    ic.stop_notify(system).await?;
+                }
+                None => panic!("KompactRuntime was not initialised at shutdown!"),
             }
-            None => panic!("KompactRuntime was not initialised at shutdown!"),
+            let res = self.timer.shutdown_notify().await;
+            lifecycle::set_destroyed(self.state());
+            res
         }
-        let res = self.timer.shutdown();
-        lifecycle::set_destroyed(self.state());
-        res
+        .boxed()
     }
 
     fn kill(&self, system: &KompactSystem) -> Result<(), String> {

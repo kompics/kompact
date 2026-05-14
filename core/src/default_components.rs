@@ -18,7 +18,17 @@ use crate::{
     runtime::DispatcherDefinitionCallback,
     timer::timer_manager::TimerRefFactory,
 };
+use futures::{FutureExt, future};
 use std::sync::Arc;
+
+async fn await_component_ended<CD>(component: &Component<CD>)
+where
+    CD: ComponentDefinition + 'static,
+{
+    while !component.is_faulty() && !component.is_destroyed() {
+        async_std::task::yield_now().await;
+    }
+}
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -68,6 +78,20 @@ impl SystemComponents for DefaultComponents {
         self.deadletter_box.wait_ended();
     }
 
+    fn stop_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        async move {
+            system.kill(self.dispatcher.clone());
+            system.kill(self.deadletter_box.clone());
+            await_component_ended(&self.dispatcher).await;
+            await_component_ended(&self.deadletter_box).await;
+            Ok(())
+        }
+        .boxed()
+    }
+
     fn kill(&self, system: &KompactSystem) -> () {
         // default_components has no graceful shutdown sequence to bypass
         self.stop(system);
@@ -107,6 +131,15 @@ impl TimerComponent for DefaultTimer {
             .shutdown_async()
             .map_err(|e| format!("Error during timer shutdown: {:?}", e))
     }
+
+    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        future::ready(
+            self.inner
+                .shutdown_async()
+                .map_err(|e| format!("Error during timer shutdown: {:?}", e)),
+        )
+        .boxed()
+    }
 }
 
 struct ManualTimerComponent {
@@ -129,6 +162,12 @@ impl TimerComponent for ManualTimerComponent {
     fn shutdown(&self) -> Result<(), String> {
         self.inner.stop();
         Ok(())
+    }
+
+    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        // This actually locks a Mutex, so there's a small deadlock risk here.
+        self.inner.stop();
+        future::ready(Ok(())).boxed()
     }
 }
 
@@ -188,6 +227,22 @@ where
         // Gracefully stop the dispatcher/Network layer.
         system.stop(&self.dispatcher.clone());
         self.kill(system);
+    }
+
+    fn stop_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        async move {
+            // Gracefully stop the dispatcher/Network layer.
+            system.stop(&self.dispatcher.clone());
+            system.kill(self.dispatcher.clone());
+            system.kill(self.deadletter_box.clone());
+            await_component_ended(&self.dispatcher).await;
+            await_component_ended(&self.deadletter_box).await;
+            Ok(())
+        }
+        .boxed()
     }
 
     fn kill(&self, system: &KompactSystem) -> () {

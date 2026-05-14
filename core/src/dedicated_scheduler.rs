@@ -12,6 +12,7 @@ use std::{
 };
 
 use crossbeam_utils::Backoff;
+use futures::FutureExt;
 
 #[derive(Clone)]
 pub(crate) struct DedicatedThreadScheduler {
@@ -147,6 +148,21 @@ impl Scheduler for DedicatedThreadScheduler {
                 thread::yield_now();
             }
         }
+    }
+
+    fn shutdown_notify(&self) -> futures::future::BoxFuture<'static, Result<(), String>> {
+        let stop = self.stop.clone();
+        let stopped = self.stopped.clone();
+        async move {
+            stop.store(true, Ordering::Relaxed);
+            loop {
+                if stopped.load(Ordering::Relaxed) {
+                    return Ok(());
+                }
+                async_std::task::yield_now().await;
+            }
+        }
+        .boxed()
     }
 
     fn box_clone(&self) -> Box<dyn Scheduler> {

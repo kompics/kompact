@@ -1,5 +1,6 @@
 use super::*;
 use executors::*;
+use futures::FutureExt;
 
 /// API for a Kompact scheduler
 ///
@@ -27,6 +28,16 @@ pub trait Scheduler: Send + Sync {
     /// Implementations must only return when the pool
     /// has been shut down, or upon an error.
     fn shutdown(&self) -> Result<(), String>;
+
+    /// Shut this pool down and complete once the pool has stopped.
+    ///
+    /// The default implementation delegates the existing blocking shutdown to a
+    /// blocking task. Scheduler implementations that can signal completion
+    /// without blocking should override this method.
+    fn shutdown_notify(&self) -> futures::future::BoxFuture<'static, Result<(), String>> {
+        let scheduler = self.box_clone();
+        async move { async_std::task::spawn_blocking(move || scheduler.shutdown()).await }.boxed()
+    }
 
     /// Clone an instance of this boxed
     ///
