@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn component_core_send() -> () {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -880,7 +880,10 @@ mod tests {
     #[cfg(feature = "distributed")]
     #[test]
     fn child_unique_registration_test() -> () {
-        let system = KompactConfig::default().build().wait().expect("system");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("system");
         let parent = system.create(ParentComponent::unique);
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -903,7 +906,10 @@ mod tests {
     #[cfg(feature = "distributed")]
     #[test]
     fn child_alias_registration_test() -> () {
-        let system = KompactConfig::default().build().wait().expect("system");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("system");
         let parent = system.create(|| ParentComponent::alias(TEST_ALIAS.into()));
         system.start(&parent);
         thread::sleep(TIMEOUT);
@@ -953,7 +959,10 @@ mod tests {
         ignore_requests!(B, TestComp);
         ignore_indications!(A, TestComp);
 
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(TestComp::new);
         let dynamic: Arc<dyn AbstractComponent<Message = Never>> = comp;
         dynamic.on_dyn_definition(|def| {
@@ -1056,7 +1065,10 @@ mod tests {
 
     #[test]
     fn test_immediate_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1076,7 +1088,10 @@ mod tests {
 
     #[test]
     fn test_channel_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1100,7 +1115,10 @@ mod tests {
 
     #[test]
     fn test_mixed_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1125,7 +1143,10 @@ mod tests {
 
     #[test]
     fn test_shutdown_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1145,7 +1166,10 @@ mod tests {
 
     #[test]
     fn test_component_spawn_off() -> () {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(BlockingComponent::new);
         system
             .start_notify(&comp)
@@ -1256,7 +1280,10 @@ mod tests {
 
     #[test]
     fn test_immediate_non_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
@@ -1276,7 +1303,10 @@ mod tests {
 
     #[test]
     fn test_channel_non_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
@@ -1300,7 +1330,10 @@ mod tests {
 
     #[test]
     fn test_concurrent_non_blocking() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let comp = system.create(AsyncComponent::new);
         system
             .start_notify(&comp)
@@ -1413,7 +1446,10 @@ mod tests {
 
     #[test]
     fn test_channel_disconnection() {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let sender = system.create(CountSender::default);
 
         let counter1 = system.create(Counter::default);

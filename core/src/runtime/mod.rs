@@ -50,6 +50,13 @@ fn default_logger() -> Arc<KompactLogger> {
         .expect("Can't re-initialise global logger after it has been dropped!")
 }
 
+pub(crate) fn set_default_logger(logger: KompactLogger) {
+    DEFAULT_ROOT_LOGGER
+        .load_full()
+        .expect("Can't re-initialise global logger after it has been dropped!");
+    DEFAULT_ROOT_LOGGER.store(Some(Arc::new(logger)));
+}
+
 /// Removes the global default logger
 ///
 /// This causes the remaining messages to be flushed to the output.

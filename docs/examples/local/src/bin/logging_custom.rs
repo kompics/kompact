@@ -63,6 +63,7 @@ mod tests {
 
     #[test]
     fn test_logging() {
+        kompact::test_support::init_test_logger();
         main();
         std::fs::remove_file(FILE_NAME).expect("remove log file");
     }

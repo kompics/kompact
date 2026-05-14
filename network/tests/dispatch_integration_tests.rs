@@ -1,5 +1,6 @@
 use crossbeam_channel::Receiver as Rcv;
 use ipnet::IpNet;
+use kompact::test_support::configure_test_logger;
 use kompact_net::{NetworkStatus, NetworkStatusRequest, net_test_helpers::*, prelude::*};
 use std::{
     cell::Cell,
@@ -213,6 +214,7 @@ impl DerefMut for TestSystem {
 fn system_from_network_config(network_config: NetworkConfig) -> TestSystem {
     let slot = TestSystemSlot::acquire();
     let mut cfg = KompactConfig::default();
+    configure_test_logger(&mut cfg);
     cfg.system_components(DeadletterBox::new, network_config.build());
     let inner = cfg.build().wait().expect("KompactSystem");
     TestSystem { inner, _slot: slot }

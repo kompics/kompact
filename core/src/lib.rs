@@ -122,6 +122,8 @@ pub mod routing;
 pub mod runtime;
 mod serialisation;
 mod supervision;
+/// Test support utilities
+pub mod test_support;
 /// Reusable timer facility internals
 pub mod timer;
 mod utils;
@@ -319,7 +321,7 @@ pub mod prelude {
 ///
 /// Import all with `use prelude_test::*;`.
 pub mod prelude_test {
-    pub use crate::serialisation::ser_test_helpers;
+    pub use crate::{serialisation::ser_test_helpers, test_support};
 }
 
 /// A module containing helper functions for benchmarking
@@ -548,7 +550,7 @@ mod tests {
 
     #[test]
     fn default_settings() {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -558,7 +560,7 @@ mod tests {
 
     #[test]
     fn custom_settings() {
-        let mut settings = KompactConfig::default();
+        let mut settings = crate::test_support::test_kompact_config();
         settings.set_config_value(
             &crate::config_keys::system::LABEL,
             "custom-system".to_string(),
@@ -573,7 +575,7 @@ mod tests {
 
     #[test]
     fn custom_executor() {
-        let mut settings = KompactConfig::default();
+        let mut settings = crate::test_support::test_kompact_config();
         settings
             .set_config_value(&crate::config_keys::system::THREADS, 2)
             .executor(executors::crossbeam_channel_pool::ThreadPool::new);
@@ -583,7 +585,7 @@ mod tests {
 
     #[test]
     fn custom_scheduler() {
-        let mut settings = KompactConfig::default();
+        let mut settings = crate::test_support::test_kompact_config();
         settings.scheduler(move |t| {
             crate::runtime::ExecutorScheduler::from(
                 executors::crossbeam_channel_pool::ThreadPool::new(t),
@@ -673,7 +675,10 @@ mod tests {
 
     #[test]
     fn test_dedicated_ref() -> () {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let cc = system.create_dedicated(CounterComponent::new);
         system.start(&cc);
         let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
@@ -704,7 +709,10 @@ mod tests {
         let core_ids = core_affinity::get_core_ids().expect("Failed to fetch core ids");
         assert!(core_ids.len() >= 2, "this test requires at least two cores");
 
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
         let cc = system.create_dedicated_pinned(CounterComponent::new, core_ids[0]);
         system.start(&cc);
         let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
@@ -732,7 +740,10 @@ mod tests {
 
     #[test]
     fn test_dedicated() -> () {
-        let system = KompactConfig::default().build().wait().expect("System");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("System");
 
         let tc = system.create_dedicated(TestComponent::new);
         let rc = system.create_dedicated(RecvComponent::new);
@@ -807,7 +818,7 @@ mod tests {
 
     #[test]
     fn test_timer() -> () {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -862,7 +873,7 @@ mod tests {
 
     #[test]
     fn test_start_stop() -> () {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -982,7 +993,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_component_failure() -> () {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -1043,7 +1054,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_component_recovery() -> () {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -1198,7 +1209,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_component_recovery_with_state() -> () {
-        let system = KompactConfig::default()
+        let system = crate::test_support::test_kompact_config()
             .build()
             .wait()
             .expect("KompactSystem");
@@ -1274,7 +1285,10 @@ mod tests {
 
     #[test]
     fn test_async_shutdown() -> () {
-        let system = KompactConfig::default().build().wait().expect("system");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("system");
         let stopper = system.create(Stopper::new);
         system.start(&stopper);
         system.await_termination();
@@ -1283,7 +1297,10 @@ mod tests {
     #[test]
     fn test_async_terminated_inside_futures_executor() -> () {
         futures::executor::block_on(async {
-            let system = KompactConfig::default().build().await.expect("system");
+            let system = crate::test_support::test_kompact_config()
+                .build()
+                .await
+                .expect("system");
             let stopper = system.create(Stopper::new);
             system.start(&stopper);
             system.terminated().await;
@@ -1316,7 +1333,7 @@ mod tests {
     #[test]
     fn test_config_from_string() -> () {
         let default_values = r#"a = 7"#;
-        let mut conf = KompactConfig::default();
+        let mut conf = crate::test_support::test_kompact_config();
         conf.load_config_str(default_values);
         let system = conf.build().wait().expect("system");
         let c = system.create(ConfigComponent::new);
@@ -1333,7 +1350,7 @@ mod tests {
         let config_file_path = Fixture::blank("test_settings.toml");
         let mut config_file = File::create(config_file_path.deref()).expect("config file");
         config_file.write_all(b"a = 7").expect("write config file");
-        let mut conf = KompactConfig::default();
+        let mut conf = crate::test_support::test_kompact_config();
         conf.load_config_file(config_file_path.to_path_buf());
         let system = conf.build().wait().expect("system");
         let c = system.create(ConfigComponent::new);
@@ -1350,7 +1367,7 @@ mod tests {
         let config_file_path = Fixture::blank("test_settings.toml");
         let mut config_file = File::create(config_file_path.deref()).expect("config file");
         config_file.write_all(b"a = 7").expect("write config file");
-        let mut conf = KompactConfig::default();
+        let mut conf = crate::test_support::test_kompact_config();
         conf.load_config_str(default_values)
             .load_config_file(config_file_path.to_path_buf());
         let system = conf.build().wait().expect("system");
@@ -1365,14 +1382,20 @@ mod tests {
     #[test]
     fn test_async_build_inside_futures_executor() -> () {
         futures::executor::block_on(async {
-            let system = KompactConfig::default().build().await.expect("system");
+            let system = crate::test_support::test_kompact_config()
+                .build()
+                .await
+                .expect("system");
             system.shutdown().await.expect("shutdown");
         });
     }
 
     #[test]
     fn test_system_spawn() -> () {
-        let system = KompactConfig::default().build().wait().expect("system");
+        let system = crate::test_support::test_kompact_config()
+            .build()
+            .wait()
+            .expect("system");
         let handle = system.spawn(async move { "test".to_string() });
         let res = futures::executor::block_on(handle).expect("result");
         assert_eq!(res, "test");

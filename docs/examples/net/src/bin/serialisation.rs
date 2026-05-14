@@ -378,6 +378,7 @@ mod tests {
 
     #[test]
     fn test_bootstrapping_serialisation() {
+        kompact::test_support::init_test_logger();
         let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
         let server_system = run_server(server_socket);
         let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();

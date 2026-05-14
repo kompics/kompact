@@ -208,6 +208,7 @@ mod tests {
 
     #[test]
     fn test_omega() {
+        kompact::test_support::init_test_logger();
         run_systems(3);
     }
 }

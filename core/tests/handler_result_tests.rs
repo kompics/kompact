@@ -1,6 +1,6 @@
 mod common;
 
-use common::eventually;
+use common::{build_test_system, eventually};
 use kompact::prelude::*;
 use std::{
     error::Error,
@@ -292,7 +292,7 @@ fn assert_outcome(
 }
 
 fn run_case(source: HandlerSource, kind: FaultKind) {
-    let system = KompactConfig::default().build().wait().expect("system");
+    let system = build_test_system();
     let (component, rx) = create_probe(&system, source, kind);
 
     if kind == FaultKind::Recoverable {

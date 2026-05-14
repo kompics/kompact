@@ -115,6 +115,7 @@ mod tests {
 
     #[test]
     fn test_counters() {
+        kompact::test_support::init_test_logger();
         main();
     }
 }

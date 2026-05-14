@@ -326,6 +326,7 @@ mod tests {
 
     #[test]
     fn test_load_balancer() {
+        kompact::test_support::init_test_logger();
         main();
     }
 }

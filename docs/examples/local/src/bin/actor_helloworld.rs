@@ -42,6 +42,7 @@ mod tests {
 
     #[test]
     fn test_actor_helloworld() {
+        kompact::test_support::init_test_logger();
         main();
     }
 }
