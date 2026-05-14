@@ -44,6 +44,12 @@ The repository also provides a helper script for this:
 ./run_tests.sh
 ```
 
+Run the Clippy checks with the same feature-compatible split used by CI:
+
+```bash
+./run_checks.sh
+```
+
 ## License
 
 Licensed under the terms of MIT license.
