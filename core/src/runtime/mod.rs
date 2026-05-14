@@ -14,11 +14,14 @@ use std::{
 use crate::config::{ConfigError, ConfigLoadingError};
 
 mod config;
+mod errors;
 mod lifecycle;
 mod scheduler;
 mod system;
 
 pub use config::*;
+pub use errors::*;
+pub(crate) use errors::{shutdown_error, system_components_shutdown_error};
 pub use scheduler::*;
 pub use system::*;
 

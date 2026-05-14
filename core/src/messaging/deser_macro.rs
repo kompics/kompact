@@ -679,8 +679,8 @@ mod deser_macro_tests {
 
         fn deserialise(buf: &mut dyn Buf) -> Result<MsgA, SerError> {
             if buf.remaining() < 8 {
-                return Err(SerError::InvalidData(
-                    "Less than 8bytes remaining in buffer!".to_string(),
+                return Err(SerError::invalid_data(
+                    "Less than 8bytes remaining in buffer!",
                 ));
             }
             let index = buf.get_u64();
@@ -799,7 +799,7 @@ mod deser_macro_tests {
         fn deserialise(buf: &mut dyn Buf) -> Result<Self, SerError> {
             let magic_byte = buf.get_u8();
             if magic_byte != Self::MAGIC_BYTE {
-                return Err(SerError::InvalidData(format!(
+                return Err(SerError::invalid_data(format!(
                     "Expected MAGIC_BYTE={}, but got {} instead",
                     Self::MAGIC_BYTE,
                     magic_byte

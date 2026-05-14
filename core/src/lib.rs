@@ -235,7 +235,7 @@ pub mod prelude {
             TryLockError,
             TwoWayChannel,
         },
-        runtime::{KompactConfig, KompactSystem, SystemHandle},
+        runtime::{KompactConfig, KompactSystem, ShutdownError, SystemHandle},
         supervision::{Fault, FaultContext, RecoveryHandler},
     };
 

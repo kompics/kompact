@@ -77,7 +77,7 @@ impl TryFrom<u8> for AddressType {
         match x {
             x if x == AddressType::IPv4 as u8 => Ok(AddressType::IPv4),
             x if x == AddressType::IPv6 as u8 => Ok(AddressType::IPv6),
-            _ => Err(SerError::InvalidType("Unsupported AddressType".into())),
+            _ => Err(SerError::invalid_type("Unsupported AddressType")),
         }
     }
 }
@@ -89,7 +89,7 @@ impl TryFrom<u8> for PathType {
         match x {
             x if x == PathType::Unique as u8 => Ok(PathType::Unique),
             x if x == PathType::Named as u8 => Ok(PathType::Named),
-            _ => Err(SerError::InvalidType("Unsupported PathType".into())),
+            _ => Err(SerError::invalid_type("Unsupported PathType")),
         }
     }
 }
@@ -102,9 +102,7 @@ impl TryFrom<u8> for Transport {
             x if x == Transport::Local as u8 => Ok(Transport::Local),
             x if x == Transport::Udp as u8 => Ok(Transport::Udp),
             x if x == Transport::Tcp as u8 => Ok(Transport::Tcp),
-            _ => Err(SerError::InvalidType(
-                "Unsupported transport protocol".into(),
-            )),
+            _ => Err(SerError::invalid_type("Unsupported transport protocol")),
         }
     }
 }
@@ -192,13 +190,13 @@ impl TryFrom<u8> for SystemPathHeader {
         let storage = [value];
         let path_type = storage
             .get_as::<PathType>()
-            .map_err(|_| SerError::InvalidData("System Path could not be read.".to_owned()))?;
-        let protocol = storage.get_as::<Transport>().map_err(|_| {
-            SerError::InvalidData("System Path Transport could not be read.".to_owned())
-        })?;
-        let address_type = storage.get_as::<AddressType>().map_err(|_| {
-            SerError::InvalidData("System Path AddressType could not be read.".to_owned())
-        })?;
+            .map_err(|_| SerError::invalid_data("System Path could not be read."))?;
+        let protocol = storage
+            .get_as::<Transport>()
+            .map_err(|_| SerError::invalid_data("System Path Transport could not be read."))?;
+        let address_type = storage
+            .get_as::<AddressType>()
+            .map_err(|_| SerError::invalid_data("System Path AddressType could not be read."))?;
 
         let header = SystemPathHeader {
             storage,
@@ -286,8 +284,8 @@ fn system_path_from_buf(buf: &mut dyn Buf) -> Result<(SystemPathHeader, SystemPa
     let address: IpAddr = match header.address_type {
         AddressType::IPv4 => {
             if buf.remaining() < 4 {
-                return Err(SerError::InvalidData(
-                    "Could not parse 4 bytes for IPv4 address".into(),
+                return Err(SerError::invalid_data(
+                    "Could not parse 4 bytes for IPv4 address",
                 ));
             } else {
                 let mut ip_bytes = [0u8; 4];
@@ -297,8 +295,8 @@ fn system_path_from_buf(buf: &mut dyn Buf) -> Result<(SystemPathHeader, SystemPa
         }
         AddressType::IPv6 => {
             if buf.remaining() < 16 {
-                return Err(SerError::InvalidData(
-                    "Could not parse 16 bytes for IPv6 address".into(),
+                return Err(SerError::invalid_data(
+                    "Could not parse 16 bytes for IPv6 address",
                 ));
             } else {
                 let mut ip_bytes = [0u8; 16];
@@ -370,7 +368,7 @@ impl Serialisable for ActorPath {
                 let path = np.path_ref().join("/");
                 let data = path.as_bytes();
                 let name_len: u16 = u16::try_from(data.len()).map_err(|_| {
-                    SerError::InvalidData("Named path overflows designated 2 bytes length.".into())
+                    SerError::invalid_data("Named path overflows designated 2 bytes length.")
                 })?;
                 buf.put_u16(name_len);
                 buf.put_slice(data);
@@ -392,9 +390,7 @@ impl Deserialiser<ActorPath> for ActorPath {
         let path = match header.path_type {
             PathType::Unique => {
                 if buf.remaining() < 16 {
-                    return Err(SerError::InvalidData(
-                        "Could not get 16 bytes for UUID".into(),
-                    ));
+                    return Err(SerError::invalid_data("Could not get 16 bytes for UUID"));
                 } else {
                     let mut uuid_bytes = [0u8; 16];
                     buf.copy_to_slice(&mut uuid_bytes);
@@ -405,7 +401,7 @@ impl Deserialiser<ActorPath> for ActorPath {
             PathType::Named => {
                 let name_len = buf.get_u16() as usize;
                 if buf.remaining() < name_len {
-                    return Err(SerError::InvalidData(format!(
+                    return Err(SerError::invalid_data(format!(
                         "Could not get {} bytes for path name",
                         name_len
                     )));
@@ -420,8 +416,8 @@ impl Deserialiser<ActorPath> for ActorPath {
                     };
                     let parts: Vec<&str> = name.split('/').collect();
                     if parts.is_empty() {
-                        return Err(SerError::InvalidData(
-                            "Could not determine name for Named path type".into(),
+                        return Err(SerError::invalid_data(
+                            "Could not determine name for Named path type",
                         ));
                     } else {
                         let path = parts.into_iter().map(|s| s.to_string()).collect();

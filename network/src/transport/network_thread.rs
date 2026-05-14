@@ -29,6 +29,7 @@ use mio::{
     net::{TcpListener, TcpStream, UdpSocket},
 };
 use rustc_hash::{FxHashMap, FxHashSet};
+use snafu::ResultExt;
 use std::{
     cell::{RefCell, RefMut},
     collections::VecDeque,
@@ -77,12 +78,15 @@ impl NetworkThreadBuilder {
         shutdown_promise: KPromise<()>,
         dispatcher_ref: DispatcherRef,
         network_config: NetworkConfig,
-    ) -> Result<NetworkThreadBuilder, NetworkBridgeErr> {
+    ) -> Result<NetworkThreadBuilder, NetworkBridgeError> {
         let poll = Poll::new().expect("failed to create Poll instance in NetworkThread");
         let waker =
             Waker::new(poll.registry(), DISPATCHER).expect("failed to create Waker for DISPATCHER");
-        let tcp_listener = bind_with_retries(&address, MAX_BIND_RETRIES, &log)?;
-        let actual_address = tcp_listener.local_addr()?;
+        let tcp_listener = bind_with_retries(&address, MAX_BIND_RETRIES, &log)
+            .context(network_bridge_error::IoSnafu)?;
+        let actual_address = tcp_listener
+            .local_addr()
+            .context(network_bridge_error::IoSnafu)?;
         Ok(NetworkThreadBuilder {
             poll,
             tcp_listener,

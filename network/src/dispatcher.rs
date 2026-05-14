@@ -27,7 +27,7 @@ use crate::{
         RegistrationEvent,
         RegistrationPromise,
     },
-    net::{ConnectionState, NetworkBridgeErr, Protocol, SessionId, SocketAddr, buffers::*},
+    net::{ConnectionState, NetworkBridgeError, Protocol, SessionId, SocketAddr, buffers::*},
     queue_manager::QueueManager,
 };
 use arc_swap::ArcSwap;
@@ -676,7 +676,7 @@ impl NetworkDispatcher {
         &mut self,
         addr: SocketAddr,
         data: DispatchData,
-    ) -> Result<(), NetworkBridgeErr> {
+    ) -> Result<(), NetworkBridgeError> {
         if let Some(bridge) = &self.net_bridge {
             bridge.route(addr, data, net::Protocol::Udp)?;
         } else {
@@ -692,7 +692,7 @@ impl NetworkDispatcher {
         &mut self,
         addr: SocketAddr,
         data: DispatchData,
-    ) -> Result<(), NetworkBridgeErr> {
+    ) -> Result<(), NetworkBridgeError> {
         let state: &mut ConnectionState =
             self.connections.entry(addr).or_insert(ConnectionState::New);
         let next: Option<ConnectionState> = match *state {
@@ -782,7 +782,7 @@ impl NetworkDispatcher {
 
     /// Forwards `msg` to destination described by `dst`, routing it across the network
     /// if needed.
-    fn route(&mut self, dst: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeErr> {
+    fn route(&mut self, dst: ActorPath, msg: DispatchData) -> Result<(), NetworkBridgeError> {
         if self.system_path_ref() == dst.system() {
             self.route_local(dst, msg);
             Ok(())

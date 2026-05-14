@@ -33,7 +33,7 @@ pub fn serialise_to_msg(
             Err(ser_err) => Err(ser_err),
         }
     } else {
-        Err(SerError::Unknown("Unknown serialisation size".into()))
+        Err(SerError::unknown("Unknown serialisation size"))
     }
 }
 
@@ -53,7 +53,7 @@ where
             data: buf.freeze(),
         })
     } else {
-        Err(SerError::Unknown("Unknown serialisation size".into()))
+        Err(SerError::unknown("Unknown serialisation size"))
     }
 }
 
@@ -74,7 +74,7 @@ where
             data: buf.freeze(),
         })
     } else {
-        Err(SerError::Unknown("Unknown serialisation size".into()))
+        Err(SerError::unknown("Unknown serialisation size"))
     }
 }
 
@@ -235,7 +235,7 @@ pub fn embed_msg(msg: NetMessage, buf: &mut BufferEncoder) -> Result<ChunkRef, S
 /// This expects the format from [serialise_msg](serialise_msg).
 pub fn deserialise_chunk_lease(mut buffer: ChunkLease) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
-    //     return Err(SerError::InvalidData("Not enough bytes available".into()));
+    //     return Err(SerError::invalid_data("Not enough bytes available"));
     // }
     // gonna fail below anyway
 
@@ -253,7 +253,7 @@ pub fn deserialise_chunk_lease(mut buffer: ChunkLease) -> Result<NetMessage, Ser
 /// This expects the format from [serialise_msg](serialise_msg).
 pub fn deserialise_chunk_ref(mut buffer: ChunkRef) -> Result<NetMessage, SerError> {
     // if buffer.remaining() < 1 {
-    //     return Err(SerError::InvalidData("Not enough bytes available".into()));
+    //     return Err(SerError::invalid_data("Not enough bytes available"));
     // }
     // gonna fail below anyway
 

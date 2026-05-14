@@ -1,6 +1,6 @@
 use crate::{
     component::{Component, ComponentDefinition, CoreContainer, SchedulingDecision},
-    runtime::Scheduler,
+    runtime::{Scheduler, SchedulerShutdownError},
     utils,
 };
 use std::{
@@ -139,7 +139,7 @@ impl Scheduler for DedicatedThreadScheduler {
         self.stop.store(true, Ordering::Relaxed);
     }
 
-    fn shutdown(&self) -> Result<(), String> {
+    fn shutdown(&self) -> Result<(), SchedulerShutdownError> {
         self.stop.store(true, Ordering::Relaxed);
         loop {
             if self.stopped.load(Ordering::Relaxed) {
@@ -150,7 +150,9 @@ impl Scheduler for DedicatedThreadScheduler {
         }
     }
 
-    fn shutdown_notify(&self) -> futures::future::BoxFuture<'static, Result<(), String>> {
+    fn shutdown_notify(
+        &self,
+    ) -> futures::future::BoxFuture<'static, Result<(), SchedulerShutdownError>> {
         let stop = self.stop.clone();
         let stopped = self.stopped.clone();
         async move {

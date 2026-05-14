@@ -34,7 +34,7 @@ pub mod net {
     pub use crate::transport::{
         Bridge,
         ConnectionState,
-        NetworkBridgeErr,
+        NetworkBridgeError,
         Protocol,
         events,
         network_thread,

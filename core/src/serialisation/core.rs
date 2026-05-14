@@ -1,80 +1,202 @@
 use super::*;
 
-use std::error::Error;
+use std::{error::Error, fmt};
 
-/// Errors that can be thrown during serialisation or deserialisation
-#[derive(Debug)]
-pub enum SerError {
-    /// The data was invalid, corrupted, or otherwise not as expected
-    InvalidData(String),
-    /// The data represents the wrong type, or an unknown type
-    InvalidType(String),
-    /// The Buffer we're serializing into failed
-    BufferError(String),
-    /// No Buffer Available.
+use crate::runtime::BacktraceSuffix;
+use snafu::IntoError;
+
+/// Stable categories for serialisation and deserialisation failures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SerErrorKind {
+    /// The data was invalid, corrupted, or otherwise not as expected.
+    InvalidData,
+    /// The data represents the wrong type, or an unknown type.
+    InvalidType,
+    /// The buffer used for serialisation failed.
+    Buffer,
+    /// No buffer was available.
     ///
-    /// Raised by actors attempting to send more messages than their Buffers allow
-    /// or what the Network is able to handle.
-    NoBuffersAvailable(String),
-    /// Type can not be cloned
+    /// Raised by actors attempting to send more messages than their buffers allow
+    /// or what the network is able to handle.
+    NoBuffersAvailable,
+    /// The type can not be cloned.
     NoClone,
-    /// Any other kind of error
-    Unknown(String),
     /// An error forwarded from a third-party crate.
+    ThirdParty,
+    /// Any other kind of serialisation error.
+    Unknown,
+}
+
+/// Errors that can be thrown during serialisation or deserialisation.
+#[derive(Debug, snafu::Snafu)]
+pub struct SerError(SerErrorInner);
+
+#[derive(Debug, snafu::Snafu)]
+#[snafu(module)]
+enum SerErrorInner {
+    #[snafu(display(
+        "The provided data was not appropriate for (de-)serialisation: {message} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    InvalidData {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "The provided type was not appropriate for (de-)serialisation: {message} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    InvalidType {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "An issue occurred with the serialisation buffers: {message} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    Buffer {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "Serialising into a BufferPool with no available buffers: {message} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    NoBuffersAvailable {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "The provided type can not be cloned, but try_clone() was attempted ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    NoClone {
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "A serialisation error occurred in a third-party crate while {context}: {source} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
     ThirdParty {
-        /// Which crate did the error originate from.
         context: String,
-        /// The actual underlying error.
         source: Box<dyn Error + 'static>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "A serialisation error occurred: {message} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    Unknown {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
     },
 }
 
 impl SerError {
+    /// Return the stable category of this serialisation error.
+    pub fn kind(&self) -> SerErrorKind {
+        match &self.0 {
+            SerErrorInner::InvalidData { .. } => SerErrorKind::InvalidData,
+            SerErrorInner::InvalidType { .. } => SerErrorKind::InvalidType,
+            SerErrorInner::Buffer { .. } => SerErrorKind::Buffer,
+            SerErrorInner::NoBuffersAvailable { .. } => SerErrorKind::NoBuffersAvailable,
+            SerErrorInner::NoClone { .. } => SerErrorKind::NoClone,
+            SerErrorInner::ThirdParty { .. } => SerErrorKind::ThirdParty,
+            SerErrorInner::Unknown { .. } => SerErrorKind::Unknown,
+        }
+    }
+
+    /// Construct an invalid-data serialisation error.
+    #[track_caller]
+    pub fn invalid_data(message: impl Into<String>) -> Self {
+        ser_error_inner::InvalidDataSnafu {
+            message: message.into(),
+        }
+        .build()
+        .into()
+    }
+
+    /// Construct an invalid-type serialisation error.
+    #[track_caller]
+    pub fn invalid_type(message: impl Into<String>) -> Self {
+        ser_error_inner::InvalidTypeSnafu {
+            message: message.into(),
+        }
+        .build()
+        .into()
+    }
+
+    /// Construct a serialisation buffer error.
+    #[track_caller]
+    pub fn buffer(message: impl Into<String>) -> Self {
+        ser_error_inner::BufferSnafu {
+            message: message.into(),
+        }
+        .build()
+        .into()
+    }
+
+    /// Construct a no-buffers-available serialisation error.
+    #[track_caller]
+    pub fn no_buffers_available(message: impl Into<String>) -> Self {
+        ser_error_inner::NoBuffersAvailableSnafu {
+            message: message.into(),
+        }
+        .build()
+        .into()
+    }
+
+    /// Construct a no-clone serialisation error.
+    #[track_caller]
+    pub fn no_clone() -> Self {
+        ser_error_inner::NoCloneSnafu.build().into()
+    }
+
+    /// Construct a third-party serialisation error.
+    #[track_caller]
+    pub fn third_party(context: impl Into<String>, source: impl Error + 'static) -> Self {
+        let source: Box<dyn Error + 'static> = Box::new(source);
+        ser_error_inner::ThirdPartySnafu {
+            context: context.into(),
+        }
+        .into_error(source)
+        .into()
+    }
+
+    /// Construct an unknown serialisation error.
+    #[track_caller]
+    pub fn unknown(message: impl Into<String>) -> Self {
+        ser_error_inner::UnknownSnafu {
+            message: message.into(),
+        }
+        .build()
+        .into()
+    }
+
     /// Create a serialisation error from any kind of error that
     /// implements the [Debug](std::fmt::Debug) trait
     ///
-    /// This always produces the [Unknown](SerError::Unknown) variant.
+    /// This always produces the [Unknown](SerErrorKind::Unknown) kind.
+    #[track_caller]
     pub fn from_debug<E: Debug>(error: E) -> SerError {
         let msg = format!("Wrapped error: {:?}", error);
-        SerError::Unknown(msg)
+        SerError::unknown(msg)
     }
 }
-
-impl fmt::Display for SerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SerError::BufferError(s) => {
-                write!(f, "An issue occurred with the serialisation buffers: {}", s)
-            }
-            SerError::InvalidData(s) => write!(
-                f,
-                "The provided data was not appropriate for (de-)serialisation: {}",
-                s
-            ),
-            SerError::InvalidType(s) => write!(
-                f,
-                "The provided type was not appropriate for (de-)serialisation: {}",
-                s
-            ),
-            SerError::NoClone => write!(
-                f,
-                "The provided type can not be cloned, but try_clone() was attempted"
-            ),
-            SerError::NoBuffersAvailable(s) => write!(
-                f,
-                "Serialising into a BufferPool with no available buffers: {}",
-                s
-            ),
-            SerError::Unknown(s) => write!(f, "A serialisation error occurred: {}", s),
-            SerError::ThirdParty { context, source } => write!(
-                f,
-                "A serialisation error occurred in a third party crate: {context}\n Caused by {source}"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for SerError {}
 
 /// A trait that acts like a stable `TypeId` for serialisation
 ///
@@ -309,4 +431,31 @@ pub trait Deserialisable<T> {
     ///
     /// Returns a [SerError](SerError) if unsuccessful.
     fn get_deserialised(self) -> Result<T, SerError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{error::Error, io};
+
+    #[test]
+    fn ser_error_reports_stable_kind() {
+        let error = SerError::invalid_data("bad payload");
+
+        assert_eq!(SerErrorKind::InvalidData, error.kind());
+        assert!(error.to_string().contains("bad payload"));
+        assert!(error.to_string().contains("core/src/serialisation/core.rs"));
+    }
+
+    #[test]
+    fn ser_error_preserves_third_party_source() {
+        let source = io::Error::new(io::ErrorKind::InvalidData, "external failure");
+        let error = SerError::third_party("test", source);
+
+        assert_eq!(SerErrorKind::ThirdParty, error.kind());
+        assert_eq!(
+            "external failure",
+            error.source().expect("third-party source").to_string()
+        );
+    }
 }

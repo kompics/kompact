@@ -17,10 +17,8 @@ impl<M: Message + Any + Debug> Serialiser<M> for ProtobufSer {
 
     fn serialise(&self, v: &M, buf: &mut dyn BufMut) -> Result<(), SerError> {
         let mut w = buf.writer();
-        v.write_to_writer(&mut w).map_err(|e| SerError::ThirdParty {
-            context: "protobuf".to_string(),
-            source: Box::new(e),
-        })
+        v.write_to_writer(&mut w)
+            .map_err(|e| SerError::third_party("protobuf", e))
     }
 }
 
@@ -50,10 +48,7 @@ impl<M: Message + Any + Debug, B: Buf> Deserialisable<M> for ProtobufDeser<M, B>
                 m.merge_from_bytes(b.chunk())
             }
         };
-        let r = pr.map_err(|e| SerError::ThirdParty {
-            context: "protobuf".to_string(),
-            source: Box::new(e),
-        });
+        let r = pr.map_err(|e| SerError::third_party("protobuf", e));
         r.map(|_| m)
     }
 }

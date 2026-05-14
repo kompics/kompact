@@ -13,7 +13,7 @@ use serde::{
     },
     *,
 };
-use std::convert::TryInto;
+use std::{convert::TryInto, fmt};
 
 /// Serialiser type for Serde enabled types
 ///
@@ -226,7 +226,7 @@ impl<'a> Serializer for BufSerializer<'a> {
     // support sequences for which the length is known up front.
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, SerError> {
         let len = len.ok_or_else(|| {
-            SerError::InvalidData("Sequence length must be known ahead of time!".into())
+            SerError::invalid_data("Sequence length must be known ahead of time!")
         })?;
         self.buffer.put_u64(len as u64);
         Ok(self)
@@ -262,9 +262,8 @@ impl<'a> Serializer for BufSerializer<'a> {
 
     // Maps are represented as sequences of key-value pairs
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, SerError> {
-        let len = len.ok_or_else(|| {
-            SerError::InvalidData("Map length must be known ahead of time!".into())
-        })?;
+        let len =
+            len.ok_or_else(|| SerError::invalid_data("Map length must be known ahead of time!"))?;
         self.buffer.put_u64(len as u64);
         Ok(self)
     }
@@ -450,13 +449,13 @@ impl<'a> ser::SerializeStructVariant for BufSerializer<'a> {
 
 impl ser::Error for SerError {
     fn custom<T: std::fmt::Display>(msg: T) -> Self {
-        SerError::Unknown(msg.to_string())
+        SerError::unknown(msg.to_string())
     }
 }
 
 impl de::Error for SerError {
     fn custom<T: std::fmt::Display>(msg: T) -> Self {
-        SerError::Unknown(msg.to_string())
+        SerError::unknown(msg.to_string())
     }
 }
 
@@ -582,7 +581,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut BufDeserializer<'de> {
     {
         let num = self.buffer.get_u32();
         let v = std::char::from_u32(num).ok_or_else(|| {
-            SerError::Unknown(format!("Number {} does not represent a valid char!", num))
+            SerError::unknown(format!("Number {} does not represent a valid char!", num))
         })?;
         visitor.visit_char(v)
     }
