@@ -25,6 +25,25 @@ Kompact before `v0.9.0` requires Rust `nightly`.
 
 Since `v0.9.0` Kompact can be built on stable Rust, with a slightly different API.
 
+## Build And Test
+
+Use the split test plan when testing the full repository:
+
+```bash
+cargo test --workspace --exclude kompact-net --exclude kompact-examples-local --exclude kompact-examples-net
+cargo test -p kompact-examples-local
+cargo test -p kompact-net
+cargo test -p kompact-examples-net
+```
+
+This keeps the local-only examples and other local actor tests in a non-distributed build. Cargo unifies features across all selected workspace members, and `kompact-net` and the network examples enable Kompact's distributed support. When local-only actors are selected in the same Cargo command as those crates, they are compiled against the distributed `Actor` trait, where `receive_network` is part of the required API.
+
+The repository also provides a helper script for this:
+
+```bash
+./run_tests.sh
+```
+
 ## License
 
 Licensed under the terms of MIT license.
