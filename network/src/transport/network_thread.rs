@@ -1277,7 +1277,7 @@ mod tests {
     fn setup_network_thread(
         network_config: &NetworkConfig,
     ) -> (NetworkThread, Sender<DispatchEvent>) {
-        let mut cfg = KompactConfig::default();
+        let mut cfg = kompact::test_support::test_kompact_config();
         cfg.system_components(DeadletterBox::new, network_config.clone().build());
         let system = cfg.build().wait().expect("KompactSystem");
 

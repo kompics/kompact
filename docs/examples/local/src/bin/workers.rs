@@ -286,6 +286,7 @@ mod tests {
 
     #[test]
     fn test_workers() {
+        kompact::test_support::init_test_logger();
         run_task(3, 1000);
     }
 }

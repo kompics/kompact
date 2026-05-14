@@ -144,6 +144,7 @@ mod tests {
 
     #[test]
     fn test_unstable_counter() {
+        kompact::test_support::init_test_logger();
         main();
     }
 }

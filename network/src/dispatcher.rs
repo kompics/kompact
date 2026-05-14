@@ -1114,7 +1114,7 @@ mod tests {
         let conflicting_socket =
             std::net::TcpListener::bind("127.0.0.1:0").expect("temporary conflicting listener");
         let conflicting_addr = conflicting_socket.local_addr().expect("listener address");
-        let mut cfg = KompactConfig::default();
+        let mut cfg = kompact::test_support::test_kompact_config();
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, {
             let net_config = NetworkConfig::new(conflicting_addr);
@@ -1128,7 +1128,7 @@ mod tests {
 
     #[test]
     fn network_cleanup() {
-        let mut cfg = KompactConfig::default();
+        let mut cfg = kompact::test_support::test_kompact_config();
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, {
             let net_config =
@@ -1151,7 +1151,7 @@ mod tests {
             .wait()
             .expect("KompactSystem failed to shut down!");
         println!("System shut down.");
-        let mut cfg2 = KompactConfig::default();
+        let mut cfg2 = kompact::test_support::test_kompact_config();
         println!("Configuring network");
         cfg2.system_components(DeadletterBox::new, {
             let net_config =
@@ -1178,7 +1178,7 @@ mod tests {
     /// The retry should occur when system2 is building and should succeed after system1 is killed.
     #[test]
     fn network_cleanup_with_timeout() {
-        let mut cfg = KompactConfig::default();
+        let mut cfg = kompact::test_support::test_kompact_config();
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, {
             let net_config =
@@ -1209,7 +1209,7 @@ mod tests {
             })
             .ok();
 
-        let mut cfg2 = KompactConfig::default();
+        let mut cfg2 = kompact::test_support::test_kompact_config();
         println!("Configuring network");
         cfg2.system_components(DeadletterBox::new, {
             let net_config =
@@ -1234,7 +1234,7 @@ mod tests {
 
     #[test]
     fn test_system_path_timing() {
-        let mut cfg = KompactConfig::default();
+        let mut cfg = kompact::test_support::test_kompact_config();
         println!("Configuring network");
         cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
         println!("Starting KompactSystem");
@@ -1254,7 +1254,7 @@ mod tests {
     // After indirectly asserting that the queue was dropped we start up a new pinger, and assert that it succeeds.
     fn cleanup_bufferchunks_from_dead_actors() {
         let system1 = || {
-            let mut cfg = KompactConfig::default();
+            let mut cfg = kompact::test_support::test_kompact_config();
             cfg.system_components(
                 DeadletterBox::new,
                 NetworkConfig::new("127.0.0.1:0".parse().expect("Address should work")).build(),
@@ -1262,7 +1262,7 @@ mod tests {
             cfg.build().wait().expect("KompactSystem")
         };
         let system2 = |port| {
-            let mut cfg = KompactConfig::default();
+            let mut cfg = kompact::test_support::test_kompact_config();
             cfg.system_components(
                 DeadletterBox::new,
                 NetworkConfig::new(SocketAddr::new("127.0.0.1".parse().unwrap(), port)).build(),
