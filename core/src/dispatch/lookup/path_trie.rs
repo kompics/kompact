@@ -73,10 +73,7 @@ impl<V> PathTrie<V> {
         let mut current_node = self;
 
         for fragment in key {
-            match current_node.children.get(fragment) {
-                Some(node) => current_node = node,
-                None => return None,
-            }
+            current_node = current_node.children.get(fragment)?;
         }
 
         Some(current_node)
@@ -91,10 +88,7 @@ impl<V> PathTrie<V> {
         let mut current_node = self;
 
         for fragment in key {
-            match current_node.children.get(*fragment) {
-                Some(node) => current_node = node,
-                None => return None,
-            }
+            current_node = current_node.children.get(*fragment)?;
         }
 
         Some(current_node)
@@ -253,21 +247,18 @@ impl<'a, V> Iterator for Values<'a, V> {
         }
 
         loop {
-            match self.stack.last_mut() {
-                Some(stack_top) => match stack_top.child_iter.next() {
-                    Some((_, child_node)) => {
-                        self.stack.push(StackItem {
-                            child_iter: child_node.children.iter(),
-                        });
-                        if let Some(ref value) = child_node.value {
-                            return Some(value);
-                        }
+            match self.stack.last_mut()?.child_iter.next() {
+                Some((_, child_node)) => {
+                    self.stack.push(StackItem {
+                        child_iter: child_node.children.iter(),
+                    });
+                    if let Some(ref value) = child_node.value {
+                        return Some(value);
                     }
-                    None => {
-                        self.stack.pop();
-                    }
-                },
-                None => return None,
+                }
+                None => {
+                    self.stack.pop();
+                }
             }
         }
     }
