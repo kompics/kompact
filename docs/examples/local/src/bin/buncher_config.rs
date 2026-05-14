@@ -102,7 +102,7 @@ pub fn main() {
     conf.load_config_file("./app_settings.toml")
         // ANCHOR_END: config_file
         .load_config_str("buncher.batch-size = 50");
-    let system = conf.build().expect("system");
+    let system = conf.build().wait().expect("system");
     // ANCHOR_END: system
     let printer = system.create(BatchPrinter::new);
     // ANCHOR: create_buncher
@@ -130,7 +130,7 @@ pub fn main() {
         std::thread::sleep(sleep_dur);
     }
 
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 
 #[cfg(test)]

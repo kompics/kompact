@@ -4,7 +4,7 @@ In order to run any Kompact component, we need a `KompactSystem`. The system man
 
 > **Note:** As opposed to Kompics, in Kompact it is perfectly viable to have multiple systems running in the same process, for example with different configurations.
 
-When a Kompact system is not used anymore it should be shut down via the `shutdown()` function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use `self.ctx.system().shutdown_async()` and the main-thread can wait for this to complete with `await_termination()`. 
+When a Kompact system is not used anymore it should be shut down via the `shutdown()` function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use `self.ctx.system().shutdown_async()` and the main-thread can wait for this to complete with `await_termination()`.
 
 > **Note:** Neither `shutdown_async()` nor `await_termination()` has a particularly efficient implementation, as this should be a relatively rare thing to do in the lifetime of a Kompact system, and thus doesn't warrant optimisation at this point. That also means, though, that `await_termination()` should definitely **not** be used as a timing marker in a benchmark, as *some* people have done with the equivalent Akka API.
 

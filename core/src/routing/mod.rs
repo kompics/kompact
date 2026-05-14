@@ -81,7 +81,10 @@ pub(crate) mod test_helpers {
     }
 
     pub fn new_kompact_system() -> KompactSystem {
-        KompactConfig::default().build().expect("Kompact System")
+        KompactConfig::default()
+            .build()
+            .wait()
+            .expect("Kompact System")
     }
 }
 
@@ -140,7 +143,7 @@ mod tests {
         assert_eq!(NUM_MESSAGES + 4, total_count(&receivers));
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
@@ -204,7 +207,7 @@ mod tests {
         );
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[cfg(feature = "implicit_routes")]
@@ -266,7 +269,7 @@ mod tests {
         );
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
@@ -325,7 +328,7 @@ mod tests {
         assert_eq!(NUM_MESSAGES + 4, counts[2]);
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[cfg(feature = "implicit_routes")]
@@ -386,7 +389,7 @@ mod tests {
         assert_eq!(NUM_MESSAGES + 4, counts[2]);
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[cfg(feature = "implicit_routes")]
@@ -450,7 +453,7 @@ mod tests {
         );
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[cfg(feature = "implicit_routes")]
@@ -513,6 +516,6 @@ mod tests {
         assert_eq!(NUM_MESSAGES + 4, counts[2]);
 
         drop(receiver_refs);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 }

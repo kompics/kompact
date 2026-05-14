@@ -128,13 +128,13 @@ impl ComponentLifecycle for UnstableCounter {
 
 // ANCHOR: main
 pub fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let component = system.create(UnstableCounter::default);
     system.start(&component);
     drop(component); // avoid it from holding on to memory after crashing
     std::thread::sleep(Duration::from_millis(5000));
     println!("Shutting down system");
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 // ANCHOR_END: main
 

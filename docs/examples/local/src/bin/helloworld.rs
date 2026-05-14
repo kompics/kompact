@@ -28,7 +28,7 @@ impl ComponentLifecycle for HelloWorldComponent {
 
 // ANCHOR: main
 pub fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     // ANCHOR: create
     let component = system.create(HelloWorldComponent::new);
     // ANCHOR_END: create

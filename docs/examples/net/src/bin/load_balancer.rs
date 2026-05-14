@@ -224,7 +224,7 @@ pub fn main() {
     let mut cfg = KompactConfig::default();
     cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
     cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-    let system = cfg.build().expect("KompactSystem");
+    let system = cfg.build().wait().expect("KompactSystem");
 
     // ANCHOR: policies_setup
     // use implicit policy
@@ -314,7 +314,7 @@ pub fn main() {
         .collect::<Vec<_>>()
         .expect_completion(TIMEOUT, "server kill");
 
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
     // ANCHOR_END: running
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));

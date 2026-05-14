@@ -93,7 +93,7 @@ impl Actor for Counter {
 // ANCHOR: main
 pub fn main() {
     // ANCHOR: system
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     // ANCHOR_END: system
     let counter = system.create(Counter::new);
     system.start(&counter);
@@ -110,7 +110,7 @@ pub fn main() {
     std::thread::sleep(Duration::from_millis(1000));
     let current_count = actor_ref.ask(CountMe).wait();
     info!(system.logger(), "The final count is: {:?}", current_count);
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));
 }

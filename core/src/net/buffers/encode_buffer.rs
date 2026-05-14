@@ -32,10 +32,7 @@ impl EncodeBuffer {
                 min_remaining: config.encode_buf_min_free_space,
             }
         } else {
-            panic!(
-                "Couldn't initialize EncodeBuffer, bad config: {:?}",
-                &config
-            );
+            panic!("Couldn't initialize EncodeBuffer, bad config: {:?}", config);
         }
     }
 
@@ -56,10 +53,7 @@ impl EncodeBuffer {
                 min_remaining: config.encode_buf_min_free_space,
             }
         } else {
-            panic!(
-                "Couldn't initialize EncodeBuffer, bad config: {:?}",
-                &config
-            );
+            panic!("Couldn't initialize EncodeBuffer, bad config: {:?}", config);
         }
     }
 

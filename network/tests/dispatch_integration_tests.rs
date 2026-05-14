@@ -187,7 +187,7 @@ struct TestSystem {
 impl TestSystem {
     fn shutdown(self) -> Result<(), String> {
         let TestSystem { inner, _slot } = self;
-        inner.shutdown()
+        inner.shutdown().wait()
     }
 
     fn kill_system(self) -> Result<(), String> {
@@ -214,7 +214,7 @@ fn system_from_network_config(network_config: NetworkConfig) -> TestSystem {
     let slot = TestSystemSlot::acquire();
     let mut cfg = KompactConfig::default();
     cfg.system_components(DeadletterBox::new, network_config.build());
-    let inner = cfg.build().expect("KompactSystem");
+    let inner = cfg.build().wait().expect("KompactSystem");
     TestSystem { inner, _slot: slot }
 }
 

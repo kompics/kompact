@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn round_robin_routing() {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
 
         let receivers: Vec<Arc<Component<ReceiverComponent>>> = (0..GROUP_SIZE)
             .map(|_i| system.create(ReceiverComponent::default))
@@ -410,12 +410,12 @@ mod tests {
         std::thread::sleep(SLEEP_TIME);
         assert_eq!(NUM_MESSAGES + 4, total_count(&receivers));
 
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn sender_hash_routing() {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
 
         let receivers: Vec<Arc<Component<ReceiverComponent>>> = (0..GROUP_SIZE)
             .map(|_i| system.create(ReceiverComponent::default))
@@ -500,12 +500,12 @@ mod tests {
         assert!(counts.contains(&3));
         assert!(counts.contains(&(NUM_MESSAGES + 1)));
 
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     #[test]
     fn broadcast_routing() {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
 
         let receivers: Vec<Arc<Component<ReceiverComponent>>> = (0..GROUP_SIZE)
             .map(|_i| system.create(ReceiverComponent::default))
@@ -588,6 +588,6 @@ mod tests {
         assert_eq!(NUM_MESSAGES + 4, counts[1]);
         assert_eq!(NUM_MESSAGES + 4, counts[2]);
 
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 }

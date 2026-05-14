@@ -26,7 +26,7 @@
 //!     }
 //! }
 //!
-//! let system = KompactConfig::default().build().expect("system");
+//! let system = KompactConfig::default().build().wait().expect("system");
 //! let component = system.create(HelloWorldComponent::new);
 //! system.start(&component);
 //! system.await_termination();
@@ -287,6 +287,7 @@ pub mod prelude {
         serialisation::*,
         utils::{
             Ask,
+            BlockingFutureExt,
             Completable,
             Fulfillable,
             FutureCollection,
@@ -547,7 +548,10 @@ mod tests {
 
     #[test]
     fn default_settings() {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
 
         test_with_system(system);
     }
@@ -561,7 +565,7 @@ mod tests {
         );
         settings.set_config_value(&crate::config_keys::system::THROUGHPUT, 10);
         settings.set_config_value(&crate::config_keys::system::MESSAGE_PRIORITY, 0.1);
-        let system = settings.build().expect("KompactSystem");
+        let system = settings.build().wait().expect("KompactSystem");
         assert_eq!(10, system.throughput());
         assert_eq!(1, system.max_messages());
         test_with_system(system);
@@ -573,7 +577,7 @@ mod tests {
         settings
             .set_config_value(&crate::config_keys::system::THREADS, 2)
             .executor(executors::crossbeam_channel_pool::ThreadPool::new);
-        let system = settings.build().expect("KompactSystem");
+        let system = settings.build().wait().expect("KompactSystem");
         test_with_system(system);
     }
 
@@ -585,7 +589,7 @@ mod tests {
                 executors::crossbeam_channel_pool::ThreadPool::new(t),
             )
         });
-        let system = settings.build().expect("KompactSystem");
+        let system = settings.build().wait().expect("KompactSystem");
         test_with_system(system);
     }
 
@@ -630,6 +634,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -668,7 +673,7 @@ mod tests {
 
     #[test]
     fn test_dedicated_ref() -> () {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let cc = system.create_dedicated(CounterComponent::new);
         system.start(&cc);
         let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
@@ -689,6 +694,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -698,7 +704,7 @@ mod tests {
         let core_ids = core_affinity::get_core_ids().expect("Failed to fetch core ids");
         assert!(core_ids.len() >= 2, "this test requires at least two cores");
 
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
         let cc = system.create_dedicated_pinned(CounterComponent::new, core_ids[0]);
         system.start(&cc);
         let cc_ref: ActorRef<Box<dyn Any + Send>> = cc.actor_ref();
@@ -720,12 +726,13 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
     #[test]
     fn test_dedicated() -> () {
-        let system = KompactConfig::default().build().expect("System");
+        let system = KompactConfig::default().build().wait().expect("System");
 
         let tc = system.create_dedicated(TestComponent::new);
         let rc = system.create_dedicated(RecvComponent::new);
@@ -767,6 +774,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -799,7 +807,10 @@ mod tests {
 
     #[test]
     fn test_timer() -> () {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
         let trc = system.create(TimerRecvComponent::new);
         system.start(&trc);
 
@@ -812,6 +823,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -850,7 +862,10 @@ mod tests {
 
     #[test]
     fn test_start_stop() -> () {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
         let cc = system.create(CounterComponent::new);
         let ccref = cc.actor_ref();
 
@@ -901,6 +916,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -966,7 +982,10 @@ mod tests {
     #[test]
     #[ignore]
     fn test_component_failure() -> () {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
 
         {
             // limit scope
@@ -1016,6 +1035,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1023,7 +1043,10 @@ mod tests {
     #[test]
     #[ignore]
     fn test_component_recovery() -> () {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
 
         let (sender, receiver) = std::sync::mpsc::channel::<Arc<Component<RecvComponent>>>();
 
@@ -1065,6 +1088,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1174,7 +1198,10 @@ mod tests {
     #[test]
     #[ignore]
     fn test_component_recovery_with_state() -> () {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
 
         let one_sec = Duration::from_millis(1000);
 
@@ -1221,6 +1248,7 @@ mod tests {
 
         system
             .shutdown()
+            .wait()
             .expect("Kompact didn't shut down properly");
     }
 
@@ -1246,10 +1274,20 @@ mod tests {
 
     #[test]
     fn test_async_shutdown() -> () {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
         let stopper = system.create(Stopper::new);
         system.start(&stopper);
         system.await_termination();
+    }
+
+    #[test]
+    fn test_async_terminated_inside_futures_executor() -> () {
+        futures::executor::block_on(async {
+            let system = KompactConfig::default().build().await.expect("system");
+            let stopper = system.create(Stopper::new);
+            system.start(&stopper);
+            system.terminated().await;
+        });
     }
 
     #[derive(ComponentDefinition, Actor)]
@@ -1280,7 +1318,7 @@ mod tests {
         let default_values = r#"a = 7"#;
         let mut conf = KompactConfig::default();
         conf.load_config_str(default_values);
-        let system = conf.build().expect("system");
+        let system = conf.build().wait().expect("system");
         let c = system.create(ConfigComponent::new);
         system.start(&c);
         system.await_termination();
@@ -1297,7 +1335,7 @@ mod tests {
         config_file.write_all(b"a = 7").expect("write config file");
         let mut conf = KompactConfig::default();
         conf.load_config_file(config_file_path.to_path_buf());
-        let system = conf.build().expect("system");
+        let system = conf.build().wait().expect("system");
         let c = system.create(ConfigComponent::new);
         system.start(&c);
         system.await_termination();
@@ -1315,7 +1353,7 @@ mod tests {
         let mut conf = KompactConfig::default();
         conf.load_config_str(default_values)
             .load_config_file(config_file_path.to_path_buf());
-        let system = conf.build().expect("system");
+        let system = conf.build().wait().expect("system");
         let c = system.create(ConfigComponent::new);
         system.start(&c);
         system.await_termination();
@@ -1325,8 +1363,16 @@ mod tests {
     }
 
     #[test]
+    fn test_async_build_inside_futures_executor() -> () {
+        futures::executor::block_on(async {
+            let system = KompactConfig::default().build().await.expect("system");
+            system.shutdown().await.expect("shutdown");
+        });
+    }
+
+    #[test]
     fn test_system_spawn() -> () {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
         let handle = system.spawn(async move { "test".to_string() });
         let res = futures::executor::block_on(handle).expect("result");
         assert_eq!(res, "test");

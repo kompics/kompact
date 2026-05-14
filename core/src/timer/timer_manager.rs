@@ -79,7 +79,7 @@ pub trait Timer<C: ComponentDefinition> {
     ///     }    
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TimerComponent::new);
     /// system.start(&c);
     /// system.await_termination();
@@ -156,7 +156,7 @@ pub trait Timer<C: ComponentDefinition> {
     ///     }
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(TimerComponent::new);
     /// system.start(&c);
     /// system.await_termination();

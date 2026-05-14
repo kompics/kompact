@@ -496,7 +496,7 @@ mod tests {
                 encode_min_remaining = "20B"
                 "#,
         );
-        cfg.build().expect("KompactSystem")
+        cfg.build().wait().expect("KompactSystem")
     }
     // This integration test sets up a KompactSystem with a TOML BufferConfig,
     // then runs init_buffers on an Actor with different settings (in the on_start method of dummy),

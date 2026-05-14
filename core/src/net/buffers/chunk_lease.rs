@@ -134,7 +134,7 @@ impl ChunkLease {
         // Should not be reachable
         panic!(
             "Trying to split faulty ChunkLease {:#?} at position: {}, should never happen",
-            &self, &position
+            self, position
         );
     }
 

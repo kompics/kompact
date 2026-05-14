@@ -4,7 +4,7 @@ use std::time::Duration;
 
 // ANCHOR: main
 pub fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     trace!(
         system.logger(),
         "You will only see this in debug builds with default features"
@@ -25,7 +25,7 @@ pub fn main() {
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
     std::thread::sleep(Duration::from_millis(100));
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 // ANCHOR_END: main
 

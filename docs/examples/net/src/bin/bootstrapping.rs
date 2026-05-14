@@ -235,7 +235,7 @@ pub fn run_server(socket: SocketAddr) -> KompactSystem {
     cfg.load_config_file("./app_settings.toml");
     cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 
-    let system = cfg.build().expect("KompactSystem");
+    let system = cfg.build().wait().expect("KompactSystem");
 
     let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
     let bootstrap_service_registration = system.register_by_alias(&bootstrap, BOOTSTRAP_PATH);
@@ -267,7 +267,7 @@ pub fn run_client(bootstrap_socket: SocketAddr, client_socket: SocketAddr) -> Ko
         NetworkConfig::new(client_socket).build(),
     );
 
-    let system = cfg.build().expect("KompactSystem");
+    let system = cfg.build().wait().expect("KompactSystem");
 
     let bootstrap_service: ActorPath = NamedPath::with_socket(
         Transport::Tcp,
@@ -308,9 +308,9 @@ mod tests {
         // shut down systems one by one
         for sys in clients_systems.drain(..) {
             std::thread::sleep(Duration::from_millis(1000));
-            sys.shutdown().expect("shutdown");
+            sys.shutdown().wait().expect("shutdown");
         }
         std::thread::sleep(Duration::from_millis(1000));
-        server_system.shutdown().expect("shutdown");
+        server_system.shutdown().wait().expect("shutdown");
     }
 }

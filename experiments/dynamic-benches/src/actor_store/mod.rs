@@ -104,7 +104,7 @@ struct DataSet {
 }
 
 fn load_data(data_size: usize) -> DataSet {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let num_actors = 1.max(data_size / 3);
     let actors: Vec<Arc<Component<NopActor>>> = (0..num_actors)
         .map(|_| system.create(NopActor::default))
@@ -155,7 +155,7 @@ mod tests {
         );
         data_set.paths.clear();
         data_set.actors.clear();
-        data_set.system.shutdown().expect("shutdown");
+        data_set.system.shutdown().wait().expect("shutdown");
     }
 
     pub fn bench_lookup<L>(b: &mut Bencher, mut store: L, store_size: usize)
@@ -186,14 +186,14 @@ mod tests {
         drop(paths);
         data_set.paths.clear();
         data_set.actors.clear();
-        data_set.system.shutdown().expect("shutdown");
+        data_set.system.shutdown().wait().expect("shutdown");
     }
 
     pub fn bench_group_lookup<L>(b: &mut Bencher, mut store: L, store_size: usize)
     where
         L: ActorLookup,
     {
-        let system = KompactConfig::default().build().expect("system");
+        let system = KompactConfig::default().build().wait().expect("system");
 
         // set up system for routing
         let num_actors = 1.max(store_size / 3);
@@ -222,7 +222,7 @@ mod tests {
         // benchmark
         b.iter_with_large_drop(|| store.get_by_named_path(black_box(&router_path)));
         drop(actors);
-        system.shutdown().expect("shutdown");
+        system.shutdown().wait().expect("shutdown");
     }
 
     pub fn bench_cleanup<L, F>(b: &mut Bencher, get_store: F, store_size: usize)
@@ -246,7 +246,7 @@ mod tests {
         );
         data_set.paths.clear();
         data_set.actors.clear();
-        data_set.system.shutdown().expect("shutdown");
+        data_set.system.shutdown().wait().expect("shutdown");
     }
 }
 

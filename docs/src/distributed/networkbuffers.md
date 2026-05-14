@@ -77,7 +77,7 @@ cfg.load_config_str(
         "#,
 );
 ...
-let system = cfg.build().expect("KompactSystem");
+let system = cfg.build().wait().expect("KompactSystem");
 ```
 If a `BufferConfig` is loaded into the systems `KompactConfig` then all actors will use that configuration instead of the default `BufferConfig`, however individual actors may still override the configuration by using the `init_buffers(...)` method.
 
@@ -98,7 +98,7 @@ cfg.system_components(DeadletterBox::new, {
     )
     .build()
 });
-let system = cfg.build().expect("KompactSystem");
+let system = cfg.build().wait().expect("KompactSystem");
 ```
 
 #### BufferConfig Validation

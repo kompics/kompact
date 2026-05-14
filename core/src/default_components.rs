@@ -18,7 +18,17 @@ use crate::{
     runtime::DispatcherDefinitionCallback,
     timer::timer_manager::TimerRefFactory,
 };
+use futures::{FutureExt, future};
 use std::sync::Arc;
+
+async fn await_component_ended<CD>(component: &Component<CD>)
+where
+    CD: ComponentDefinition + 'static,
+{
+    while !component.is_faulty() && !component.is_destroyed() {
+        async_std::task::yield_now().await;
+    }
+}
 
 pub(crate) struct DefaultComponents {
     deadletter_box: Arc<Component<DeadletterBox>>,
@@ -68,6 +78,20 @@ impl SystemComponents for DefaultComponents {
         self.deadletter_box.wait_ended();
     }
 
+    fn stop_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        async move {
+            system.kill(self.dispatcher.clone());
+            system.kill(self.deadletter_box.clone());
+            await_component_ended(&self.dispatcher).await;
+            await_component_ended(&self.deadletter_box).await;
+            Ok(())
+        }
+        .boxed()
+    }
+
     fn kill(&self, system: &KompactSystem) -> () {
         // default_components has no graceful shutdown sequence to bypass
         self.stop(system);
@@ -107,6 +131,15 @@ impl TimerComponent for DefaultTimer {
             .shutdown_async()
             .map_err(|e| format!("Error during timer shutdown: {:?}", e))
     }
+
+    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        future::ready(
+            self.inner
+                .shutdown_async()
+                .map_err(|e| format!("Error during timer shutdown: {:?}", e)),
+        )
+        .boxed()
+    }
 }
 
 struct ManualTimerComponent {
@@ -129,6 +162,12 @@ impl TimerComponent for ManualTimerComponent {
     fn shutdown(&self) -> Result<(), String> {
         self.inner.stop();
         Ok(())
+    }
+
+    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        // This actually locks a Mutex, so there's a small deadlock risk here.
+        self.inner.stop();
+        future::ready(Ok(())).boxed()
     }
 }
 
@@ -188,6 +227,22 @@ where
         // Gracefully stop the dispatcher/Network layer.
         system.stop(&self.dispatcher.clone());
         self.kill(system);
+    }
+
+    fn stop_notify<'a>(
+        &'a self,
+        system: &'a KompactSystem,
+    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+        async move {
+            // Gracefully stop the dispatcher/Network layer.
+            system.stop(&self.dispatcher.clone());
+            system.kill(self.dispatcher.clone());
+            system.kill(self.deadletter_box.clone());
+            await_component_ended(&self.dispatcher).await;
+            await_component_ended(&self.deadletter_box).await;
+            Ok(())
+        }
+        .boxed()
     }
 
     fn kill(&self, system: &KompactSystem) -> () {
@@ -648,7 +703,7 @@ mod tests {
     fn installed_manual_timer_requires_explicit_advance() {
         let mut config = KompactConfig::default();
         let timer = install_manual_timer(&mut config);
-        let system = config.build().expect("build KompactSystem");
+        let system = config.build().wait().expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let component = system.create(|| TimerProbe::new(tx));
 
@@ -666,7 +721,7 @@ mod tests {
         rx.recv_timeout(Duration::from_secs(1))
             .expect("manual timer should fire after explicit advance");
 
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 
     #[cfg(feature = "distributed")]
@@ -674,6 +729,7 @@ mod tests {
     fn local_dispatcher_routes_unique_path_messages() {
         let system = KompactConfig::default()
             .build()
+            .wait()
             .expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let probe = system.create(|| PathProbe::new(tx));
@@ -690,7 +746,7 @@ mod tests {
 
         expect_delivery(&rx);
         probe.on_definition(|cd| assert_eq!(cd.received, 1));
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 
     #[cfg(feature = "distributed")]
@@ -698,6 +754,7 @@ mod tests {
     fn local_dispatcher_routes_alias_messages() {
         let system = KompactConfig::default()
             .build()
+            .wait()
             .expect("build KompactSystem");
         let (tx, rx) = mpsc::channel();
         let probe = system.create(|| PathProbe::new(tx));
@@ -714,7 +771,7 @@ mod tests {
 
         expect_delivery(&rx);
         probe.on_definition(|cd| assert_eq!(cd.received, 1));
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 
     #[cfg(feature = "distributed")]
@@ -722,6 +779,7 @@ mod tests {
     fn local_dispatcher_routes_broadcast_groups() {
         let system = KompactConfig::default()
             .build()
+            .wait()
             .expect("build KompactSystem");
         let (tx1, rx1) = mpsc::channel();
         let (tx2, rx2) = mpsc::channel();
@@ -762,6 +820,6 @@ mod tests {
         expect_delivery(&rx2);
         probe1.on_definition(|cd| assert_eq!(cd.received, 1));
         probe2.on_definition(|cd| assert_eq!(cd.received, 1));
-        system.shutdown().expect("shutdown KompactSystem");
+        system.shutdown().wait().expect("shutdown KompactSystem");
     }
 }

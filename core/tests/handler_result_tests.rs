@@ -292,7 +292,7 @@ fn assert_outcome(
 }
 
 fn run_case(source: HandlerSource, kind: FaultKind) {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let (component, rx) = create_probe(&system, source, kind);
 
     if kind == FaultKind::Recoverable {
@@ -302,7 +302,7 @@ fn run_case(source: HandlerSource, kind: FaultKind) {
     trigger_source(&system, &component, source, kind);
     assert_outcome(&system, &component, &rx, source, kind);
 
-    system.shutdown().expect("shutdown");
+    system.shutdown().wait().expect("shutdown");
 }
 
 #[test]

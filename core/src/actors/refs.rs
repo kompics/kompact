@@ -293,7 +293,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     /// #    }
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(AskComponent::new);
     /// let strong_ref = c.actor_ref().hold().expect("live ref");
     ///
@@ -307,7 +307,7 @@ impl<M: MessageBounds> ActorRefStrong<M> {
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("response");
     /// assert_eq!("42".to_string(), response);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn ask_with<R, F>(&self, f: F) -> KFuture<R>
     where
@@ -373,7 +373,7 @@ where
     /// #    }
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(AskComponent::new);
     /// let strong_ref = c.actor_ref().hold().expect("live ref");
     ///
@@ -387,7 +387,7 @@ where
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("response");
     /// assert_eq!("42".to_string(), response);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn ask(&self, request: Request) -> KFuture<Response> {
         let (promise, future) = promise::<Response>();
@@ -546,7 +546,7 @@ impl<M: MessageBounds> ActorRef<M> {
     /// #    }
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(AskComponent::new);
     /// let actor_ref = c.actor_ref();
     ///
@@ -560,7 +560,7 @@ impl<M: MessageBounds> ActorRef<M> {
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("response");
     /// assert_eq!("42".to_string(), response);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn ask_with<R, F>(&self, f: F) -> KFuture<R>
     where
@@ -655,7 +655,7 @@ where
     /// #    }
     /// }
     ///
-    /// let system = KompactConfig::default().build().expect("system");
+    /// let system = KompactConfig::default().build().wait().expect("system");
     /// let c = system.create(AskComponent::new);
     /// let actor_ref = c.actor_ref();
     ///
@@ -669,7 +669,7 @@ where
     ///     .wait_timeout(Duration::from_millis(1000))
     ///     .expect("response");
     /// assert_eq!("42".to_string(), response);
-    /// # system.shutdown().expect("shutdown");
+    /// # system.shutdown().wait().expect("shutdown");
     /// ```
     pub fn ask(&self, request: Request) -> KFuture<Response> {
         let (promise, future) = promise::<Response>();
@@ -1037,7 +1037,10 @@ mod tests {
 
     #[test]
     fn test_recipient_explicit() {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
         let latch = Arc::new(CountdownEvent::new(1));
         let latch2 = latch.clone();
         let ldactor = system.create(move || LatchDropActor::new(latch2));
@@ -1051,7 +1054,10 @@ mod tests {
 
     #[test]
     fn test_recipient_into() {
-        let system = KompactConfig::default().build().expect("KompactSystem");
+        let system = KompactConfig::default()
+            .build()
+            .wait()
+            .expect("KompactSystem");
         let latch = Arc::new(CountdownEvent::new(1));
         let latch2 = latch.clone();
         let ldactor = system.create(move || LatchDropActor::new(latch2));

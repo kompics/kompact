@@ -245,7 +245,7 @@ impl DynamicManager {
 
 // ANCHOR: repl
 fn main() {
-    let system = KompactConfig::default().build().expect("system");
+    let system = KompactConfig::default().build().wait().expect("system");
     let manager: Arc<Component<DynamicManager>> = system.create(|| DynamicManager {
         ctx: ComponentContext::uninitialised(),
         arithmetic_units: vec![],
