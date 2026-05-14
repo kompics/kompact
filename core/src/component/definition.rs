@@ -214,7 +214,7 @@ impl<M: MessageBounds> dyn DynamicComponentDefinition<Message = M> + '_ {
 
 /// Mutex guard guarding a [`DynamicComponentDefinition`] trait object.
 pub type DynamicComponentDefinitionMutexGuard<'a, M> =
-    OwningRefMut<Box<dyn Erased + 'a>, dyn DynamicComponentDefinition<Message = M>>;
+    OwningRefMut<'a, Box<dyn Erased + 'a>, dyn DynamicComponentDefinition<Message = M>>;
 
 /// Error for when the component definition lock has been poisoned
 #[derive(Debug)]
