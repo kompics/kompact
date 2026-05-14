@@ -1,8 +1,5 @@
 use bytes::{Buf, BufMut};
-use std::{
-    any::Any,
-    fmt::{self, Debug},
-};
+use std::{any::Any, fmt::Debug};
 
 use super::*;
 

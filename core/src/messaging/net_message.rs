@@ -489,7 +489,7 @@ impl NetData {
         match data {
             HeapOrSer::Boxed(boxed_ser) => {
                 let b = boxed_ser.local().map_err(|_| {
-                    UnpackError::DeserError(SerError::Unknown(format!(
+                    UnpackError::DeserError(SerError::unknown(format!(
                         "Serialisable with id={} can't be converted to local!",
                         ser_id
                     )))

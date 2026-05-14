@@ -21,5 +21,7 @@ crossbeam-channel = "0.5"
 futures = "0.3"
 ipnet = "2.12"
 lru = "0.16"
+regex = "1"
 rustc-hash = "2"
+snafu = "0.9"
 uuid = { version = "1.23", features = ["v4"] }

@@ -12,7 +12,9 @@ use crate::{
 };
 use crossbeam_channel::{RecvError, SendError, Sender, unbounded as channel};
 use ipnet::IpNet;
+use kompact::runtime::{BacktraceSuffix, SourceCause};
 use mio::{Interest, Waker};
+use snafu::{IntoError, ResultExt};
 pub use std::net::SocketAddr;
 use std::{io, net::IpAddr, panic, sync::Arc, thread, time::Duration};
 
@@ -89,23 +91,6 @@ pub mod events {
         AllowIpAddr(IpAddr),
         /// Tells the `NetworkThread` to allow the `IpNet`
         AllowIpNet(IpNet),
-    }
-
-    /// Errors emitted by the network `Bridge`
-    #[derive(Debug)]
-    pub enum NetworkError {
-        /// The protocol is not supported in this implementation
-        UnsupportedProtocol,
-        /// There is no executor to run the bridge on
-        MissingExecutor,
-        /// Some other IO error
-        Io(std::io::Error),
-    }
-
-    impl From<std::io::Error> for NetworkError {
-        fn from(other: std::io::Error) -> Self {
-            NetworkError::Io(other)
-        }
     }
 }
 
@@ -225,26 +210,32 @@ impl Bridge {
         }
     }
 
+    fn send_and_wake(&self, event: DispatchEvent) -> Result<(), NetworkBridgeError> {
+        self.network_input_queue
+            .send(event)
+            .context(network_bridge_error::SendSnafu)?;
+        self.waker.wake().context(network_bridge_error::IoSnafu)?;
+        Ok(())
+    }
+
     /// Sets the dispatcher reference, returning the previously stored one
     pub fn set_dispatcher(&mut self, dispatcher: DispatcherRef) -> Option<DispatcherRef> {
         self.dispatcher.replace(dispatcher)
     }
 
     /// Stops the bridge gracefully
-    pub fn stop(self) -> Result<(), NetworkBridgeErr> {
+    pub fn stop(self) -> Result<(), NetworkBridgeError> {
         debug!(self.log, "Stopping NetworkBridge...");
-        self.network_input_queue.send(DispatchEvent::Stop)?;
-        self.waker.wake()?;
+        self.send_and_wake(DispatchEvent::Stop)?;
         self.shutdown_future.wait(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
     }
 
     /// Kills the Network
-    pub fn kill(self) -> Result<(), NetworkBridgeErr> {
+    pub fn kill(self) -> Result<(), NetworkBridgeError> {
         debug!(self.log, "Killing NetworkBridge...");
-        self.network_input_queue.send(DispatchEvent::Kill)?;
-        self.waker.wake()?;
+        self.send_and_wake(DispatchEvent::Kill)?;
         self.shutdown_future.wait(); // should block until something is sent
         debug!(self.log, "Stopped NetworkBridge.");
         Ok(())
@@ -261,19 +252,12 @@ impl Bridge {
         addr: SocketAddr,
         data: DispatchData,
         protocol: Protocol,
-    ) -> Result<(), NetworkBridgeErr> {
-        match protocol {
-            Protocol::Tcp => {
-                self.network_input_queue
-                    .send(DispatchEvent::SendTcp(addr, data))?;
-            }
-            Protocol::Udp => {
-                self.network_input_queue
-                    .send(DispatchEvent::SendUdp(addr, data))?;
-            }
-        }
-        self.waker.wake()?;
-        Ok(())
+    ) -> Result<(), NetworkBridgeError> {
+        let event = match protocol {
+            Protocol::Tcp => DispatchEvent::SendTcp(addr, data),
+            Protocol::Udp => DispatchEvent::SendUdp(addr, data),
+        };
+        self.send_and_wake(event)
     }
 
     /// Attempts to establish a TCP connection to the provided `addr`.
@@ -285,80 +269,51 @@ impl Bridge {
     ///
     /// # Errors
     /// If the provided protocol is not supported
-    pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
+    pub fn connect(&self, proto: Transport, addr: SocketAddr) -> Result<(), NetworkBridgeError> {
         match proto {
-            Transport::Tcp => {
-                self.network_input_queue
-                    .send(events::DispatchEvent::Connect(addr))?;
-                self.waker.wake()?;
-                Ok(())
-            }
-            _other => Err(NetworkBridgeErr::Other("Bad Protocol".to_string())),
+            Transport::Tcp => self.send_and_wake(DispatchEvent::Connect(addr)),
+            other => Err(NetworkBridgeError::unsupported_protocol(other)),
         }
     }
 
     /// Acknowledges a closed channel, required to ensure FIFO ordering under connection loss
-    pub fn ack_closed(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::ClosedAck(addr))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn ack_closed(&self, addr: SocketAddr) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::ClosedAck(addr))
     }
 
     /// Requests that the NetworkThread should be closed
-    pub fn close_channel(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::Close(addr))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn close_channel(&self, addr: SocketAddr) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::Close(addr))
     }
 
     /// Requests the NetworkThread to block the socket addr
-    pub fn block_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::BlockSocket(addr))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn block_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::BlockSocket(addr))
     }
 
     /// Requests the NetworkThread to block the ip address ip_addr
-    pub fn block_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::BlockIpAddr(ip_addr))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn block_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::BlockIpAddr(ip_addr))
     }
 
     /// Requests the NetworkThread to block the ip subnet ip_net
-    pub fn block_ip_net(&self, ip_net: IpNet) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::BlockIpNet(ip_net))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn block_ip_net(&self, ip_net: IpNet) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::BlockIpNet(ip_net))
     }
 
     /// Requests the NetworkThread to unblock the socket addr
-    pub fn allow_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::AllowSocket(addr))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn allow_socket(&self, addr: SocketAddr) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::AllowSocket(addr))
     }
 
     /// Requests the NetworkThread to unblock the ip address ip_addr
-    pub fn allow_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::AllowIpAddr(ip_addr))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn allow_ip(&self, ip_addr: IpAddr) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::AllowIpAddr(ip_addr))
     }
 
     /// Requests the NetworkThread to unblock the ip subnet ip_net
-    pub fn allow_ip_net(&self, ip_net: IpNet) -> Result<(), NetworkBridgeErr> {
-        self.network_input_queue
-            .send(events::DispatchEvent::AllowIpNet(ip_net))?;
-        self.waker.wake()?;
-        Ok(())
+    pub fn allow_ip_net(&self, ip_net: IpNet) -> Result<(), NetworkBridgeError> {
+        self.send_and_wake(DispatchEvent::AllowIpNet(ip_net))
     }
 }
 
@@ -397,38 +352,169 @@ fn run_network_thread(
         .map(|_| ())
 }
 
-/// Errors which the NetworkBridge might return, not used for now.
-#[derive(Debug)]
-pub enum NetworkBridgeErr {
-    /// Something went wrong while binding
-    Binding(String),
-    /// Something went wrong with the thread
-    Thread(String),
-    /// Something else went wrong
-    Other(String),
+/// Error returned when the network bridge fails.
+#[derive(Debug, snafu::Snafu)]
+pub struct NetworkBridgeError(Box<NetworkBridgeErrorKind>);
+
+#[derive(Debug, snafu::Snafu)]
+#[snafu(module(network_bridge_error), visibility(pub(crate)))]
+enum NetworkBridgeErrorKind {
+    #[snafu(display(
+        "network bridge does not support protocol {protocol:?} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    UnsupportedProtocol {
+        protocol: Transport,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "failed to send network bridge event ({location}).{}",
+        SourceCause(source, None, backtrace.as_ref())
+    ))]
+    Send {
+        source: SendError<DispatchEvent>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "network bridge IO failed ({location}).{}",
+        SourceCause(source, None, backtrace.as_ref())
+    ))]
+    Io {
+        source: io::Error,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "network bridge receive failed ({location}).{}",
+        SourceCause(source, None, backtrace.as_ref())
+    ))]
+    Receive {
+        source: RecvError,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "network bridge serialisation failed ({location}).{}",
+        SourceCause(source, None, backtrace.as_ref())
+    ))]
+    Serialisation {
+        source: SerError,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
+    #[snafu(display(
+        "network bridge failed: {message} ({location}){}",
+        BacktraceSuffix(backtrace.as_ref())
+    ))]
+    Message {
+        message: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+        backtrace: Option<snafu::Backtrace>,
+    },
 }
 
-impl<T> From<SendError<T>> for NetworkBridgeErr {
-    fn from(error: SendError<T>) -> Self {
-        NetworkBridgeErr::Other(format!("SendError: {:?}", error))
+impl NetworkBridgeError {
+    /// Construct an unsupported-protocol bridge error.
+    #[track_caller]
+    pub fn unsupported_protocol(protocol: Transport) -> Self {
+        network_bridge_error::UnsupportedProtocolSnafu { protocol }
+            .build()
+            .into()
+    }
+
+    /// Construct a message-only bridge error.
+    #[track_caller]
+    pub fn message(message: impl Into<String>) -> Self {
+        network_bridge_error::MessageSnafu {
+            message: message.into(),
+        }
+        .build()
+        .into()
     }
 }
 
-impl From<io::Error> for NetworkBridgeErr {
-    fn from(error: io::Error) -> Self {
-        NetworkBridgeErr::Other(format!("io::Error: {:?}", error))
+impl From<SendError<DispatchEvent>> for NetworkBridgeError {
+    #[track_caller]
+    fn from(source: SendError<DispatchEvent>) -> Self {
+        network_bridge_error::SendSnafu.into_error(source).into()
     }
 }
 
-impl From<RecvError> for NetworkBridgeErr {
-    fn from(error: RecvError) -> Self {
-        NetworkBridgeErr::Other(format!("RecvError: {:?}", error))
+impl From<io::Error> for NetworkBridgeError {
+    #[track_caller]
+    fn from(source: io::Error) -> Self {
+        network_bridge_error::IoSnafu.into_error(source).into()
     }
 }
 
-impl From<SerError> for NetworkBridgeErr {
-    fn from(error: SerError) -> Self {
-        NetworkBridgeErr::Other(format!("SerError: {:?}", error))
+impl From<RecvError> for NetworkBridgeError {
+    #[track_caller]
+    fn from(source: RecvError) -> Self {
+        network_bridge_error::ReceiveSnafu.into_error(source).into()
+    }
+}
+
+impl From<SerError> for NetworkBridgeError {
+    #[track_caller]
+    fn from(source: SerError) -> Self {
+        network_bridge_error::SerialisationSnafu
+            .into_error(source)
+            .into()
+    }
+}
+
+#[cfg(test)]
+mod bridge_error_tests {
+    use super::*;
+    use kompact::test_support::assert_display_matches;
+    use std::error::Error;
+
+    #[test]
+    fn network_bridge_error_display_includes_source_and_location() {
+        let source = io::Error::other("waker failed");
+        let error = NetworkBridgeError::from(source);
+
+        assert_display_matches(
+            &error.to_string(),
+            "\
+network bridge IO failed {LOC}.
+  Caused by: waker failed.",
+            file!(),
+        );
+        assert_eq!(
+            "waker failed",
+            error.source().expect("io source").to_string()
+        );
+    }
+
+    #[test]
+    fn network_bridge_send_error_preserves_send_error_source() {
+        let (sender, receiver) = channel::<DispatchEvent>();
+        drop(receiver);
+        let source = sender
+            .send(DispatchEvent::Stop)
+            .expect_err("send should fail without receiver");
+        let error: NetworkBridgeError = network_bridge_error::SendSnafu.into_error(source).into();
+
+        assert_display_matches(
+            &error.to_string(),
+            "\
+failed to send network bridge event {LOC}.
+  Caused by: sending on a disconnected channel.",
+            file!(),
+        );
+        assert_eq!(
+            "sending on a disconnected channel",
+            error.source().expect("send source").to_string()
+        );
     }
 }
 
@@ -456,7 +542,7 @@ pub(crate) fn broken_pipe(err: &io::Error) -> bool {
 }
 
 pub(crate) fn out_of_buffers(err: &SerError) -> bool {
-    matches!(err, SerError::NoBuffersAvailable(_))
+    err.kind() == SerErrorKind::NoBuffersAvailable
 }
 
 /// A module with helper functions for testing network configurations/implementations
@@ -577,7 +663,7 @@ pub mod net_test_helpers {
 
         fn deserialise(buf: &mut dyn Buf) -> Result<PingMsg, SerError> {
             if buf.remaining() < 9 {
-                return Err(SerError::InvalidData(format!(
+                return Err(SerError::invalid_data(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",
                     buf.remaining()
                 )));
@@ -587,10 +673,10 @@ pub mod net_test_helpers {
                     let i = buf.get_u64();
                     Ok(PingMsg { i })
                 }
-                PONG_ID => Err(SerError::InvalidType(
-                    "Found PongMsg, but expected PingMsg.".into(),
+                PONG_ID => Err(SerError::invalid_type(
+                    "Found PongMsg, but expected PingMsg.",
                 )),
-                id => Err(SerError::InvalidType(format!(
+                id => Err(SerError::invalid_type(format!(
                     "Found unknown id {}, but expected PingMsg.",
                     id
                 ))),
@@ -603,7 +689,7 @@ pub mod net_test_helpers {
 
         fn deserialise(buf: &mut dyn Buf) -> Result<PongMsg, SerError> {
             if buf.remaining() < 9 {
-                return Err(SerError::InvalidData(format!(
+                return Err(SerError::invalid_data(format!(
                     "Serialised typed has 9bytes but only {}bytes remain in buffer.",
                     buf.remaining()
                 )));
@@ -613,10 +699,10 @@ pub mod net_test_helpers {
                     let i = buf.get_u64();
                     Ok(PongMsg { i })
                 }
-                PING_ID => Err(SerError::InvalidType(
-                    "Found PingMsg, but expected PongMsg.".into(),
+                PING_ID => Err(SerError::invalid_type(
+                    "Found PingMsg, but expected PongMsg.",
                 )),
-                id => Err(SerError::InvalidType(format!(
+                id => Err(SerError::invalid_type(format!(
                     "Found unknown id {}, but expected PingMsg.",
                     id
                 ))),
@@ -975,7 +1061,7 @@ pub mod net_test_helpers {
 
         fn deserialise(buf: &mut dyn Buf) -> Result<BigPingMsg, SerError> {
             if buf.remaining() < 18 {
-                return Err(SerError::InvalidData(format!(
+                return Err(SerError::invalid_data(format!(
                     "Serialised typed has 18 bytes but only {} bytes remain in buffer.",
                     buf.remaining()
                 )));
@@ -992,10 +1078,10 @@ pub mod net_test_helpers {
                     assert_eq!(buf.remaining(), 0, "Buffer too big! {}", buf.remaining());
                     Ok(BigPingMsg { i, data, sum })
                 }
-                PONG_ID => Err(SerError::InvalidType(
-                    "Found BigPongMsg, but expected BigPingMsg.".into(),
+                PONG_ID => Err(SerError::invalid_type(
+                    "Found BigPongMsg, but expected BigPingMsg.",
                 )),
-                id => Err(SerError::InvalidType(format!(
+                id => Err(SerError::invalid_type(format!(
                     "Found unknown id {}, but expected BigPingMsg.",
                     id
                 ))),
@@ -1008,7 +1094,7 @@ pub mod net_test_helpers {
 
         fn deserialise(buf: &mut dyn Buf) -> Result<BigPongMsg, SerError> {
             if buf.remaining() < 18 {
-                return Err(SerError::InvalidData(format!(
+                return Err(SerError::invalid_data(format!(
                     "Serialised typed has 18 bytes but only {} bytes remain in buffer.",
                     buf.remaining()
                 )));
@@ -1025,10 +1111,10 @@ pub mod net_test_helpers {
                     assert_eq!(buf.remaining(), 0, "Buffer too big!");
                     Ok(BigPongMsg { i, data, sum })
                 }
-                PING_ID => Err(SerError::InvalidType(
-                    "Found BigPingMsg, but expected BigPongMsg.".into(),
+                PING_ID => Err(SerError::invalid_type(
+                    "Found BigPingMsg, but expected BigPongMsg.",
                 )),
-                id => Err(SerError::InvalidType(format!(
+                id => Err(SerError::invalid_type(format!(
                     "Found unknown id {}, but expected BigPingMsg.",
                     id
                 ))),
@@ -1370,7 +1456,7 @@ pub mod net_test_helpers {
 
                 Ok(())
             } else {
-                Err(SerError::Unknown("No Valid Receivers".to_string()))
+                Err(SerError::unknown("No Valid Receivers"))
             }
         }
     }

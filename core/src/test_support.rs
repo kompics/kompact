@@ -9,6 +9,7 @@ use crate::{
     runtime::{self, KompactConfig, KompactSystem},
     utils::BlockingFutureExt,
 };
+use regex::Regex;
 use slog::{Drain, Logger, PushFnValue, o};
 use std::{
     io::{self, Write},
@@ -74,6 +75,28 @@ pub fn test_kompact_config() -> KompactConfig {
 /// Panics if the system cannot be built.
 pub fn build_test_kompact_system() -> KompactSystem {
     test_kompact_config().build().wait().expect("system")
+}
+
+/// Asserts that an error display string matches `expected`.
+///
+/// The expected string may include `{LOC}` placeholders. Each placeholder is
+/// matched against `(<location_file>:<line>:<column>)`, with line and column
+/// left flexible for stable location-aware error tests.
+///
+/// # Panics
+///
+/// Panics if the expected pattern does not compile or `actual` does not match.
+pub fn assert_display_matches(actual: &str, expected: &str, location_file: &str) {
+    let location = format!(r"\({}:\d+:\d+\)", regex::escape(location_file));
+    let pattern = format!(
+        "^{}$",
+        regex::escape(expected).replace(r"\{LOC\}", &location)
+    );
+    let regex = Regex::new(&pattern).expect("expected display regex should compile");
+    assert!(
+        regex.is_match(actual),
+        "expected display to match:\n{expected}\n\nactual:\n{actual}\n\nregex:\n{pattern}",
+    );
 }
 
 static CAPTURED_LOGGER: CapturedLogLogger = CapturedLogLogger;

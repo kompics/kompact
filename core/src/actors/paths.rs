@@ -72,11 +72,7 @@ impl fmt::Display for TransportParseError {
     }
 }
 
-impl Error for TransportParseError {
-    fn description(&self) -> &str {
-        "Transport must be one of [local,tcp,udp]"
-    }
-}
+impl Error for TransportParseError {}
 
 /// Error type for parsing [paths](ActorPath) from a string
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -105,11 +101,7 @@ impl fmt::Display for PathParseError {
 }
 
 impl Error for PathParseError {
-    fn description(&self) -> &str {
-        "Path could not be parsed"
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             PathParseError::Form(_) => None,
             PathParseError::Transport(e) => Some(e),

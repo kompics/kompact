@@ -81,7 +81,7 @@ impl SystemComponents for DefaultComponents {
     fn stop_notify<'a>(
         &'a self,
         system: &'a KompactSystem,
-    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    ) -> futures::future::BoxFuture<'a, Result<(), SystemComponentsShutdownError>> {
         async move {
             system.kill(self.dispatcher.clone());
             system.kill(self.deadletter_box.clone());
@@ -126,17 +126,19 @@ impl TimerRefFactory for DefaultTimer {
 }
 
 impl TimerComponent for DefaultTimer {
-    fn shutdown(&self) -> Result<(), String> {
+    fn shutdown(&self) -> Result<(), TimerShutdownError> {
         self.inner
             .shutdown_async()
-            .map_err(|e| format!("Error during timer shutdown: {:?}", e))
+            .map_err(TimerShutdownError::from_debug)
     }
 
-    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    fn shutdown_notify<'a>(
+        &'a self,
+    ) -> futures::future::BoxFuture<'a, Result<(), TimerShutdownError>> {
         future::ready(
             self.inner
                 .shutdown_async()
-                .map_err(|e| format!("Error during timer shutdown: {:?}", e)),
+                .map_err(TimerShutdownError::from_debug),
         )
         .boxed()
     }
@@ -159,12 +161,14 @@ impl TimerRefFactory for ManualTimerComponent {
 }
 
 impl TimerComponent for ManualTimerComponent {
-    fn shutdown(&self) -> Result<(), String> {
+    fn shutdown(&self) -> Result<(), TimerShutdownError> {
         self.inner.stop();
         Ok(())
     }
 
-    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    fn shutdown_notify<'a>(
+        &'a self,
+    ) -> futures::future::BoxFuture<'a, Result<(), TimerShutdownError>> {
         // This actually locks a Mutex, so there's a small deadlock risk here.
         self.inner.stop();
         future::ready(Ok(())).boxed()
@@ -232,7 +236,7 @@ where
     fn stop_notify<'a>(
         &'a self,
         system: &'a KompactSystem,
-    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    ) -> futures::future::BoxFuture<'a, Result<(), SystemComponentsShutdownError>> {
         async move {
             // Gracefully stop the dispatcher/Network layer.
             system.stop(&self.dispatcher.clone());

@@ -30,6 +30,7 @@ use std::{
 };
 
 use futures::FutureExt;
+use snafu::ResultExt;
 
 const STARTUP_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -968,11 +969,17 @@ impl KompactSystem {
     /// let system = KompactConfig::default().build().wait().expect("system");
     /// system.shutdown().wait().expect("shutdown");
     /// ```
-    pub fn shutdown(self) -> impl Future<Output = Result<(), String>> + Send + Unpin + 'static {
+    pub fn shutdown(
+        self,
+    ) -> impl Future<Output = Result<(), ShutdownError>> + Send + Unpin + 'static {
         async move {
             self.inner.assert_active();
             self.inner.shutdown_notify(&self).await?;
-            self.scheduler.shutdown_notify().await
+            self.scheduler
+                .shutdown_notify()
+                .await
+                .context(shutdown_error::SchedulerSnafu)?;
+            Ok(())
         }
         .boxed()
     }
@@ -983,10 +990,12 @@ impl KompactSystem {
     /// shutdown more immediate and brutal.
     ///
     /// Remote systems will perceive this system as crashed.
-    pub fn kill_system(self) -> Result<(), String> {
+    pub fn kill_system(self) -> Result<(), ShutdownError> {
         self.inner.assert_active();
         self.inner.kill(&self)?;
-        self.scheduler.shutdown()?;
+        self.scheduler
+            .shutdown()
+            .context(shutdown_error::SchedulerSnafu)?;
         Ok(())
     }
 
@@ -1029,7 +1038,10 @@ impl KompactSystem {
     pub fn shutdown_async(&self) -> () {
         let sys = self.clone();
         async_std::task::spawn(async move {
-            sys.shutdown().await.expect("shutdown");
+            let logger = sys.inner.logger().clone();
+            if let Err(error) = sys.shutdown().await {
+                error!(logger, "async system shutdown failed"; "error" => format!("{}", error));
+            }
         });
     }
 
@@ -1601,7 +1613,7 @@ pub trait SystemComponents: Send + Sync + 'static {
     fn stop_notify<'a>(
         &'a self,
         system: &'a KompactSystem,
-    ) -> futures::future::BoxFuture<'a, Result<(), String>>;
+    ) -> futures::future::BoxFuture<'a, Result<(), SystemComponentsShutdownError>>;
     /// Stop all the system components as fast as possible, no graceful shutdown
     fn kill(&self, _system: &KompactSystem) -> ();
     /// Allow downcasting to concrete type
@@ -1652,10 +1664,12 @@ impl dyn SystemComponents {
 /// Extra trait for timers to implement
 pub trait TimerComponent: TimerRefFactory + Send + Sync {
     /// Stop the underlying timer thread
-    fn shutdown(&self) -> Result<(), String>;
+    fn shutdown(&self) -> Result<(), TimerShutdownError>;
 
     /// Stop the underlying timer thread from an async shutdown path
-    fn shutdown_notify<'a>(&'a self) -> futures::future::BoxFuture<'a, Result<(), String>>;
+    fn shutdown_notify<'a>(
+        &'a self,
+    ) -> futures::future::BoxFuture<'a, Result<(), TimerShutdownError>>;
 }
 
 struct InternalComponents {
@@ -1711,12 +1725,16 @@ impl InternalComponents {
     fn stop_notify<'a>(
         &'a self,
         system: &'a KompactSystem,
-    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    ) -> futures::future::BoxFuture<'a, Result<(), SystemComponentsShutdownError>> {
         async move {
             let (p, f) = utils::promise();
             self.supervision_port
                 .enqueue(SupervisorMsg::Shutdown(Arc::new(Mutex::new(p))));
-            f.await.map_err(|e| e.to_string())?;
+            f.await
+                .boxed()
+                .with_context(|_| system_components_shutdown_error::SourceSnafu {
+                    message: "supervisor shutdown promise was dropped".to_string(),
+                })?;
             self.system_components.stop_notify(system).await
         }
         .boxed()
@@ -1907,31 +1925,40 @@ impl KompactRuntime {
     fn shutdown_notify<'a>(
         &'a self,
         system: &'a KompactSystem,
-    ) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    ) -> futures::future::BoxFuture<'a, Result<(), ShutdownError>> {
         async move {
-            match *self.internal_components {
-                Some(ref ic) => {
-                    ic.stop_notify(system).await?;
-                }
-                None => panic!("KompactRuntime was not initialised at shutdown!"),
-            }
-            let res = self.timer.shutdown_notify().await;
+            let ic = (*self.internal_components)
+                .as_ref()
+                .expect("KompactRuntime was not initialised at shutdown!");
+            let components_result = ic
+                .stop_notify(system)
+                .await
+                .context(shutdown_error::SystemComponentsSnafu)
+                .map_err(ShutdownError::from);
+            let timer_result = self
+                .timer
+                .shutdown_notify()
+                .await
+                .context(shutdown_error::TimerSnafu)
+                .map_err(ShutdownError::from);
             lifecycle::set_destroyed(self.state());
-            res
+            components_result.and(timer_result)
         }
         .boxed()
     }
 
-    fn kill(&self, system: &KompactSystem) -> Result<(), String> {
-        match *self.internal_components {
-            Some(ref ic) => {
-                ic.kill(system);
-            }
-            None => panic!("KompactRuntime was not initialised at shutdown!"),
-        }
-        let res = self.timer.shutdown();
+    fn kill(&self, system: &KompactSystem) -> Result<(), ShutdownError> {
+        let ic = (*self.internal_components)
+            .as_ref()
+            .expect("KompactRuntime was not initialised at shutdown!");
+        ic.kill(system);
+        let result = self
+            .timer
+            .shutdown()
+            .context(shutdown_error::TimerSnafu)
+            .map_err(ShutdownError::from);
         lifecycle::set_destroyed(self.state());
-        res
+        result
     }
 
     pub(crate) fn poison(&self) {

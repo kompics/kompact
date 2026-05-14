@@ -77,8 +77,8 @@ impl EncodeBuffer {
             self.buffer_pool.return_buffer(new_buffer);
             Ok(())
         } else {
-            Err(SerError::NoBuffersAvailable(
-                "No Available Buffers in BufferPool".to_string(),
+            Err(SerError::no_buffers_available(
+                "No Available Buffers in BufferPool",
             ))
         }
     }
@@ -166,7 +166,7 @@ impl<'a> BufferEncoder<'a> {
     /// This method may perform an eager-swap of the underlying buffer to avoid chaining ChunkLeases.
     ///
     /// Also ensures that there are available buffers to fit the entire message into.
-    /// Returns `SerError::NoBuffersAvailable` error if there are no available buffers to fit the
+    /// Returns a no-buffers-available [SerError] if there are no available buffers to fit the
     /// entire message into.
     pub(crate) fn try_reserve(&mut self, size: usize) -> Result<(), SerError> {
         // Length of BufferChunks in this encode_buffer
@@ -184,7 +184,7 @@ impl<'a> BufferEncoder<'a> {
             self.encode_buffer
                 .buffer_pool
                 .try_reserve(size - remaining)
-                .map_err(|e| SerError::NoBuffersAvailable(e.to_string()))
+                .map_err(|e| SerError::no_buffers_available(e.to_string()))
         }
     }
 
@@ -215,7 +215,7 @@ impl<'a> BufferEncoder<'a> {
             // No chain just return what's written into the active buffers
             self.encode_buffer
                 .get_chunk_lease()
-                .ok_or_else(|| SerError::InvalidData("No data written".to_string()))
+                .ok_or_else(|| SerError::invalid_data("No data written"))
         }
     }
 

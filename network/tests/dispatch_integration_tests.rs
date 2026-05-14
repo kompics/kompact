@@ -186,12 +186,12 @@ struct TestSystem {
 }
 
 impl TestSystem {
-    fn shutdown(self) -> Result<(), String> {
+    fn shutdown(self) -> Result<(), ShutdownError> {
         let TestSystem { inner, _slot } = self;
         inner.shutdown().wait()
     }
 
-    fn kill_system(self) -> Result<(), String> {
+    fn kill_system(self) -> Result<(), ShutdownError> {
         let TestSystem { inner, _slot } = self;
         inner.kill_system()
     }

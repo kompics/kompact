@@ -31,4 +31,5 @@ iprange = "0.6"
 lru = { workspace = true }
 mio = { version = "1", features = ["net", "os-poll"] }
 rustc-hash = { workspace = true }
+snafu = { workspace = true }
 uuid = { workspace = true }

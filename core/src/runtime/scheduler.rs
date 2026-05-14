@@ -27,14 +27,16 @@ pub trait Scheduler: Send + Sync {
     ///
     /// Implementations must only return when the pool
     /// has been shut down, or upon an error.
-    fn shutdown(&self) -> Result<(), String>;
+    fn shutdown(&self) -> Result<(), SchedulerShutdownError>;
 
     /// Shut this pool down and complete once the pool has stopped.
     ///
     /// The default implementation delegates the existing blocking shutdown to a
     /// blocking task. Scheduler implementations that can signal completion
     /// without blocking should override this method.
-    fn shutdown_notify(&self) -> futures::future::BoxFuture<'static, Result<(), String>> {
+    fn shutdown_notify(
+        &self,
+    ) -> futures::future::BoxFuture<'static, Result<(), SchedulerShutdownError>> {
         let scheduler = self.box_clone();
         async move { async_std::task::spawn_blocking(move || scheduler.shutdown()).await }.boxed()
     }
@@ -93,8 +95,10 @@ impl<E: FuturesExecutor + Sync + 'static> Scheduler for ExecutorScheduler<E> {
         self.exec.shutdown_async()
     }
 
-    fn shutdown(&self) -> Result<(), String> {
-        self.exec.shutdown_borrowed()
+    fn shutdown(&self) -> Result<(), SchedulerShutdownError> {
+        self.exec
+            .shutdown_borrowed()
+            .map_err(SchedulerShutdownError::from)
     }
 
     fn box_clone(&self) -> Box<dyn Scheduler> {
