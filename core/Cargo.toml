@@ -71,7 +71,7 @@ toml = "1"
 humantime = "2"
 byte-unit = "5"
 hierarchical_hash_wheel_timer = "1.4"
-owning_ref = "0.4"
+owning_ref = { package = "safer_owning_ref", version = "0.5.1" }
 futures = { workspace = true }
 async-std = { workspace = true }
 executors = "0.10"
