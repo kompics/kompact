@@ -261,7 +261,7 @@ struct DnsResponse(String);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -289,7 +289,7 @@ struct DnsResponse(String);
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="state"><a class="header" href="#state">State</a></h3>
@@ -372,7 +372,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -400,7 +400,7 @@ impl DnsComponent {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
@@ -486,7 +486,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -514,7 +514,7 @@ impl DnsComponent {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="queries"><a class="header" href="#queries">Queries</a></h3>
@@ -598,7 +598,7 @@ impl DnsComponent {
 }
 <span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -626,7 +626,7 @@ impl DnsComponent {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="running"><a class="header" href="#running">Running</a></h3>
@@ -709,7 +709,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span>fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let dns_comp = system.create(DnsComponent::new);
     let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
     system.start_notify(&amp;dns_comp).wait();
@@ -737,7 +737,7 @@ impl DnsComponent {
         }
     }
     system.kill_notify(dns_comp).wait();
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 </code></pre>
 <blockquote>

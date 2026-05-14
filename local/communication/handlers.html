@@ -408,7 +408,7 @@
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -419,7 +419,7 @@
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -674,7 +674,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -685,7 +685,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -947,7 +947,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -958,7 +958,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -1216,7 +1216,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -1227,7 +1227,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {

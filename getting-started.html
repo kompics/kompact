@@ -215,7 +215,7 @@ impl ComponentLifecycle for HelloWorldComponent {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(HelloWorldComponent::new);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -256,7 +256,7 @@ And then we just wait for the component to do its work and shut the system down 
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let component = system.create(HelloWorldComponent::new);
     system.start(&amp;component);
     system.await_termination();

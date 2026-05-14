@@ -200,7 +200,7 @@ struct HelloWorldComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(HelloWorldComponent::new);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -245,7 +245,7 @@ impl Actor for HelloWorldActor {
     }
 }
 <span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let actor: Arc&lt;Component&lt;HelloWorldActor&gt;&gt; = system.create(HelloWorldActor::new);
 </span><span class="boring">    system.start(&amp;actor);
 </span><span class="boring">    let actor_ref: ActorRef&lt;()&gt; = actor.actor_ref();
@@ -291,7 +291,7 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let actor: Arc&lt;Component&lt;HelloWorldActor&gt;&gt; = system.create(HelloWorldActor::new);
     system.start(&amp;actor);
     let actor_ref: ActorRef&lt;()&gt; = actor.actor_ref();

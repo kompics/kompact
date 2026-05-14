@@ -175,7 +175,7 @@
 <blockquote>
 <p><strong>Note:</strong> As opposed to Kompics, in Kompact it is perfectly viable to have multiple systems running in the same process, for example with different configurations.</p>
 </blockquote>
-<p>When a Kompact system is not used anymore it should be shut down via the <code>shutdown()</code> function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use <code>self.ctx.system().shutdown_async()</code> and the main-thread can wait for this to complete with <code>await_termination()</code>. </p>
+<p>When a Kompact system is not used anymore it should be shut down via the <code>shutdown()</code> function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use <code>self.ctx.system().shutdown_async()</code> and the main-thread can wait for this to complete with <code>await_termination()</code>.</p>
 <blockquote>
 <p><strong>Note:</strong> Neither <code>shutdown_async()</code> nor <code>await_termination()</code> has a particularly efficient implementation, as this should be a relatively rare thing to do in the lifetime of a Kompact system, and thus doesn’t warrant optimisation at this point. That also means, though, that <code>await_termination()</code> should definitely <strong>not</strong> be used as a timing marker in a benchmark, as <em>some</em> people have done with the equivalent Akka API.</p>
 </blockquote>
@@ -413,7 +413,7 @@
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span>fn run_task(num_workers: usize, data_size: usize) {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let manager = system.create(move || Manager::new(num_workers));
     system.start(&amp;manager);
     let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -424,7 +424,7 @@
     let res = manager_ref.ask(work).wait();
     println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
     assert_eq!(triangular_number(data_size as u64), res.0);
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 
 fn triangular_number(n: u64) -&gt; u64 {
@@ -678,7 +678,7 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
     run_task(num_workers, data_size);
 }
 <span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -689,7 +689,7 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {

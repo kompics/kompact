@@ -397,7 +397,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -427,7 +427,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -467,10 +467,10 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -698,7 +698,7 @@ impl BootstrapServer {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -728,7 +728,7 @@ impl BootstrapServer {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -768,10 +768,10 @@ impl BootstrapServer {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -998,7 +998,7 @@ impl EventualLeaderElector {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -1028,7 +1028,7 @@ impl EventualLeaderElector {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -1068,10 +1068,10 @@ impl EventualLeaderElector {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -1299,7 +1299,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -1329,7 +1329,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -1369,10 +1369,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -1599,7 +1599,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -1629,7 +1629,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -1669,10 +1669,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -1919,7 +1919,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -1949,7 +1949,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -1989,10 +1989,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -2227,7 +2227,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
     cfg.load_config_file(&quot;./app_settings.toml&quot;);
     cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 
-    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 
     let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
     let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -2257,7 +2257,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -2297,10 +2297,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -2528,7 +2528,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -2558,7 +2558,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
         NetworkConfig::new(client_socket).build(),
     );
 
-    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 
     let bootstrap_service: ActorPath = NamedPath::with_socket(
         Transport::Tcp,
@@ -2598,10 +2598,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -2829,7 +2829,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -2859,7 +2859,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -2899,10 +2899,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>

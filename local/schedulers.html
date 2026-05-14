@@ -265,7 +265,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span>    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span>    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 <span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -281,7 +281,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -385,7 +385,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span>    use kompact::config_keys::system;
     let mut conf = KompactConfig::default();
     conf.set_config_value(&amp;system::THREADS, 1usize);
-    let system = conf.build().expect(&quot;system&quot;);
+    let system = conf.build().wait().expect(&quot;system&quot;);
 <span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -401,7 +401,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -522,7 +522,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.set_config_value(&amp;system::THREADS, 1usize);
 </span>    conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
-<span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+<span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -538,7 +538,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}

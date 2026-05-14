@@ -525,7 +525,7 @@
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -555,7 +555,7 @@
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -595,10 +595,10 @@
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -918,7 +918,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -948,7 +948,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -988,10 +988,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -1307,7 +1307,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -1337,7 +1337,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -1377,10 +1377,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -1695,7 +1695,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -1725,7 +1725,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -1765,10 +1765,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -2087,7 +2087,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -2117,7 +2117,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -2157,10 +2157,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>

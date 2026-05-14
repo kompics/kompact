@@ -422,7 +422,7 @@ impl Multiplier {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -709,7 +709,7 @@ impl Linear {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -997,7 +997,7 @@ ignore_lifecycle!(DynamicManager);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -1284,7 +1284,7 @@ impl Actor for DynamicManager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -1575,7 +1575,7 @@ impl DynamicManager {
 }
 <span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -1862,7 +1862,7 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">}
 </span><span class="boring">
 </span>fn main() {
-   let system = KompactConfig::default().build().expect(&quot;system&quot;);
+   let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
        ctx: ComponentContext::uninitialised(),
        arithmetic_units: vec![],

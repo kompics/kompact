@@ -232,7 +232,7 @@ cfg.load_config_str(
         &quot;#,
 );
 ...
-let system = cfg.build().expect(&quot;KompactSystem&quot;);
+let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <p>If a <code>BufferConfig</code> is loaded into the systems <code>KompactConfig</code> then all actors will use that configuration instead of the default <code>BufferConfig</code>, however individual actors may still override the configuration by using the <code>init_buffers(...)</code> method.</p>
 <h4 id="configuring-the-kompact-net-transport"><a class="header" href="#configuring-the-kompact-net-transport">Configuring the <code>kompact-net</code> transport</a></h4>
@@ -250,7 +250,7 @@ cfg.system_components(DeadletterBox::new, {
     )
     .build()
 });
-let system = cfg.build().expect(&quot;KompactSystem&quot;);
+let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <h4 id="bufferconfig-validation"><a class="header" href="#bufferconfig-validation">BufferConfig Validation</a></h4>
 <p><code>BufferConfig</code> implements the method <code>validate()</code> which causes a panic if the set of parameters is invalid. It is invoked whenever a <code>BufferPool</code> is created from the given configuration. The validation checks that the following conditions hold true:</p>

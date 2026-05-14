@@ -220,7 +220,7 @@ impl ComponentLifecycle for HelloWorldComponent {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(HelloWorldComponent::new);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -261,7 +261,7 @@ And then we just wait for the component to do its work and shut the system down 
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let component = system.create(HelloWorldComponent::new);
     system.start(&amp;component);
     system.await_termination();
@@ -326,7 +326,7 @@ struct HelloWorldComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(HelloWorldComponent::new);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -366,7 +366,7 @@ struct HelloWorldComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span>    let component = system.create(HelloWorldComponent::new);
 <span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -441,7 +441,7 @@ impl Port for ControlPort {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(HelloWorldComponent::new);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -490,7 +490,7 @@ struct HelloWorldComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(HelloWorldComponent::new);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    system.await_termination();
@@ -535,7 +535,7 @@ impl Actor for HelloWorldActor {
     }
 }
 <span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let actor: Arc&lt;Component&lt;HelloWorldActor&gt;&gt; = system.create(HelloWorldActor::new);
 </span><span class="boring">    system.start(&amp;actor);
 </span><span class="boring">    let actor_ref: ActorRef&lt;()&gt; = actor.actor_ref();
@@ -581,7 +581,7 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">    }
 </span><span class="boring">}
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let actor: Arc&lt;Component&lt;HelloWorldActor&gt;&gt; = system.create(HelloWorldActor::new);
     system.start(&amp;actor);
     let actor_ref: ActorRef&lt;()&gt; = actor.actor_ref();
@@ -699,7 +699,7 @@ impl Port for CounterPort {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -715,7 +715,7 @@ impl Port for CounterPort {
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -821,7 +821,7 @@ impl Counter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -837,7 +837,7 @@ impl Counter {
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -942,7 +942,7 @@ impl Actor for Counter {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -958,7 +958,7 @@ impl Actor for Counter {
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -1063,7 +1063,7 @@ impl Actor for Counter {
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let counter = system.create(Counter::new);
     system.start(&amp;counter);
     let actor_ref = counter.actor_ref();
@@ -1079,7 +1079,7 @@ impl Actor for Counter {
     std::thread::sleep(Duration::from_millis(1000));
     let current_count = actor_ref.ask(CountMe).wait();
     info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));
 }
@@ -1350,7 +1350,7 @@ struct WorkResult(u64);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -1361,7 +1361,7 @@ struct WorkResult(u64);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -1615,7 +1615,7 @@ struct WorkResult(u64);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -1626,7 +1626,7 @@ struct WorkResult(u64);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -1880,7 +1880,7 @@ struct WorkResult(u64);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -1891,7 +1891,7 @@ struct WorkResult(u64);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -2149,7 +2149,7 @@ struct WorkResult(u64);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -2160,7 +2160,7 @@ struct WorkResult(u64);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -2414,7 +2414,7 @@ impl Port for WorkerPort {
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -2425,7 +2425,7 @@ impl Port for WorkerPort {
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -2682,7 +2682,7 @@ impl Worker {
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -2693,7 +2693,7 @@ impl Worker {
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -2954,7 +2954,7 @@ impl Manager {
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -2965,7 +2965,7 @@ impl Manager {
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -3224,7 +3224,7 @@ impl Manager {
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -3235,7 +3235,7 @@ impl Manager {
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -3490,7 +3490,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -3501,7 +3501,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -3763,7 +3763,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -3774,7 +3774,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -4032,7 +4032,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -4043,7 +4043,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -4304,7 +4304,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -4315,7 +4315,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -4570,7 +4570,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -4581,7 +4581,7 @@ ignore_requests!(WorkerPort, Worker);
 </span>    let res = manager_ref.ask(work).wait();
 <span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -4610,7 +4610,7 @@ ignore_requests!(WorkerPort, Worker);
 <blockquote>
 <p><strong>Note:</strong> As opposed to Kompics, in Kompact it is perfectly viable to have multiple systems running in the same process, for example with different configurations.</p>
 </blockquote>
-<p>When a Kompact system is not used anymore it should be shut down via the <code>shutdown()</code> function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use <code>self.ctx.system().shutdown_async()</code> and the main-thread can wait for this to complete with <code>await_termination()</code>. </p>
+<p>When a Kompact system is not used anymore it should be shut down via the <code>shutdown()</code> function. Sometimes it is a component instead of the main-thread that must decide when to shut down. In that case, it can use <code>self.ctx.system().shutdown_async()</code> and the main-thread can wait for this to complete with <code>await_termination()</code>.</p>
 <blockquote>
 <p><strong>Note:</strong> Neither <code>shutdown_async()</code> nor <code>await_termination()</code> has a particularly efficient implementation, as this should be a relatively rare thing to do in the lifetime of a Kompact system, and thus doesn’t warrant optimisation at this point. That also means, though, that <code>await_termination()</code> should definitely <strong>not</strong> be used as a timing marker in a benchmark, as <em>some</em> people have done with the equivalent Akka API.</p>
 </blockquote>
@@ -4848,7 +4848,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">    run_task(num_workers, data_size);
 </span><span class="boring">}
 </span>fn run_task(num_workers: usize, data_size: usize) {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let manager = system.create(move || Manager::new(num_workers));
     system.start(&amp;manager);
     let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -4859,7 +4859,7 @@ ignore_requests!(WorkerPort, Worker);
     let res = manager_ref.ask(work).wait();
     println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
     assert_eq!(triangular_number(data_size as u64), res.0);
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 
 fn triangular_number(n: u64) -&gt; u64 {
@@ -5113,7 +5113,7 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
     run_task(num_workers, data_size);
 }
 <span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -5124,7 +5124,7 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">    let res = manager_ref.ask(work).wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -5390,7 +5390,7 @@ enum ManagerMessage {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -5403,7 +5403,7 @@ enum ManagerMessage {
 </span><span class="boring">        .wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -5653,7 +5653,7 @@ enum ManagerMessage {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -5666,7 +5666,7 @@ enum ManagerMessage {
 </span><span class="boring">        .wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -5916,7 +5916,7 @@ struct Manager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -5929,7 +5929,7 @@ struct Manager {
 </span><span class="boring">        .wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -6179,7 +6179,7 @@ struct Manager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -6192,7 +6192,7 @@ struct Manager {
 </span><span class="boring">        .wait();
 </span><span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -6443,7 +6443,7 @@ struct Manager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn run_task(num_workers: usize, data_size: usize) {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager = system.create(move || Manager::new(num_workers));
 </span><span class="boring">    system.start(&amp;manager);
 </span><span class="boring">    let manager_ref = manager.actor_ref().hold().expect(&quot;live&quot;);
@@ -6456,7 +6456,7 @@ struct Manager {
         .wait();
 <span class="boring">    println!(&quot;*******\nGot result: {}\n*******&quot;, res.0);
 </span><span class="boring">    assert_eq!(triangular_number(data_size as u64), res.0);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn triangular_number(n: u64) -&gt; u64 {
@@ -6615,7 +6615,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let printer = system.create(BatchPrinter::new);
     let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
     biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -6640,7 +6640,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
         std::thread::sleep(sleep_dur);
     }
 
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -6733,7 +6733,7 @@ struct Buncher {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -6758,7 +6758,7 @@ struct Buncher {
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -6850,7 +6850,7 @@ struct Buncher {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -6875,7 +6875,7 @@ struct Buncher {
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -6971,7 +6971,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -6996,7 +6996,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -7088,7 +7088,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -7113,7 +7113,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -7226,7 +7226,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -7251,7 +7251,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -7350,7 +7350,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -7375,7 +7375,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -7474,7 +7474,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -7499,7 +7499,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -7613,7 +7613,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span>    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span>    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 <span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -7629,7 +7629,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -7733,7 +7733,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span>    use kompact::config_keys::system;
     let mut conf = KompactConfig::default();
     conf.set_config_value(&amp;system::THREADS, 1usize);
-    let system = conf.build().expect(&quot;system&quot;);
+    let system = conf.build().wait().expect(&quot;system&quot;);
 <span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -7749,7 +7749,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -7870,7 +7870,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.set_config_value(&amp;system::THREADS, 1usize);
 </span>    conf.executor(executors::crossbeam_channel_pool::ThreadPool::new);
-<span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+<span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -7886,7 +7886,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -7922,7 +7922,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     trace!(
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
@@ -7943,7 +7943,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
     std::thread::sleep(Duration::from_millis(100));
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -7994,7 +7994,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
         )
     };
     conf.logger(logger);
-    let system = conf.build().expect(&quot;system&quot;);
+    let system = conf.build().wait().expect(&quot;system&quot;);
     trace!(
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
@@ -8019,7 +8019,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
     std::thread::sleep(Duration::from_millis(1000));
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -8153,7 +8153,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span>    conf.load_config_file(&quot;./app_settings.toml&quot;)
 <span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -8178,7 +8178,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -8289,7 +8289,7 @@ delta = &quot;1 ms&quot;
 </span>    let mut conf = KompactConfig::default();
     conf.load_config_file(&quot;./app_settings.toml&quot;)
         .load_config_str(&quot;buncher.batch-size = 50&quot;);
-    let system = conf.build().expect(&quot;system&quot;);
+    let system = conf.build().wait().expect(&quot;system&quot;);
 <span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -8314,7 +8314,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -8425,7 +8425,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -8450,7 +8450,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -8561,7 +8561,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span>    let buncher = system.create(Buncher::new);
 <span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -8586,7 +8586,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -8697,7 +8697,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -8722,7 +8722,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -8880,13 +8880,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -9019,13 +9019,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -9159,13 +9159,13 @@ struct UnstableCounter {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -9297,13 +9297,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -9439,13 +9439,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -9578,13 +9578,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let component = system.create(UnstableCounter::default);
     system.start(&amp;component);
     drop(component); // avoid it from holding on to memory after crashing
     std::thread::sleep(Duration::from_millis(5000));
     println!(&quot;Shutting down system&quot;);
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -9854,7 +9854,7 @@ impl Multiplier {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -10141,7 +10141,7 @@ impl Linear {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -10429,7 +10429,7 @@ ignore_lifecycle!(DynamicManager);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -10716,7 +10716,7 @@ impl Actor for DynamicManager {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -11007,7 +11007,7 @@ impl DynamicManager {
 }
 <span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
 </span><span class="boring">        ctx: ComponentContext::uninitialised(),
 </span><span class="boring">        arithmetic_units: vec![],
@@ -11294,7 +11294,7 @@ and interpret the lines as commands to send to the manager.</p>
 </span><span class="boring">}
 </span><span class="boring">
 </span>fn main() {
-   let system = KompactConfig::default().build().expect(&quot;system&quot;);
+   let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
    let manager: Arc&lt;Component&lt;DynamicManager&gt;&gt; = system.create(|| DynamicManager {
        ctx: ComponentContext::uninitialised(),
        arithmetic_units: vec![],
@@ -11691,7 +11691,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -11727,7 +11727,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -11900,7 +11900,7 @@ struct EventualLeaderElector {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -11936,7 +11936,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -12106,7 +12106,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -12142,7 +12142,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -12308,7 +12308,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -12344,7 +12344,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -12510,7 +12510,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -12546,7 +12546,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -12714,7 +12714,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -12750,7 +12750,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -12917,7 +12917,7 @@ pub fn run_systems(num_systems: usize) {
             let mut cfg = KompactConfig::default();
             cfg.load_config_file(&quot;./app_settings.toml&quot;);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect(&quot;KompactSystem&quot;)
+            cfg.build().wait().expect(&quot;KompactSystem&quot;)
         };
         let mut data = Vec::with_capacity(num_systems);
         for _i in 0..num_systems {
@@ -12953,7 +12953,7 @@ pub fn run_systems(num_systems: usize) {
     // shut down systems one by one
     for sys in systems.drain(..) {
         std::thread::sleep(Duration::from_millis(1000));
-        sys.shutdown().expect(&quot;shutdown&quot;);
+        sys.shutdown().wait().expect(&quot;shutdown&quot;);
     }
 }
 <span class="boring">
@@ -13200,7 +13200,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -13230,7 +13230,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -13270,10 +13270,10 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -13501,7 +13501,7 @@ impl BootstrapServer {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -13531,7 +13531,7 @@ impl BootstrapServer {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -13571,10 +13571,10 @@ impl BootstrapServer {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -13801,7 +13801,7 @@ impl EventualLeaderElector {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -13831,7 +13831,7 @@ impl EventualLeaderElector {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -13871,10 +13871,10 @@ impl EventualLeaderElector {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -14102,7 +14102,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -14132,7 +14132,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -14172,10 +14172,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -14402,7 +14402,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -14432,7 +14432,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -14472,10 +14472,10 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -14722,7 +14722,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -14752,7 +14752,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -14792,10 +14792,10 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -15030,7 +15030,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
     cfg.load_config_file(&quot;./app_settings.toml&quot;);
     cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 
-    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 
     let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
     let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -15060,7 +15060,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -15100,10 +15100,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -15331,7 +15331,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -15361,7 +15361,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
         NetworkConfig::new(client_socket).build(),
     );
 
-    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 
     let bootstrap_service: ActorPath = NamedPath::with_socket(
         Transport::Tcp,
@@ -15401,10 +15401,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -15632,7 +15632,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -15662,7 +15662,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -15702,10 +15702,10 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -15979,7 +15979,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -16062,7 +16062,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -16299,7 +16299,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -16382,7 +16382,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -16619,7 +16619,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -16702,7 +16702,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -16938,7 +16938,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span>    // use implicit policy
     let broadcast_path: ActorPath = system
@@ -17021,7 +17021,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -17258,7 +17258,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -17341,7 +17341,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -17577,7 +17577,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -17660,7 +17660,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -17897,7 +17897,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -17980,7 +17980,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
         .collect::&lt;Vec&lt;_&gt;&gt;()
         .expect_completion(TIMEOUT, &quot;server kill&quot;);
 
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 <span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -18373,7 +18373,7 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -18403,7 +18403,7 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -18443,10 +18443,10 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -18766,7 +18766,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -18796,7 +18796,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -18836,10 +18836,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -19155,7 +19155,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -19185,7 +19185,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -19225,10 +19225,10 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -19543,7 +19543,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -19573,7 +19573,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -19613,10 +19613,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -19935,7 +19935,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">    cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::new(socket).build());
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let (bootstrap, bootstrap_registration) = system.create_and_register(BootstrapServer::new);
 </span><span class="boring">    let bootstrap_service_registration = system.register_by_alias(&amp;bootstrap, BOOTSTRAP_PATH);
@@ -19965,7 +19965,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        NetworkConfig::new(client_socket).build(),
 </span><span class="boring">    );
 </span><span class="boring">
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    let bootstrap_service: ActorPath = NamedPath::with_socket(
 </span><span class="boring">        Transport::Tcp,
@@ -20005,10 +20005,10 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">        // shut down systems one by one
 </span><span class="boring">        for sys in clients_systems.drain(..) {
 </span><span class="boring">            std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">            sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">            sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">        }
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        server_system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        server_system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span></code></pre>
@@ -20075,7 +20075,7 @@ cfg.load_config_str(
         &quot;#,
 );
 ...
-let system = cfg.build().expect(&quot;KompactSystem&quot;);
+let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <p>If a <code>BufferConfig</code> is loaded into the systems <code>KompactConfig</code> then all actors will use that configuration instead of the default <code>BufferConfig</code>, however individual actors may still override the configuration by using the <code>init_buffers(...)</code> method.</p>
 <h4 id="configuring-the-kompact-net-transport"><a class="header" href="#configuring-the-kompact-net-transport">Configuring the <code>kompact-net</code> transport</a></h4>
@@ -20093,7 +20093,7 @@ cfg.system_components(DeadletterBox::new, {
     )
     .build()
 });
-let system = cfg.build().expect(&quot;KompactSystem&quot;);
+let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </code></pre>
 <h4 id="bufferconfig-validation"><a class="header" href="#bufferconfig-validation">BufferConfig Validation</a></h4>
 <p><code>BufferConfig</code> implements the method <code>validate()</code> which causes a panic if the set of parameters is invalid. It is invoked whenever a <code>BufferPool</code> is created from the given configuration. The validation checks that the following conditions hold true:</p>
@@ -20121,7 +20121,7 @@ cfg.system_components(DeadletterBox::new, {
     let net_config = NetworkConfig::new(&quot;127.0.0.1:0&quot;.parse().expect(&quot;&quot;));
     net_config.build()
 });
-let system = cfg.build().expect(&quot;KompactSystem&quot;);
+let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 let status_counter = system.create(NetworkStatusCounter::new);
 status_counter.on_definition(|c|{
   system.connect_network_status_port(&amp;mut c.network_status_port);
@@ -20281,7 +20281,7 @@ struct DnsResponse(String);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -20309,7 +20309,7 @@ struct DnsResponse(String);
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="state-4"><a class="header" href="#state-4">State</a></h3>
@@ -20392,7 +20392,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -20420,7 +20420,7 @@ impl DnsComponent {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
@@ -20506,7 +20506,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -20534,7 +20534,7 @@ impl DnsComponent {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="queries"><a class="header" href="#queries">Queries</a></h3>
@@ -20618,7 +20618,7 @@ impl DnsComponent {
 }
 <span class="boring">
 </span><span class="boring">fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let dns_comp = system.create(DnsComponent::new);
 </span><span class="boring">    let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
 </span><span class="boring">    system.start_notify(&amp;dns_comp).wait();
@@ -20646,7 +20646,7 @@ impl DnsComponent {
 </span><span class="boring">        }
 </span><span class="boring">    }
 </span><span class="boring">    system.kill_notify(dns_comp).wait();
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span></code></pre>
 <h3 id="running-1"><a class="header" href="#running-1">Running</a></h3>
@@ -20729,7 +20729,7 @@ impl DnsComponent {
 </span><span class="boring">}
 </span><span class="boring">
 </span>fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let dns_comp = system.create(DnsComponent::new);
     let dns_comp_ref = dns_comp.actor_ref().hold().expect(&quot;live&quot;);
     system.start_notify(&amp;dns_comp).wait();
@@ -20757,7 +20757,7 @@ impl DnsComponent {
         }
     }
     system.kill_notify(dns_comp).wait();
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 </code></pre>
 <blockquote>

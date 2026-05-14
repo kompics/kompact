@@ -185,7 +185,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 </span><span class="boring">use std::time::Duration;
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     trace!(
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
@@ -206,7 +206,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
     std::thread::sleep(Duration::from_millis(100));
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -257,7 +257,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
         )
     };
     conf.logger(logger);
-    let system = conf.build().expect(&quot;system&quot;);
+    let system = conf.build().wait().expect(&quot;system&quot;);
     trace!(
         system.logger(),
         &quot;You will only see this in debug builds with default features&quot;
@@ -282,7 +282,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 
     // remember that logging is asynchronous and won't happen if the system is shut down already
     std::thread::sleep(Duration::from_millis(1000));
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]

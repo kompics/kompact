@@ -265,7 +265,7 @@ impl Port for CounterPort {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -281,7 +281,7 @@ impl Port for CounterPort {
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -387,7 +387,7 @@ impl Counter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -403,7 +403,7 @@ impl Counter {
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -508,7 +508,7 @@ impl Actor for Counter {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let counter = system.create(Counter::new);
 </span><span class="boring">    system.start(&amp;counter);
 </span><span class="boring">    let actor_ref = counter.actor_ref();
@@ -524,7 +524,7 @@ impl Actor for Counter {
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(1000));
 </span><span class="boring">    let current_count = actor_ref.ask(CountMe).wait();
 </span><span class="boring">    info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -629,7 +629,7 @@ impl Actor for Counter {
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let counter = system.create(Counter::new);
     system.start(&amp;counter);
     let actor_ref = counter.actor_ref();
@@ -645,7 +645,7 @@ impl Actor for Counter {
     std::thread::sleep(Duration::from_millis(1000));
     let current_count = actor_ref.ask(CountMe).wait();
     info!(system.logger(), &quot;The final count is: {:?}&quot;, current_count);
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
     // Wait a bit longer, so all output is logged (asynchronously) before shutting down
     std::thread::sleep(Duration::from_millis(10));
 }

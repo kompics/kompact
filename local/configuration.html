@@ -284,7 +284,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span>    conf.load_config_file(&quot;./app_settings.toml&quot;)
 <span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -309,7 +309,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -420,7 +420,7 @@ delta = &quot;1 ms&quot;
 </span>    let mut conf = KompactConfig::default();
     conf.load_config_file(&quot;./app_settings.toml&quot;)
         .load_config_str(&quot;buncher.batch-size = 50&quot;);
-    let system = conf.build().expect(&quot;system&quot;);
+    let system = conf.build().wait().expect(&quot;system&quot;);
 <span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -445,7 +445,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -556,7 +556,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -581,7 +581,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -692,7 +692,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span>    let buncher = system.create(Buncher::new);
 <span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -717,7 +717,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -828,7 +828,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    let mut conf = KompactConfig::default();
 </span><span class="boring">    conf.load_config_file(&quot;./app_settings.toml&quot;)
 </span><span class="boring">        .load_config_str(&quot;buncher.batch-size = 50&quot;);
-</span><span class="boring">    let system = conf.build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = conf.build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(Buncher::new);
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -853,7 +853,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]

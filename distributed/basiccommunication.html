@@ -456,7 +456,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -492,7 +492,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -665,7 +665,7 @@ struct EventualLeaderElector {
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -701,7 +701,7 @@ struct EventualLeaderElector {
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -871,7 +871,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -907,7 +907,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1073,7 +1073,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -1109,7 +1109,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1275,7 +1275,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -1311,7 +1311,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1479,7 +1479,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">            let mut cfg = KompactConfig::default();
 </span><span class="boring">            cfg.load_config_file(&quot;./app_settings.toml&quot;);
 </span><span class="boring">            cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">            cfg.build().expect(&quot;KompactSystem&quot;)
+</span><span class="boring">            cfg.build().wait().expect(&quot;KompactSystem&quot;)
 </span><span class="boring">        };
 </span><span class="boring">        let mut data = Vec::with_capacity(num_systems);
 </span><span class="boring">        for _i in 0..num_systems {
@@ -1515,7 +1515,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">    // shut down systems one by one
 </span><span class="boring">    for sys in systems.drain(..) {
 </span><span class="boring">        std::thread::sleep(Duration::from_millis(1000));
-</span><span class="boring">        sys.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">        sys.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    }
 </span><span class="boring">}
 </span><span class="boring">
@@ -1682,7 +1682,7 @@ pub fn run_systems(num_systems: usize) {
             let mut cfg = KompactConfig::default();
             cfg.load_config_file(&quot;./app_settings.toml&quot;);
             cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-            cfg.build().expect(&quot;KompactSystem&quot;)
+            cfg.build().wait().expect(&quot;KompactSystem&quot;)
         };
         let mut data = Vec::with_capacity(num_systems);
         for _i in 0..num_systems {
@@ -1718,7 +1718,7 @@ pub fn run_systems(num_systems: usize) {
     // shut down systems one by one
     for sys in systems.drain(..) {
         std::thread::sleep(Duration::from_millis(1000));
-        sys.shutdown().expect(&quot;shutdown&quot;);
+        sys.shutdown().wait().expect(&quot;shutdown&quot;);
     }
 }
 <span class="boring">

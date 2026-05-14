@@ -428,7 +428,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -511,7 +511,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -748,7 +748,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -831,7 +831,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -1068,7 +1068,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -1151,7 +1151,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -1387,7 +1387,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span>    // use implicit policy
     let broadcast_path: ActorPath = system
@@ -1470,7 +1470,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -1707,7 +1707,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -1790,7 +1790,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -2026,7 +2026,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -2109,7 +2109,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">        .collect::&lt;Vec&lt;_&gt;&gt;()
 </span><span class="boring">        .expect_completion(TIMEOUT, &quot;server kill&quot;);
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}
@@ -2346,7 +2346,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">    let mut cfg = KompactConfig::default();
 </span><span class="boring">    cfg.load_config_str(kompact::runtime::MINIMAL_CONFIG);
 </span><span class="boring">    cfg.system_components(DeadletterBox::new, NetworkConfig::default().build());
-</span><span class="boring">    let system = cfg.build().expect(&quot;KompactSystem&quot;);
+</span><span class="boring">    let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 </span><span class="boring">
 </span><span class="boring">    // use implicit policy
 </span><span class="boring">    let broadcast_path: ActorPath = system
@@ -2429,7 +2429,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
         .collect::&lt;Vec&lt;_&gt;&gt;()
         .expect_completion(TIMEOUT, &quot;server kill&quot;);
 
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 <span class="boring">    // Wait a bit longer, so all output is logged (asynchronously) before shutting down
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(10));
 </span><span class="boring">}

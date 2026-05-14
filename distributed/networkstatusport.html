@@ -185,7 +185,7 @@ cfg.system_components(DeadletterBox::new, {
     let net_config = NetworkConfig::new(&quot;127.0.0.1:0&quot;.parse().expect(&quot;&quot;));
     net_config.build()
 });
-let system = cfg.build().expect(&quot;KompactSystem&quot;);
+let system = cfg.build().wait().expect(&quot;KompactSystem&quot;);
 let status_counter = system.create(NetworkStatusCounter::new);
 status_counter.on_definition(|c|{
   system.connect_network_status_port(&amp;mut c.network_status_port);

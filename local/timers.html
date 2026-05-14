@@ -302,7 +302,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let printer = system.create(BatchPrinter::new);
     let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
     biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -327,7 +327,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
         std::thread::sleep(sleep_dur);
     }
 
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -420,7 +420,7 @@ struct Buncher {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -445,7 +445,7 @@ struct Buncher {
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -537,7 +537,7 @@ struct Buncher {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -562,7 +562,7 @@ struct Buncher {
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -658,7 +658,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -683,7 +683,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -775,7 +775,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -800,7 +800,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -913,7 +913,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -938,7 +938,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -1037,7 +1037,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -1062,7 +1062,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -1161,7 +1161,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let printer = system.create(BatchPrinter::new);
 </span><span class="boring">    let buncher = system.create(move || Buncher::new(100, Duration::from_millis(150)));
 </span><span class="boring">    biconnect_components::&lt;Batching, _, _&gt;(&amp;buncher, &amp;printer).expect(&quot;connection&quot;);
@@ -1186,7 +1186,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">        std::thread::sleep(sleep_dur);
 </span><span class="boring">    }
 </span><span class="boring">
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]

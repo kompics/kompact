@@ -309,13 +309,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -448,13 +448,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -588,13 +588,13 @@ struct UnstableCounter {
 }
 <span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -726,13 +726,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -868,13 +868,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">pub fn main() {
-</span><span class="boring">    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+</span><span class="boring">    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
 </span><span class="boring">    let component = system.create(UnstableCounter::default);
 </span><span class="boring">    system.start(&amp;component);
 </span><span class="boring">    drop(component); // avoid it from holding on to memory after crashing
 </span><span class="boring">    std::thread::sleep(Duration::from_millis(5000));
 </span><span class="boring">    println!(&quot;Shutting down system&quot;);
-</span><span class="boring">    system.shutdown().expect(&quot;shutdown&quot;);
+</span><span class="boring">    system.shutdown().wait().expect(&quot;shutdown&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">#[cfg(test)]
@@ -1007,13 +1007,13 @@ struct UnstableCounter {
 </span><span class="boring">}
 </span><span class="boring">
 </span>pub fn main() {
-    let system = KompactConfig::default().build().expect(&quot;system&quot;);
+    let system = KompactConfig::default().build().wait().expect(&quot;system&quot;);
     let component = system.create(UnstableCounter::default);
     system.start(&amp;component);
     drop(component); // avoid it from holding on to memory after crashing
     std::thread::sleep(Duration::from_millis(5000));
     println!(&quot;Shutting down system&quot;);
-    system.shutdown().expect(&quot;shutdown&quot;);
+    system.shutdown().wait().expect(&quot;shutdown&quot;);
 }
 <span class="boring">
 </span><span class="boring">#[cfg(test)]
