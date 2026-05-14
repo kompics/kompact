@@ -584,6 +584,7 @@
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -977,6 +978,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -1366,6 +1368,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -1754,6 +1757,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -2146,6 +2150,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();

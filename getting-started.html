@@ -227,6 +227,7 @@ impl ComponentLifecycle for HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -268,6 +269,7 @@ And then we just wait for the component to do its work and shut the system down 
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}

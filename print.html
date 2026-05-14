@@ -232,6 +232,7 @@ impl ComponentLifecycle for HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -273,6 +274,7 @@ And then we just wait for the component to do its work and shut the system down 
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -338,6 +340,7 @@ struct HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -378,6 +381,7 @@ struct HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -453,6 +457,7 @@ impl Port for ControlPort {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -502,6 +507,7 @@ struct HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -548,6 +554,7 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_actor_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -594,6 +601,7 @@ impl Actor for HelloWorldActor {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_actor_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -726,6 +734,7 @@ impl Port for CounterPort {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -848,6 +857,7 @@ impl Counter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -969,6 +979,7 @@ impl Actor for Counter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1090,6 +1101,7 @@ impl Actor for Counter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1378,6 +1390,7 @@ struct WorkResult(u64);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1643,6 +1656,7 @@ struct WorkResult(u64);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -1908,6 +1922,7 @@ struct WorkResult(u64);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2177,6 +2192,7 @@ struct WorkResult(u64);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2442,6 +2458,7 @@ impl Port for WorkerPort {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2710,6 +2727,7 @@ impl Worker {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -2982,6 +3000,7 @@ impl Manager {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -3252,6 +3271,7 @@ impl Manager {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -3518,6 +3538,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -3791,6 +3812,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -4060,6 +4082,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -4332,6 +4355,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -4598,6 +4622,7 @@ ignore_requests!(WorkerPort, Worker);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -4876,6 +4901,7 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -5141,6 +5167,7 @@ fn overflowing_sum(lhs: u64, rhs: &amp;u64) -&gt; u64 {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -5420,6 +5447,7 @@ enum ManagerMessage {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -5683,6 +5711,7 @@ enum ManagerMessage {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -5946,6 +5975,7 @@ struct Manager {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -6209,6 +6239,7 @@ struct Manager {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -6473,6 +6504,7 @@ struct Manager {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -6649,6 +6681,7 @@ With a batch size of 100 and a timeout of 150ms we will see mostly full batches 
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -6767,6 +6800,7 @@ struct Buncher {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -6884,6 +6918,7 @@ struct Buncher {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7005,6 +7040,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7122,6 +7158,7 @@ The actual code we want to call whenever our periodic timeout is triggered is a 
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7260,6 +7297,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7384,6 +7422,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7508,6 +7547,7 @@ Mar 10 15:42:03.912 INFO Got a batch with 16 Pings., ctype: BatchPrinter, cid: 4
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7640,6 +7680,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7760,6 +7801,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7897,6 +7939,7 @@ But not all workloads are of this type. Sometimes the majority of events are (po
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -7952,6 +7995,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_logging() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -8028,6 +8072,7 @@ let logger = slog::Logger::root_typed(Arc::new(drain));
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_logging() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">        std::fs::remove_file(FILE_NAME).expect(&quot;remove log file&quot;);
 </span><span class="boring">    }
@@ -8187,6 +8232,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -8323,6 +8369,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -8459,6 +8506,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -8595,6 +8643,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -8731,6 +8780,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_buncher() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -8895,6 +8945,7 @@ struct UnstableCounter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_unstable_counter() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -9034,6 +9085,7 @@ struct UnstableCounter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_unstable_counter() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -9174,6 +9226,7 @@ struct UnstableCounter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_unstable_counter() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -9312,6 +9365,7 @@ struct UnstableCounter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_unstable_counter() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -9454,6 +9508,7 @@ struct UnstableCounter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_unstable_counter() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -9593,6 +9648,7 @@ struct UnstableCounter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_unstable_counter() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -11737,6 +11793,7 @@ struct UpdateProcesses(Arc&lt;[ActorPath]&gt;);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -11946,6 +12003,7 @@ struct EventualLeaderElector {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -12152,6 +12210,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -12354,6 +12413,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -12556,6 +12616,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -12760,6 +12821,7 @@ delta = &quot;1 ms&quot;
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -12963,6 +13025,7 @@ pub fn run_systems(num_systems: usize) {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_omega() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_systems(3);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -13259,6 +13322,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -13560,6 +13624,7 @@ impl BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -13860,6 +13925,7 @@ impl EventualLeaderElector {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -14161,6 +14227,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -14461,6 +14528,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -14781,6 +14849,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -15089,6 +15158,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -15390,6 +15460,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -15691,6 +15762,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -16073,6 +16145,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -16393,6 +16466,7 @@ impl SerialisationId for QueryResponse {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -16713,6 +16787,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -17032,6 +17107,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -17352,6 +17428,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -17671,6 +17748,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -17991,6 +18069,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_load_balancer() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -18432,6 +18511,7 @@ Oct 23 18:15:58.873 INFO Shutting down a Server that handled 4183 requests, ctyp
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -18825,6 +18905,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -19214,6 +19295,7 @@ static CHECK_IN_SER: ZstSerialiser&lt;CheckIn&gt; = ZstSerialiser(CheckIn);
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -19602,6 +19684,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -19994,6 +20077,7 @@ impl Deserialiser&lt;UpdateProcesses&gt; for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping_serialisation() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();

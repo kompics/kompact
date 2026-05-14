@@ -456,6 +456,7 @@ impl SerialisationId for UpdateProcesses {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -757,6 +758,7 @@ impl BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -1057,6 +1059,7 @@ impl EventualLeaderElector {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -1358,6 +1361,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -1658,6 +1662,7 @@ impl NetworkActor for BootstrapServer {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -1978,6 +1983,7 @@ The syntax for each different message case in the macro is basically:</p>
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -2286,6 +2292,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -2587,6 +2594,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();
@@ -2888,6 +2896,7 @@ pub fn run_server(socket: SocketAddr) -&gt; KompactSystem {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_bootstrapping() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        let server_socket: SocketAddr = SERVER_SOCKET.parse().unwrap();
 </span><span class="boring">        let server_system = run_server(server_socket);
 </span><span class="boring">        let client_socket: SocketAddr = CLIENT_SOCKET.parse().unwrap();

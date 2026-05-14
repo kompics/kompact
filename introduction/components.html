@@ -210,6 +210,7 @@ struct HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -250,6 +251,7 @@ struct HelloWorldComponent {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -325,6 +327,7 @@ impl Port for ControlPort {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_helloworld() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}

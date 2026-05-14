@@ -438,6 +438,7 @@
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -704,6 +705,7 @@
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_workers() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        run_task(3, 1000);
 </span><span class="boring">    }
 </span><span class="boring">}

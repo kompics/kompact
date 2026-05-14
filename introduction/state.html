@@ -292,6 +292,7 @@ impl Port for CounterPort {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -414,6 +415,7 @@ impl Counter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -535,6 +537,7 @@ impl Actor for Counter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
@@ -656,6 +659,7 @@ impl Actor for Counter {
 </span><span class="boring">
 </span><span class="boring">    #[test]
 </span><span class="boring">    fn test_counters() {
+</span><span class="boring">        kompact::test_support::init_test_logger();
 </span><span class="boring">        main();
 </span><span class="boring">    }
 </span><span class="boring">}
